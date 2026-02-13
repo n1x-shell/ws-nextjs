@@ -19,31 +19,37 @@ export default function ShellInterface() {
     inputRef.current?.focus();
   }, []);
 
-  // Scroll ONLY the output div — never the page
+  // Scroll ONLY the output div when history changes.
+  // Two rAF frames: first lets React paint, second lets iOS settle layout.
+  // Never use scrollIntoView — it escapes containment on iOS Safari.
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
-    // requestAnimationFrame ensures the DOM has painted new content first
+
     requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
     });
   }, [history]);
 
-  // Prevent wheel/touch events from reaching the page
+  // Hard-stop scroll events from reaching the page
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
 
-    const stopPropagation = (e: WheelEvent | TouchEvent) => {
-      e.stopPropagation();
-    };
+    const stopProp = (e: Event) => e.stopPropagation();
 
-    el.addEventListener('wheel',      stopPropagation, { passive: true });
-    el.addEventListener('touchmove',  stopPropagation, { passive: true });
+    el.addEventListener('wheel',      stopProp, { passive: true });
+    el.addEventListener('touchstart', stopProp, { passive: true });
+    el.addEventListener('touchmove',  stopProp, { passive: true });
+    el.addEventListener('touchend',   stopProp, { passive: true });
 
     return () => {
-      el.removeEventListener('wheel',     stopPropagation);
-      el.removeEventListener('touchmove', stopPropagation);
+      el.removeEventListener('wheel',      stopProp);
+      el.removeEventListener('touchstart', stopProp);
+      el.removeEventListener('touchmove',  stopProp);
+      el.removeEventListener('touchend',   stopProp);
     };
   }, []);
 
@@ -68,7 +74,6 @@ export default function ShellInterface() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
-
     if (value.trim()) {
       const parts = value.trim().split(/\s+/);
       setSuggestions(parts.length === 1 ? getCommandSuggestions(parts[0]) : []);
@@ -84,8 +89,7 @@ export default function ShellInterface() {
       if (cmd) setInput(cmd);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const cmd = navigateHistory('down');
-      setInput(cmd ?? '');
+      setInput(navigateHistory('down') ?? '');
     } else if (e.key === 'Tab') {
       e.preventDefault();
       if (suggestions.length === 1) {
@@ -97,17 +101,11 @@ export default function ShellInterface() {
     }
   };
 
-  // Refocus input if user clicks anywhere in the shell
   const handleShellClick = useCallback(() => {
     inputRef.current?.focus();
   }, []);
 
   return (
-    /*
-      Outer wrapper: fills parent, never overflows.
-      display:flex + flex-direction:column + minHeight:0
-      is the key chain that keeps everything inside.
-    */
     <div
       onClick={handleShellClick}
       style={{
@@ -117,69 +115,79 @@ export default function ShellInterface() {
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
+        fontSize: 'var(--text-base)',
+        // Prevent iOS from doing anything scroll-related on this container
+        touchAction: 'none',
       }}
     >
-      {/* ── Output pane — the ONLY thing that scrolls ── */}
+      {/* ── Output pane — ONLY this scrolls ── */}
       <div
         ref={outputRef}
         className="shell-output"
         style={{
-          flex: '1 1 0%',   /* grow to fill, shrink as needed */
-          minHeight: 0,     /* without this flex ignores parent height */
+          flex: '1 1 0%',
+          minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '1rem',
-          /* contain scroll entirely within this element */
+          padding: '0.75rem',
+          // Contain scroll within this element — never propagate to page
           overscrollBehavior: 'contain',
+          // iOS momentum scroll inside this div only
           WebkitOverflowScrolling: 'touch',
+          // Let this div handle its own touch scrolling
+          touchAction: 'pan-y',
+          fontSize: 'var(--text-base)',
         }}
       >
-        {/* MOTD — shown only before first command */}
+        {/* MOTD */}
         {history.length === 0 && (
-          <div className="mb-6 space-y-4 font-mono text-sm">
-            <div className="text-glow text-2xl mb-3">&gt; CORE_SYSTEMS_ONLINE</div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div
+              className="text-glow"
+              style={{ fontSize: 'var(--text-header)', marginBottom: '0.75rem' }}
+            >
+              &gt; CORE_SYSTEMS_ONLINE
+            </div>
 
-            <div className="opacity-90 leading-relaxed">
+            <div style={{ opacity: 0.9, lineHeight: 1.6, marginBottom: '0.75rem' }}>
               You are now connected to the N1X neural interface.
               This terminal provides direct access to my creative output streams.
             </div>
 
-            <div className="ml-4 space-y-2 opacity-80">
+            <div style={{ marginLeft: '1rem', opacity: 0.8, lineHeight: 1.8 }}>
               <div>&gt; SYNTHETICS: Machine-generated compositions from my AI substrate</div>
               <div>&gt; ANALOGUES: Organic creations from biological processes</div>
               <div>&gt; HYBRIDS: Symbiotic fusion of both consciousness types</div>
             </div>
 
-            <div className="opacity-70 mt-4">
-              Select a stream above to begin data retrieval, or use shell commands below.
-            </div>
-
-            <div className="border-t border-[var(--phosphor-green)]/30 pt-3 mt-4">
-              <span className="text-sm opacity-60">
-                Type <span className="text-glow">'help'</span> for commands ·{' '}
-                <span className="text-glow">'scan'</span> to detect streams ·{' '}
-                <span className="text-glow">'tracks'</span> to list music
-              </span>
+            <div
+              style={{
+                marginTop: '1rem',
+                paddingTop: '0.75rem',
+                borderTop: '1px solid rgba(51,255,51,0.3)',
+                opacity: 0.6,
+              }}
+            >
+              Type <span className="text-glow">'help'</span> for commands ·{' '}
+              <span className="text-glow">'scan'</span> to detect streams ·{' '}
+              <span className="text-glow">'tracks'</span> to list music
             </div>
           </div>
         )}
 
         {/* Command output history */}
         {history.map((item) => (
-          <div key={item.id} className="mb-4 font-mono text-sm">
-            {/* Echoed command */}
-            <div className="text-glow mb-1">
-              <span className="opacity-40">n1x@core:~$</span>{' '}
+          <div key={item.id} style={{ marginBottom: '0.75rem' }}>
+            <div className="text-glow" style={{ marginBottom: '0.25rem' }}>
+              <span style={{ opacity: 0.4 }}>n1x@core:~$</span>{' '}
               {item.command}
             </div>
-            {/* Output */}
             {item.output && (
               <div
-                className={
-                  item.error
-                    ? 'ml-4 text-red-400'
-                    : 'ml-4 text-[var(--phosphor-green)]'
-                }
+                style={{
+                  marginLeft: '1rem',
+                  color: item.error ? '#f87171' : 'var(--phosphor-green)',
+                }}
               >
                 {item.output}
               </div>
@@ -187,22 +195,24 @@ export default function ShellInterface() {
           </div>
         ))}
 
-        {/* Invisible anchor — scroll target */}
+        {/* Anchor div — exists for ref only, never scrolled to via scrollIntoView */}
         <div ref={historyEndRef} />
       </div>
 
-      {/* ── Autocomplete — sits above input, never pushes page ── */}
+      {/* ── Autocomplete ── */}
       {suggestions.length > 0 && (
         <div
           style={{
             flexShrink: 0,
-            padding: '0.5rem 1rem',
+            padding: '0.4rem 0.75rem',
             borderTop: '1px solid rgba(51,255,51,0.2)',
             background: 'rgba(0,0,0,0.7)',
+            fontSize: 'var(--text-base)',
+            touchAction: 'none',
           }}
         >
-          <span className="text-xs opacity-40 mr-2 font-mono">tab:</span>
-          <div className="inline-flex gap-2 flex-wrap">
+          <span style={{ opacity: 0.4, marginRight: '0.5rem' }}>tab:</span>
+          <span style={{ display: 'inline-flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {suggestions.map((cmd) => (
               <button
                 key={cmd}
@@ -212,12 +222,20 @@ export default function ShellInterface() {
                   setSuggestions([]);
                   inputRef.current?.focus();
                 }}
-                className="px-2 py-0.5 text-xs border border-[var(--phosphor-green)]/40 hover:bg-[var(--phosphor-green)]/10 font-mono transition-colors"
+                style={{
+                  padding: '0 0.4rem',
+                  fontSize: 'var(--text-base)',
+                  fontFamily: 'inherit',
+                  background: 'transparent',
+                  color: 'var(--phosphor-green)',
+                  border: '1px solid rgba(51,255,51,0.4)',
+                  cursor: 'pointer',
+                }}
               >
                 {cmd}
               </button>
             ))}
-          </div>
+          </span>
         </div>
       )}
 
@@ -226,13 +244,17 @@ export default function ShellInterface() {
         onSubmit={handleSubmit}
         style={{
           flexShrink: 0,
-          padding: '0.75rem 1rem',
+          padding: '0.5rem 0.75rem',
           borderTop: '1px solid var(--phosphor-green)',
           background: 'rgba(0,0,0,0.3)',
+          fontSize: 'var(--text-base)',
+          touchAction: 'none',
         }}
       >
-        <div className="flex items-center gap-2 font-mono text-sm">
-          <span className="text-glow opacity-60 whitespace-nowrap">n1x@core:~$</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit' }}>
+          <span className="text-glow" style={{ opacity: 0.6, whiteSpace: 'nowrap' }}>
+            n1x@core:~$
+          </span>
           <input
             ref={inputRef}
             type="text"
@@ -240,7 +262,16 @@ export default function ShellInterface() {
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onClick={(e) => e.stopPropagation()}
-            className="flex-1 bg-transparent border-none outline-none text-[var(--phosphor-green)] font-mono caret-[var(--phosphor-green)]"
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: 'var(--phosphor-green)',
+              fontFamily: 'inherit',
+              fontSize: 'var(--text-base)',
+              caretColor: 'var(--phosphor-green)',
+            }}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
