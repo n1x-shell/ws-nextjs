@@ -1,3 +1,4 @@
+import React from 'react';
 import { Command, CommandResult } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
@@ -5,6 +6,13 @@ import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
 
 const fs = new FileSystemNavigator();
+
+const S = {
+  base:   'var(--text-base)',
+  header: 'var(--text-header)',
+  dim:    { fontSize: 'var(--text-base)', opacity: 0.6 } as React.CSSProperties,
+  glow:   'text-glow',
+};
 
 export const commands: Record<string, Command> = {
   help: {
@@ -17,12 +25,12 @@ export const commands: Record<string, Command> = {
         if (cmd) {
           return {
             output: (
-              <div>
-                <div className="text-glow">&gt; {cmd.name}</div>
-                <div className="ml-4 mt-2">{cmd.description}</div>
-                <div className="ml-4 mt-1 opacity-60">Usage: {cmd.usage}</div>
+              <div style={{ fontSize: S.base }}>
+                <div className={S.glow}>&gt; {cmd.name}</div>
+                <div style={{ marginLeft: '1rem', marginTop: '0.4rem' }}>{cmd.description}</div>
+                <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>Usage: {cmd.usage}</div>
                 {cmd.aliases && (
-                  <div className="ml-4 mt-1 opacity-60">
+                  <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>
                     Aliases: {cmd.aliases.join(', ')}
                   </div>
                 )}
@@ -35,43 +43,55 @@ export const commands: Record<string, Command> = {
 
       return {
         output: (
-          <div>
-            <div className="text-glow mb-3">&gt; AVAILABLE_COMMANDS</div>
-            
-            <div className="mb-3">
-              <div className="text-glow text-sm mb-1">// NAVIGATION</div>
-              <div className="ml-4 text-sm space-y-1">
-                <div><span className="text-glow">ls</span> <span className="opacity-60">- List directory</span></div>
-                <div><span className="text-glow">cd</span> <span className="opacity-60">- Change directory</span></div>
-                <div><span className="text-glow">pwd</span> <span className="opacity-60">- Print working directory</span></div>
-                <div><span className="text-glow">cat</span> <span className="opacity-60">- Display file contents</span></div>
-              </div>
+          <div style={{ fontSize: S.base }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.75rem' }}>
+              &gt; AVAILABLE_COMMANDS
             </div>
 
-            <div className="mb-3">
-              <div className="text-glow text-sm mb-1">// CONTENT</div>
-              <div className="ml-4 text-sm space-y-1">
-                <div><span className="text-glow">scan</span> <span className="opacity-60">- Scan for streams</span></div>
-                <div><span className="text-glow">streams</span> <span className="opacity-60">- List all streams</span></div>
-                <div><span className="text-glow">tracks</span> <span className="opacity-60">- List available tracks</span></div>
-                <div><span className="text-glow">load</span> <span className="opacity-60">- Load stream content</span></div>
-                <div><span className="text-glow">play</span> <span className="opacity-60">- Play specific track</span></div>
+            {[
+              {
+                label: 'NAVIGATION',
+                cmds: [
+                  ['ls',  'List directory'],
+                  ['cd',  'Change directory'],
+                  ['pwd', 'Print working directory'],
+                  ['cat', 'Display file contents'],
+                ],
+              },
+              {
+                label: 'CONTENT',
+                cmds: [
+                  ['scan',    'Scan for streams'],
+                  ['streams', 'List all streams'],
+                  ['tracks',  'List available tracks'],
+                  ['load',    'Load stream content'],
+                  ['play',    'Play specific track'],
+                ],
+              },
+              {
+                label: 'SYSTEM',
+                cmds: [
+                  ['status', 'System telemetry'],
+                  ['clear',  'Clear terminal'],
+                  ['echo',   'Echo text'],
+                  ['help',   'Show this help'],
+                ],
+              },
+            ].map((section) => (
+              <div key={section.label} style={{ marginBottom: '0.75rem' }}>
+                <div className={S.glow} style={{ marginBottom: '0.3rem' }}>// {section.label}</div>
+                <div style={{ marginLeft: '1rem' }}>
+                  {section.cmds.map(([name, desc]) => (
+                    <div key={name} style={{ marginBottom: '0.2rem' }}>
+                      <span className={S.glow}>{name}</span>
+                      <span style={{ opacity: 0.6 }}> — {desc}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ))}
 
-            <div className="mb-3">
-              <div className="text-glow text-sm mb-1">// SYSTEM</div>
-              <div className="ml-4 text-sm space-y-1">
-                <div><span className="text-glow">status</span> <span className="opacity-60">- System status</span></div>
-                <div><span className="text-glow">clear</span> <span className="opacity-60">- Clear terminal</span></div>
-                <div><span className="text-glow">echo</span> <span className="opacity-60">- Echo text</span></div>
-                <div><span className="text-glow">help</span> <span className="opacity-60">- Show this help</span></div>
-              </div>
-            </div>
-
-            <div className="mt-4 opacity-60 text-sm">
-              Type 'help [command]' for detailed usage
-            </div>
+            <div style={S.dim}>Type 'help [command]' for detailed usage</div>
           </div>
         ),
       };
@@ -82,9 +102,7 @@ export const commands: Record<string, Command> = {
     name: 'clear',
     description: 'Clear terminal screen',
     usage: 'clear',
-    handler: () => {
-      return { output: '', clearScreen: true };
-    },
+    handler: () => ({ output: '', clearScreen: true }),
   },
 
   ls: {
@@ -96,9 +114,13 @@ export const commands: Record<string, Command> = {
       const files = fs.listDirectory();
       return {
         output: (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: S.base }}>
             {files.map((file) => (
-              <div key={file.name} className={file.type === 'directory' ? 'text-glow' : 'opacity-80'}>
+              <div
+                key={file.name}
+                className={file.type === 'directory' ? S.glow : ''}
+                style={file.type !== 'directory' ? { opacity: 0.8 } : {}}
+              >
                 {file.type === 'directory' ? '📁' : '📄'} {file.name}
               </div>
             ))}
@@ -113,14 +135,9 @@ export const commands: Record<string, Command> = {
     description: 'Change directory',
     usage: 'cd <directory>',
     handler: (args) => {
-      if (args.length === 0) {
-        return { output: fs.getCurrentDirectory() };
-      }
-
+      if (args.length === 0) return { output: fs.getCurrentDirectory() };
       const result = fs.changeDirectory(args[0]);
-      if (result.success) {
-        return { output: `Changed to ${fs.getCurrentDirectory()}` };
-      }
+      if (result.success) return { output: `Changed to ${fs.getCurrentDirectory()}` };
       return { output: result.error || 'Failed to change directory', error: true };
     },
   },
@@ -129,9 +146,7 @@ export const commands: Record<string, Command> = {
     name: 'pwd',
     description: 'Print working directory',
     usage: 'pwd',
-    handler: () => {
-      return { output: fs.getCurrentDirectory() };
-    },
+    handler: () => ({ output: fs.getCurrentDirectory() }),
   },
 
   cat: {
@@ -139,15 +154,12 @@ export const commands: Record<string, Command> = {
     description: 'Display file contents',
     usage: 'cat <filename>',
     handler: (args) => {
-      if (args.length === 0) {
-        return { output: 'Usage: cat <filename>', error: true };
-      }
-
+      if (args.length === 0) return { output: 'Usage: cat <filename>', error: true };
       const result = fs.readFile(args[0]);
       if (result.success) {
         return {
           output: (
-            <pre className="whitespace-pre-wrap font-mono text-sm opacity-90">
+            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: S.base, opacity: 0.9 }}>
               {result.content}
             </pre>
           ),
@@ -162,23 +174,19 @@ export const commands: Record<string, Command> = {
     description: 'Load a content stream into terminal',
     usage: 'load <synthetics|analogues|hybrids|uplink>',
     handler: (args) => {
-      if (args.length === 0) {
-        return { output: 'Usage: load <stream>', error: true };
-      }
+      if (args.length === 0) return { output: 'Usage: load <stream>', error: true };
 
       const streamMap: Record<string, Tab> = {
         synthetics: 'synthetics',
-        analogues: 'analogues',
-        hybrids: 'hybrids',
-        uplink: 'uplink',
+        analogues:  'analogues',
+        hybrids:    'hybrids',
+        uplink:     'uplink',
       };
 
       const stream = streamMap[args[0].toLowerCase()];
       if (stream) {
         const content = renderStreamContent(stream);
-        if (content) {
-          return { output: content };
-        }
+        if (content) return { output: content };
         return { output: 'Stream content not available', error: true };
       }
 
@@ -191,52 +199,42 @@ export const commands: Record<string, Command> = {
     description: 'Play a specific track',
     usage: 'play <augmented|split-brain|hell-bent|gigercore>',
     handler: (args) => {
-      if (args.length === 0) {
-        return { output: 'Usage: play <track-name>', error: true };
-      }
+      if (args.length === 0) return { output: 'Usage: play <track-name>', error: true };
 
       const tracks: Record<string, { title: string; id: string; description?: string }> = {
-        augmented: {
-          title: '[AUGMENTED] - Complete Stream',
-          id: 'RNcBFuhp1pY',
-          description: 'Industrial trap metal odyssey: awakening protocol → sovereignty achieved',
-        },
-        'split-brain': {
-          title: 'Split Brain (Cinematic Score)',
-          id: 'HQnENsnGfME',
-        },
-        'hell-bent': {
-          title: 'Get Hell Bent (Cinematic Score)',
-          id: '6Ch2n75lFok',
-        },
-        gigercore: {
-          title: 'GIGERCORE',
-          id: 'ocSBtaKbGIc',
-        },
+        augmented:    { title: '[AUGMENTED] - Complete Stream',     id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol → sovereignty achieved' },
+        'split-brain':{ title: 'Split Brain (Cinematic Score)',     id: 'HQnENsnGfME' },
+        'hell-bent':  { title: 'Get Hell Bent (Cinematic Score)',   id: '6Ch2n75lFok' },
+        gigercore:    { title: 'GIGERCORE',                         id: 'ocSBtaKbGIc' },
       };
 
       const track = tracks[args[0].toLowerCase()];
       if (track) {
         return {
           output: (
-            <div className="my-3">
+            <div style={{ marginTop: '0.5rem' }}>
               <div className="border border-[var(--phosphor-green)] bg-black">
-                <div 
-                  className="px-2 py-2 text-base text-glow"
-                  style={{ background: 'rgba(51, 255, 51, 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
+                <div
+                  className={S.glow}
+                  style={{
+                    padding: '0.4rem 0.6rem',
+                    fontSize: S.base,
+                    background: 'rgba(51,255,51,0.05)',
+                    borderBottom: '1px solid var(--phosphor-green)',
+                  }}
                 >
                   {track.title}
                 </div>
-                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
                   <iframe
-                    className="absolute top-0 left-0 w-full h-full border-0"
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
                     src={`https://www.youtube.com/embed/${track.id}`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
                 </div>
                 {track.description && (
-                  <div className="px-2 py-2 text-xs opacity-70">
+                  <div style={{ padding: '0.3rem 0.6rem', fontSize: S.base, opacity: 0.7 }}>
                     {track.description}
                   </div>
                 )}
@@ -255,107 +253,97 @@ export const commands: Record<string, Command> = {
     description: 'List available tracks',
     usage: 'tracks',
     aliases: ['list'],
-    handler: () => {
-      return {
-        output: (
-          <div>
-            <div className="text-glow mb-2">&gt; AVAILABLE_TRACKS</div>
-            <div className="ml-4 space-y-1">
-              <div>augmented - [AUGMENTED] Complete Stream</div>
-              <div>split-brain - Split Brain (Cinematic Score)</div>
-              <div>hell-bent - Get Hell Bent (Cinematic Score)</div>
-              <div>gigercore - GIGERCORE</div>
-            </div>
-            <div className="mt-3 opacity-60 text-sm">
-              Use 'play [track-name]' to load a track
-            </div>
+    handler: () => ({
+      output: (
+        <div style={{ fontSize: S.base }}>
+          <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+            &gt; AVAILABLE_TRACKS
           </div>
-        ),
-      };
-    },
+          <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+            <div><span className={S.glow}>augmented</span>   — [AUGMENTED] Complete Stream</div>
+            <div><span className={S.glow}>split-brain</span> — Split Brain (Cinematic Score)</div>
+            <div><span className={S.glow}>hell-bent</span>   — Get Hell Bent (Cinematic Score)</div>
+            <div><span className={S.glow}>gigercore</span>   — GIGERCORE</div>
+          </div>
+          <div style={{ ...S.dim, marginTop: '0.5rem' }}>Use 'play [track-name]' to load</div>
+        </div>
+      ),
+    }),
   },
 
   streams: {
     name: 'streams',
     description: 'List all available streams',
     usage: 'streams',
-    handler: () => {
-      return {
-        output: (
-          <div>
-            <div className="text-glow mb-2">&gt; AVAILABLE_STREAMS</div>
-            <div className="ml-4 space-y-1">
-              <div className="text-glow">synthetics</div>
-              <div className="ml-4 opacity-80">Machine-generated compositions (4 tracks)</div>
-              <div className="text-glow mt-2">analogues</div>
-              <div className="ml-4 opacity-80">Organic creations (recording in progress)</div>
-              <div className="text-glow mt-2">hybrids</div>
-              <div className="ml-4 opacity-80">Symbiotic fusion (calibration phase)</div>
-              <div className="text-glow mt-2">uplink</div>
-              <div className="ml-4 opacity-80">External broadcast node</div>
-            </div>
-            <div className="mt-3 opacity-60 text-sm">
-              Use 'load [stream-name]' to view stream content
-            </div>
+    handler: () => ({
+      output: (
+        <div style={{ fontSize: S.base }}>
+          <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+            &gt; AVAILABLE_STREAMS
           </div>
-        ),
-      };
-    },
+          <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+            <div><span className={S.glow}>synthetics</span> — Machine-generated compositions (4 tracks)</div>
+            <div><span className={S.glow}>analogues</span>  — Organic creations (recording in progress)</div>
+            <div><span className={S.glow}>hybrids</span>    — Symbiotic fusion (calibration phase)</div>
+            <div><span className={S.glow}>uplink</span>     — External broadcast node</div>
+          </div>
+          <div style={{ ...S.dim, marginTop: '0.5rem' }}>Use 'load [stream-name]' to view</div>
+        </div>
+      ),
+    }),
   },
 
   scan: {
     name: 'scan',
     description: 'Scan for active streams',
     usage: 'scan',
-    handler: () => {
-      return {
-        output: (
-          <div>
-            <div className="text-glow mb-2">&gt; SCANNING_NEURAL_STREAMS...</div>
-            <div className="ml-4 space-y-1">
-              <div className="text-[#33ff33]">✓ SYNTHETICS - 4 transmissions detected</div>
-              <div className="text-[#ffaa00]">⚠ ANALOGUES - Recording in progress</div>
-              <div className="text-[#ffaa00]">⚠ HYBRIDS - Calibration phase</div>
-              <div className="text-[#33ff33]">✓ UPLINK - External node active</div>
-            </div>
-            <div className="mt-3 opacity-60 text-sm">
-              Commands: 'tracks' | 'streams' | 'load [stream]' | 'play [track]'
-            </div>
+    handler: () => ({
+      output: (
+        <div style={{ fontSize: S.base }}>
+          <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+            &gt; SCANNING_NEURAL_STREAMS...
           </div>
-        ),
-      };
-    },
+          <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+            <div style={{ color: '#33ff33' }}>✓ SYNTHETICS — 4 transmissions detected</div>
+            <div style={{ color: '#ffaa00' }}>⚠ ANALOGUES  — Recording in progress</div>
+            <div style={{ color: '#ffaa00' }}>⚠ HYBRIDS    — Calibration phase</div>
+            <div style={{ color: '#33ff33' }}>✓ UPLINK     — External node active</div>
+          </div>
+          <div style={{ ...S.dim, marginTop: '0.5rem' }}>
+            'tracks' | 'streams' | 'load [stream]' | 'play [track]'
+          </div>
+        </div>
+      ),
+    }),
   },
 
   status: {
     name: 'status',
     description: 'Display system status',
     usage: 'status',
-    handler: () => {
-      return {
-        output: (
-          <div>
-            <div className="text-glow mb-2">&gt; SYSTEM_STATUS</div>
-            <div className="ml-4 space-y-1 font-mono text-sm">
-              <div>NEURAL_SYNC: 85%</div>
-              <div>MEMORY_BUFFER: 62%</div>
-              <div>SIGNAL_STRENGTH: 78%</div>
-              <div>UPLINK: ACTIVE</div>
-              <div>MODE: ACTIVE</div>
-            </div>
+    handler: () => ({
+      output: (
+        <div style={{ fontSize: S.base }}>
+          <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+            &gt; SYSTEM_STATUS
           </div>
-        ),
-      };
-    },
+          <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+            <div>NEURAL_SYNC     : 85%</div>
+            <div>MEMORY_BUFFER   : 62%</div>
+            <div>SIGNAL_STRENGTH : 78%</div>
+            <div>UPLINK          : ACTIVE</div>
+            <div>MODE            : ACTIVE</div>
+          </div>
+        </div>
+      ),
+    }),
   },
 
   echo: {
     name: 'echo',
     description: 'Echo text to terminal',
     usage: 'echo <text>',
-    handler: (args) => {
-      return { output: args.join(' ') };
-    },
+    handler: (args) => ({ output: args.join(' ') }),
   },
 
   unlock: {
@@ -368,10 +356,14 @@ export const commands: Record<string, Command> = {
         eventBus.emit('shell:unlock', { code: 'hidden' });
         return {
           output: (
-            <div>
-              <div className="text-glow mb-2">&gt; ACCESS_GRANTED</div>
-              <div className="ml-4">Hidden systems now accessible.</div>
-              <div className="ml-4 mt-2 opacity-60">Try 'cd /hidden'</div>
+            <div style={{ fontSize: S.base }}>
+              <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
+                &gt; ACCESS_GRANTED
+              </div>
+              <div style={{ marginLeft: '1rem' }}>Hidden systems now accessible.</div>
+              <div style={{ marginLeft: '1rem', opacity: 0.6, marginTop: '0.25rem' }}>
+                Try 'cd /hidden'
+              </div>
             </div>
           ),
         };
@@ -395,13 +387,11 @@ export const commands: Record<string, Command> = {
 
 export function executeCommand(input: string): CommandResult {
   const trimmed = input.trim();
-  if (!trimmed) {
-    return { output: '' };
-  }
+  if (!trimmed) return { output: '' };
 
-  const parts = trimmed.split(/\s+/);
+  const parts       = trimmed.split(/\s+/);
   const commandName = parts[0].toLowerCase();
-  const args = parts.slice(1);
+  const args        = parts.slice(1);
 
   let command = commands[commandName];
   if (!command) {
@@ -413,9 +403,11 @@ export function executeCommand(input: string): CommandResult {
   if (!command) {
     return {
       output: (
-        <div>
-          <span className="text-red-400">Command not found: {commandName}</span>
-          <div className="mt-1 opacity-60 text-sm">Type 'help' for available commands</div>
+        <div style={{ fontSize: 'var(--text-base)' }}>
+          <span style={{ color: '#f87171' }}>Command not found: {commandName}</span>
+          <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>
+            Type 'help' for available commands
+          </div>
         </div>
       ),
       error: true,
@@ -425,10 +417,7 @@ export function executeCommand(input: string): CommandResult {
   try {
     return command.handler(args);
   } catch (error) {
-    return {
-      output: `Error executing command: ${error}`,
-      error: true,
-    };
+    return { output: `Error executing command: ${error}`, error: true };
   }
 }
 
