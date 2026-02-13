@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { VT323 } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
 
 const vt323 = VT323({ 
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body>
         {children}
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
