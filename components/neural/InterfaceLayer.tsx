@@ -11,7 +11,6 @@ export default function InterfaceLayer() {
   const { uptime, processorLoad, triggerGlitch } = useNeuralState();
   const screenContentRef = useRef<HTMLDivElement>(null);
 
-  // Heavy GSAP shake
   useEffect(() => {
     const interval = setInterval(() => {
       if (Math.random() > 0.95 && screenContentRef.current) {
@@ -32,7 +31,6 @@ export default function InterfaceLayer() {
     return () => clearInterval(interval);
   }, []);
 
-  // Random intermittent glitches
   useEffect(() => {
     const schedule = () => {
       const delay = Math.random() * 6000 + 2000;
@@ -44,13 +42,11 @@ export default function InterfaceLayer() {
     schedule();
   }, [triggerGlitch]);
 
-  // Boot glitches
   useEffect(() => {
     setTimeout(() => triggerGlitch(), 500);
     setTimeout(() => triggerGlitch(), 1200);
   }, [triggerGlitch]);
 
-  // RGB text glitch
   useEventBus('neural:glitch-trigger', () => {
     const els = document.querySelectorAll('.text-glow, .text-glow-strong');
     if (els.length > 0) {
@@ -62,9 +58,7 @@ export default function InterfaceLayer() {
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (!target.classList.contains('tab-btn')) {
-      triggerGlitch();
-    }
+    if (!target.classList.contains('tab-btn')) triggerGlitch();
   };
 
   const handleHover = () => {
@@ -79,10 +73,6 @@ export default function InterfaceLayer() {
   };
 
   return (
-    /*
-      position:fixed + overflow:hidden on the outermost div
-      means the browser has nowhere to scroll to.
-    */
     <div
       style={{
         position: 'fixed',
@@ -97,7 +87,6 @@ export default function InterfaceLayer() {
       }}
       onClick={handleClick}
     >
-      {/* CRT screen */}
       <div
         style={{
           position: 'relative',
@@ -114,13 +103,11 @@ export default function InterfaceLayer() {
           transform: 'perspective(1000px)',
         }}
       >
-        {/* Scanlines */}
         <div
           className="scanlines"
           style={{ willChange: 'transform', transform: 'translateZ(0)' }}
         />
 
-        {/* Phosphor glow */}
         <div
           style={{
             position: 'absolute',
@@ -137,7 +124,6 @@ export default function InterfaceLayer() {
           }}
         />
 
-        {/* Vignette */}
         <div
           style={{
             position: 'absolute',
@@ -152,7 +138,6 @@ export default function InterfaceLayer() {
           }}
         />
 
-        {/* Screen content — flex column, overflow hidden */}
         <div
           ref={screenContentRef}
           className="screen-content"
@@ -161,7 +146,7 @@ export default function InterfaceLayer() {
             zIndex: 10,
             width: '100%',
             height: '100%',
-            overflow: 'hidden',           /* never scroll here */
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
             filter: 'contrast(1.1) brightness(1.05)',
@@ -169,36 +154,39 @@ export default function InterfaceLayer() {
             transform: 'translateZ(0)',
           }}
         >
-          {/* Grid: header / main / footer */}
           <div
             style={{
               display: 'grid',
               gridTemplateRows: 'auto 1fr auto',
-              gap: '1rem',
-              padding: '1.25rem',
+              gap: '0.75rem',
+              padding: '1rem',
               height: '100%',
               minHeight: 0,
-              overflow: 'hidden',         /* never scroll here */
+              overflow: 'hidden',
             }}
           >
             {/* ── Header ── */}
             <header
-              className="border border-[var(--phosphor-green)] p-3"
+              className="border border-[var(--phosphor-green)]"
               style={{
                 background: 'rgba(51,255,51,0.03)',
                 flexShrink: 0,
+                padding: '0.5rem 0.75rem',
               }}
             >
-              <div className="flex justify-between items-start flex-wrap gap-2">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div>
-                  <div className="text-3xl md:text-4xl font-bold text-glow-strong mb-1">
+                  <div
+                    className="text-glow-strong"
+                    style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '2px' }}
+                  >
                     N1X.sh
                   </div>
-                  <div className="text-sm md:text-base opacity-80">
+                  <div style={{ fontSize: 'var(--text-base)', opacity: 0.8 }}>
                     NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
                   </div>
                 </div>
-                <div className="text-right text-sm opacity-70">
+                <div style={{ textAlign: 'right', fontSize: 'var(--text-base)', opacity: 0.7 }}>
                   <div>&gt; INTERFACE_ACTIVE</div>
                   <div>&gt; RUNTIME: {formatUptime(uptime)}</div>
                 </div>
@@ -212,8 +200,8 @@ export default function InterfaceLayer() {
                 background: 'rgba(51,255,51,0.01)',
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: 0,             /* critical */
-                overflow: 'hidden',       /* critical */
+                minHeight: 0,
+                overflow: 'hidden',
               }}
             >
               {/* Tab nav */}
@@ -221,8 +209,8 @@ export default function InterfaceLayer() {
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
-                  gap: '0.5rem',
-                  padding: '1rem 1rem 0',
+                  gap: '0.4rem',
+                  padding: '0.6rem 0.75rem 0',
                   flexShrink: 0,
                   borderBottom: '1px solid rgba(51,255,51,0.3)',
                 }}
@@ -238,8 +226,8 @@ export default function InterfaceLayer() {
                     key={tab.label}
                     className="tab-btn"
                     style={{
-                      padding: '0.375rem 0.875rem',
-                      fontSize: '18px',
+                      padding: '0.2rem 0.6rem',
+                      fontSize: 'var(--text-header)',  /* ← matches section headers */
                       fontFamily: 'inherit',
                       background: 'transparent',
                       color: 'var(--phosphor-green)',
@@ -269,12 +257,12 @@ export default function InterfaceLayer() {
                 ))}
               </nav>
 
-              {/* Shell wrapper — takes remaining height, clips overflow */}
+              {/* Shell */}
               <div
                 style={{
                   flex: '1 1 0%',
-                  minHeight: 0,           /* critical */
-                  overflow: 'hidden',     /* critical */
+                  minHeight: 0,
+                  overflow: 'hidden',
                 }}
               >
                 <ShellInterface />
@@ -283,13 +271,14 @@ export default function InterfaceLayer() {
 
             {/* ── Footer ── */}
             <footer
-              className="border border-[var(--phosphor-green)] px-4 py-2"
+              className="border border-[var(--phosphor-green)]"
               style={{
                 background: 'rgba(51,255,51,0.03)',
                 display: 'flex',
                 justifyContent: 'space-between',
-                fontSize: '0.875rem',
+                fontSize: 'var(--text-base)',
                 flexShrink: 0,
+                padding: '0.3rem 0.75rem',
               }}
             >
               <div>
