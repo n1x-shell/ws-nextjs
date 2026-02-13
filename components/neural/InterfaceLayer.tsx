@@ -50,7 +50,7 @@ export default function InterfaceLayer() {
     setTimeout(() => triggerGlitch(), 1200);
   }, [triggerGlitch]);
 
-  // RGB split on random elements
+  // RGB text glitch
   useEventBus('neural:glitch-trigger', () => {
     const els = document.querySelectorAll('.text-glow, .text-glow-strong');
     if (els.length > 0) {
@@ -72,30 +72,38 @@ export default function InterfaceLayer() {
   };
 
   const formatUptime = (s: number) => {
-    const h = Math.floor(s / 3600).toString().padStart(2, '0');
-    const m = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
+    const h   = Math.floor(s / 3600).toString().padStart(2, '0');
+    const m   = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
     const sec = (s % 60).toString().padStart(2, '0');
     return `${h}:${m}:${sec}`;
   };
 
   return (
-    // ── Full viewport, no overflow ──
+    /*
+      position:fixed + overflow:hidden on the outermost div
+      means the browser has nowhere to scroll to.
+    */
     <div
-      className="fixed inset-0"
       style={{
+        position: 'fixed',
+        inset: 0,
+        overflow: 'hidden',
         background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #0a0a0a 100%)',
         padding: '3vw',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)',
-        overflow: 'hidden',
       }}
+      onClick={handleClick}
     >
-      {/* CRT screen — fills padding box */}
+      {/* CRT screen */}
       <div
-        className="relative w-full h-full overflow-hidden"
         style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
           background: 'var(--terminal-bg)',
           borderRadius: '12px',
           boxShadow: `
@@ -105,7 +113,6 @@ export default function InterfaceLayer() {
           `,
           transform: 'perspective(1000px)',
         }}
-        onClick={handleClick}
       >
         {/* Scanlines */}
         <div
@@ -115,9 +122,11 @@ export default function InterfaceLayer() {
 
         {/* Phosphor glow */}
         <div
-          className="absolute inset-0 pointer-events-none"
           style={{
+            position: 'absolute',
+            inset: 0,
             zIndex: 998,
+            pointerEvents: 'none',
             background: `radial-gradient(
               ellipse at center,
               transparent 0%,
@@ -130,9 +139,11 @@ export default function InterfaceLayer() {
 
         {/* Vignette */}
         <div
-          className="absolute inset-0 pointer-events-none"
           style={{
+            position: 'absolute',
+            inset: 0,
             zIndex: 997,
+            pointerEvents: 'none',
             background: `radial-gradient(
               ellipse at center,
               transparent 30%,
@@ -141,21 +152,24 @@ export default function InterfaceLayer() {
           }}
         />
 
-        {/* Screen content */}
+        {/* Screen content — flex column, overflow hidden */}
         <div
           ref={screenContentRef}
-          className="screen-content w-full h-full relative"
+          className="screen-content"
           style={{
+            position: 'relative',
             zIndex: 10,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',           /* never scroll here */
+            display: 'flex',
+            flexDirection: 'column',
             filter: 'contrast(1.1) brightness(1.05)',
             willChange: 'transform',
             transform: 'translateZ(0)',
-            overflow: 'hidden',       // Never let this scroll
-            display: 'flex',
-            flexDirection: 'column',
           }}
         >
-          {/* ── Grid: header / main / footer ── */}
+          {/* Grid: header / main / footer */}
           <div
             style={{
               display: 'grid',
@@ -164,13 +178,16 @@ export default function InterfaceLayer() {
               padding: '1.25rem',
               height: '100%',
               minHeight: 0,
-              overflow: 'hidden',
+              overflow: 'hidden',         /* never scroll here */
             }}
           >
-            {/* Header */}
+            {/* ── Header ── */}
             <header
-              className="terminal-header border border-[var(--phosphor-green)] p-3"
-              style={{ background: 'rgba(51,255,51,0.03)', flexShrink: 0 }}
+              className="border border-[var(--phosphor-green)] p-3"
+              style={{
+                background: 'rgba(51,255,51,0.03)',
+                flexShrink: 0,
+              }}
             >
               <div className="flex justify-between items-start flex-wrap gap-2">
                 <div>
@@ -188,21 +205,27 @@ export default function InterfaceLayer() {
               </div>
             </header>
 
-            {/* Main — takes remaining height, never overflows */}
+            {/* ── Main ── */}
             <main
               className="border border-[var(--phosphor-green)]"
               style={{
                 background: 'rgba(51,255,51,0.01)',
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: 0,      // Critical
-                overflow: 'hidden', // Critical
+                minHeight: 0,             /* critical */
+                overflow: 'hidden',       /* critical */
               }}
             >
               {/* Tab nav */}
               <nav
-                className="flex gap-2 p-4 pb-0 flex-wrap border-b border-[var(--phosphor-green)]/30"
-                style={{ flexShrink: 0 }}
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  padding: '1rem 1rem 0',
+                  flexShrink: 0,
+                  borderBottom: '1px solid rgba(51,255,51,0.3)',
+                }}
               >
                 {[
                   { label: 'CORE',       cmd: null },
@@ -213,38 +236,61 @@ export default function InterfaceLayer() {
                 ].map((tab) => (
                   <button
                     key={tab.label}
-                    className="tab-btn px-3.5 py-1.5 border border-[var(--phosphor-green)] cursor-pointer transition-all uppercase tracking-wide bg-transparent text-[var(--phosphor-green)] hover:bg-[var(--phosphor-green)]/10"
-                    style={{ fontSize: '18px', fontFamily: 'inherit' }}
+                    className="tab-btn"
+                    style={{
+                      padding: '0.375rem 0.875rem',
+                      fontSize: '18px',
+                      fontFamily: 'inherit',
+                      background: 'transparent',
+                      color: 'var(--phosphor-green)',
+                      border: '1px solid var(--phosphor-green)',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.target as HTMLElement).style.background = 'rgba(51,255,51,0.1)';
+                      handleHover();
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.target as HTMLElement).style.background = 'transparent';
+                    }}
+                    onTouchStart={handleHover}
                     onClick={() => {
                       if (tab.cmd) {
                         eventBus.emit('shell:execute-command', { command: tab.cmd });
                       }
                       triggerGlitch();
                     }}
-                    onMouseEnter={handleHover}
-                    onTouchStart={handleHover}
                   >
                     {tab.label}
                   </button>
                 ))}
               </nav>
 
-              {/* Shell — fills the rest of main, scrolls internally */}
+              {/* Shell wrapper — takes remaining height, clips overflow */}
               <div
                 style={{
                   flex: '1 1 0%',
-                  minHeight: 0,      // Critical
-                  overflow: 'hidden', // Let ShellInterface manage its own scroll
+                  minHeight: 0,           /* critical */
+                  overflow: 'hidden',     /* critical */
                 }}
               >
                 <ShellInterface />
               </div>
             </main>
 
-            {/* Footer */}
+            {/* ── Footer ── */}
             <footer
-              className="terminal-footer border border-[var(--phosphor-green)] px-4 py-2 flex justify-between text-sm"
-              style={{ background: 'rgba(51,255,51,0.03)', flexShrink: 0 }}
+              className="border border-[var(--phosphor-green)] px-4 py-2"
+              style={{
+                background: 'rgba(51,255,51,0.03)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.875rem',
+                flexShrink: 0,
+              }}
             >
               <div>
                 <span className="status-dot" />
