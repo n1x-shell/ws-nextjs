@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import PixiCRT from './PixiCRT';
-import TabContent from './TabContent';
+import TabContent from './ui/TabContent';
 import useKonami from '@/hooks/useKonami';
 
 type Tab = 'home' | 'synthetics' | 'analogues' | 'hybrids' | 'uplink';
