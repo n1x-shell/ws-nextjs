@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
+import { VT323 } from 'next/font/google';
 import './globals.css';
+
+const vt323 = VT323({ 
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'N1X.sh - NEURAL UPLINK ACTIVE',
@@ -22,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={vt323.className}>
       <body>{children}</body>
     </html>
   );
