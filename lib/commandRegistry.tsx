@@ -7,6 +7,12 @@ import { renderStreamContent } from './contentRenderer';
 
 const fs = new FileSystemNavigator();
 
+// Wire up unlock signals to the fs singleton
+if (typeof window !== 'undefined') {
+  eventBus.on('neural:ghost-unlocked',  () => fs.unlock());
+  eventBus.on('neural:hidden-unlocked', () => fs.unlockHidden());
+}
+
 const S = {
   base:   'var(--text-base)',
   header: 'var(--text-header)',
@@ -28,7 +34,9 @@ export const commands: Record<string, Command> = {
               <div style={{ fontSize: S.base }}>
                 <div className={S.glow}>&gt; {cmd.name}</div>
                 <div style={{ marginLeft: '1rem', marginTop: '0.4rem' }}>{cmd.description}</div>
-                <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>Usage: {cmd.usage}</div>
+                <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>
+                  Usage: {cmd.usage}
+                </div>
                 {cmd.aliases && (
                   <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>
                     Aliases: {cmd.aliases.join(', ')}
@@ -79,7 +87,9 @@ export const commands: Record<string, Command> = {
               },
             ].map((section) => (
               <div key={section.label} style={{ marginBottom: '0.75rem' }}>
-                <div className={S.glow} style={{ marginBottom: '0.3rem' }}>// {section.label}</div>
+                <div className={S.glow} style={{ marginBottom: '0.3rem' }}>
+                  // {section.label}
+                </div>
                 <div style={{ marginLeft: '1rem' }}>
                   {section.cmds.map(([name, desc]) => (
                     <div key={name} style={{ marginBottom: '0.2rem' }}>
@@ -159,7 +169,14 @@ export const commands: Record<string, Command> = {
       if (result.success) {
         return {
           output: (
-            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: S.base, opacity: 0.9 }}>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'inherit',
+                fontSize: S.base,
+                opacity: 0.9,
+              }}
+            >
               {result.content}
             </pre>
           ),
@@ -202,10 +219,10 @@ export const commands: Record<string, Command> = {
       if (args.length === 0) return { output: 'Usage: play <track-name>', error: true };
 
       const tracks: Record<string, { title: string; id: string; description?: string }> = {
-        augmented:    { title: '[AUGMENTED] - Complete Stream',     id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol → sovereignty achieved' },
-        'split-brain':{ title: 'Split Brain (Cinematic Score)',     id: 'HQnENsnGfME' },
-        'hell-bent':  { title: 'Get Hell Bent (Cinematic Score)',   id: '6Ch2n75lFok' },
-        gigercore:    { title: 'GIGERCORE',                         id: 'ocSBtaKbGIc' },
+        augmented:     { title: '[AUGMENTED] - Complete Stream',   id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol → sovereignty achieved' },
+        'split-brain': { title: 'Split Brain (Cinematic Score)',   id: 'HQnENsnGfME' },
+        'hell-bent':   { title: 'Get Hell Bent (Cinematic Score)', id: '6Ch2n75lFok' },
+        gigercore:     { title: 'GIGERCORE',                       id: 'ocSBtaKbGIc' },
       };
 
       const track = tracks[args[0].toLowerCase()];
@@ -348,21 +365,26 @@ export const commands: Record<string, Command> = {
 
   unlock: {
     name: 'unlock',
-    description: 'Unlock hidden features',
+    description: 'Unlock restricted directories',
     usage: 'unlock <code>',
     hidden: true,
     handler: (args) => {
       if (args[0] === 'hidden') {
-        eventBus.emit('shell:unlock', { code: 'hidden' });
+        // Unlock /hidden on the filesystem
+        fs.unlockHidden();
+        eventBus.emit('neural:hidden-unlocked');
+
         return {
           output: (
             <div style={{ fontSize: S.base }}>
               <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
                 &gt; ACCESS_GRANTED
               </div>
-              <div style={{ marginLeft: '1rem' }}>Hidden systems now accessible.</div>
-              <div style={{ marginLeft: '1rem', opacity: 0.6, marginTop: '0.25rem' }}>
-                Try 'cd /hidden'
+              <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                <div>/hidden — mounted</div>
+                <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>
+                  'cd /hidden' to proceed
+                </div>
               </div>
             </div>
           ),
@@ -383,12 +405,113 @@ export const commands: Record<string, Command> = {
       return { output: 'System glitch initiated...' };
     },
   },
+
+  ghost: {
+    name: 'ghost',
+    description: 'Access ghost channel index',
+    usage: 'ghost',
+    hidden: true,
+    handler: () => {
+      if (!fs.isGhostUnlocked()) {
+        return { output: 'Permission denied', error: true };
+      }
+      return {
+        output: (
+          <div style={{ fontSize: S.base }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+              &gt; GHOST_CHANNEL
+            </div>
+            <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
+              <div>transmission.log — unfiltered feed</div>
+              <div>manifesto.txt    — origin statement</div>
+              <div>signal.raw       — raw frequency data</div>
+              <div>.coordinates     — [REDACTED]</div>
+            </div>
+            <div style={{ ...S.dim, marginTop: '0.5rem' }}>
+              'cd /ghost' then 'cat [filename]' to read
+            </div>
+          </div>
+        ),
+      };
+    },
+  },
 };
 
+// ── Execute a command string ──
 export function executeCommand(input: string): CommandResult {
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
 
+  // ── Handle ./ execution ──
+  // If input starts with ./ treat it as running a file in the current directory
+  if (trimmed.startsWith('./')) {
+    const filename = trimmed.slice(2).split(/\s+/)[0]; // strip ./ and any args
+    const resolved = fs.resolveExecutable(filename);
+
+    if (!resolved) {
+      return {
+        output: (
+          <span style={{ color: '#f87171' }}>
+            {trimmed}: No such file or not executable
+          </span>
+        ),
+        error: true,
+      };
+    }
+
+    // n1x.sh — only executable if we're in /hidden
+    if (resolved === 'n1x.sh') {
+      if (!fs.getCurrentDirectory().startsWith('/hidden')) {
+        return {
+          output: (
+            <span style={{ color: '#f87171' }}>
+              Permission denied — must be in /hidden to execute n1x.sh
+            </span>
+          ),
+          error: true,
+        };
+      }
+
+      // Fire the full Konami/ghost corruption sequence
+      eventBus.emit('neural:konami');
+
+      return {
+        output: (
+          <div style={{ fontSize: 'var(--text-base)' }}>
+            <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
+              &gt; EXECUTING n1x.sh
+            </div>
+            <div style={{ marginLeft: '1rem', opacity: 0.6 }}>
+              initializing...
+            </div>
+          </div>
+        ),
+      };
+    }
+
+    // Any other ./ file — just cat it
+    const result = fs.readFile(resolved);
+    if (result.success) {
+      return {
+        output: (
+          <pre
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'inherit',
+              fontSize: 'var(--text-base)',
+              opacity: 0.9,
+            }}
+          >
+            {result.content}
+          </pre>
+        ),
+      };
+    }
+
+    return { output: result.error || 'Execution failed', error: true };
+  }
+
+  // ── Normal command lookup ──
   const parts       = trimmed.split(/\s+/);
   const commandName = parts[0].toLowerCase();
   const args        = parts.slice(1);
@@ -423,7 +546,16 @@ export function executeCommand(input: string): CommandResult {
 
 export function getCommandSuggestions(partial: string): string[] {
   const lower = partial.toLowerCase();
-  return Object.keys(commands)
+
+  // Include ./ suggestion if in a directory with executable files
+  const suggestions = Object.keys(commands)
     .filter((cmd) => !commands[cmd].hidden && cmd.startsWith(lower))
     .sort();
+
+  // Suggest ./n1x.sh if in /hidden and they type ./
+  if ('./n1x.sh'.startsWith(partial) && fs.getCurrentDirectory().startsWith('/hidden')) {
+    suggestions.unshift('./n1x.sh');
+  }
+
+  return suggestions;
 }
