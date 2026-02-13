@@ -13,6 +13,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
@@ -21,12 +22,19 @@ html, body {
   overflow: hidden;
   background: #000;
   color: var(--phosphor-green);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scanlines */
+/* Scanlines - with iOS prefixes */
 @keyframes scanlines-move {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-50%); }
+  0% { transform: translateY(0); -webkit-transform: translateY(0); }
+  100% { transform: translateY(-50%); -webkit-transform: translateY(-50%); }
+}
+
+@-webkit-keyframes scanlines-move {
+  0% { -webkit-transform: translateY(0); }
+  100% { -webkit-transform: translateY(-50%); }
 }
 
 .scanlines {
@@ -45,39 +53,96 @@ html, body {
     rgba(0, 0, 0, 0) 3px
   );
   animation: scanlines-move 10s linear infinite;
+  -webkit-animation: scanlines-move 10s linear infinite;
   opacity: 0.4;
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
-/* Screen flicker */
+/* Screen flicker - with iOS prefixes */
 @keyframes screen-flicker {
   0%, 100% { 
     opacity: 1;
     transform: translate(0) scale(1);
+    -webkit-transform: translate(0) scale(1);
   }
   10% { 
     opacity: 0.95;
     transform: translate(-1px, 1px) scale(1.001);
+    -webkit-transform: translate(-1px, 1px) scale(1.001);
   }
   20% { 
     opacity: 0.98;
     transform: translate(1px, -1px) scale(0.999);
+    -webkit-transform: translate(1px, -1px) scale(0.999);
   }
   30% { 
     opacity: 0.97;
     transform: translate(-1px, -1px) scale(1.001);
+    -webkit-transform: translate(-1px, -1px) scale(1.001);
   }
   40% { 
     opacity: 1;
     transform: translate(1px, 1px) scale(0.999);
+    -webkit-transform: translate(1px, 1px) scale(0.999);
+  }
+}
+
+@-webkit-keyframes screen-flicker {
+  0%, 100% { 
+    opacity: 1;
+    -webkit-transform: translate(0) scale(1);
+  }
+  10% { 
+    opacity: 0.95;
+    -webkit-transform: translate(-1px, 1px) scale(1.001);
+  }
+  20% { 
+    opacity: 0.98;
+    -webkit-transform: translate(1px, -1px) scale(0.999);
+  }
+  30% { 
+    opacity: 0.97;
+    -webkit-transform: translate(-1px, -1px) scale(1.001);
+  }
+  40% { 
+    opacity: 1;
+    -webkit-transform: translate(1px, 1px) scale(0.999);
   }
 }
 
 .screen-content.glitch {
   animation: screen-flicker 0.2s ease;
+  -webkit-animation: screen-flicker 0.2s ease;
 }
 
-/* RGB split glitch */
+/* RGB split glitch - with iOS prefixes */
 @keyframes rgb-split {
+  0%, 100% {
+    text-shadow: 0 0 2px var(--phosphor-green);
+  }
+  25% {
+    text-shadow: 
+      -2px 0 0 #ff0051,
+      2px 0 0 #00d4ff,
+      0 0 4px var(--phosphor-green);
+  }
+  50% {
+    text-shadow: 
+      2px 0 0 #ff0051,
+      -2px 0 0 #00d4ff,
+      0 0 4px var(--phosphor-green);
+  }
+  75% {
+    text-shadow: 
+      -1px 0 0 #ff0051,
+      1px 0 0 #00d4ff,
+      0 0 4px var(--phosphor-green);
+  }
+}
+
+@-webkit-keyframes rgb-split {
   0%, 100% {
     text-shadow: 0 0 2px var(--phosphor-green);
   }
@@ -103,10 +168,16 @@ html, body {
 
 .glitch-text {
   animation: rgb-split 0.3s ease;
+  -webkit-animation: rgb-split 0.3s ease;
 }
 
 /* Status dot pulse */
 @keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@-webkit-keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
@@ -120,10 +191,16 @@ html, body {
   margin-right: 6px;
   box-shadow: 0 0 4px var(--phosphor-green);
   animation: pulse 2s ease-in-out infinite;
+  -webkit-animation: pulse 2s ease-in-out infinite;
 }
 
 /* Cursor blink */
 @keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@-webkit-keyframes blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
@@ -135,6 +212,7 @@ html, body {
   background: var(--phosphor-green);
   margin-left: 3px;
   animation: blink 1s infinite;
+  -webkit-animation: blink 1s infinite;
   vertical-align: text-bottom;
 }
 
@@ -168,8 +246,14 @@ html, body {
   to { opacity: 1; }
 }
 
+@-webkit-keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .tab-content.active {
   animation: fade-in 0.3s ease;
+  -webkit-animation: fade-in 0.3s ease;
 }
 
 /* Mobile responsive */
@@ -199,5 +283,21 @@ html, body {
     flex-direction: column;
     gap: 5px;
     font-size: 12px;
+  }
+}
+
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+  body {
+    cursor: default;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* Force hardware acceleration on iOS */
+  .scanlines,
+  .screen-content {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 }
