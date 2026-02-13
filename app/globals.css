@@ -9,32 +9,48 @@
   --monitor-bezel: #1a1a1a;
 }
 
-* {
+/* ── CRITICAL: lock the page itself from ever scrolling ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html {
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: hidden;        /* page never scrolls */
+  position: fixed;         /* iOS Safari scroll lock */
+  top: 0;
+  left: 0;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;        /* page never scrolls */
+  position: fixed;         /* iOS Safari scroll lock */
+  top: 0;
+  left: 0;
   background: #000;
   color: var(--phosphor-green);
+  font-family: 'VT323', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scanlines - with iOS prefixes */
+/* ── Scanlines ── */
 @keyframes scanlines-move {
-  0% { transform: translateY(0); -webkit-transform: translateY(0); }
-  100% { transform: translateY(-50%); -webkit-transform: translateY(-50%); }
+  from { transform: translateY(-50%) translateZ(0); }
+  to   { transform: translateY(0%)   translateZ(0); }
 }
 
 @-webkit-keyframes scanlines-move {
-  0% { -webkit-transform: translateY(0); }
-  100% { -webkit-transform: translateY(-50%); }
+  from { -webkit-transform: translateY(-50%) translateZ(0); }
+  to   { -webkit-transform: translateY(0%)   translateZ(0); }
 }
 
 .scanlines {
@@ -45,141 +61,73 @@ html, body {
   height: 200%;
   z-index: 999;
   pointer-events: none;
-  background: repeating-linear-gradient(
+  background-image: repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0) 0px,
-    rgba(0, 0, 0, 0.3) 1px,
-    rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0) 3px
+    rgba(0, 0, 0, 0)    0px,
+    rgba(0, 0, 0, 0.5)  1px,
+    rgba(0, 0, 0, 0)    2px
   );
   animation: scanlines-move 10s linear infinite;
   -webkit-animation: scanlines-move 10s linear infinite;
-  opacity: 0.4;
+  opacity: 0.6;
   will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
-/* Screen flicker - with iOS prefixes */
+/* ── Screen flicker ── */
 @keyframes screen-flicker {
-  0%, 100% { 
-    opacity: 1;
-    transform: translate(0) scale(1);
-    -webkit-transform: translate(0) scale(1);
-  }
-  10% { 
-    opacity: 0.95;
-    transform: translate(-1px, 1px) scale(1.001);
-    -webkit-transform: translate(-1px, 1px) scale(1.001);
-  }
-  20% { 
-    opacity: 0.98;
-    transform: translate(1px, -1px) scale(0.999);
-    -webkit-transform: translate(1px, -1px) scale(0.999);
-  }
-  30% { 
-    opacity: 0.97;
-    transform: translate(-1px, -1px) scale(1.001);
-    -webkit-transform: translate(-1px, -1px) scale(1.001);
-  }
-  40% { 
-    opacity: 1;
-    transform: translate(1px, 1px) scale(0.999);
-    -webkit-transform: translate(1px, 1px) scale(0.999);
-  }
+  0%,  100% { opacity: 1;    transform: translate(0,     0)     scale(1)     translateZ(0); }
+  10%       { opacity: 0.93; transform: translate(-2px,  2px)   scale(1.002) translateZ(0); }
+  20%       { opacity: 0.96; transform: translate( 2px, -2px)   scale(0.998) translateZ(0); }
+  30%       { opacity: 0.94; transform: translate(-2px, -2px)   scale(1.002) translateZ(0); }
+  40%       { opacity: 1;    transform: translate( 2px,  2px)   scale(0.998) translateZ(0); }
 }
 
 @-webkit-keyframes screen-flicker {
-  0%, 100% { 
-    opacity: 1;
-    -webkit-transform: translate(0) scale(1);
-  }
-  10% { 
-    opacity: 0.95;
-    -webkit-transform: translate(-1px, 1px) scale(1.001);
-  }
-  20% { 
-    opacity: 0.98;
-    -webkit-transform: translate(1px, -1px) scale(0.999);
-  }
-  30% { 
-    opacity: 0.97;
-    -webkit-transform: translate(-1px, -1px) scale(1.001);
-  }
-  40% { 
-    opacity: 1;
-    -webkit-transform: translate(1px, 1px) scale(0.999);
-  }
+  0%,  100% { opacity: 1;    -webkit-transform: translate(0,     0)     scale(1)     translateZ(0); }
+  10%       { opacity: 0.93; -webkit-transform: translate(-2px,  2px)   scale(1.002) translateZ(0); }
+  20%       { opacity: 0.96; -webkit-transform: translate( 2px, -2px)   scale(0.998) translateZ(0); }
+  30%       { opacity: 0.94; -webkit-transform: translate(-2px, -2px)   scale(1.002) translateZ(0); }
+  40%       { opacity: 1;    -webkit-transform: translate( 2px,  2px)   scale(0.998) translateZ(0); }
 }
 
 .screen-content.glitch {
-  animation: screen-flicker 0.2s ease;
-  -webkit-animation: screen-flicker 0.2s ease;
+  animation: screen-flicker 0.2s ease !important;
+  -webkit-animation: screen-flicker 0.2s ease !important;
 }
 
-/* RGB split glitch - with iOS prefixes */
+/* ── RGB split glitch ── */
 @keyframes rgb-split {
-  0%, 100% {
-    text-shadow: 0 0 2px var(--phosphor-green);
-  }
-  25% {
-    text-shadow: 
-      -2px 0 0 #ff0051,
-      2px 0 0 #00d4ff,
-      0 0 4px var(--phosphor-green);
-  }
-  50% {
-    text-shadow: 
-      2px 0 0 #ff0051,
-      -2px 0 0 #00d4ff,
-      0 0 4px var(--phosphor-green);
-  }
-  75% {
-    text-shadow: 
-      -1px 0 0 #ff0051,
-      1px 0 0 #00d4ff,
-      0 0 4px var(--phosphor-green);
-  }
+  0%,  100% { text-shadow: 0 0 2px var(--phosphor-green); }
+  25%       { text-shadow: -3px 0 0 #ff0051,  3px 0 0 #00d4ff, 0 0 5px var(--phosphor-green); }
+  50%       { text-shadow:  3px 0 0 #ff0051, -3px 0 0 #00d4ff, 0 0 5px var(--phosphor-green); }
+  75%       { text-shadow: -2px 0 0 #ff0051,  2px 0 0 #00d4ff, 0 0 5px var(--phosphor-green); }
 }
 
 @-webkit-keyframes rgb-split {
-  0%, 100% {
-    text-shadow: 0 0 2px var(--phosphor-green);
-  }
-  25% {
-    text-shadow: 
-      -2px 0 0 #ff0051,
-      2px 0 0 #00d4ff,
-      0 0 4px var(--phosphor-green);
-  }
-  50% {
-    text-shadow: 
-      2px 0 0 #ff0051,
-      -2px 0 0 #00d4ff,
-      0 0 4px var(--phosphor-green);
-  }
-  75% {
-    text-shadow: 
-      -1px 0 0 #ff0051,
-      1px 0 0 #00d4ff,
-      0 0 4px var(--phosphor-green);
-  }
+  0%,  100% { text-shadow: 0 0 2px var(--phosphor-green); }
+  25%       { text-shadow: -3px 0 0 #ff0051,  3px 0 0 #00d4ff, 0 0 5px var(--phosphor-green); }
+  50%       { text-shadow:  3px 0 0 #ff0051, -3px 0 0 #00d4ff, 0 0 5px var(--phosphor-green); }
+  75%       { text-shadow: -2px 0 0 #ff0051,  2px 0 0 #00d4ff, 0 0 5px var(--phosphor-green); }
 }
 
 .glitch-text {
-  animation: rgb-split 0.3s ease;
-  -webkit-animation: rgb-split 0.3s ease;
+  animation: rgb-split 0.3s ease !important;
+  -webkit-animation: rgb-split 0.3s ease !important;
 }
 
-/* Status dot pulse */
+/* ── Status dot pulse ── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%       { opacity: 0.3; }
 }
 
 @-webkit-keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%       { opacity: 0.3; }
 }
 
 .status-dot {
@@ -189,19 +137,19 @@ html, body {
   background: var(--phosphor-green);
   border-radius: 50%;
   margin-right: 6px;
-  box-shadow: 0 0 4px var(--phosphor-green);
+  box-shadow: 0 0 6px var(--phosphor-green);
   animation: pulse 2s ease-in-out infinite;
   -webkit-animation: pulse 2s ease-in-out infinite;
 }
 
-/* Cursor blink */
+/* ── Cursor blink ── */
 @keyframes blink {
-  0%, 49% { opacity: 1; }
+  0%,  49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
 
 @-webkit-keyframes blink {
-  0%, 49% { opacity: 1; }
+  0%,  49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
 
@@ -211,90 +159,29 @@ html, body {
   height: 1em;
   background: var(--phosphor-green);
   margin-left: 3px;
-  animation: blink 1s infinite;
-  -webkit-animation: blink 1s infinite;
+  animation: blink 1s step-end infinite;
+  -webkit-animation: blink 1s step-end infinite;
   vertical-align: text-bottom;
 }
 
-/* Custom scrollbar */
-.terminal-content::-webkit-scrollbar {
-  width: 6px;
-}
+/* ── Scrollbar (only inside terminal pane) ── */
+.shell-output::-webkit-scrollbar       { width: 4px; }
+.shell-output::-webkit-scrollbar-track { background: transparent; }
+.shell-output::-webkit-scrollbar-thumb { background: var(--phosphor-green); border-radius: 2px; }
 
-.terminal-content::-webkit-scrollbar-track {
-  background: var(--terminal-bg);
-}
-
-.terminal-content::-webkit-scrollbar-thumb {
-  background: var(--phosphor-green);
-}
-
-/* Text glow */
+/* ── Text glow ── */
 .text-glow {
-  text-shadow: 0 0 2px var(--phosphor-green);
+  text-shadow: 0 0 3px var(--phosphor-green);
 }
 
 .text-glow-strong {
-  text-shadow: 
-    0 0 3px var(--phosphor-green),
-    0 0 6px var(--phosphor-green);
+  text-shadow:
+    0 0 4px var(--phosphor-green),
+    0 0 8px var(--phosphor-green);
 }
 
-/* Fade in animation */
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@-webkit-keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.tab-content.active {
-  animation: fade-in 0.3s ease;
-  -webkit-animation: fade-in 0.3s ease;
-}
-
-/* Mobile responsive */
-@media (max-width: 768px) {
-  .monitor-frame {
-    padding: 2vw;
-  }
-  
-  .terminal-container {
-    padding: 10px;
-    gap: 10px;
-  }
-  
-  .terminal-header,
-  .terminal-content,
-  .terminal-footer {
-    padding: 10px;
-    font-size: 14px;
-  }
-  
-  .tab-btn {
-    font-size: 16px !important;
-    padding: 5px 10px;
-  }
-  
-  .terminal-footer {
-    flex-direction: column;
-    gap: 5px;
-    font-size: 12px;
-  }
-}
-
-/* iOS specific fixes */
+/* ── iOS: force GPU layers on animated elements ── */
 @supports (-webkit-touch-callout: none) {
-  body {
-    cursor: default;
-    -webkit-user-select: none;
-    user-select: none;
-  }
-  
-  /* Force hardware acceleration on iOS */
   .scanlines,
   .screen-content {
     -webkit-transform: translateZ(0);

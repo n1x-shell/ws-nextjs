@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
 import { VT323 } from 'next/font/google';
-import { Analytics } from '@vercel/analytics/next';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
 
-const vt323 = VT323({ 
+const vt323 = VT323({
   weight: '400',
   subsets: ['latin'],
   display: 'swap',
@@ -12,10 +10,12 @@ const vt323 = VT323({
 
 export const metadata: Metadata = {
   title: 'N1X.sh - NEURAL UPLINK ACTIVE',
-  description: '>> TRANSMISSION RECEIVED. Access TUNNELCORE streams: [AUGMENTED] cyborg sovereignty protocol, cinematic neural fractures, GIGERCORE signal. Synthetics compiling. Analogues pending. Hybrids awakening. ENTER? <Y/N>',
+  description:
+    '>> TRANSMISSION RECEIVED. Access TUNNELCORE streams: [AUGMENTED] cyborg sovereignty protocol, cinematic neural fractures, GIGERCORE signal.',
   openGraph: {
     title: 'N1X.sh – NEURAL UPLINK ACTIVE',
-    description: '>> TRANSMISSION RECEIVED. Access TUNNELCORE streams: [AUGMENTED] cyborg sovereignty protocol, cinematic neural fractures, GIGERCORE signal. Synthetics compiling. Analogues pending. Hybrids awakening. ENTER? <Y/N>',
+    description:
+      '>> TRANSMISSION RECEIVED. Access TUNNELCORE streams: [AUGMENTED] cyborg sovereignty protocol, cinematic neural fractures, GIGERCORE signal.',
     type: 'website',
     siteName: 'N1X.sh',
     locale: 'en_US',
@@ -31,11 +31,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={vt323.className}>
-      <body>
+    <html
+      lang="en"
+      className={vt323.className}
+      style={{
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+      }}
+    >
+      <body
+        style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          background: '#000',
+        }}
+      >
         {children}
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );

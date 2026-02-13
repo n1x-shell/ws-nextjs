@@ -4,22 +4,14 @@ import { useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
-import TabContent from '../ui/TabContent';
-import { Tab } from '@/types/neural.types';
+import ShellInterface from '../shell/ShellInterface';
+import { eventBus } from '@/lib/eventBus';
 
 export default function InterfaceLayer() {
-  const {
-    activeTab,
-    setActiveTab,
-    uptime,
-    processorLoad,
-    triggerGlitch,
-  } = useNeuralState();
-
+  const { uptime, processorLoad, triggerGlitch } = useNeuralState();
   const screenContentRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
 
-  // Random heavy screen shake
+  // Heavy GSAP shake
   useEffect(() => {
     const interval = setInterval(() => {
       if (Math.random() > 0.95 && screenContentRef.current) {
@@ -33,63 +25,40 @@ export default function InterfaceLayer() {
           force3D: true,
           onComplete: () => {
             gsap.set(screenContentRef.current, { x: 0, y: 0 });
-          }
+          },
         });
       }
     }, 5000);
-    
     return () => clearInterval(interval);
   }, []);
 
   // Random intermittent glitches
   useEffect(() => {
-    const scheduleRandomGlitch = () => {
+    const schedule = () => {
       const delay = Math.random() * 6000 + 2000;
       setTimeout(() => {
         triggerGlitch();
-        scheduleRandomGlitch();
+        schedule();
       }, delay);
     };
-    
-    scheduleRandomGlitch();
+    schedule();
   }, [triggerGlitch]);
 
-  // Initial boot glitches
+  // Boot glitches
   useEffect(() => {
     setTimeout(() => triggerGlitch(), 500);
     setTimeout(() => triggerGlitch(), 1200);
   }, [triggerGlitch]);
 
-  // Listen to events
+  // RGB text glitch
   useEventBus('neural:glitch-trigger', () => {
-    const glitchables = document.querySelectorAll('.text-glow, .text-glow-strong, .section-heading');
-    if (glitchables.length > 0) {
-      const randomEl = glitchables[Math.floor(Math.random() * glitchables.length)];
-      randomEl.classList.add('glitch-text');
-      setTimeout(() => randomEl.classList.remove('glitch-text'), 300);
+    const els = document.querySelectorAll('.text-glow, .text-glow-strong');
+    if (els.length > 0) {
+      const el = els[Math.floor(Math.random() * els.length)];
+      el.classList.add('glitch-text');
+      setTimeout(() => el.classList.remove('glitch-text'), 300);
     }
   });
-
-  const handleTabChange = (tab: Tab) => {
-    if (contentRef.current) {
-      gsap.to(contentRef.current, {
-        opacity: 0,
-        duration: 0.15,
-        force3D: true,
-        onComplete: () => {
-          setActiveTab(tab);
-          gsap.fromTo(
-            contentRef.current,
-            { opacity: 0, y: 10 },
-            { opacity: 1, y: 0, duration: 0.3, force3D: true }
-          );
-        },
-      });
-    } else {
-      setActiveTab(tab);
-    }
-    triggerGlitch();
-  };
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -99,96 +68,132 @@ export default function InterfaceLayer() {
   };
 
   const handleHover = () => {
-    if (Math.random() > 0.7) {
-      triggerGlitch();
-    }
+    if (Math.random() > 0.7) triggerGlitch();
   };
 
-  const formatUptime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${h}:${m}:${s}`;
+  const formatUptime = (s: number) => {
+    const h   = Math.floor(s / 3600).toString().padStart(2, '0');
+    const m   = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${sec}`;
   };
 
   return (
-    <div 
-      className="fixed inset-0"
+    /*
+      position:fixed + overflow:hidden on the outermost div
+      means the browser has nowhere to scroll to.
+    */
+    <div
       style={{
+        position: 'fixed',
+        inset: 0,
+        overflow: 'hidden',
         background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #0a0a0a 100%)',
         padding: '3vw',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: 'inset 0 0 50px rgba(0, 0, 0, 0.8)',
+        boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)',
       }}
+      onClick={handleClick}
     >
+      {/* CRT screen */}
       <div
-        className="w-full h-full relative overflow-hidden"
         style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
           background: 'var(--terminal-bg)',
           borderRadius: '12px',
           boxShadow: `
-            inset 0 0 100px rgba(0, 0, 0, 0.9),
-            inset 0 0 20px rgba(51, 255, 51, 0.1),
-            0 0 40px rgba(51, 255, 51, 0.2)
+            inset 0 0 100px rgba(0,0,0,0.9),
+            inset 0 0 20px rgba(51,255,51,0.1),
+            0 0 40px rgba(51,255,51,0.2)
           `,
           transform: 'perspective(1000px)',
         }}
-        onClick={handleClick}
       >
-        <div 
+        {/* Scanlines */}
+        <div
           className="scanlines"
-          style={{
-            willChange: 'transform',
-            transform: 'translateZ(0)',
-          }}
+          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
         />
 
+        {/* Phosphor glow */}
         <div
-          className="absolute inset-0 pointer-events-none"
           style={{
+            position: 'absolute',
+            inset: 0,
             zIndex: 998,
+            pointerEvents: 'none',
             background: `radial-gradient(
               ellipse at center,
               transparent 0%,
               transparent 60%,
-              rgba(51, 255, 51, 0.05) 80%,
-              rgba(51, 255, 51, 0.1) 100%
+              rgba(51,255,51,0.05) 80%,
+              rgba(51,255,51,0.1) 100%
             )`,
           }}
         />
 
+        {/* Vignette */}
         <div
-          className="absolute inset-0 pointer-events-none"
           style={{
+            position: 'absolute',
+            inset: 0,
             zIndex: 997,
+            pointerEvents: 'none',
             background: `radial-gradient(
               ellipse at center,
               transparent 30%,
-              rgba(0, 0, 0, 0.7) 100%
+              rgba(0,0,0,0.7) 100%
             )`,
           }}
         />
 
+        {/* Screen content — flex column, overflow hidden */}
         <div
           ref={screenContentRef}
-          className="screen-content w-full h-full relative"
+          className="screen-content"
           style={{
+            position: 'relative',
             zIndex: 10,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',           /* never scroll here */
+            display: 'flex',
+            flexDirection: 'column',
             filter: 'contrast(1.1) brightness(1.05)',
             willChange: 'transform',
             transform: 'translateZ(0)',
           }}
         >
-          <div className="terminal-container w-full h-full p-5 grid grid-rows-[auto_1fr_auto] gap-4">
-            <header 
-              className="terminal-header border border-[var(--phosphor-green)] p-3"
-              style={{ background: 'rgba(51, 255, 51, 0.03)' }}
+          {/* Grid: header / main / footer */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: 'auto 1fr auto',
+              gap: '1rem',
+              padding: '1.25rem',
+              height: '100%',
+              minHeight: 0,
+              overflow: 'hidden',         /* never scroll here */
+            }}
+          >
+            {/* ── Header ── */}
+            <header
+              className="border border-[var(--phosphor-green)] p-3"
+              style={{
+                background: 'rgba(51,255,51,0.03)',
+                flexShrink: 0,
+              }}
             >
               <div className="flex justify-between items-start flex-wrap gap-2">
                 <div>
-                  <div className="text-3xl md:text-4xl font-bold text-glow-strong mb-1">N1X.sh</div>
+                  <div className="text-3xl md:text-4xl font-bold text-glow-strong mb-1">
+                    N1X.sh
+                  </div>
                   <div className="text-sm md:text-base opacity-80">
                     NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
                   </div>
@@ -200,54 +205,95 @@ export default function InterfaceLayer() {
               </div>
             </header>
 
-            <main 
-              ref={contentRef}
-              className="terminal-content border border-[var(--phosphor-green)] p-4 overflow-y-auto overflow-x-hidden"
-              style={{ 
-                background: 'rgba(51, 255, 51, 0.01)',
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'var(--phosphor-green) var(--terminal-bg)',
-                WebkitOverflowScrolling: 'touch',
+            {/* ── Main ── */}
+            <main
+              className="border border-[var(--phosphor-green)]"
+              style={{
+                background: 'rgba(51,255,51,0.01)',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,             /* critical */
+                overflow: 'hidden',       /* critical */
               }}
             >
-              <nav className="flex gap-2 mb-4 flex-wrap">
+              {/* Tab nav */}
+              <nav
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  padding: '1rem 1rem 0',
+                  flexShrink: 0,
+                  borderBottom: '1px solid rgba(51,255,51,0.3)',
+                }}
+              >
                 {[
-                  { id: 'home' as Tab, label: 'CORE' },
-                  { id: 'synthetics' as Tab, label: 'SYNTHETICS' },
-                  { id: 'analogues' as Tab, label: 'ANALOGUES' },
-                  { id: 'hybrids' as Tab, label: 'HYBRIDS' },
-                  { id: 'uplink' as Tab, label: 'UPLINK' },
+                  { label: 'CORE',       cmd: null },
+                  { label: 'SYNTHETICS', cmd: 'load synthetics' },
+                  { label: 'ANALOGUES',  cmd: 'load analogues' },
+                  { label: 'HYBRIDS',    cmd: 'load hybrids' },
+                  { label: 'UPLINK',     cmd: 'load uplink' },
                 ].map((tab) => (
                   <button
-                    key={tab.id}
-                    className={`tab-btn px-3.5 py-1.5 border border-[var(--phosphor-green)] cursor-pointer transition-all uppercase tracking-wide ${
-                      activeTab === tab.id
-                        ? 'bg-[var(--phosphor-green)] text-[var(--terminal-bg)]'
-                        : 'bg-transparent text-[var(--phosphor-green)]'
-                    }`}
+                    key={tab.label}
+                    className="tab-btn"
                     style={{
+                      padding: '0.375rem 0.875rem',
                       fontSize: '18px',
                       fontFamily: 'inherit',
-                      boxShadow: activeTab === tab.id ? '0 0 8px rgba(51, 255, 51, 0.5)' : 'none',
+                      background: 'transparent',
+                      color: 'var(--phosphor-green)',
+                      border: '1px solid var(--phosphor-green)',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      transition: 'background 0.15s',
                     }}
-                    onClick={() => handleTabChange(tab.id)}
-                    onMouseEnter={handleHover}
+                    onMouseEnter={(e) => {
+                      (e.target as HTMLElement).style.background = 'rgba(51,255,51,0.1)';
+                      handleHover();
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.target as HTMLElement).style.background = 'transparent';
+                    }}
                     onTouchStart={handleHover}
+                    onClick={() => {
+                      if (tab.cmd) {
+                        eventBus.emit('shell:execute-command', { command: tab.cmd });
+                      }
+                      triggerGlitch();
+                    }}
                   >
                     {tab.label}
                   </button>
                 ))}
               </nav>
 
-              <TabContent activeTab={activeTab} konamiActivated={false} />
+              {/* Shell wrapper — takes remaining height, clips overflow */}
+              <div
+                style={{
+                  flex: '1 1 0%',
+                  minHeight: 0,           /* critical */
+                  overflow: 'hidden',     /* critical */
+                }}
+              >
+                <ShellInterface />
+              </div>
             </main>
 
-            <footer 
-              className="terminal-footer border border-[var(--phosphor-green)] px-4 py-2 flex justify-between text-sm"
-              style={{ background: 'rgba(51, 255, 51, 0.03)' }}
+            {/* ── Footer ── */}
+            <footer
+              className="border border-[var(--phosphor-green)] px-4 py-2"
+              style={{
+                background: 'rgba(51,255,51,0.03)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.875rem',
+                flexShrink: 0,
+              }}
             >
               <div>
-                <span className="status-dot"></span>
+                <span className="status-dot" />
                 <span>INTERFACE_STABLE</span>
               </div>
               <div>N1X.sh v2.0</div>
