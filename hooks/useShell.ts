@@ -10,27 +10,15 @@ export function useShell() {
     historyIndex: -1,
   });
 
+  // Still exported so ShellInterface can use it as a scroll anchor ref
+  // but we never call scrollIntoView on it — ShellInterface owns scrolling
   const historyEndRef = useRef<HTMLDivElement>(null);
-
-  const addOutput = useCallback((output: CommandOutput) => {
-    setState((prev) => ({
-      ...prev,
-      history: [...prev.history, output],
-    }));
-
-    setTimeout(() => {
-      historyEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 10);
-  }, []);
 
   const executeCommandLine = useCallback((input: string) => {
     const result = executeCommand(input);
 
     if (result.clearScreen) {
-      setState((prev) => ({
-        ...prev,
-        history: [],
-      }));
+      setState((prev) => ({ ...prev, history: [] }));
       return;
     }
 
@@ -44,37 +32,38 @@ export function useShell() {
 
     setState((prev) => ({
       ...prev,
-      history: result.clearScreen ? [] : [...prev.history, output],
+      history: [...prev.history, output],
       commandHistory: [input, ...prev.commandHistory].slice(0, 100),
       historyIndex: -1,
     }));
 
-    setTimeout(() => {
-      historyEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 10);
+    // NO scrollIntoView here — ShellInterface handles scrolling
+    // via outputRef.scrollTop = outputRef.scrollHeight
   }, []);
 
-  const navigateHistory = useCallback((direction: 'up' | 'down'): string | null => {
-    setState((prev) => {
-      if (prev.commandHistory.length === 0) return prev;
+  const navigateHistory = useCallback(
+    (direction: 'up' | 'down'): string | null => {
+      let result: string | null = null;
 
-      let newIndex = prev.historyIndex;
+      setState((prev) => {
+        if (prev.commandHistory.length === 0) return prev;
 
-      if (direction === 'up') {
-        newIndex = Math.min(prev.historyIndex + 1, prev.commandHistory.length - 1);
-      } else {
-        newIndex = Math.max(prev.historyIndex - 1, -1);
-      }
+        let newIndex = prev.historyIndex;
 
-      return { ...prev, historyIndex: newIndex };
-    });
+        if (direction === 'up') {
+          newIndex = Math.min(prev.historyIndex + 1, prev.commandHistory.length - 1);
+        } else {
+          newIndex = Math.max(prev.historyIndex - 1, -1);
+        }
 
-    if (state.historyIndex >= 0 && state.historyIndex < state.commandHistory.length) {
-      return state.commandHistory[state.historyIndex];
-    }
+        result = newIndex >= 0 ? prev.commandHistory[newIndex] : null;
+        return { ...prev, historyIndex: newIndex };
+      });
 
-    return null;
-  }, [state.historyIndex, state.commandHistory]);
+      return result;
+    },
+    []
+  );
 
   const clearHistory = useCallback(() => {
     setState((prev) => ({ ...prev, history: [] }));
