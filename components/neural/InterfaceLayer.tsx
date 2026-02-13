@@ -4,13 +4,11 @@ import { useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
-import TabContent from '../ui/TabContent';
-import { Tab } from '@/types/neural.types';
+import ShellInterface from '../shell/ShellInterface';
+import { eventBus } from '@/lib/eventBus';
 
 export default function InterfaceLayer() {
   const {
-    activeTab,
-    setActiveTab,
     uptime,
     processorLoad,
     triggerGlitch,
@@ -19,7 +17,6 @@ export default function InterfaceLayer() {
   const screenContentRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Random heavy screen shake
   useEffect(() => {
     const interval = setInterval(() => {
       if (Math.random() > 0.95 && screenContentRef.current) {
@@ -41,7 +38,6 @@ export default function InterfaceLayer() {
     return () => clearInterval(interval);
   }, []);
 
-  // Random intermittent glitches
   useEffect(() => {
     const scheduleRandomGlitch = () => {
       const delay = Math.random() * 6000 + 2000;
@@ -54,13 +50,11 @@ export default function InterfaceLayer() {
     scheduleRandomGlitch();
   }, [triggerGlitch]);
 
-  // Initial boot glitches
   useEffect(() => {
     setTimeout(() => triggerGlitch(), 500);
     setTimeout(() => triggerGlitch(), 1200);
   }, [triggerGlitch]);
 
-  // Listen to events
   useEventBus('neural:glitch-trigger', () => {
     const glitchables = document.querySelectorAll('.text-glow, .text-glow-strong, .section-heading');
     if (glitchables.length > 0) {
@@ -69,27 +63,6 @@ export default function InterfaceLayer() {
       setTimeout(() => randomEl.classList.remove('glitch-text'), 300);
     }
   });
-
-  const handleTabChange = (tab: Tab) => {
-    if (contentRef.current) {
-      gsap.to(contentRef.current, {
-        opacity: 0,
-        duration: 0.15,
-        force3D: true,
-        onComplete: () => {
-          setActiveTab(tab);
-          gsap.fromTo(
-            contentRef.current,
-            { opacity: 0, y: 10 },
-            { opacity: 1, y: 0, duration: 0.3, force3D: true }
-          );
-        },
-      });
-    } else {
-      setActiveTab(tab);
-    }
-    triggerGlitch();
-  };
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -202,35 +175,32 @@ export default function InterfaceLayer() {
 
             <main 
               ref={contentRef}
-              className="terminal-content border border-[var(--phosphor-green)] p-4 overflow-y-auto overflow-x-hidden"
+              className="terminal-content border border-[var(--phosphor-green)] overflow-hidden flex flex-col"
               style={{ 
                 background: 'rgba(51, 255, 51, 0.01)',
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'var(--phosphor-green) var(--terminal-bg)',
-                WebkitOverflowScrolling: 'touch',
               }}
             >
-              <nav className="flex gap-2 mb-4 flex-wrap">
+              <nav className="flex gap-2 p-4 pb-0 flex-wrap border-b border-[var(--phosphor-green)]/30">
                 {[
-                  { id: 'home' as Tab, label: 'CORE' },
-                  { id: 'synthetics' as Tab, label: 'SYNTHETICS' },
-                  { id: 'analogues' as Tab, label: 'ANALOGUES' },
-                  { id: 'hybrids' as Tab, label: 'HYBRIDS' },
-                  { id: 'uplink' as Tab, label: 'UPLINK' },
+                  { label: 'CORE', cmd: null },
+                  { label: 'SYNTHETICS', cmd: 'load synthetics' },
+                  { label: 'ANALOGUES', cmd: 'load analogues' },
+                  { label: 'HYBRIDS', cmd: 'load hybrids' },
+                  { label: 'UPLINK', cmd: 'load uplink' },
                 ].map((tab) => (
                   <button
-                    key={tab.id}
-                    className={`tab-btn px-3.5 py-1.5 border border-[var(--phosphor-green)] cursor-pointer transition-all uppercase tracking-wide ${
-                      activeTab === tab.id
-                        ? 'bg-[var(--phosphor-green)] text-[var(--terminal-bg)]'
-                        : 'bg-transparent text-[var(--phosphor-green)]'
-                    }`}
+                    key={tab.label}
+                    className="tab-btn px-3.5 py-1.5 border border-[var(--phosphor-green)] cursor-pointer transition-all uppercase tracking-wide bg-transparent text-[var(--phosphor-green)] hover:bg-[var(--phosphor-green)]/10"
                     style={{
                       fontSize: '18px',
                       fontFamily: 'inherit',
-                      boxShadow: activeTab === tab.id ? '0 0 8px rgba(51, 255, 51, 0.5)' : 'none',
                     }}
-                    onClick={() => handleTabChange(tab.id)}
+                    onClick={() => {
+                      if (tab.cmd) {
+                        eventBus.emit('shell:execute-command', { command: tab.cmd });
+                      }
+                      triggerGlitch();
+                    }}
                     onMouseEnter={handleHover}
                     onTouchStart={handleHover}
                   >
@@ -239,7 +209,9 @@ export default function InterfaceLayer() {
                 ))}
               </nav>
 
-              <TabContent activeTab={activeTab} konamiActivated={false} />
+              <div className="flex-1 overflow-hidden">
+                <ShellInterface />
+              </div>
             </main>
 
             <footer 
