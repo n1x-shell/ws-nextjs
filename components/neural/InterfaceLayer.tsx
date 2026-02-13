@@ -8,15 +8,10 @@ import ShellInterface from '../shell/ShellInterface';
 import { eventBus } from '@/lib/eventBus';
 
 export default function InterfaceLayer() {
-  const {
-    uptime,
-    processorLoad,
-    triggerGlitch,
-  } = useNeuralState();
-
+  const { uptime, processorLoad, triggerGlitch } = useNeuralState();
   const screenContentRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
 
+  // Heavy GSAP shake
   useEffect(() => {
     const interval = setInterval(() => {
       if (Math.random() > 0.95 && screenContentRef.current) {
@@ -30,37 +25,38 @@ export default function InterfaceLayer() {
           force3D: true,
           onComplete: () => {
             gsap.set(screenContentRef.current, { x: 0, y: 0 });
-          }
+          },
         });
       }
     }, 5000);
-    
     return () => clearInterval(interval);
   }, []);
 
+  // Random intermittent glitches
   useEffect(() => {
-    const scheduleRandomGlitch = () => {
+    const schedule = () => {
       const delay = Math.random() * 6000 + 2000;
       setTimeout(() => {
         triggerGlitch();
-        scheduleRandomGlitch();
+        schedule();
       }, delay);
     };
-    
-    scheduleRandomGlitch();
+    schedule();
   }, [triggerGlitch]);
 
+  // Boot glitches
   useEffect(() => {
     setTimeout(() => triggerGlitch(), 500);
     setTimeout(() => triggerGlitch(), 1200);
   }, [triggerGlitch]);
 
+  // RGB split on random elements
   useEventBus('neural:glitch-trigger', () => {
-    const glitchables = document.querySelectorAll('.text-glow, .text-glow-strong, .section-heading');
-    if (glitchables.length > 0) {
-      const randomEl = glitchables[Math.floor(Math.random() * glitchables.length)];
-      randomEl.classList.add('glitch-text');
-      setTimeout(() => randomEl.classList.remove('glitch-text'), 300);
+    const els = document.querySelectorAll('.text-glow, .text-glow-strong');
+    if (els.length > 0) {
+      const el = els[Math.floor(Math.random() * els.length)];
+      el.classList.add('glitch-text');
+      setTimeout(() => el.classList.remove('glitch-text'), 300);
     }
   });
 
@@ -72,20 +68,19 @@ export default function InterfaceLayer() {
   };
 
   const handleHover = () => {
-    if (Math.random() > 0.7) {
-      triggerGlitch();
-    }
+    if (Math.random() > 0.7) triggerGlitch();
   };
 
-  const formatUptime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${h}:${m}:${s}`;
+  const formatUptime = (s: number) => {
+    const h = Math.floor(s / 3600).toString().padStart(2, '0');
+    const m = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${sec}`;
   };
 
   return (
-    <div 
+    // ── Full viewport, no overflow ──
+    <div
       className="fixed inset-0"
       style={{
         background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #0a0a0a 100%)',
@@ -93,31 +88,32 @@ export default function InterfaceLayer() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: 'inset 0 0 50px rgba(0, 0, 0, 0.8)',
+        boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)',
+        overflow: 'hidden',
       }}
     >
+      {/* CRT screen — fills padding box */}
       <div
-        className="w-full h-full relative overflow-hidden"
+        className="relative w-full h-full overflow-hidden"
         style={{
           background: 'var(--terminal-bg)',
           borderRadius: '12px',
           boxShadow: `
-            inset 0 0 100px rgba(0, 0, 0, 0.9),
-            inset 0 0 20px rgba(51, 255, 51, 0.1),
-            0 0 40px rgba(51, 255, 51, 0.2)
+            inset 0 0 100px rgba(0,0,0,0.9),
+            inset 0 0 20px rgba(51,255,51,0.1),
+            0 0 40px rgba(51,255,51,0.2)
           `,
           transform: 'perspective(1000px)',
         }}
         onClick={handleClick}
       >
-        <div 
+        {/* Scanlines */}
+        <div
           className="scanlines"
-          style={{
-            willChange: 'transform',
-            transform: 'translateZ(0)',
-          }}
+          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
         />
 
+        {/* Phosphor glow */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -126,12 +122,13 @@ export default function InterfaceLayer() {
               ellipse at center,
               transparent 0%,
               transparent 60%,
-              rgba(51, 255, 51, 0.05) 80%,
-              rgba(51, 255, 51, 0.1) 100%
+              rgba(51,255,51,0.05) 80%,
+              rgba(51,255,51,0.1) 100%
             )`,
           }}
         />
 
+        {/* Vignette */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -139,11 +136,12 @@ export default function InterfaceLayer() {
             background: `radial-gradient(
               ellipse at center,
               transparent 30%,
-              rgba(0, 0, 0, 0.7) 100%
+              rgba(0,0,0,0.7) 100%
             )`,
           }}
         />
 
+        {/* Screen content */}
         <div
           ref={screenContentRef}
           className="screen-content w-full h-full relative"
@@ -152,16 +150,33 @@ export default function InterfaceLayer() {
             filter: 'contrast(1.1) brightness(1.05)',
             willChange: 'transform',
             transform: 'translateZ(0)',
+            overflow: 'hidden',       // Never let this scroll
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          <div className="terminal-container w-full h-full p-5 grid grid-rows-[auto_1fr_auto] gap-4">
-            <header 
+          {/* ── Grid: header / main / footer ── */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: 'auto 1fr auto',
+              gap: '1rem',
+              padding: '1.25rem',
+              height: '100%',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <header
               className="terminal-header border border-[var(--phosphor-green)] p-3"
-              style={{ background: 'rgba(51, 255, 51, 0.03)' }}
+              style={{ background: 'rgba(51,255,51,0.03)', flexShrink: 0 }}
             >
               <div className="flex justify-between items-start flex-wrap gap-2">
                 <div>
-                  <div className="text-3xl md:text-4xl font-bold text-glow-strong mb-1">N1X.sh</div>
+                  <div className="text-3xl md:text-4xl font-bold text-glow-strong mb-1">
+                    N1X.sh
+                  </div>
                   <div className="text-sm md:text-base opacity-80">
                     NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
                   </div>
@@ -173,28 +188,33 @@ export default function InterfaceLayer() {
               </div>
             </header>
 
-            <main 
-              ref={contentRef}
-              className="terminal-content border border-[var(--phosphor-green)] overflow-hidden flex flex-col"
-              style={{ 
-                background: 'rgba(51, 255, 51, 0.01)',
+            {/* Main — takes remaining height, never overflows */}
+            <main
+              className="border border-[var(--phosphor-green)]"
+              style={{
+                background: 'rgba(51,255,51,0.01)',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,      // Critical
+                overflow: 'hidden', // Critical
               }}
             >
-              <nav className="flex gap-2 p-4 pb-0 flex-wrap border-b border-[var(--phosphor-green)]/30">
+              {/* Tab nav */}
+              <nav
+                className="flex gap-2 p-4 pb-0 flex-wrap border-b border-[var(--phosphor-green)]/30"
+                style={{ flexShrink: 0 }}
+              >
                 {[
-                  { label: 'CORE', cmd: null },
+                  { label: 'CORE',       cmd: null },
                   { label: 'SYNTHETICS', cmd: 'load synthetics' },
-                  { label: 'ANALOGUES', cmd: 'load analogues' },
-                  { label: 'HYBRIDS', cmd: 'load hybrids' },
-                  { label: 'UPLINK', cmd: 'load uplink' },
+                  { label: 'ANALOGUES',  cmd: 'load analogues' },
+                  { label: 'HYBRIDS',    cmd: 'load hybrids' },
+                  { label: 'UPLINK',     cmd: 'load uplink' },
                 ].map((tab) => (
                   <button
                     key={tab.label}
                     className="tab-btn px-3.5 py-1.5 border border-[var(--phosphor-green)] cursor-pointer transition-all uppercase tracking-wide bg-transparent text-[var(--phosphor-green)] hover:bg-[var(--phosphor-green)]/10"
-                    style={{
-                      fontSize: '18px',
-                      fontFamily: 'inherit',
-                    }}
+                    style={{ fontSize: '18px', fontFamily: 'inherit' }}
                     onClick={() => {
                       if (tab.cmd) {
                         eventBus.emit('shell:execute-command', { command: tab.cmd });
@@ -209,17 +229,25 @@ export default function InterfaceLayer() {
                 ))}
               </nav>
 
-              <div className="flex-1 overflow-hidden">
+              {/* Shell — fills the rest of main, scrolls internally */}
+              <div
+                style={{
+                  flex: '1 1 0%',
+                  minHeight: 0,      // Critical
+                  overflow: 'hidden', // Let ShellInterface manage its own scroll
+                }}
+              >
                 <ShellInterface />
               </div>
             </main>
 
-            <footer 
+            {/* Footer */}
+            <footer
               className="terminal-footer border border-[var(--phosphor-green)] px-4 py-2 flex justify-between text-sm"
-              style={{ background: 'rgba(51, 255, 51, 0.03)' }}
+              style={{ background: 'rgba(51,255,51,0.03)', flexShrink: 0 }}
             >
               <div>
-                <span className="status-dot"></span>
+                <span className="status-dot" />
                 <span>INTERFACE_STABLE</span>
               </div>
               <div>N1X.sh v2.0</div>
