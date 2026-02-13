@@ -1,7 +1,7 @@
 'use client';
 
-import Terminal from '@/components/Terminal';
+import NeuralCore from '@/components/neural/NeuralCore';
 
 export default function Home() {
-  return <Terminal />;
+  return <NeuralCore />;
 }
