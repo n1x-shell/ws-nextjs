@@ -341,7 +341,7 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
       name: 'uname',
       description: 'Print system information',
       usage: 'uname [-a]',
-      handler: () => ({ output: 'NeuralOS 2.0.0-n1x #1 SMP PREEMPT SD 47634.1 x86_64 tunnelcore GNU/Linux' }),
+      handler: () => ({ output: 'NeuralOS n1x.sh 2.0.0-RELEASE NeuralOS 2.0.0-RELEASE SD 47634.1-7073435a8fa30 SUBSTRATE amd64' }),
     },
 
     uptime: {
