@@ -4,8 +4,11 @@ import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
+import { createSystemCommands } from './systemCommands';
 
 const fs = new FileSystemNavigator();
+
+const systemCommands = createSystemCommands(fs);
 
 if (typeof window !== 'undefined') {
   eventBus.on('neural:ghost-unlocked',  () => fs.unlock());
@@ -78,10 +81,43 @@ export const commands: Record<string, Command> = {
               {
                 label: 'SYSTEM',
                 cmds: [
-                  ['status', 'System telemetry'],
-                  ['clear',  'Clear terminal'],
-                  ['echo',   'Echo text'],
-                  ['help',   'Show this help'],
+                  ['status',  'System telemetry'],
+                  ['uname',   'System information'],
+                  ['uptime',  'Session uptime'],
+                  ['whoami',  'Current user'],
+                  ['id',      'User identity'],
+                  ['ps',      'Process list'],
+                  ['top',     'Live process monitor'],
+                  ['df',      'Disk usage'],
+                  ['free',    'Memory usage'],
+                  ['ifconfig','Network interfaces'],
+                  ['netstat', 'Network connections'],
+                  ['env',     'Environment variables'],
+                  ['dmesg',   'Boot log'],
+                  ['history', 'Command history'],
+                  ['clear',   'Clear terminal'],
+                  ['echo',    'Echo text'],
+                  ['help',    'Show this help'],
+                ],
+              },
+              {
+                label: 'UTILITIES',
+                cmds: [
+                  ['fortune', 'Random transmission'],
+                  ['cal',     'Calendar'],
+                  ['date',    'Current date/stardate'],
+                  ['cowsay',  'ASCII art message'],
+                  ['matrix',  'Matrix rain'],
+                  ['morse',   'Morse code encoder'],
+                  ['base64',  'Base64 encode/decode'],
+                  ['sha256',  'SHA-256 hash'],
+                  ['wc',      'Word count'],
+                  ['grep',    'Search file contents'],
+                  ['find',    'Find files'],
+                  ['diff',    'Compare files'],
+                  ['sort',    'Sort tokens'],
+                  ['uniq',    'Remove duplicates'],
+                  ['man',     'Manual pages'],
                 ],
               },
             ].map((section) => (
@@ -469,6 +505,8 @@ export const commands: Record<string, Command> = {
       };
     },
   },
+
+  ...systemCommands,
 };
 
 export function executeCommand(input: string): CommandResult {
