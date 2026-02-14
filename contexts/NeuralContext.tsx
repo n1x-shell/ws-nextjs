@@ -1,6 +1,12 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import { NeuralState, NeuralMode, Tab, SignalIntensity } from '@/types/neural.types';
 import { eventBus } from '@/lib/eventBus';
 
@@ -9,6 +15,8 @@ interface NeuralContextType extends NeuralState {
   setActiveTab: (tab: Tab) => void;
   setGlitchIntensity: (intensity: SignalIntensity) => void;
   triggerGlitch: () => void;
+  ghostUnlocked: boolean;
+  unlockGhost: () => void;
 }
 
 const NeuralContext = createContext<NeuralContextType | undefined>(undefined);
@@ -19,9 +27,11 @@ export function NeuralProvider({ children }: { children: ReactNode }) {
     activeTab: 'home',
     glitchIntensity: 0,
     uptime: 0,
-    processorLoad: '█████░░░░░',
+    processorLoad: 'xxxxx.....',
     isBooting: true,
   });
+
+  const [ghostUnlocked, setGhostUnlocked] = useState(false);
 
   // Uptime counter
   useEffect(() => {
@@ -34,21 +44,19 @@ export function NeuralProvider({ children }: { children: ReactNode }) {
   // Processor load randomizer
   useEffect(() => {
     const loads = [
-      '██████████',
-      '█████████░',
-      '████████░░',
-      '███████░░░',
-      '████████░░',
-      '█████████░',
+      'xxxxxxxxxx',
+      'xxxxxxxxx.',
+      'xxxxxxxx..',
+      'xxxxxxx...',
+      'xxxxxxxx..',
+      'xxxxxxxxx.',
     ];
-    
     const interval = setInterval(() => {
       setState((prev) => ({
         ...prev,
         processorLoad: loads[Math.floor(Math.random() * loads.length)],
       }));
     }, 800);
-    
     return () => clearInterval(interval);
   }, []);
 
@@ -81,6 +89,11 @@ export function NeuralProvider({ children }: { children: ReactNode }) {
     eventBus.emit('neural:glitch-trigger');
   };
 
+  const unlockGhost = () => {
+    setGhostUnlocked(true);
+    eventBus.emit('neural:ghost-unlocked');
+  };
+
   return (
     <NeuralContext.Provider
       value={{
@@ -89,6 +102,8 @@ export function NeuralProvider({ children }: { children: ReactNode }) {
         setActiveTab,
         setGlitchIntensity,
         triggerGlitch,
+        ghostUnlocked,
+        unlockGhost,
       }}
     >
       {children}

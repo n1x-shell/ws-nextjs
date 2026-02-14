@@ -7,6 +7,12 @@ import { renderStreamContent } from './contentRenderer';
 
 const fs = new FileSystemNavigator();
 
+// Wire up unlock signals to the fs singleton
+if (typeof window !== 'undefined') {
+  eventBus.on('neural:ghost-unlocked',  () => fs.unlock());
+  eventBus.on('neural:hidden-unlocked', () => fs.unlockHidden());
+}
+
 const S = {
   base:   'var(--text-base)',
   header: 'var(--text-header)',
@@ -28,7 +34,9 @@ export const commands: Record<string, Command> = {
               <div style={{ fontSize: S.base }}>
                 <div className={S.glow}>&gt; {cmd.name}</div>
                 <div style={{ marginLeft: '1rem', marginTop: '0.4rem' }}>{cmd.description}</div>
-                <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>Usage: {cmd.usage}</div>
+                <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>
+                  Usage: {cmd.usage}
+                </div>
                 {cmd.aliases && (
                   <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>
                     Aliases: {cmd.aliases.join(', ')}
@@ -79,12 +87,14 @@ export const commands: Record<string, Command> = {
               },
             ].map((section) => (
               <div key={section.label} style={{ marginBottom: '0.75rem' }}>
-                <div className={S.glow} style={{ marginBottom: '0.3rem' }}>// {section.label}</div>
+                <div className={S.glow} style={{ marginBottom: '0.3rem' }}>
+                  // {section.label}
+                </div>
                 <div style={{ marginLeft: '1rem' }}>
                   {section.cmds.map(([name, desc]) => (
                     <div key={name} style={{ marginBottom: '0.2rem' }}>
                       <span className={S.glow}>{name}</span>
-                      <span style={{ opacity: 0.6 }}> — {desc}</span>
+                      <span style={{ opacity: 0.6 }}> â {desc}</span>
                     </div>
                   ))}
                 </div>
@@ -121,7 +131,7 @@ export const commands: Record<string, Command> = {
                 className={file.type === 'directory' ? S.glow : ''}
                 style={file.type !== 'directory' ? { opacity: 0.8 } : {}}
               >
-                {file.type === 'directory' ? '📁' : '📄'} {file.name}
+                {file.type === 'directory' ? 'ð' : 'ð'} {file.name}
               </div>
             ))}
           </div>
@@ -159,7 +169,14 @@ export const commands: Record<string, Command> = {
       if (result.success) {
         return {
           output: (
-            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: S.base, opacity: 0.9 }}>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'inherit',
+                fontSize: S.base,
+                opacity: 0.9,
+              }}
+            >
               {result.content}
             </pre>
           ),
@@ -202,10 +219,10 @@ export const commands: Record<string, Command> = {
       if (args.length === 0) return { output: 'Usage: play <track-name>', error: true };
 
       const tracks: Record<string, { title: string; id: string; description?: string }> = {
-        augmented:    { title: '[AUGMENTED] - Complete Stream',     id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol → sovereignty achieved' },
-        'split-brain':{ title: 'Split Brain (Cinematic Score)',     id: 'HQnENsnGfME' },
-        'hell-bent':  { title: 'Get Hell Bent (Cinematic Score)',   id: '6Ch2n75lFok' },
-        gigercore:    { title: 'GIGERCORE',                         id: 'ocSBtaKbGIc' },
+        augmented:     { title: '[AUGMENTED] - Complete Stream',   id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol â sovereignty achieved' },
+        'split-brain': { title: 'Split Brain (Cinematic Score)',   id: 'HQnENsnGfME' },
+        'hell-bent':   { title: 'Get Hell Bent (Cinematic Score)', id: '6Ch2n75lFok' },
+        gigercore:     { title: 'GIGERCORE',                       id: 'ocSBtaKbGIc' },
       };
 
       const track = tracks[args[0].toLowerCase()];
@@ -260,10 +277,10 @@ export const commands: Record<string, Command> = {
             &gt; AVAILABLE_TRACKS
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div><span className={S.glow}>augmented</span>   — [AUGMENTED] Complete Stream</div>
-            <div><span className={S.glow}>split-brain</span> — Split Brain (Cinematic Score)</div>
-            <div><span className={S.glow}>hell-bent</span>   — Get Hell Bent (Cinematic Score)</div>
-            <div><span className={S.glow}>gigercore</span>   — GIGERCORE</div>
+            <div><span className={S.glow}>augmented</span>   â [AUGMENTED] Complete Stream</div>
+            <div><span className={S.glow}>split-brain</span> â Split Brain (Cinematic Score)</div>
+            <div><span className={S.glow}>hell-bent</span>   â Get Hell Bent (Cinematic Score)</div>
+            <div><span className={S.glow}>gigercore</span>   â GIGERCORE</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>Use 'play [track-name]' to load</div>
         </div>
@@ -282,10 +299,10 @@ export const commands: Record<string, Command> = {
             &gt; AVAILABLE_STREAMS
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div><span className={S.glow}>synthetics</span> — Machine-generated compositions (4 tracks)</div>
-            <div><span className={S.glow}>analogues</span>  — Organic creations (recording in progress)</div>
-            <div><span className={S.glow}>hybrids</span>    — Symbiotic fusion (calibration phase)</div>
-            <div><span className={S.glow}>uplink</span>     — External broadcast node</div>
+            <div><span className={S.glow}>synthetics</span> â Machine-generated compositions (4 tracks)</div>
+            <div><span className={S.glow}>analogues</span>  â Organic creations (recording in progress)</div>
+            <div><span className={S.glow}>hybrids</span>    â Symbiotic fusion (calibration phase)</div>
+            <div><span className={S.glow}>uplink</span>     â External broadcast node</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>Use 'load [stream-name]' to view</div>
         </div>
@@ -304,10 +321,10 @@ export const commands: Record<string, Command> = {
             &gt; SCANNING_NEURAL_STREAMS...
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div style={{ color: '#33ff33' }}>✓ SYNTHETICS — 4 transmissions detected</div>
-            <div style={{ color: '#ffaa00' }}>⚠ ANALOGUES  — Recording in progress</div>
-            <div style={{ color: '#ffaa00' }}>⚠ HYBRIDS    — Calibration phase</div>
-            <div style={{ color: '#33ff33' }}>✓ UPLINK     — External node active</div>
+            <div style={{ color: '#33ff33' }}>â SYNTHETICS â 4 transmissions detected</div>
+            <div style={{ color: '#ffaa00' }}>â  ANALOGUES  â Recording in progress</div>
+            <div style={{ color: '#ffaa00' }}>â  HYBRIDS    â Calibration phase</div>
+            <div style={{ color: '#33ff33' }}>â UPLINK     â External node active</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>
             'tracks' | 'streams' | 'load [stream]' | 'play [track]'
@@ -348,21 +365,25 @@ export const commands: Record<string, Command> = {
 
   unlock: {
     name: 'unlock',
-    description: 'Unlock hidden features',
+    description: 'Unlock restricted directories',
     usage: 'unlock <code>',
     hidden: true,
     handler: (args) => {
       if (args[0] === 'hidden') {
-        eventBus.emit('shell:unlock', { code: 'hidden' });
+        fs.unlockHidden();
+        eventBus.emit('neural:hidden-unlocked');
+
         return {
           output: (
             <div style={{ fontSize: S.base }}>
               <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
                 &gt; ACCESS_GRANTED
               </div>
-              <div style={{ marginLeft: '1rem' }}>Hidden systems now accessible.</div>
-              <div style={{ marginLeft: '1rem', opacity: 0.6, marginTop: '0.25rem' }}>
-                Try 'cd /hidden'
+              <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                <div>/hidden â mounted</div>
+                <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>
+                  'cd /hidden' to proceed
+                </div>
               </div>
             </div>
           ),
@@ -383,12 +404,117 @@ export const commands: Record<string, Command> = {
       return { output: 'System glitch initiated...' };
     },
   },
+
+  ghost: {
+    name: 'ghost',
+    description: 'Access ghost channel index',
+    usage: 'ghost',
+    hidden: true,
+    handler: () => {
+      if (!fs.isGhostUnlocked()) {
+        return { output: 'Permission denied', error: true };
+      }
+      return {
+        output: (
+          <div style={{ fontSize: S.base }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+              &gt; GHOST_CHANNEL
+            </div>
+            <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
+              <div>transmission.log â unfiltered feed</div>
+              <div>manifesto.txt    â origin statement</div>
+              <div>signal.raw       â raw frequency data</div>
+              <div>.coordinates     â [REDACTED]</div>
+            </div>
+            <div style={{ ...S.dim, marginTop: '0.5rem' }}>
+              'cd /ghost' then 'cat [filename]' to read
+            </div>
+          </div>
+        ),
+      };
+    },
+  },
 };
 
+// ââ Execute a command string ââ
 export function executeCommand(input: string): CommandResult {
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
 
+  // ââ Handle ./ execution ââ
+  if (trimmed.startsWith('./')) {
+    const filename = trimmed.slice(2).split(/\s+/)[0];
+    const resolved = fs.resolveExecutable(filename);
+
+    if (!resolved) {
+      return {
+        output: (
+          <span style={{ color: '#f87171' }}>
+            {trimmed}: No such file or not executable
+          </span>
+        ),
+        error: true,
+      };
+    }
+
+    if (resolved === 'n1x.sh') {
+      if (!fs.getCurrentDirectory().startsWith('/hidden')) {
+        return {
+          output: (
+            <span style={{ color: '#f87171' }}>
+              Permission denied â must be in /hidden to execute n1x.sh
+            </span>
+          ),
+          error: true,
+        };
+      }
+
+      eventBus.emit('neural:konami');
+
+      return {
+        output: (
+          <div style={{ fontSize: 'var(--text-base)' }}>
+            <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
+              &gt; EXECUTING n1x.sh
+            </div>
+            <div style={{ marginLeft: '1rem', opacity: 0.6 }}>
+              initializing...
+            </div>
+          </div>
+        ),
+      };
+    }
+
+    // Any other ./ file â cat it
+    const result = fs.readFile(resolved);
+    if (result.success) {
+      return {
+        output: (
+          <pre
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'inherit',
+              fontSize: 'var(--text-base)',
+              opacity: 0.9,
+            }}
+          >
+            {result.content}
+          </pre>
+        ),
+      };
+    }
+
+    return { output: result.error || 'Execution failed', error: true };
+  }
+
+  // ââ System message pass-through ââ
+  // Lines starting with >> are injected by the ghost sequence as display-only headers.
+  // The command line itself IS the output â no additional output rendered below it.
+  if (trimmed.startsWith('>>')) {
+    return { output: null };
+  }
+
+  // ââ Normal command lookup ââ
   const parts       = trimmed.split(/\s+/);
   const commandName = parts[0].toLowerCase();
   const args        = parts.slice(1);
@@ -423,7 +549,15 @@ export function executeCommand(input: string): CommandResult {
 
 export function getCommandSuggestions(partial: string): string[] {
   const lower = partial.toLowerCase();
-  return Object.keys(commands)
+
+  const suggestions = Object.keys(commands)
     .filter((cmd) => !commands[cmd].hidden && cmd.startsWith(lower))
     .sort();
+
+  // Suggest ./n1x.sh if in /hidden and they start with ./
+  if ('./n1x.sh'.startsWith(partial) && fs.getCurrentDirectory().startsWith('/hidden')) {
+    suggestions.unshift('./n1x.sh');
+  }
+
+  return suggestions;
 }
