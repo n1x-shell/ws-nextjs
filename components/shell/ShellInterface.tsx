@@ -93,7 +93,7 @@ export default function ShellInterface() {
     const value = e.target.value;
     setInput(value);
     if (value.trim()) {
-      const parts = value.trim().split(/\s+/);
+      const parts = value.trim().split(/\\s+/);
       setSuggestions(parts.length === 1 ? getCommandSuggestions(parts[0]) : []);
     } else {
       setSuggestions([]);
@@ -205,7 +205,7 @@ export default function ShellInterface() {
               </div>
             ) : (
               <div className="text-glow" style={{ marginBottom: '0.25rem' }}>
-                <span style={{ opacity: 0.4 }}>n1x@core:~$</span>{' '}
+                <span style={{ opacity: 0.4 }}>n1x@core:~\$</span>{' '}
                 {item.command}
               </div>
             )}
@@ -280,7 +280,7 @@ export default function ShellInterface() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit' }}>
           <span className="text-glow" style={{ opacity: 0.6, whiteSpace: 'nowrap' }}>
-            n1x@core:~$
+            n1x@core:~\$
           </span>
           <input
             ref={inputRef}
