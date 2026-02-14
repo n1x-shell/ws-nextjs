@@ -61,7 +61,6 @@ setSuggestions([]);
 useEventBus(‘neural:konami’, () => {
 const SEQUENCE_DURATION = 4000;
 
-```
 setTimeout(() => {
   unlockGhost();
 }, SEQUENCE_DURATION);
@@ -79,7 +78,6 @@ lines.forEach(({ delay, cmd }) => {
     executeCommand(cmd);
   }, delay);
 });
-```
 
 });
 
@@ -166,7 +164,6 @@ style={{ fontSize: ‘var(–text-header)’, marginBottom: ‘0.75rem’ }}
 > CORE_SYSTEMS_ONLINE
 </div>
 
-```
         <div style={{ opacity: 0.9, lineHeight: 1.6, marginBottom: '0.75rem' }}>
           You are now connected to the N1X neural interface.
           This terminal provides direct access to my creative output streams.
