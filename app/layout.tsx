@@ -1,9 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { VT323 } from 'next/font/google';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-
 
 const vt323 = VT323({
   weight: '400',
@@ -16,7 +15,7 @@ export const metadata: Metadata = {
   description:
     '>> TRANSMISSION RECEIVED. Access TUNNELCORE streams: [AUGMENTED] cyborg sovereignty protocol, cinematic neural fractures, GIGERCORE signal.',
   openGraph: {
-    title: 'N1X.sh – NEURAL UPLINK ACTIVE',
+    title: 'N1X.sh - NEURAL UPLINK ACTIVE',
     description:
       '>> TRANSMISSION RECEIVED. Access TUNNELCORE streams: [AUGMENTED] cyborg sovereignty protocol, cinematic neural fractures, GIGERCORE signal.',
     type: 'website',
@@ -26,6 +25,13 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
