@@ -312,7 +312,5 @@ style={{ fontSize: ‘var(–text-header)’, marginBottom: ‘0.75rem’ }}
     </div>
   </form>
 </div>
-```
-
 );
 }
