@@ -1,4 +1,4 @@
-'use client';
+‘use client’;
 
 import { useState, useRef, useEffect, useCallback } from ‘react’;
 import { useShell } from ‘@/hooks/useShell’;
@@ -19,7 +19,7 @@ useEffect(() => {
 inputRef.current?.focus();
 }, []);
 
-// Scroll ONLY the output div — never the page
+// Scroll ONLY the output div
 useEffect(() => {
 const el = outputRef.current;
 if (!el) return;
@@ -56,20 +56,16 @@ setSuggestions([]);
 }
 });
 
-// Listen directly to neural:konami — no dependency on GSAP onComplete chain.
-// Fires staggered output after 4s flat (matches GSAP sequence duration).
-// unlockGhost() called here too — belt and suspenders in case
-// InterfaceLayer’s onComplete has issues.
+// Listen directly to neural:konami
+// Fires staggered output after 4s flat matching the GSAP sequence duration
 useEventBus(‘neural:konami’, () => {
 const SEQUENCE_DURATION = 4000;
 
 ```
-// Unlock ghost filesystem after sequence completes
 setTimeout(() => {
   unlockGhost();
 }, SEQUENCE_DURATION);
 
-// Staggered output lines — appear as screen recovers
 const lines = [
   { delay: SEQUENCE_DURATION + 100,  cmd: '>> DEEP_ACCESS_GRANTED'     },
   { delay: SEQUENCE_DURATION + 600,  cmd: '>> GHOST_CHANNEL_DECRYPTED' },
@@ -144,7 +140,7 @@ fontSize: ‘var(–text-base)’,
 touchAction: ‘none’,
 }}
 >
-{/* ── Output pane — ONLY this scrolls ── */}
+{/* Output pane - ONLY this scrolls */}
 <div
 ref={outputRef}
 className=“shell-output”
@@ -160,7 +156,7 @@ touchAction: ‘pan-y’,
 fontSize: ‘var(–text-base)’,
 }}
 >
-{/* MOTD — shown before first command */}
+{/* MOTD */}
 {history.length === 0 && (
 <div style={{ marginBottom: ‘1.5rem’ }}>
 <div
@@ -190,18 +186,16 @@ style={{ fontSize: ‘var(–text-header)’, marginBottom: ‘0.75rem’ }}
             opacity: 0.6,
           }}
         >
-          Type <span className="text-glow">'help'</span> for commands ·{' '}
-          <span className="text-glow">'scan'</span> to detect streams ·{' '}
-          <span className="text-glow">'tracks'</span> to list music
+          Type <span className="text-glow">&apos;help&apos;</span> for commands &middot;{' '}
+          <span className="text-glow">&apos;scan&apos;</span> to detect streams &middot;{' '}
+          <span className="text-glow">&apos;tracks&apos;</span> to list music
         </div>
       </div>
     )}
 
-    {/* Command output history */}
+    {/* Command history */}
     {history.map((item) => (
       <div key={item.id} style={{ marginBottom: '0.75rem' }}>
-
-        {/* System message — >> prefix, rendered as full-width header, no prompt */}
         {item.command.startsWith('>>') ? (
           <div
             className="text-glow"
@@ -214,14 +208,12 @@ style={{ fontSize: ‘var(–text-header)’, marginBottom: ‘0.75rem’ }}
             {item.command}
           </div>
         ) : (
-          /* Normal command — show prompt echo */
           <div className="text-glow" style={{ marginBottom: '0.25rem' }}>
             <span style={{ opacity: 0.4 }}>n1x@core:~$</span>{' '}
             {item.command}
           </div>
         )}
 
-        {/* Output — skip null (system message pass-through has no output) */}
         {item.output != null && (
           <div
             style={{
@@ -235,11 +227,10 @@ style={{ fontSize: ‘var(–text-header)’, marginBottom: ‘0.75rem’ }}
       </div>
     ))}
 
-    {/* Scroll anchor */}
     <div ref={historyEndRef} />
   </div>
 
-  {/* ── Autocomplete ── */}
+  {/* Autocomplete */}
   {suggestions.length > 0 && (
     <div
       style={{
@@ -279,7 +270,7 @@ style={{ fontSize: ‘var(–text-header)’, marginBottom: ‘0.75rem’ }}
     </div>
   )}
 
-  {/* ── Input line — always pinned to bottom ── */}
+  {/* Input line */}
   <form
     onSubmit={handleSubmit}
     style={{
