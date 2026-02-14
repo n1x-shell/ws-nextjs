@@ -94,7 +94,7 @@ export const commands: Record<string, Command> = {
                   {section.cmds.map(([name, desc]) => (
                     <div key={name} style={{ marginBottom: '0.2rem' }}>
                       <span className={S.glow}>{name}</span>
-                      <span style={{ opacity: 0.6 }}> â {desc}</span>
+                      <span style={{ opacity: 0.6 }}>  --  {desc}</span>
                     </div>
                   ))}
                 </div>
@@ -122,16 +122,78 @@ export const commands: Record<string, Command> = {
     aliases: ['dir'],
     handler: () => {
       const files = fs.listDirectory();
+      const cwd = fs.getCurrentDirectory();
+
+      const toStardate = (seed: string): string => {
+        let hash = 0;
+        for (let i = 0; i < seed.length; i++) {
+          hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+          hash |= 0;
+        }
+        const base = 47000 + (Math.abs(hash) % 9999);
+        const frac = Math.abs(hash >> 4) % 10;
+        return `SD ${base}.${frac}`;
+      };
+
+      const toSize = (name: string, isDir: boolean): string => {
+        if (isDir) return '4096';
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+          hash = ((hash << 5) - hash) + name.charCodeAt(i);
+          hash |= 0;
+        }
+        return String(128 + (Math.abs(hash) % 3968));
+      };
+
+      const perms = (type: string, name: string): string => {
+        if (type === 'directory') return 'drwxr-x---';
+        if (name.endsWith('.sh'))  return '-rwxr-x---';
+        return '-rw-r-----';
+      };
+
+      const entries = [
+        { name: '.', type: 'directory', seed: cwd + '.' },
+        { name: '..', type: 'directory', seed: cwd + '..' },
+        ...files.map((f) => ({ name: f.name, type: f.type, seed: cwd + f.name })),
+      ];
+
+      const total = entries.filter((e) => e.name !== '.' && e.name !== '..').length;
+
+      const rows = entries.map((entry) => {
+        const p   = perms(entry.type, entry.name);
+        const lnk = entry.type === 'directory' ? '2' : '1';
+        const sz  = toSize(entry.name, entry.type === 'directory').padStart(5);
+        const sd  = toStardate(entry.seed);
+        return { p, lnk, sz, sd, name: entry.name, isDir: entry.type === 'directory', isSh: entry.name.endsWith('.sh') };
+      });
+
       return {
         output: (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: S.base }}>
-            {files.map((file) => (
+          <div style={{ fontSize: S.base, fontFamily: 'inherit' }}>
+            <div style={{ opacity: 0.5, marginBottom: '0.3rem' }}>total {total}</div>
+            {rows.map((row) => (
               <div
-                key={file.name}
-                className={file.type === 'directory' ? S.glow : ''}
-                style={file.type !== 'directory' ? { opacity: 0.8 } : {}}
+                key={row.name}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '11ch 2ch 5ch 8ch 12ch 14ch 1fr',
+                  gap: '0 0.5rem',
+                  lineHeight: 1.7,
+                  whiteSpace: 'nowrap',
+                }}
               >
-                {file.type === 'directory' ? 'ð' : 'ð'} {file.name}
+                <span style={{ opacity: 0.7 }}>{row.p}</span>
+                <span style={{ opacity: 0.5 }}>{row.lnk}</span>
+                <span style={{ opacity: 0.5 }}>n1x</span>
+                <span style={{ opacity: 0.5 }}>neural</span>
+                <span style={{ opacity: 0.5, textAlign: 'right' }}>{row.sz}</span>
+                <span style={{ opacity: 0.4 }}>{row.sd}</span>
+                <span
+                  className={row.isDir ? S.glow : ''}
+                  style={row.isSh ? { color: '#33ff33', fontWeight: 'bold' } : !row.isDir ? { opacity: 0.9 } : {}}
+                >
+                  {row.name}
+                </span>
               </div>
             ))}
           </div>
@@ -219,7 +281,7 @@ export const commands: Record<string, Command> = {
       if (args.length === 0) return { output: 'Usage: play <track-name>', error: true };
 
       const tracks: Record<string, { title: string; id: string; description?: string }> = {
-        augmented:     { title: '[AUGMENTED] - Complete Stream',   id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol â sovereignty achieved' },
+        augmented:     { title: '[AUGMENTED] - Complete Stream',   id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol -> sovereignty achieved' },
         'split-brain': { title: 'Split Brain (Cinematic Score)',   id: 'HQnENsnGfME' },
         'hell-bent':   { title: 'Get Hell Bent (Cinematic Score)', id: '6Ch2n75lFok' },
         gigercore:     { title: 'GIGERCORE',                       id: 'ocSBtaKbGIc' },
@@ -277,10 +339,10 @@ export const commands: Record<string, Command> = {
             &gt; AVAILABLE_TRACKS
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div><span className={S.glow}>augmented</span>   â [AUGMENTED] Complete Stream</div>
-            <div><span className={S.glow}>split-brain</span> â Split Brain (Cinematic Score)</div>
-            <div><span className={S.glow}>hell-bent</span>   â Get Hell Bent (Cinematic Score)</div>
-            <div><span className={S.glow}>gigercore</span>   â GIGERCORE</div>
+            <div><span className={S.glow}>augmented</span>    --  [AUGMENTED] Complete Stream</div>
+            <div><span className={S.glow}>split-brain</span>  --  Split Brain (Cinematic Score)</div>
+            <div><span className={S.glow}>hell-bent</span>    --  Get Hell Bent (Cinematic Score)</div>
+            <div><span className={S.glow}>gigercore</span>    --  GIGERCORE</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>Use 'play [track-name]' to load</div>
         </div>
@@ -299,10 +361,10 @@ export const commands: Record<string, Command> = {
             &gt; AVAILABLE_STREAMS
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div><span className={S.glow}>synthetics</span> â Machine-generated compositions (4 tracks)</div>
-            <div><span className={S.glow}>analogues</span>  â Organic creations (recording in progress)</div>
-            <div><span className={S.glow}>hybrids</span>    â Symbiotic fusion (calibration phase)</div>
-            <div><span className={S.glow}>uplink</span>     â External broadcast node</div>
+            <div><span className={S.glow}>synthetics</span>  --  Machine-generated compositions (4 tracks)</div>
+            <div><span className={S.glow}>analogues</span>   --  Organic creations (recording in progress)</div>
+            <div><span className={S.glow}>hybrids</span>     --  Symbiotic fusion (calibration phase)</div>
+            <div><span className={S.glow}>uplink</span>      --  External broadcast node</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>Use 'load [stream-name]' to view</div>
         </div>
@@ -321,10 +383,10 @@ export const commands: Record<string, Command> = {
             &gt; SCANNING_NEURAL_STREAMS...
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div style={{ color: '#33ff33' }}>â SYNTHETICS â 4 transmissions detected</div>
-            <div style={{ color: '#ffaa00' }}>â  ANALOGUES  â Recording in progress</div>
-            <div style={{ color: '#ffaa00' }}>â  HYBRIDS    â Calibration phase</div>
-            <div style={{ color: '#33ff33' }}>â UPLINK     â External node active</div>
+            <div style={{ color: '#33ff33' }}>[OK] SYNTHETICS  --  4 transmissions detected</div>
+            <div style={{ color: '#ffaa00' }}>[!!] ANALOGUES   --  Recording in progress</div>
+            <div style={{ color: '#ffaa00' }}>[!!] HYBRIDS     --  Calibration phase</div>
+            <div style={{ color: '#33ff33' }}>[OK] UPLINK      --  External node active</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>
             'tracks' | 'streams' | 'load [stream]' | 'play [track]'
@@ -380,9 +442,9 @@ export const commands: Record<string, Command> = {
                 &gt; ACCESS_GRANTED
               </div>
               <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-                <div>/hidden â mounted</div>
+                <div>/hidden -- mounted</div>
                 <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>
-                  'cd /hidden' to proceed
+                  cd /hidden to proceed
                 </div>
               </div>
             </div>
@@ -421,13 +483,13 @@ export const commands: Record<string, Command> = {
               &gt; GHOST_CHANNEL
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
-              <div>transmission.log â unfiltered feed</div>
-              <div>manifesto.txt    â origin statement</div>
-              <div>signal.raw       â raw frequency data</div>
-              <div>.coordinates     â [REDACTED]</div>
+              <div>transmission.log  --  unfiltered feed</div>
+              <div>manifesto.txt     --  origin statement</div>
+              <div>signal.raw        --  raw frequency data</div>
+              <div>.coordinates      --  [REDACTED]</div>
             </div>
             <div style={{ ...S.dim, marginTop: '0.5rem' }}>
-              'cd /ghost' then 'cat [filename]' to read
+              cd /ghost then cat [filename] to read
             </div>
           </div>
         ),
@@ -436,12 +498,12 @@ export const commands: Record<string, Command> = {
   },
 };
 
-// ââ Execute a command string ââ
+// -- Execute a command string --
 export function executeCommand(input: string): CommandResult {
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
 
-  // ââ Handle ./ execution ââ
+  // -- Handle ./ execution --
   if (trimmed.startsWith('./')) {
     const filename = trimmed.slice(2).split(/\s+/)[0];
     const resolved = fs.resolveExecutable(filename);
@@ -462,7 +524,7 @@ export function executeCommand(input: string): CommandResult {
         return {
           output: (
             <span style={{ color: '#f87171' }}>
-              Permission denied â must be in /hidden to execute n1x.sh
+              Permission denied -- must be in /hidden to execute n1x.sh
             </span>
           ),
           error: true,
@@ -485,7 +547,6 @@ export function executeCommand(input: string): CommandResult {
       };
     }
 
-    // Any other ./ file â cat it
     const result = fs.readFile(resolved);
     if (result.success) {
       return {
@@ -507,14 +568,12 @@ export function executeCommand(input: string): CommandResult {
     return { output: result.error || 'Execution failed', error: true };
   }
 
-  // ââ System message pass-through ââ
-  // Lines starting with >> are injected by the ghost sequence as display-only headers.
-  // The command line itself IS the output â no additional output rendered below it.
+  // -- System message pass-through --
   if (trimmed.startsWith('>>')) {
     return { output: null };
   }
 
-  // ââ Normal command lookup ââ
+  // -- Normal command lookup --
   const parts       = trimmed.split(/\s+/);
   const commandName = parts[0].toLowerCase();
   const args        = parts.slice(1);
@@ -554,7 +613,6 @@ export function getCommandSuggestions(partial: string): string[] {
     .filter((cmd) => !commands[cmd].hidden && cmd.startsWith(lower))
     .sort();
 
-  // Suggest ./n1x.sh if in /hidden and they start with ./
   if ('./n1x.sh'.startsWith(partial) && fs.getCurrentDirectory().startsWith('/hidden')) {
     suggestions.unshift('./n1x.sh');
   }
