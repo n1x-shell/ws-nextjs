@@ -147,6 +147,7 @@ export const commands: Record<string, Command> = {
     name: 'clear',
     description: 'Clear terminal screen',
     usage: 'clear',
+    aliases: ['core'],
     handler: () => ({ output: '', clearScreen: true }),
   },
 
@@ -263,6 +264,10 @@ export const commands: Record<string, Command> = {
     usage: 'load <synthetics|analogues|hybrids|uplink>',
     handler: (args) => {
       if (args.length === 0) return { output: 'Usage: load <stream>', error: true };
+
+      if (args[0].toLowerCase() === 'core') {
+        return { output: '', clearScreen: true };
+      }
 
       const streamMap: Record<string, Tab> = {
         synthetics: 'synthetics',
