@@ -835,7 +835,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         };
       },
     },
-
     diff: {
       name: 'diff',
       description: 'Compare two files',
@@ -884,4 +883,62 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
       name: 'sort',
       description: 'Sort tokens',
       usage: 'sort <words...>',
-      handler: (args) => {​​​​​​​​​​​​​​​​
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: sort <words...>', error: true };
+        const sorted = [...args].sort();
+        return { output: sorted.join('\n') };
+      },
+    },
+
+    uniq: {
+      name: 'uniq',
+      description: 'Remove duplicate tokens',
+      usage: 'uniq <words...>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: uniq <words...>', error: true };
+        const unique = [...new Set(args)];
+        return { output: unique.join('\n') };
+      },
+    },
+
+    man: {
+      name: 'man',
+      description: 'Display manual page for a command',
+      usage: 'man <command>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: man <command>', error: true };
+        const page = MAN_PAGES[args[0].toLowerCase()];
+        if (!page) return { output: `No manual entry for ${args[0]}`, error: true };
+        return {
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+                N1X NEURAL MANUAL -- {args[0].toUpperCase()}
+              </div>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <div style={{ opacity: 0.5, marginBottom: '0.2rem' }}>SYNOPSIS</div>
+                <div style={{ marginLeft: '1rem' }}>{page.synopsis}</div>
+              </div>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <div style={{ opacity: 0.5, marginBottom: '0.2rem' }}>DESCRIPTION</div>
+                <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>{page.description}</div>
+              </div>
+              <div>
+                <div style={{ opacity: 0.5, marginBottom: '0.2rem' }}>EXAMPLES</div>
+                <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                  {page.examples.map((ex, i) => (
+                    <div key={i}>
+                      <span style={{ opacity: 0.4 }}>$ </span>
+                      <span className={S.glow}>{ex}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ),
+        };
+      },
+    },
+
+  };
+}
