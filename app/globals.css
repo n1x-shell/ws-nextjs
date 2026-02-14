@@ -8,8 +8,8 @@
   --glow: #33ff33;
   --monitor-bezel: #1a1a1a;
 
-  --text-base:   13px;   /* ~10pt — body / terminal output */
-  --text-header: 16px;   /* ~12pt — section headings       */
+  --text-base:   10px;   /* ~10pt — body / terminal output */
+  --text-header: 12px;   /* ~12pt — section headings       */
 }
 
 /* ── CRITICAL: lock the page itself from ever scrolling ── */
