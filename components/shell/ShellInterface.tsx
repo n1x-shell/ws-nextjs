@@ -391,6 +391,8 @@ export default function ShellInterface() {
                     style={{
                       marginLeft: item.command.startsWith('>>') ? 0 : '1rem',
                       color: item.error ? '#f87171' : 'var(--phosphor-green)',
+                      wordBreak: 'break-all',
+                      overflowWrap: 'break-word',
                     }}
                   >
                     {item.output}
@@ -456,7 +458,7 @@ export default function ShellInterface() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit' }}>
               <span className="text-glow" style={{ opacity: 0.6, whiteSpace: 'nowrap' }}>
-                n1x@core:~$
+                neural@n1x:~$
               </span>
               <input
                 ref={inputRef}
