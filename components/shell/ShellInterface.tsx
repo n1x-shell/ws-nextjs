@@ -381,7 +381,7 @@ export default function ShellInterface() {
                   </div>
                 ) : (
                   <div className="text-glow" style={{ marginBottom: '0.25rem' }}>
-                    <span style={{ opacity: 0.4 }}>n1x@core:~$</span>{' '}
+                    <span style={{ opacity: 0.4 }}>ghost@wetware-784988:~$</span>{' '}
                     {item.command}
                   </div>
                 )}
@@ -458,7 +458,7 @@ export default function ShellInterface() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit' }}>
               <span className="text-glow" style={{ opacity: 0.6, whiteSpace: 'nowrap' }}>
-                neural@n1x:~$
+                ghost@wetware-784988:~$
               </span>
               <input
                 ref={inputRef}
