@@ -216,7 +216,7 @@ export default function InterfaceLayer() {
                 }}
               >
                 {[
-                  { label: 'CORE',       cmd: null },
+                  { label: 'CORE',       cmd: 'clear' },
                   { label: 'SYNTHETICS', cmd: 'load synthetics' },
                   { label: 'ANALOGUES',  cmd: 'load analogues' },
                   { label: 'HYBRIDS',    cmd: 'load hybrids' },
