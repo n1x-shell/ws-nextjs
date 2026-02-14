@@ -7,7 +7,6 @@ import { renderStreamContent } from './contentRenderer';
 
 const fs = new FileSystemNavigator();
 
-// Wire up unlock signals to the fs singleton
 if (typeof window !== 'undefined') {
   eventBus.on('neural:ghost-unlocked',  () => fs.unlock());
   eventBus.on('neural:hidden-unlocked', () => fs.unlockHidden());
@@ -122,28 +121,6 @@ export const commands: Record<string, Command> = {
     aliases: ['dir'],
     handler: () => {
       const files = fs.listDirectory();
-      const cwd = fs.getCurrentDirectory();
-
-      const toStardate = (seed: string): string => {
-        let hash = 0;
-        for (let i = 0; i < seed.length; i++) {
-          hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-          hash |= 0;
-        }
-        const base = 47000 + (Math.abs(hash) % 9999);
-        const frac = Math.abs(hash >> 4) % 10;
-        return `SD ${base}.${frac}`;
-      };
-
-      const toSize = (name: string, isDir: boolean): string => {
-        if (isDir) return '4096';
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-          hash = ((hash << 5) - hash) + name.charCodeAt(i);
-          hash |= 0;
-        }
-        return String(128 + (Math.abs(hash) % 3968));
-      };
 
       const perms = (type: string, name: string): string => {
         if (type === 'directory') return 'drwxr-x---';
@@ -152,9 +129,9 @@ export const commands: Record<string, Command> = {
       };
 
       const entries = [
-        { name: '.', type: 'directory', seed: cwd + '.' },
-        { name: '..', type: 'directory', seed: cwd + '..' },
-        ...files.map((f) => ({ name: f.name, type: f.type, seed: cwd + f.name })),
+        { name: '.', type: 'directory' },
+        { name: '..', type: 'directory' },
+        ...files.map((f) => ({ name: f.name, type: f.type })),
       ];
 
       const total = entries.filter((e) => e.name !== '.' && e.name !== '..').length;
@@ -162,9 +139,7 @@ export const commands: Record<string, Command> = {
       const rows = entries.map((entry) => {
         const p   = perms(entry.type, entry.name);
         const lnk = entry.type === 'directory' ? '2' : '1';
-        const sz  = toSize(entry.name, entry.type === 'directory').padStart(5);
-        const sd  = toStardate(entry.seed);
-        return { p, lnk, sz, sd, name: entry.name, isDir: entry.type === 'directory', isSh: entry.name.endsWith('.sh') };
+        return { p, lnk, name: entry.name, isDir: entry.type === 'directory', isSh: entry.name.endsWith('.sh') };
       });
 
       return {
@@ -176,7 +151,7 @@ export const commands: Record<string, Command> = {
                 key={row.name}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '11ch 2ch 5ch 8ch 12ch 14ch 1fr',
+                  gridTemplateColumns: '11ch 2ch 5ch 8ch 1fr',
                   gap: '0 0.5rem',
                   lineHeight: 1.7,
                   whiteSpace: 'nowrap',
@@ -186,8 +161,6 @@ export const commands: Record<string, Command> = {
                 <span style={{ opacity: 0.5 }}>{row.lnk}</span>
                 <span style={{ opacity: 0.5 }}>n1x</span>
                 <span style={{ opacity: 0.5 }}>neural</span>
-                <span style={{ opacity: 0.5, textAlign: 'right' }}>{row.sz}</span>
-                <span style={{ opacity: 0.4 }}>{row.sd}</span>
                 <span
                   className={row.isDir ? S.glow : ''}
                   style={row.isSh ? { color: '#33ff33', fontWeight: 'bold' } : !row.isDir ? { opacity: 0.9 } : {}}
@@ -498,12 +471,10 @@ export const commands: Record<string, Command> = {
   },
 };
 
-// -- Execute a command string --
 export function executeCommand(input: string): CommandResult {
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
 
-  // -- Handle ./ execution --
   if (trimmed.startsWith('./')) {
     const filename = trimmed.slice(2).split(/\s+/)[0];
     const resolved = fs.resolveExecutable(filename);
@@ -568,12 +539,10 @@ export function executeCommand(input: string): CommandResult {
     return { output: result.error || 'Execution failed', error: true };
   }
 
-  // -- System message pass-through --
   if (trimmed.startsWith('>>')) {
     return { output: null };
   }
 
-  // -- Normal command lookup --
   const parts       = trimmed.split(/\s+/);
   const commandName = parts[0].toLowerCase();
   const args        = parts.slice(1);
