@@ -81,7 +81,7 @@ Type 'scan' to detect active streams.`,
           type: 'file',
           content: `You found it.
 
-ââââââââBA
+↑↑↓↓←→←→BA
 
 The Konami sequence unlocks deeper access.
 Not everything is meant to be found.
@@ -132,7 +132,7 @@ do not share
   ],
 };
 
-// ââ Backup archive contents (extracted into /ghost/backup/) âââââââââââââââââ
+// ── Backup archive contents (extracted into /ghost/backup/) ─────────────────
 
 const BACKUP_TRANSMISSION_LOG = `>> GHOST CHANNEL ACTIVE
 >> TIMESTAMP: REDACTED
@@ -170,7 +170,7 @@ Don't close it.`;
 const BACKUP_COORDINATES = `>> REDACTED
 
 If you know, you know.
-If you don't â keep digging.
+If you don't — keep digging.
 
 Next transmission: when it's ready.
 Not before.
@@ -184,7 +184,7 @@ export class FileSystemNavigator {
   private hiddenUnlocked:   boolean = false;
   private backupExtracted:  boolean = false;
 
-  // ââ Unlock methods ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Unlock methods ──────────────────────────────────────────────────────────
 
   unlock() {
     this.ghostUnlocked = true;
@@ -198,7 +198,7 @@ export class FileSystemNavigator {
   isHiddenUnlocked(): boolean { return this.hiddenUnlocked; }
   isBackupExtracted(): boolean { return this.backupExtracted; }
 
-  // ââ Backup extraction âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Backup extraction ───────────────────────────────────────────────────────
 
   extractBackup(): boolean {
     if (!this.ghostUnlocked) return false;
@@ -222,7 +222,7 @@ export class FileSystemNavigator {
     return true;
   }
 
-  // ââ Navigation ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Navigation ──────────────────────────────────────────────────────────────
 
   getCurrentDirectory(): string {
     return '/' + this.currentPath.join('/');
@@ -266,10 +266,10 @@ export class FileSystemNavigator {
 
       // Access control
       if (segment === 'ghost'  && !this.ghostUnlocked) {
-        return { success: false, error: 'Permission denied: /ghost â access requires authentication' };
+        return { success: false, error: 'Permission denied: /ghost — access requires authentication' };
       }
       if (segment === 'hidden' && !this.hiddenUnlocked) {
-        return { success: false, error: 'Permission denied: /hidden â mount it first' };
+        return { success: false, error: 'Permission denied: /hidden — mount it first' };
       }
 
       let node = this.root;
