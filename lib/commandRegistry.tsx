@@ -369,16 +369,57 @@ export const commands: Record<string, Command> = {
     },
   },
 
-  play: {
+    play: {
     name: 'play',
     description: 'Play a specific track',
-    usage: 'play <track-name>',
+    usage: 'play <augmented|split-brain|hell-bent|gigercore>',
     handler: (args) => {
-      if (args.length === 0) return { output: "Usage: play <track-name>\nAvailable: augmented, split-brain, hell-bent, gigercore", error: true };
-      const content = renderStreamContent('synthetics', args[0].toLowerCase());
-      if (!content) return { output: `Track not found: ${args[0]}`, error: true };
-      eventBus.emit('neural:tab-change', { tab: 'synthetics' });
-      return { output: content };
+      if (args.length === 0) return { output: 'Usage: play <track-name>', error: true };
+
+      const tracks: Record<string, { title: string; id: string; description?: string }> = {
+        augmented:     { title: '[AUGMENTED] - Complete Stream',   id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol -> sovereignty achieved' },
+        'split-brain': { title: 'Split Brain (Cinematic Score)',   id: 'HQnENsnGfME' },
+        'hell-bent':   { title: 'Get Hell Bent (Cinematic Score)', id: '6Ch2n75lFok' },
+        gigercore:     { title: 'GIGERCORE',                       id: 'ocSBtaKbGIc' },
+      };
+
+      const track = tracks[args[0].toLowerCase()];
+      if (track) {
+        return {
+          output: (
+            <div style={{ marginTop: '0.5rem' }}>
+              <div className="border border-[var(--phosphor-green)] bg-black">
+                <div
+                  className={S.glow}
+                  style={{
+                    padding: '0.4rem 0.6rem',
+                    fontSize: S.base,
+                    background: 'rgba(51,255,51,0.05)',
+                    borderBottom: '1px solid var(--phosphor-green)',
+                  }}
+                >
+                  {track.title}
+                </div>
+                <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
+                  <iframe
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+                    src={`https://www.youtube.com/embed/${track.id}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+                {track.description && (
+                  <div style={{ padding: '0.3rem 0.6rem', fontSize: S.base, opacity: 0.7 }}>
+                    {track.description}
+                  </div>
+                )}
+              </div>
+            </div>
+          ),
+        };
+      }
+
+      return { output: `Track not found: ${args[0]}`, error: true };
     },
   },
 
