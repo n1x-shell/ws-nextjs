@@ -8,7 +8,7 @@ import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
 import { createSystemCommands } from './systemCommands';
 
-// ── Singleton filesystem + auth state ────────────────────────────────────────
+// ── Singleton  filesystem + auth state ────────────────────────────────────────
 
 const fs = new FileSystemNavigator();
 
