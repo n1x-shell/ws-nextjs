@@ -333,7 +333,8 @@ const MAN_PAGES: Record<string, { synopsis: string; description: string; example
   ls:      { synopsis:'ls',                          description:'Lists files in the current directory with permissions and ownership in Unix ls -la format.',                                     examples:['ls'] },
   tar:     { synopsis:'tar [-xzf] <archive>',        description:'Extract archive. Use -xzf to extract a .tgz. Try extracting backup.tgz in /ghost.',                                            examples:['tar -xzf backup.tgz'] },
   fortune: { synopsis:'fortune',                     description:'Prints a random transmission from the N1X signal archive.',                                                                      examples:['fortune'] },
-  matrix:  { synopsis:'matrix',                      description:'Activates matrix rain overlay. Tap or click to exit. Auto-exits after 8 seconds.',                                              examples:['matrix'] },
+// Line 326 — man page updated
+  matrix:  { synopsis:'matrix',               description:'Activates matrix rain overlay. Tap or click to exit. Auto-exits after 24 seconds.',                                               examples:['matrix'] },
   morse:   { synopsis:'morse <text>',                description:'Encodes text to Morse code and plays it via Web Audio API at 600hz.',                                                            examples:['morse n1x','morse tunnelcore'] },
   dmesg:   { synopsis:'dmesg',                       description:'Prints the kernel boot log from system initialization. Contains substrate boot sequence.',                                       examples:['dmesg'] },
   ps:      { synopsis:'ps [aux]',                    description:'Reports current process status. Shows all running neural substrate processes.',                                                  examples:['ps','ps aux'] },
