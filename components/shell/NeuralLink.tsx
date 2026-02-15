@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { eventBus } from '@/lib/eventBus';
+import React, { useState, useEffect, useRef } from 'react';
 
-// ── Conversation memory (persists across ask invocations) ───────────────────
+// ── Conversation memory (module-level, persists across command invocations) ─
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -12,7 +11,6 @@ interface ChatMessage {
 
 let conversationHistory: ChatMessage[] = [];
 let chatModeActive = false;
-let chatAbortController: AbortController | null = null;
 
 export function resetConversation() {
   conversationHistory = [];
@@ -24,38 +22,9 @@ export function isChatMode() {
 
 export function setChatMode(active: boolean) {
   chatModeActive = active;
-  if (!active) {
-    if (chatAbortController) {
-      chatAbortController.abort();
-      chatAbortController = null;
-    }
-  }
 }
 
-// ── Stream parser for Vercel AI SDK data protocol ───────────────────────────
-
-function parseStreamChunk(chunk: string): string {
-  let text = '';
-  const lines = chunk.split('\n').filter(Boolean);
-  for (const line of lines) {
-    // Vercel AI SDK data stream format: "0:\"token\"\n"
-    if (line.startsWith('0:')) {
-      try {
-        const jsonStr = line.slice(2);
-        const parsed = JSON.parse(jsonStr);
-        if (typeof parsed === 'string') {
-          text += parsed;
-        }
-      } catch {
-        // skip malformed chunks
-      }
-    }
-    // finish_reason, usage, etc. — ignore
-  }
-  return text;
-}
-
-// ── StreamCursor: blinking cursor during streaming ──────────────────────────
+// ── Blinking cursor during streaming ────────────────────────────────────────
 
 const StreamCursor: React.FC = () => {
   const [visible, setVisible] = useState(true);
@@ -79,14 +48,13 @@ const StreamCursor: React.FC = () => {
   );
 };
 
-// ── NeuralLinkStream: one-shot streaming response ───────────────────────────
+// ── NeuralLinkStream: renders a single streaming response ───────────────────
 
 interface NeuralLinkStreamProps {
   prompt: string;
-  onComplete?: () => void;
 }
 
-export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt, onComplete }) => {
+export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) => {
   const [tokens, setTokens] = useState('');
   const [status, setStatus] = useState<'connecting' | 'streaming' | 'complete' | 'error'>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
@@ -127,21 +95,18 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt, onCo
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          const parsed = parseStreamChunk(chunk);
-          if (parsed) {
-            fullResponse += parsed;
+          if (chunk) {
+            fullResponse += chunk;
             setTokens(fullResponse);
           }
         }
 
         conversationHistory.push({ role: 'assistant', content: fullResponse });
         setStatus('complete');
-        onComplete?.();
       } catch (err: any) {
         if (err.name === 'AbortError') return;
         setStatus('error');
         setErrorMsg(err.message || 'signal lost');
-        // Remove the failed user message
         conversationHistory.pop();
       }
     })();
@@ -149,11 +114,11 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt, onCo
     return () => {
       abortController.abort();
     };
-  }, [prompt, onComplete]);
+  }, [prompt]);
 
   return (
     <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
-      {/* Header */}
+      {/* Status line */}
       <div style={{ marginBottom: '0.5rem' }}>
         <span style={{ opacity: 0.4 }}>neural-link</span>
         <span style={{ opacity: 0.3 }}> :: </span>
@@ -166,7 +131,7 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt, onCo
         {status === 'streaming' && <StreamCursor />}
       </div>
 
-      {/* Response body */}
+      {/* Response */}
       {status === 'error' ? (
         <div style={{ color: '#f87171' }}>
           [ERROR] uplink failure -- {errorMsg}
@@ -180,7 +145,7 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt, onCo
         </div>
       )}
 
-      {/* Footer */}
+      {/* End marker */}
       {status === 'complete' && (
         <div style={{ opacity: 0.3, marginTop: '0.5rem', fontSize: 'var(--text-base)' }}>
           -- end transmission --
@@ -190,50 +155,16 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt, onCo
   );
 };
 
-// ── NeuralChatSession: interactive chat mode component ──────────────────────
-
-export const NeuralChatSession: React.FC = () => {
-  useEffect(() => {
-    setChatMode(true);
-
-    // Push the mode-enter message
-    eventBus.emit('shell:push-output', {
-      id: `chat-init-${Date.now()}`,
-      command: '>> NEURAL_LINK_ACTIVE',
-      output: (
-        <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
-          <div style={{ opacity: 0.8 }}>
-            direct uplink to N1X neural substrate established.
-          </div>
-          <div style={{ opacity: 0.8 }}>
-            frequency locked at 33hz. signal is live.
-          </div>
-          <div style={{ opacity: 0.5, marginTop: '0.5rem' }}>
-            type your transmission. enter <span className="text-glow">exit</span> to disconnect.
-          </div>
-        </div>
-      ),
-      timestamp: Date.now(),
-    });
-
-    return () => {
-      setChatMode(false);
-    };
-  }, []);
-
-  return null;
-};
-
-// ── Chat mode input handler (called from command registry) ──────────────────
+// ── handleChatInput: processes input when in interactive chat mode ───────────
 
 export function handleChatInput(input: string): {
   output: React.ReactNode;
   error?: boolean;
   clearScreen?: boolean;
 } {
-  const trimmed = input.trim();
+  const lower = input.trim().toLowerCase();
 
-  if (trimmed.toLowerCase() === 'exit' || trimmed.toLowerCase() === '/quit' || trimmed.toLowerCase() === 'quit') {
+  if (lower === 'exit' || lower === 'quit' || lower === '/quit') {
     setChatMode(false);
     resetConversation();
     return {
@@ -246,7 +177,7 @@ export function handleChatInput(input: string): {
     };
   }
 
-  if (trimmed.toLowerCase() === '/reset') {
+  if (lower === '/reset') {
     resetConversation();
     return {
       output: (
@@ -257,7 +188,7 @@ export function handleChatInput(input: string): {
     };
   }
 
-  if (trimmed.toLowerCase() === '/history') {
+  if (lower === '/history') {
     const count = conversationHistory.length;
     return {
       output: (
@@ -271,6 +202,6 @@ export function handleChatInput(input: string): {
   }
 
   return {
-    output: <NeuralLinkStream prompt={trimmed} />,
+    output: <NeuralLinkStream prompt={input.trim()} />,
   };
 }
