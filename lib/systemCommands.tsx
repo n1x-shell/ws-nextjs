@@ -1,4 +1,4 @@
-'use client';
+r'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Command } from '@/types/shell.types';
@@ -126,7 +126,7 @@ const MatrixOverlay: React.FC = () => {
     };
 
     const interval = setInterval(draw, 33);
-    const timeout  = setTimeout(() => setVisible(false), 8000);
+    const timeout  = setTimeout(() => setVisible(false), 24000);
     return () => { clearInterval(interval); clearTimeout(timeout); };
   }, []);
 
