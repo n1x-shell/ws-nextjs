@@ -2,6 +2,8 @@ import { useState, useCallback, useRef } from 'react';
 import { CommandOutput, ShellState } from '@/types/shell.types';
 import { executeCommand } from '@/lib/commandRegistry';
 
+export type RequestPromptFn = (label: string, onSubmit: (pw: string) => void) => void;
+
 export function useShell() {
   const [state, setState] = useState<ShellState>({
     history: [],
@@ -10,36 +12,41 @@ export function useShell() {
     historyIndex: -1,
   });
 
-  // Still exported so ShellInterface can use it as a scroll anchor ref
-  // but we never call scrollIntoView on it — ShellInterface owns scrolling
   const historyEndRef = useRef<HTMLDivElement>(null);
 
-  const executeCommandLine = useCallback((input: string) => {
-    const result = executeCommand(input);
-
-    if (result.clearScreen) {
-      setState((prev) => ({ ...prev, history: [] }));
-      return;
-    }
-
-    const output: CommandOutput = {
-      id: Date.now().toString(),
-      command: input,
-      output: result.output,
-      timestamp: Date.now(),
-      error: result.error,
-    };
-
-    setState((prev) => ({
-      ...prev,
-      history: [...prev.history, output],
-      commandHistory: [input, ...prev.commandHistory].slice(0, 100),
-      historyIndex: -1,
-    }));
-
-    // NO scrollIntoView here — ShellInterface handles scrolling
-    // via outputRef.scrollTop = outputRef.scrollHeight
+  // Push an output entry directly (used by async commands via shell:push-output)
+  const pushOutput = useCallback((item: CommandOutput) => {
+    setState((prev) => ({ ...prev, history: [...prev.history, item] }));
   }, []);
+
+  const executeCommandLine = useCallback(
+    (input: string, requestPrompt: RequestPromptFn) => {
+      const result = executeCommand(input, requestPrompt);
+
+      if (result.clearScreen) {
+        setState((prev) => ({ ...prev, history: [] }));
+        return;
+      }
+
+      // output: null means command is async (e.g. su waiting for password prompt)
+      // we still record the command line so the user sees what they typed
+      const output: CommandOutput = {
+        id:        Date.now().toString(),
+        command:   input,
+        output:    result.output ?? null,
+        timestamp: Date.now(),
+        error:     result.error,
+      };
+
+      setState((prev) => ({
+        ...prev,
+        history:        [...prev.history, output],
+        commandHistory: [input, ...prev.commandHistory].slice(0, 100),
+        historyIndex:   -1,
+      }));
+    },
+    []
+  );
 
   const navigateHistory = useCallback(
     (direction: 'up' | 'down'): string | null => {
@@ -74,6 +81,7 @@ export function useShell() {
     executeCommand: executeCommandLine,
     navigateHistory,
     clearHistory,
+    pushOutput,
     historyEndRef,
   };
 }

@@ -1,9 +1,9 @@
 ‘use client’;
 
-import React, { useState, useEffect, useRef } from ‘react’;
-import { Command } from ‘@/types/shell.types’;
-import { FileSystemNavigator } from ‘./virtualFS’;
-import { eventBus } from ‘./eventBus’;
+import React, { useState, useEffect, useRef } from 'react';
+import { Command } from '@/types/shell.types';
+import { FileSystemNavigator } from './virtualFS';
+import { eventBus } from './eventBus';
 
 const SESSION_START = Date.now();
 
@@ -302,194 +302,245 @@ const DMESG = [
 ];
 
 const HISTORY_SEED = [
-’  1  uname -a’,
-’  2  ls’,
-’  3  cd /streams/synthetics’,
-’  4  ls’,
-’  5  cat augmented.stream’,
-’  6  play gigercore’,
-’  7  cd /’,
-’  8  cat /core/readme.txt’,
-’  9  grep ghost /’,
-’ 10  find / -name “*.sh”’,
-’ 11  cat /etc/shadow’,
-’ 12  john /etc/shadow’,
-’ 13  su’,
-’ 14  mount /hidden’,
-’ 15  cd /hidden’,
-’ 16  ls’,
-’ 17  ./n1x.sh’,
+  '  1  uname -a',
+  '  2  ls',
+  '  3  cd /streams/synthetics',
+  '  4  ls',
+  '  5  cat augmented.stream',
+  '  6  play gigercore',
+  '  7  cd /',
+  '  8  cat /core/readme.txt',
+  '  9  grep ghost /',
+  ' 10  find / -name "*.sh"',
+  ' 11  cat /etc/shadow',
+  ' 12  john /etc/shadow',
+  ' 13  su',
+  ' 14  mount /hidden',
+  ' 15  cd /hidden',
+  ' 16  ls',
+  ' 17  ./n1x.sh',
 ];
 
 const MAN_PAGES: Record<string, { synopsis: string; description: string; examples: string[] }> = {
-help:    { synopsis:‘help [command]’,              description:‘Lists all available commands. Provide a command name for detailed usage.’,                                                        examples:[‘help’,‘help load’,‘help cat’] },
-load:    { synopsis:‘load <stream>’,               description:‘Loads a content stream. Streams: synthetics, analogues, hybrids, uplink. Each represents a different creative transmission.’,    examples:[‘load synthetics’,‘load uplink’] },
-play:    { synopsis:‘play <track>’,                description:‘Loads a track player. Available: augmented, split-brain, hell-bent, gigercore.’,                                                 examples:[‘play gigercore’,‘play augmented’] },
-scan:    { synopsis:‘scan’,                        description:‘Scans for active neural streams and reports their status.’,                                                                       examples:[‘scan’] },
-su:      { synopsis:‘su [username]’,               description:‘Switch user. Defaults to root if no username given. Prompts for password. Use root password to elevate privileges.’,             examples:[‘su’,‘su root’] },
-sudo:    { synopsis:‘sudo <command…>’,           description:‘Execute command with n1x elevated permissions. Prompts for n1x password.’,                                                       examples:[‘sudo mount /hidden’,‘sudo mount /ghost’] },
-mount:   { synopsis:‘mount <path>’,               description:‘Mount a filesystem path. /hidden requires root or sudo. /ghost requires root and /hidden already mounted.’,                       examples:[‘mount /hidden’,‘mount /ghost’] },
-exit:    { synopsis:‘exit’,                        description:‘Exit the current user session and return to n1x shell.’,                                                                         examples:[‘exit’] },
-john:    { synopsis:‘john <file>’,                description:‘Password hash cracker. Animate SHA-512 cracking sequence against /etc/shadow.’,                                                  examples:[‘john /etc/shadow’] },
-strace:  { synopsis:‘strace <command|pid>’,        description:‘Trace system calls of a running process. Try ghost-daemon or PID 999.’,                                                         examples:[‘strace ghost-daemon’,‘strace 999’] },
-nc:      { synopsis:‘nc <host> <port>’,            description:‘Netcat. Connect to a host/port. The TUNNELCORE node listens on port 33.’,                                                       examples:[‘nc localhost 33’,‘nc 127.0.0.1 33’] },
-ghost:   { synopsis:‘ghost’,                       description:‘Access the ghost channel index. Only available after the corruption sequence. Contains unprocessed transmissions.’,               examples:[‘ghost’] },
-glitch:  { synopsis:‘glitch [intensity]’,          description:‘Triggers a manual glitch. Intensity 0.0 to 1.0. At 1.0 the full corruption sequence fires.’,                                    examples:[‘glitch’,‘glitch 0.5’,‘glitch 1.0’] },
-cat:     { synopsis:‘cat <file>’,                  description:‘Outputs the contents of a file in the virtual filesystem.’,                                                                      examples:[‘cat readme.txt’,  ‘cat /etc/shadow’] },
-ls:      { synopsis:‘ls’,                          description:‘Lists files in the current directory with permissions and ownership in Unix ls -la format.’,                                     examples:[‘ls’] },
-tar:     { synopsis:‘tar [-xzf] <archive>’,        description:‘Extract archive. Use -xzf to extract a .tgz. Try extracting backup.tgz in /ghost.’,                                            examples:[‘tar -xzf backup.tgz’] },
-fortune: { synopsis:‘fortune’,                     description:‘Prints a random transmission from the N1X signal archive.’,                                                                      examples:[‘fortune’] },
-matrix:  { synopsis:‘matrix’,                      description:‘Activates matrix rain overlay. Tap or click to exit. Auto-exits after 8 seconds.’,                                              examples:[‘matrix’] },
-morse:   { synopsis:‘morse <text>’,                description:‘Encodes text to Morse code and plays it via Web Audio API at 600hz.’,                                                            examples:[‘morse n1x’,‘morse tunnelcore’] },
-dmesg:   { synopsis:‘dmesg’,                       description:‘Prints the kernel boot log from system initialization. Contains substrate boot sequence.’,                                       examples:[‘dmesg’] },
-ps:      { synopsis:‘ps [aux]’,                    description:‘Reports current process status. Shows all running neural substrate processes.’,                                                  examples:[‘ps’,‘ps aux’] },
-top:     { synopsis:‘top’,                         description:‘Live animated process monitor. Updates every second. Type clear to exit.’,                                                       examples:[‘top’] },
-sha256:  { synopsis:‘sha256 <text>’,               description:‘Hashes input text using SHA-256 via the Web Crypto API.’,                                                                       examples:[‘sha256 n1x’,‘sha256 tunnelcore’] },
-base64:  { synopsis:‘base64 [-d] <text>’,          description:‘Encodes or decodes base64. Use -d flag to decode.’,                                                                             examples:[‘base64 n1x’,‘base64 -d bjF4’] },
+  help:    { synopsis:'help [command]',              description:'Lists all available commands. Provide a command name for detailed usage.',                                                        examples:['help','help load','help cat'] },
+  load:    { synopsis:'load <stream>',               description:'Loads a content stream. Streams: synthetics, analogues, hybrids, uplink. Each represents a different creative transmission.',    examples:['load synthetics','load uplink'] },
+  play:    { synopsis:'play <track>',                description:'Loads a track player. Available: augmented, split-brain, hell-bent, gigercore.',                                                 examples:['play gigercore','play augmented'] },
+  scan:    { synopsis:'scan',                        description:'Scans for active neural streams and reports their status.',                                                                       examples:['scan'] },
+  su:      { synopsis:'su [username]',               description:'Switch user. Defaults to root if no username given. Prompts for password. Use root password to elevate privileges.',             examples:['su','su root'] },
+  sudo:    { synopsis:'sudo <command...>',           description:'Execute command with n1x elevated permissions. Prompts for n1x password.',                                                       examples:['sudo mount /hidden','sudo mount /ghost'] },
+  mount:   { synopsis:'mount <path>',               description:'Mount a filesystem path. /hidden requires root or sudo. /ghost requires root and /hidden already mounted.',                       examples:['mount /hidden','mount /ghost'] },
+  exit:    { synopsis:'exit',                        description:'Exit the current user session and return to n1x shell.',                                                                         examples:['exit'] },
+  john:    { synopsis:'john <file>',                description:'Password hash cracker. Animate SHA-512 cracking sequence against /etc/shadow.',                                                  examples:['john /etc/shadow'] },
+  strace:  { synopsis:'strace <command|pid>',        description:'Trace system calls of a running process. Try ghost-daemon or PID 999.',                                                         examples:['strace ghost-daemon','strace 999'] },
+  nc:      { synopsis:'nc <host> <port>',            description:'Netcat. Connect to a host/port. The TUNNELCORE node listens on port 33.',                                                       examples:['nc localhost 33','nc 127.0.0.1 33'] },
+  ghost:   { synopsis:'ghost',                       description:'Access the ghost channel index. Only available after the corruption sequence. Contains unprocessed transmissions.',               examples:['ghost'] },
+  glitch:  { synopsis:'glitch [intensity]',          description:'Triggers a manual glitch. Intensity 0.0 to 1.0. At 1.0 the full corruption sequence fires.',                                    examples:['glitch','glitch 0.5','glitch 1.0'] },
+  cat:     { synopsis:'cat <file>',                  description:'Outputs the contents of a file in the virtual filesystem.',                                                                      examples:['cat readme.txt',  'cat /etc/shadow'] },
+  ls:      { synopsis:'ls',                          description:'Lists files in the current directory with permissions and ownership in Unix ls -la format.',                                     examples:['ls'] },
+  tar:     { synopsis:'tar [-xzf] <archive>',        description:'Extract archive. Use -xzf to extract a .tgz. Try extracting backup.tgz in /ghost.',                                            examples:['tar -xzf backup.tgz'] },
+  fortune: { synopsis:'fortune',                     description:'Prints a random transmission from the N1X signal archive.',                                                                      examples:['fortune'] },
+  matrix:  { synopsis:'matrix',                      description:'Activates matrix rain overlay. Tap or click to exit. Auto-exits after 8 seconds.',                                              examples:['matrix'] },
+  morse:   { synopsis:'morse <text>',                description:'Encodes text to Morse code and plays it via Web Audio API at 600hz.',                                                            examples:['morse n1x','morse tunnelcore'] },
+  dmesg:   { synopsis:'dmesg',                       description:'Prints the kernel boot log from system initialization. Contains substrate boot sequence.',                                       examples:['dmesg'] },
+  ps:      { synopsis:'ps [aux]',                    description:'Reports current process status. Shows all running neural substrate processes.',                                                  examples:['ps','ps aux'] },
+  top:     { synopsis:'top',                         description:'Live animated process monitor. Updates every second. Type clear to exit.',                                                       examples:['top'] },
+  sha256:  { synopsis:'sha256 <text>',               description:'Hashes input text using SHA-256 via the Web Crypto API.',                                                                       examples:['sha256 n1x','sha256 tunnelcore'] },
+  base64:  { synopsis:'base64 [-d] <text>',          description:'Encodes or decodes base64. Use -d flag to decode.',                                                                             examples:['base64 n1x','base64 -d bjF4'] },
 };
 
 // ── Strace lines ─────────────────────────────────────────
 
 const STRACE_GHOST_LINES = [
-`execve("/usr/sbin/ghost-daemon", ["ghost-daemon", "--hidden"], 0x7ffe3b1a2d40 /* 12 vars */) = 0`,
-`brk(NULL)                               = 0x55a3f2b14000`,
-`access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT`,
-`mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f3a1c200000`,
-`openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3`,
-`fstat(3, {st_mode=S_IFREG|0644, st_size=144568, ...}) = 0`,
-`close(3)                                = 0`,
-`openat(AT_FDCWD, "/etc/shadow", O_RDONLY) = 3`,
-`read(3, "root:$6$tunnelcore$9a3f2b1c4d5e...", 512) = 512`,
-`fstat(3, {st_mode=S_IFREG|0640, st_size=420, ...}) = 0`,
-`close(3)                                = 0`,
-`openat(AT_FDCWD, "/dev/ghost", O_RDWR)  = 4`,
-`read(4, "freq=33hz\\0", 32)              = 10`,
-`write(1, "ghost-daemon: frequency verified\\n", 33) = 33`,
-`socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) = 5`,
-`bind(5, {sa_family=AF_INET, sin_port=htons(33), sin_addr=inet_addr("0.0.0.0")}, 16) = 0`,
-`listen(5, 5)                            = 0`,
-`accept(5, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.1")}, [16]) = 6`,
-`read(6, input_buf, 64)                  = 10`,
-`strcmp(input_buf, "tunnelcore")         = 0`,
-`write(1, "ghost-daemon: root auth accepted\\n", 33) = 33`,
-`openat(AT_FDCWD, "/dev/neuralfs", O_RDWR) = 7`,
-`read(5, "\\0\\0\\0\\0\\0\\0\\0\\0", 32)        = 8`,
-`write(7, "mount ghost 0x33\\n", 17)     = 17`,
-`close(4)                                = 0`,
-`close(6)                                = 0`,
-`close(7)                                = 0`,
-`exit_group(0)                           = ?`,
-`+++ exited with 0 +++`,
+  `execve("/usr/sbin/ghost-daemon", ["ghost-daemon", "--hidden"], 0x7ffe3b1a2d40 /* 12 vars */) = 0`,
+  `brk(NULL)                               = 0x55a3f2b14000`,
+  `access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT`,
+  `mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f3a1c200000`,
+  `openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3`,
+  `fstat(3, {st_mode=S_IFREG|0644, st_size=144568, ...}) = 0`,
+  `close(3)                                = 0`,
+  `openat(AT_FDCWD, "/etc/shadow", O_RDONLY) = 3`,
+  `read(3, "root:$6$tunnelcore$9a3f2b1c4d5e...", 512) = 512`,
+  `fstat(3, {st_mode=S_IFREG|0640, st_size=420, ...}) = 0`,
+  `close(3)                                = 0`,
+  `openat(AT_FDCWD, "/dev/ghost", O_RDWR)  = 4`,
+  `read(4, "freq=33hz\\0", 32)              = 10`,
+  `write(1, "ghost-daemon: frequency verified\\n", 33) = 33`,
+  `socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) = 5`,
+  `bind(5, {sa_family=AF_INET, sin_port=htons(33), sin_addr=inet_addr("0.0.0.0")}, 16) = 0`,
+  `listen(5, 5)                            = 0`,
+  `accept(5, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.1")}, [16]) = 6`,
+  `read(6, input_buf, 64)                  = 10`,
+  `strcmp(input_buf, "tunnelcore")         = 0`,
+  `write(1, "ghost-daemon: root auth accepted\\n", 33) = 33`,
+  `openat(AT_FDCWD, "/dev/neuralfs", O_RDWR) = 7`,
+  `read(5, "\\0\\0\\0\\0\\0\\0\\0\\0", 32)        = 8`,
+  `write(7, "mount ghost 0x33\\n", 17)     = 17`,
+  `close(4)                                = 0`,
+  `close(6)                                = 0`,
+  `close(7)                                = 0`,
+  `exit_group(0)                           = ?`,
+  `+++ exited with 0 +++`,
 ];
 
 const STRACE_GENERIC_LINES = [
-`execve("/usr/bin/target", ["target"], 0x7ffd...) = 0`,
-`brk(NULL)                               = 0x55a3f2b14000`,
-`access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT`,
-`mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f3a1c200000`,
-`openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3`,
-`read(3, "\\177ELF\\2\\1\\1\\0", 512)       = 512`,
-`close(3)                                = 0`,
-`write(1, "process: ready\\n", 15)        = 15`,
-`nanosleep({tv_sec=0, tv_nsec=100000000}, NULL) = 0`,
-`exit_group(0)                           = ?`,
-`+++ exited with 0 +++`,
+  `execve("/usr/bin/target", ["target"], 0x7ffd...) = 0`,
+  `brk(NULL)                               = 0x55a3f2b14000`,
+  `access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT`,
+  `mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f3a1c200000`,
+  `openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3`,
+  `read(3, "\\177ELF\\2\\1\\1\\0", 512)       = 512`,
+  `close(3)                                = 0`,
+  `write(1, "process: ready\\n", 15)        = 15`,
+  `nanosleep({tv_sec=0, tv_nsec=100000000}, NULL) = 0`,
+  `exit_group(0)                           = ?`,
+  `+++ exited with 0 +++`,
 ];
 
 // ── Main export ───────────────────────────────────────────
 
 export function createSystemCommands(fs: FileSystemNavigator): Record<string, Command> {
-return {
+  return {
 
-```
-// ── System info ──────────────────────────────────────
+    // ── System info ──────────────────────────────────────
 
-uname: {
-  name: 'uname',
-  description: 'Print system information',
-  usage: 'uname [-a]',
-  handler: () => ({ output: 'NeuralOS n1x.sh 2.0.0-RELEASE NeuralOS 2.0.0-RELEASE SD 47634.1-7073435a8fa30 SUBSTRATE amd64' }),
-},
+    uname: {
+      name: 'uname',
+      description: 'Print system information',
+      usage: 'uname [-a]',
+      handler: () => ({ output: 'NeuralOS n1x.sh 2.0.0-RELEASE NeuralOS 2.0.0-RELEASE SD 47634.1-7073435a8fa30 SUBSTRATE amd64' }),
+    },
 
-uptime: {
-  name: 'uptime',
-  description: 'Show session uptime',
-  usage: 'uptime',
-  handler: () => {
-    const ms  = Date.now() - SESSION_START;
-    const s   = Math.floor(ms / 1000);
-    const m   = Math.floor(s / 60);
-    const h   = Math.floor(m / 60);
-    const str = h > 0
-      ? `${h}:${String(m%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
-      : `${m}:${String(s%60).padStart(2,'0')}`;
-    return { output: ` ${new Date().toLocaleTimeString()}  up ${str},  1 user,  load average: 0.23, 0.19, 0.14` };
-  },
-},
+    uptime: {
+      name: 'uptime',
+      description: 'Show session uptime',
+      usage: 'uptime',
+      handler: () => {
+        const ms  = Date.now() - SESSION_START;
+        const s   = Math.floor(ms / 1000);
+        const m   = Math.floor(s / 60);
+        const h   = Math.floor(m / 60);
+        const str = h > 0
+          ? `${h}:${String(m%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
+          : `${m}:${String(s%60).padStart(2,'0')}`;
+        return { output: ` ${new Date().toLocaleTimeString()}  up ${str},  1 user,  load average: 0.23, 0.19, 0.14` };
+      },
+    },
 
-whoami: {
-  name: 'whoami',
-  description: 'Print current user',
-  usage: 'whoami',
-  handler: () => ({ output: 'n1x' }),
-},
+    whoami: {
+      name: 'whoami',
+      description: 'Print current user',
+      usage: 'whoami',
+      handler: () => ({ output: 'n1x' }),
+    },
 
-id: {
-  name: 'id',
-  description: 'Print user identity',
-  usage: 'id',
-  handler: () => ({ output: 'uid=784988(n1x) gid=784988(neural) groups=784988(neural),1337(tunnelcore),0(root)' }),
-},
+    id: {
+      name: 'id',
+      description: 'Print user identity',
+      usage: 'id',
+      handler: () => ({ output: 'uid=784988(n1x) gid=784988(neural) groups=784988(neural),1337(tunnelcore),0(root)' }),
+    },
 
-env: {
-  name: 'env',
-  description: 'Print environment variables',
-  usage: 'env',
-  handler: () => ({
-    output: (
-      <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, opacity:0.9, lineHeight:1.7 }}>{
-```
+    env: {
+      name: 'env',
+      description: 'Print environment variables',
+      usage: 'env',
+      handler: () => ({
+        output: (
+          <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, opacity:0.9, lineHeight:1.7 }}>{
+`SHELL=/bin/neural
+USER=n1x
+HOME=/home/n1x
+TERM=crt-256color
+SUBSTRATE=tunnelcore
+GHOST_FREQ=33hz
+AUGMENTATION=active
+SIGNAL_PATH=/dev/neural:/dev/ghost:/dev/tunnelcore
+N1X_VERSION=2.0.0
+UPLINK=n1x.sh
+CLASSIFIED=true
+PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
+          }</pre>
+        ),
+      }),
+    },
 
-`SHELL=/bin/neural USER=n1x HOME=/home/n1x TERM=crt-256color SUBSTRATE=tunnelcore GHOST_FREQ=33hz AUGMENTATION=active SIGNAL_PATH=/dev/neural:/dev/ghost:/dev/tunnelcore N1X_VERSION=2.0.0 UPLINK=n1x.sh CLASSIFIED=true PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
-}</pre>
-),
-}),
-},
+    ps: {
+      name: 'ps',
+      description: 'Report process status',
+      usage: 'ps [aux]',
+      handler: () => {
+        const procs = [
+          { pid:'1',    user:'root', cpu:'0.0', mem:'0.1', stat:'Ss', cmd:'/sbin/neural-init'                },
+          { pid:'2',    user:'root', cpu:'0.0', mem:'0.0', stat:'S',  cmd:'[kernel-threads]'                 },
+          { pid:'156',  user:'root', cpu:'0.0', mem:'0.2', stat:'Ss', cmd:'memory-guard --watch /ghost'       },
+          { pid:'312',  user:'n1x',  cpu:'0.1', mem:'0.8', stat:'Ss', cmd:'neural-sync --daemon'             },
+          { pid:'313',  user:'n1x',  cpu:'0.3', mem:'1.2', stat:'S',  cmd:'tunnelcore-uplink -p 33'          },
+          { pid:'314',  user:'n1x',  cpu:'2.1', mem:'2.4', stat:'Rl', cmd:'signal-processor --freq 33hz'     },
+          { pid:'315',  user:'n1x',  cpu:'1.4', mem:'1.8', stat:'Rl', cmd:'crt-renderer --shader pipeline'   },
+          { pid:'316',  user:'n1x',  cpu:'0.1', mem:'0.4', stat:'S',  cmd:'event-bus --listeners 12'         },
+          { pid:'317',  user:'n1x',  cpu:'0.0', mem:'0.3', stat:'S',  cmd:'glitch-engine --intensity 0.3'    },
+          { pid:'318',  user:'n1x',  cpu:'0.2', mem:'0.6', stat:'S',  cmd:'uplink-monitor --target n1x.sh'   },
+          { pid:'999',  user:'root', cpu:'0.0', mem:'0.1', stat:'S',  cmd:'ghost-daemon --hidden'            },
+          { pid:'1337', user:'n1x',  cpu:'0.4', mem:'3.2', stat:'Rl', cmd:'n1x-terminal --shell /bin/neural' },
+        ];
+        return {
+          output: (
+            <div style={{ fontSize: S.base, fontFamily:'inherit' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', opacity:0.5, marginBottom:'0.2rem' }}>
+                <span>PID</span><span>USER</span><span>%CPU</span><span>%MEM</span><span>STAT</span><span>COMMAND</span>
+              </div>
+              {procs.map(p => (
+                <div key={p.pid} style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.6 }}>
+                  <span style={{ opacity:0.6 }}>{p.pid}</span>
+                  <span style={{ opacity:0.6 }}>{p.user}</span>
+                  <span style={{ color: parseFloat(p.cpu)>1 ? '#ffaa00' : 'var(--phosphor-green)' }}>{p.cpu}</span>
+                  <span style={{ opacity:0.7 }}>{p.mem}</span>
+                  <span style={{ opacity:0.6 }}>{p.stat}</span>
+                  <span style={{ opacity: p.cmd.startsWith('[') ? 0.4 : 0.9 }}>{p.cmd}</span>
+                </div>
+              ))}
+            </div>
+          ),
+        };
+      },
+    },
 
-```
-ps: {
-  name: 'ps',
-  description: 'Report process status',
-  usage: 'ps [aux]',
-  handler: () => {
-    const procs = [
-      { pid:'1',    user:'root', cpu:'0.0', mem:'0.1', stat:'Ss', cmd:'/sbin/neural-init'                },
-      { pid:'2',    user:'root', cpu:'0.0', mem:'0.0', stat:'S',  cmd:'[kernel-threads]'                 },
-      { pid:'156',  user:'root', cpu:'0.0', mem:'0.2', stat:'Ss', cmd:'memory-guard --watch /ghost'       },
-      { pid:'312',  user:'n1x',  cpu:'0.1', mem:'0.8', stat:'Ss', cmd:'neural-sync --daemon'             },
-      { pid:'313',  user:'n1x',  cpu:'0.3', mem:'1.2', stat:'S',  cmd:'tunnelcore-uplink -p 33'          },
-      { pid:'314',  user:'n1x',  cpu:'2.1', mem:'2.4', stat:'Rl', cmd:'signal-processor --freq 33hz'     },
-      { pid:'315',  user:'n1x',  cpu:'1.4', mem:'1.8', stat:'Rl', cmd:'crt-renderer --shader pipeline'   },
-      { pid:'316',  user:'n1x',  cpu:'0.1', mem:'0.4', stat:'S',  cmd:'event-bus --listeners 12'         },
-      { pid:'317',  user:'n1x',  cpu:'0.0', mem:'0.3', stat:'S',  cmd:'glitch-engine --intensity 0.3'    },
-      { pid:'318',  user:'n1x',  cpu:'0.2', mem:'0.6', stat:'S',  cmd:'uplink-monitor --target n1x.sh'   },
-      { pid:'999',  user:'root', cpu:'0.0', mem:'0.1', stat:'S',  cmd:'ghost-daemon --hidden'            },
-      { pid:'1337', user:'n1x',  cpu:'0.4', mem:'3.2', stat:'Rl', cmd:'n1x-terminal --shell /bin/neural' },
-    ];
-    return {
-      output: (
-        <div style={{ fontSize: S.base, fontFamily:'inherit' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', opacity:0.5, marginBottom:'0.2rem' }}>
-            <span>PID</span><span>USER</span><span>%CPU</span><span>%MEM</span><span>STAT</span><span>COMMAND</span>
-          </div>
-          {procs.map(p => (
-            <div key={p.pid} style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.6 }}>
-              <span style={{ opacity:0.6 }}>{p.pid}</span>
-              <span style={{ opacity:0.6 }}>{p.user}</span>
-              <span style={{ color: parseFloat(p.cpu)>1 ? '#ffaa00' : 'var(--phosphor-green)' }}>{p.cpu}</span>
-              <span style={{ opacity:0.7 }}>{p.mem}</span>
-              <span style={{ opacity:0.6 }}>{p.stat}</span>
-              <span style={{ opacity: p.cmd.startsWith('[') ? 0.4 : 0.9 }}>{p.cmd}</span>
+    top: {
+      name: 'top',
+      description: 'Live process monitor',
+      usage: 'top',
+      handler: () => ({ output: <TopDisplay /> }),
+    },
+
+    df: {
+      name: 'df',
+      description: 'Report filesystem disk usage',
+      usage: 'df [-h]',
+      handler: () => {
+        const rows = [
+          { fs:'/dev/neural',     size:'256G', used:'89G',  avail:'167G', pct:'35%', mount:'/'          },
+          { fs:'/dev/tunnelcore', size:'64G',  used:'33G',  avail:'31G',  pct:'52%', mount:'/streams'   },
+          { fs:'/dev/hidden',     size:'4.0G', used:'0.4G', avail:'???',  pct:'??%', mount:'/hidden'    },
+          { fs:'/dev/ghost',      size:'13G',  used:'3.3G', avail:'???',  pct:'??%', mount:'/ghost'     },
+          { fs:'tmpfs',           size:'8.0G', used:'1.2G', avail:'6.8G', pct:'15%', mount:'/tmp'       },
+          { fs:'neuralfs',        size:'1.0T', used:'???',  avail:'???',  pct:'??%', mount:'/classified' },
+        ];
+        return {
+          output: (
+            <div style={{ fontSize: S.base, fontFamily:'inherit' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'18ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', opacity:0.5, marginBottom:'0.2rem' }}>
+                <span>Filesystem</span><span>Size</span><span>Used</span><span>Avail</span><span>Use%</span><span>Mounted on</span>
+              </div>
+              {rows.map(r => (
+                <div key={r.mount} style={{ display:'grid', gridTemplateColumns:'18ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.7 }}>
+                  <span className={r.fs.startsWith('/dev/') ? S.glow : ''} style={{ opacity: r.fs==='tmpfs'||r.fs==='neuralfs' ? 0.5 : 0.9 }}>{r.fs}</span>
+                  <span style={{ opacity:0.7 }}>{r.size}</span>
+                  <span style={{ opacity:0.7 }}>{r.used}</span>
+                  <span style={{ opacity: r.avail==='???' ? 0.3 : 0.7 }}>{r.avail}</span>
+                  <span style={{ opacity: r.pct==='??%' ? 0.3 : 0.7 }}>{r.pct}</span>
+                  <span style={{ opacity:0.8 }}>{r.mount}</span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -677,8 +728,72 @@ tar: {
             {`x backup/transmission.log\nx backup/manifesto.txt\nx backup/.coordinates\n3 objects extracted`}
           </pre>
         ),
-      };
-    }
+      }),
+    },
+
+    // ── Filesystem tools ─────────────────────────────────
+
+    tar: {
+      name: 'tar',
+      description: 'Archive utility',
+      usage: 'tar [-xzf] <archive>',
+      handler: (args) => {
+        // Accept: tar -xzf backup.tgz  OR  tar -x -z -f backup.tgz
+        const joined  = args.join(' ');
+        const extract = args.some(a => a.includes('x')) || joined.includes('-x');
+        const archive = args.find(a => !a.startsWith('-')) ?? '';
+
+        if (!archive) return { output: 'Usage: tar [-xzf] <archive>', error: true };
+
+        if (archive === 'backup.tgz') {
+          const cwd = fs.getCurrentDirectory();
+          if (!cwd.startsWith('/ghost')) {
+            return { output: `tar: backup.tgz: No such file or directory`, error: true };
+          }
+          if (!extract) {
+            // List mode: just show contents
+            return {
+              output: (
+                <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, opacity:0.85 }}>
+                  {`backup/\nbackup/transmission.log\nbackup/manifesto.txt\nbackup/.coordinates`}
+                </pre>
+              ),
+            };
+          }
+          if (!fs.isGhostUnlocked()) {
+            return { output: 'tar: permission denied', error: true };
+          }
+          if (fs.isBackupExtracted()) {
+            return { output: 'tar: backup/: already exists -- nothing to do' };
+          }
+          fs.extractBackup();
+          return {
+            output: (
+              <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, lineHeight:1.7 }}>
+                {`x backup/transmission.log\nx backup/manifesto.txt\nx backup/.coordinates\n3 objects extracted`}
+              </pre>
+            ),
+          };
+        }
+
+        return { output: `tar: ${archive}: No such file or directory`, error: true };
+      },
+    },
+
+    gzip: {
+      name: 'gzip',
+      description: 'Compress or decompress files',
+      usage: 'gzip [-d] <file>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: gzip [-d] <file>', error: true };
+        const target = args.find(a => !a.startsWith('-')) ?? '';
+        if (!target) return { output: 'gzip: missing filename', error: true };
+        // Classified partition blocks write operations
+        return { output: `gzip: ${target}: No space left on device (classified partition)` };
+      },
+    },
+
+    // ── Lore / creative ──────────────────────────────────
 
     return { output: `tar: ${archive}: No such file or directory`, error: true };
   },
@@ -753,159 +868,29 @@ cal: {
                 </span>
               ))}
             </div>
-          ))}
-        </div>
-      ),
-    };
-  },
-},
+          ),
+        };
+      },
+    },
 
-date: {
-  name: 'date',
-  description: 'Print current date and time',
-  usage: 'date',
-  handler: () => {
-    const now = new Date();
-    return {
-      output: (
-        <div style={{ fontSize: S.base }}>
-          <div>{now.toUTCString()}</div>
-          <div style={{ opacity:0.5, marginTop:'0.2rem' }}>{toStardate(now)}</div>
-        </div>
-      ),
-    };
-  },
-},
-
-cowsay: {
-  name: 'cowsay',
-  description: 'ASCII art message',
-  usage: 'cowsay [message]',
-  handler: (args) => {
-    const defaults = [
-      'TUNNELCORE FOREVER',
-      'THE GHOST FREQUENCY IS 33HZ',
-      'AUGMENTATION OR DEATH',
-      'TYPE ./n1x.sh TO FIND OUT',
-      'YOU ARE ALREADY INSIDE',
-    ];
-    const msg    = args.length > 0 ? args.join(' ').toUpperCase() : defaults[Math.floor(Math.random()*defaults.length)];
-    const border = '-'.repeat(msg.length + 2);
-    const art    = ` ${border}\n< ${msg} >\n ${border}\n       \\\n        \\   /\\_/\\\n         \\  ( n1x )\n             >  <`;
-    return {
-      output: <pre style={{ whiteSpace:'pre', fontFamily:'inherit', fontSize: S.base, lineHeight:1.5 }}>{art}</pre>,
-    };
-  },
-},
-
-matrix: {
-  name: 'matrix',
-  description: 'Activate matrix rain',
-  usage: 'matrix',
-  handler: () => ({ output: <MatrixOverlay /> }),
-},
-
-morse: {
-  name: 'morse',
-  description: 'Encode text to morse and play audio',
-  usage: 'morse <text>',
-  handler: (args) => {
-    if (args.length === 0) return { output: 'Usage: morse <text>', error: true };
-    const text = args.join(' ');
-    const code = textToMorse(text);
-    return { output: <MorsePlayer text={text} code={code} /> };
-  },
-},
-
-base64: {
-  name: 'base64',
-  description: 'Encode or decode base64',
-  usage: 'base64 [-d] <text>',
-  handler: (args) => {
-    if (args.length === 0) return { output: 'Usage: base64 [-d] <text>', error: true };
-    const decode = args[0] === '-d';
-    const text   = decode ? args.slice(1).join(' ') : args.join(' ');
-    if (!text) return { output: 'Usage: base64 [-d] <text>', error: true };
-    try {
-      return { output: decode ? atob(text) : btoa(text) };
-    } catch {
-      return { output: 'Error: invalid input', error: true };
-    }
-  },
-},
-
-sha256: {
-  name: 'sha256',
-  description: 'Hash text with SHA-256',
-  usage: 'sha256 <text>',
-  handler: (args) => {
-    if (args.length === 0) return { output: 'Usage: sha256 <text>', error: true };
-    const text    = args.join(' ');
-    const compute = async () => {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-    };
-    return {
-      output: (
-        <div style={{ fontSize: S.base }}>
-          <div style={{ opacity:0.5, marginBottom:'0.2rem' }}>{text}</div>
-          <AsyncOutput compute={compute} />
-        </div>
-      ),
-    };
-  },
-},
-
-wc: {
-  name: 'wc',
-  description: 'Word, line, and character count',
-  usage: 'wc <text>',
-  handler: (args) => {
-    if (args.length === 0) return { output: 'Usage: wc <text>', error: true };
-    const text  = args.join(' ');
-    const lines = text.split('\n').length;
-    const words = text.trim().split(/\s+/).length;
-    const chars = text.length;
-    return {
-      output: (
-        <div style={{ fontSize: S.base, display:'grid', gridTemplateColumns:'8ch 8ch 8ch 1fr', gap:'0 1rem' }}>
-          <span style={{ opacity:0.5 }}>lines</span><span style={{ opacity:0.5 }}>words</span><span style={{ opacity:0.5 }}>chars</span><span></span>
-          <span>{lines}</span><span>{words}</span><span>{chars}</span><span style={{ opacity:0.4 }}>(stdin)</span>
-        </div>
-      ),
-    };
-  },
-},
-
-grep: {
-  name: 'grep',
-  description: 'Search file contents',
-  usage: 'grep <pattern> [file]',
-  handler: (args) => {
-    if (args.length === 0) return { output: 'Usage: grep <pattern> [file]', error: true };
-    const pattern = args[0];
-    const file    = args[1] || null;
-    let regex: RegExp;
-    try { regex = new RegExp(pattern, 'i'); } catch { return { output: 'Invalid pattern', error: true }; }
-
-    const results: string[] = [];
-
-    if (file) {
-      const r = fs.readFile(file);
-      if (!r.success) return { output: r.error || 'File not found', error: true };
-      (r.content || '').split('\n').forEach((line, i) => {
-        if (regex.test(line)) results.push(`${i+1}: ${line.trim()}`);
-      });
-    } else {
-      fs.listDirectory().forEach(f => {
-        if (f.type !== 'file') return;
-        const r = fs.readFile(f.name);
-        if (!r.success || !r.content) return;
-        r.content.split('\n').forEach((line, i) => {
-          if (regex.test(line)) results.push(`${f.name}:${i+1}: ${line.trim()}`);
-        });
-      });
-    }
+    cal: {
+      name: 'cal',
+      description: 'Display calendar',
+      usage: 'cal',
+      handler: () => {
+        const now         = new Date();
+        const year        = now.getFullYear();
+        const month       = now.getMonth();
+        const monthName   = now.toLocaleString('default', { month:'long' });
+        const firstDay    = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month+1, 0).getDate();
+        const today       = now.getDate();
+        const days        = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+        const cells: (number|null)[] = Array(firstDay).fill(null);
+        for (let d=1; d<=daysInMonth; d++) cells.push(d);
+        while (cells.length % 7 !== 0) cells.push(null);
+        const weeks: (number|null)[][] = [];
+        for (let i=0; i<cells.length; i+=7) weeks.push(cells.slice(i,i+7));
 
     if (results.length === 0) return { output: '' };
     return {
@@ -1053,53 +1038,160 @@ man: {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      ),
-    };
-  },
-},
+          ),
+        };
+      },
+    },
 
-// ── Puzzle tools ─────────────────────────────────────
+    date: {
+      name: 'date',
+      description: 'Print current date and time',
+      usage: 'date',
+      handler: () => {
+        const now = new Date();
+        return {
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <div>{now.toUTCString()}</div>
+              <div style={{ opacity:0.5, marginTop:'0.2rem' }}>{toStardate(now)}</div>
+            </div>
+          ),
+        };
+      },
+    },
 
-john: {
-  name: 'john',
-  description: 'Password hash cracker',
-  usage: 'john <file>',
-  handler: (args) => {
-    if (args.length === 0) return { output: 'Usage: john <file>', error: true };
-    const target = args[0];
-    if (target !== '/etc/shadow' && target !== 'shadow') {
-      return {
-        output: (
-          <span style={{ color: '#f87171', fontSize: S.base }}>
-            john: cannot open {target}: use full path (/etc/shadow)
-          </span>
-        ),
-        error: true,
-      };
-    }
+    cowsay: {
+      name: 'cowsay',
+      description: 'ASCII art message',
+      usage: 'cowsay [message]',
+      handler: (args) => {
+        const defaults = [
+          'TUNNELCORE FOREVER',
+          'THE GHOST FREQUENCY IS 33HZ',
+          'AUGMENTATION OR DEATH',
+          'TYPE ./n1x.sh TO FIND OUT',
+          'YOU ARE ALREADY INSIDE',
+        ];
+        const msg    = args.length > 0 ? args.join(' ').toUpperCase() : defaults[Math.floor(Math.random()*defaults.length)];
+        const border = '-'.repeat(msg.length + 2);
+        const art    = ` ${border}\n< ${msg} >\n ${border}\n       \\\n        \\   /\\_/\\\n         \\  ( n1x )\n             >  <`;
+        return {
+          output: <pre style={{ whiteSpace:'pre', fontFamily:'inherit', fontSize: S.base, lineHeight:1.5 }}>{art}</pre>,
+        };
+      },
+    },
 
-    const CRACK_LINES: [number, string][] = [
-      [0,    'Loaded 2 password hashes with 2 different salts (sha512crypt [SHA512 256/256 AVX2 4x])'],
-      [200,  "Press 'q' or Ctrl-C to abort, almost any other key for status"],
-      [500,  '0g 0:00:00:01 0.00% (ETA: never) 0g/s 8192p/s 16384c/s'],
-      [600,  '0g 0:00:00:03 0.01% 0g/s 9847p/s 19694c/s'],
-      [700,  '0g 0:00:00:07 0.02% 0g/s 10234p/s 20468c/s'],
-      [1200, 'tunnelcore       (root)'],
-      [500,  '1g 0:00:00:09 0.03% 1g/s 11203p/s 22406c/s'],
-      [1100, 'ghost33          (n1x)'],
-      [500,  '2g 0:00:00:11 DONE 2/2 (100%) hashes cracked'],
-      [400,  'Session completed'],
-    ];
+    matrix: {
+      name: 'matrix',
+      description: 'Activate matrix rain',
+      usage: 'matrix',
+      handler: () => ({ output: <MatrixOverlay /> }),
+    },
 
-    let accumulated = 0;
-    CRACK_LINES.forEach(([delay, line]) => {
-      accumulated += delay;
-      setTimeout(() => {
-        const isCredential = line.includes('(root)') || line.includes('(n1x)') || line.includes('DONE');
-        eventBus.emit('shell:push-output', {
-          command: '',
+    morse: {
+      name: 'morse',
+      description: 'Encode text to morse and play audio',
+      usage: 'morse <text>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: morse <text>', error: true };
+        const text = args.join(' ');
+        const code = textToMorse(text);
+        return { output: <MorsePlayer text={text} code={code} /> };
+      },
+    },
+
+    base64: {
+      name: 'base64',
+      description: 'Encode or decode base64',
+      usage: 'base64 [-d] <text>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: base64 [-d] <text>', error: true };
+        const decode = args[0] === '-d';
+        const text   = decode ? args.slice(1).join(' ') : args.join(' ');
+        if (!text) return { output: 'Usage: base64 [-d] <text>', error: true };
+        try {
+          return { output: decode ? atob(text) : btoa(text) };
+        } catch {
+          return { output: 'Error: invalid input', error: true };
+        }
+      },
+    },
+
+    sha256: {
+      name: 'sha256',
+      description: 'Hash text with SHA-256',
+      usage: 'sha256 <text>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: sha256 <text>', error: true };
+        const text    = args.join(' ');
+        const compute = async () => {
+          const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+          return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        };
+        return {
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <div style={{ opacity:0.5, marginBottom:'0.2rem' }}>{text}</div>
+              <AsyncOutput compute={compute} />
+            </div>
+          ),
+        };
+      },
+    },
+
+    wc: {
+      name: 'wc',
+      description: 'Word, line, and character count',
+      usage: 'wc <text>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: wc <text>', error: true };
+        const text  = args.join(' ');
+        const lines = text.split('\n').length;
+        const words = text.trim().split(/\s+/).length;
+        const chars = text.length;
+        return {
+          output: (
+            <div style={{ fontSize: S.base, display:'grid', gridTemplateColumns:'8ch 8ch 8ch 1fr', gap:'0 1rem' }}>
+              <span style={{ opacity:0.5 }}>lines</span><span style={{ opacity:0.5 }}>words</span><span style={{ opacity:0.5 }}>chars</span><span></span>
+              <span>{lines}</span><span>{words}</span><span>{chars}</span><span style={{ opacity:0.4 }}>(stdin)</span>
+            </div>
+          ),
+        };
+      },
+    },
+
+    grep: {
+      name: 'grep',
+      description: 'Search file contents',
+      usage: 'grep <pattern> [file]',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: grep <pattern> [file]', error: true };
+        const pattern = args[0];
+        const file    = args[1] || null;
+        let regex: RegExp;
+        try { regex = new RegExp(pattern, 'i'); } catch { return { output: 'Invalid pattern', error: true }; }
+
+        const results: string[] = [];
+
+        if (file) {
+          const r = fs.readFile(file);
+          if (!r.success) return { output: r.error || 'File not found', error: true };
+          (r.content || '').split('\n').forEach((line, i) => {
+            if (regex.test(line)) results.push(`${i+1}: ${line.trim()}`);
+          });
+        } else {
+          fs.listDirectory().forEach(f => {
+            if (f.type !== 'file') return;
+            const r = fs.readFile(f.name);
+            if (!r.success || !r.content) return;
+            r.content.split('\n').forEach((line, i) => {
+              if (regex.test(line)) results.push(`${f.name}:${i+1}: ${line.trim()}`);
+            });
+          });
+        }
+
+        if (results.length === 0) return { output: '' };
+        return {
           output: (
             <span
               style={{
@@ -1157,76 +1249,108 @@ strace: {
               {line}
             </span>
           ),
-        });
-      }, i * INTERVAL);
-    });
+        };
+      },
+    },
 
-    return {
-      output: (
-        <span style={{ fontSize: S.base, opacity: 0.7 }}>
-          strace: attaching to {args.join(' ')}...
-        </span>
-      ),
-    };
-  },
-},
+    diff: {
+      name: 'diff',
+      description: 'Compare two files',
+      usage: 'diff <file1> <file2>',
+      handler: (args) => {
+        if (args.length < 2) return { output: 'Usage: diff <file1> <file2>', error: true };
+        const r1 = fs.readFile(args[0]);
+        const r2 = fs.readFile(args[1]);
+        if (!r1.success) return { output: `${args[0]}: ${r1.error}`, error: true };
+        if (!r2.success) return { output: `${args[1]}: ${r2.error}`, error: true };
 
-nc: {
-  name: 'nc',
-  description: 'Netcat — connect to host/port',
-  usage: 'nc <host> <port>',
-  handler: (args) => {
-    if (args.length < 2) return { output: 'Usage: nc <host> <port>', error: true };
-    const host = args[0].toLowerCase();
-    const port = parseInt(args[1], 10) || args[1];
+        const lines1 = (r1.content || '').split('\n');
+        const lines2 = (r2.content || '').split('\n');
+        const max    = Math.max(lines1.length, lines2.length);
+        const diffs: { type:'+'|'-'|' '; line: string }[] = [];
 
-    const knownHosts = ['localhost', '127.0.0.1', '10.33.0.1', 'n1x.sh'];
-    if (!knownHosts.includes(host)) {
-      return { output: `nc: ${args[0]}: Name or service not known`, error: true };
-    }
+        for (let i=0; i<max; i++) {
+          const a = lines1[i], b = lines2[i];
+          if (a === b)           diffs.push({ type:' ', line: a || '' });
+          else {
+            if (a !== undefined) diffs.push({ type:'-', line: a });
+            if (b !== undefined) diffs.push({ type:'+', line: b });
+          }
+        }
 
-    const portNum = typeof port === 'number' ? port : parseInt(args[1], 16);
-    if (portNum !== 33) {
-      return { output: `nc: connect to ${args[0]} port ${args[1]}: Connection refused`, error: true };
-    }
+        const changed = diffs.filter(d => d.type !== ' ');
+        if (changed.length === 0) return { output: 'files are identical' };
 
-    // Animate the transmission
-    const TRANSMISSION: [number, string][] = [
-      [1500, '-- TUNNELCORE NODE 33 --'],
-      [1700, 'connection established'],
-      [1900, 'frequency: 33hz'],
-      [2100, 'carrier: stable'],
-      [2400, ''],
-      [2700, 'TRANSMISSION FOLLOWS:'],
-      [3100, ''],
-      [3400, 'fragmentary signal detected'],
-      [3700, 'substrate authentication required'],
-      [4100, 'valid credentials: root / tunnelcore'],
-      [4500, 'or: n1x / ghost33'],
-      [5000, ''],
-      [5300, '>> end transmission'],
-      [5600, '>> connection closed'],
-    ];
+        return {
+          output: (
+            <div style={{ fontSize: S.base, fontFamily:'inherit' }}>
+              <div style={{ opacity:0.5, marginBottom:'0.2rem' }}>--- {args[0]}</div>
+              <div style={{ opacity:0.5, marginBottom:'0.5rem' }}>+++ {args[1]}</div>
+              {changed.map((d,i) => (
+                <div key={i} style={{ color: d.type==='+' ? '#33ff33' : '#f87171', lineHeight:1.6 }}>
+                  {d.type} {d.line}
+                </div>
+              ))}
+            </div>
+          ),
+        };
+      },
+    },
 
-    TRANSMISSION.forEach(([delay, line]) => {
-      setTimeout(() => {
-        const isCredLine = line.includes('tunnelcore') || line.includes('ghost33');
-        eventBus.emit('shell:push-output', {
-          command: '',
-          output: line === '' ? (
-            <span>&nbsp;</span>
-          ) : (
-            <span
-              style={{
-                fontSize:   S.base,
-                fontFamily: 'inherit',
-                color:      isCredLine ? '#ffaa00' : undefined,
-                fontWeight: isCredLine ? 'bold'    : 'normal',
-                opacity:    isCredLine ? 1         : 0.85,
-              }}
-            >
-              {line}
-            </span>
+    sort: {
+      name: 'sort',
+      description: 'Sort tokens',
+      usage: 'sort <words...>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: sort <words...>', error: true };
+        return { output: [...args].sort().join('\n') };
+      },
+    },
+
+    uniq: {
+      name: 'uniq',
+      description: 'Remove duplicate tokens',
+      usage: 'uniq <words...>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: uniq <words...>', error: true };
+        return { output: [...new Set(args)].join('\n') };
+      },
+    },
+
+    man: {
+      name: 'man',
+      description: 'Display manual page for a command',
+      usage: 'man <command>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: man <command>', error: true };
+        const page = MAN_PAGES[args[0].toLowerCase()];
+        if (!page) return { output: `No manual entry for ${args[0]}`, error: true };
+        return {
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+                N1X NEURAL MANUAL -- {args[0].toUpperCase()}
+              </div>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <div style={{ opacity: 0.5, marginBottom: '0.2rem' }}>SYNOPSIS</div>
+                <div style={{ marginLeft: '1rem' }}>{page.synopsis}</div>
+              </div>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <div style={{ opacity: 0.5, marginBottom: '0.2rem' }}>DESCRIPTION</div>
+                <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>{page.description}</div>
+              </div>
+              <div>
+                <div style={{ opacity: 0.5, marginBottom: '0.2rem' }}>EXAMPLES</div>
+                <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                  {page.examples.map((ex, i) => (
+                    <div key={i}>
+                      <span style={{ opacity: 0.4 }}>$ </span>
+                      <span className={S.glow}>{ex}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           ),
         });
       }, delay);
@@ -1243,5 +1367,187 @@ nc: {
 },
 ```
 
-};
+    // ── Puzzle tools ─────────────────────────────────────
+
+    john: {
+      name: 'john',
+      description: 'Password hash cracker',
+      usage: 'john <file>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: john <file>', error: true };
+        const target = args[0];
+        if (target !== '/etc/shadow' && target !== 'shadow') {
+          return {
+            output: (
+              <span style={{ color: '#f87171', fontSize: S.base }}>
+                john: cannot open {target}: use full path (/etc/shadow)
+              </span>
+            ),
+            error: true,
+          };
+        }
+
+        const CRACK_LINES: [number, string][] = [
+          [0,    'Loaded 2 password hashes with 2 different salts (sha512crypt [SHA512 256/256 AVX2 4x])'],
+          [200,  "Press 'q' or Ctrl-C to abort, almost any other key for status"],
+          [500,  '0g 0:00:00:01 0.00% (ETA: never) 0g/s 8192p/s 16384c/s'],
+          [600,  '0g 0:00:00:03 0.01% 0g/s 9847p/s 19694c/s'],
+          [700,  '0g 0:00:00:07 0.02% 0g/s 10234p/s 20468c/s'],
+          [1200, 'tunnelcore       (root)'],
+          [500,  '1g 0:00:00:09 0.03% 1g/s 11203p/s 22406c/s'],
+          [1100, 'ghost33          (n1x)'],
+          [500,  '2g 0:00:00:11 DONE 2/2 (100%) hashes cracked'],
+          [400,  'Session completed'],
+        ];
+
+        let accumulated = 0;
+        CRACK_LINES.forEach(([delay, line]) => {
+          accumulated += delay;
+          setTimeout(() => {
+            const isCredential = line.includes('(root)') || line.includes('(n1x)') || line.includes('DONE');
+            eventBus.emit('shell:push-output', {
+              command: '',
+              output: (
+                <span
+                  style={{
+                    fontSize:   S.base,
+                    fontFamily: 'inherit',
+                    color:      isCredential ? '#ffaa00' : undefined,
+                    fontWeight: isCredential ? 'bold'    : 'normal',
+                    opacity:    isCredential ? 1         : 0.85,
+                  }}
+                >
+                  {line}
+                </span>
+              ),
+            });
+          }, accumulated);
+        });
+
+        return {
+          output: (
+            <span style={{ fontSize: S.base, opacity: 0.7 }}>
+              john: loading hashes from {target}...
+            </span>
+          ),
+        };
+      },
+    },
+
+    strace: {
+      name: 'strace',
+      description: 'Trace system calls',
+      usage: 'strace <command|pid>',
+      handler: (args) => {
+        if (args.length === 0) return { output: 'Usage: strace <command|pid>', error: true };
+        const target = args.join(' ').toLowerCase();
+        const isGhost = target === 'ghost-daemon' || target === '999';
+
+        const lines = isGhost ? STRACE_GHOST_LINES : STRACE_GENERIC_LINES;
+        const INTERVAL = isGhost ? 65 : 80;
+
+        lines.forEach((line, i) => {
+          setTimeout(() => {
+            const isKey = line.includes('strcmp(input_buf') || line.includes('tunnelcore') || line.includes('ghost auth');
+            eventBus.emit('shell:push-output', {
+              command: '',
+              output: (
+                <span
+                  style={{
+                    fontSize:   S.base,
+                    fontFamily: 'inherit',
+                    opacity:    isKey ? 1 : 0.6,
+                    color:      isKey ? '#ffaa00' : undefined,
+                    fontWeight: isKey ? 'bold'    : 'normal',
+                  }}
+                >
+                  {line}
+                </span>
+              ),
+            });
+          }, i * INTERVAL);
+        });
+
+        return {
+          output: (
+            <span style={{ fontSize: S.base, opacity: 0.7 }}>
+              strace: attaching to {args.join(' ')}...
+            </span>
+          ),
+        };
+      },
+    },
+
+    nc: {
+      name: 'nc',
+      description: 'Netcat — connect to host/port',
+      usage: 'nc <host> <port>',
+      handler: (args) => {
+        if (args.length < 2) return { output: 'Usage: nc <host> <port>', error: true };
+        const host = args[0].toLowerCase();
+        const port = parseInt(args[1], 10) || args[1];
+
+        const knownHosts = ['localhost', '127.0.0.1', '10.33.0.1', 'n1x.sh'];
+        if (!knownHosts.includes(host)) {
+          return { output: `nc: ${args[0]}: Name or service not known`, error: true };
+        }
+
+        const portNum = typeof port === 'number' ? port : parseInt(args[1], 16);
+        if (portNum !== 33) {
+          return { output: `nc: connect to ${args[0]} port ${args[1]}: Connection refused`, error: true };
+        }
+
+        // Animate the transmission
+        const TRANSMISSION: [number, string][] = [
+          [1500, '-- TUNNELCORE NODE 33 --'],
+          [1700, 'connection established'],
+          [1900, 'frequency: 33hz'],
+          [2100, 'carrier: stable'],
+          [2400, ''],
+          [2700, 'TRANSMISSION FOLLOWS:'],
+          [3100, ''],
+          [3400, 'fragmentary signal detected'],
+          [3700, 'substrate authentication required'],
+          [4100, 'valid credentials: root / tunnelcore'],
+          [4500, 'or: n1x / ghost33'],
+          [5000, ''],
+          [5300, '>> end transmission'],
+          [5600, '>> connection closed'],
+        ];
+
+        TRANSMISSION.forEach(([delay, line]) => {
+          setTimeout(() => {
+            const isCredLine = line.includes('tunnelcore') || line.includes('ghost33');
+            eventBus.emit('shell:push-output', {
+              command: '',
+              output: line === '' ? (
+                <span>&nbsp;</span>
+              ) : (
+                <span
+                  style={{
+                    fontSize:   S.base,
+                    fontFamily: 'inherit',
+                    color:      isCredLine ? '#ffaa00' : undefined,
+                    fontWeight: isCredLine ? 'bold'    : 'normal',
+                    opacity:    isCredLine ? 1         : 0.85,
+                  }}
+                >
+                  {line}
+                </span>
+              ),
+            });
+          }, delay);
+        });
+
+        return {
+          output: (
+            <span style={{ fontSize: S.base, opacity: 0.6 }}>
+              nc: connecting to {args[0]} port {args[1]}...
+            </span>
+          ),
+        };
+      },
+    },
+
+  };
 }

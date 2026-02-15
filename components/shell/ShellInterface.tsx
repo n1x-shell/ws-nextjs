@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useShell } from '@/hooks/useShell';
+import { useShell, RequestPromptFn } from '@/hooks/useShell';
 import { getCommandSuggestions } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
+import { CommandOutput } from '@/types/shell.types';
 
 // ── Boot lines ────────────────────────────────────────────────────────────────
-// Each entry: [delay from previous line in ms, text]
 
 const BOOT_LINES: [number, string][] = [
   [0,    '[    0.000000] NeuralOS 2.0.0-n1x #1 SMP PREEMPT SD 47634.1-7073435a8fa30 SUBSTRATE amd64'],
@@ -72,7 +72,7 @@ const BOOT_LINES: [number, string][] = [
   [100,  'signal-processor[314]: ANALOGUES  -- recording in progress'],
   [100,  'signal-processor[314]: HYBRIDS    -- calibration phase'],
   [100,  'signal-processor[314]: UPLINK     -- external node active'],
-  [180,  'ghost-daemon[999]: /ghost locked -- konami or ./n1x.sh required'],
+  [180,  'ghost-daemon[999]: /ghost locked -- mount /hidden then run ./n1x.sh'],
   [150,  'ghost-daemon[999]: listening on 0x33'],
   [180,  'memory-guard[156]: classified sectors sealed'],
   [200,  ''],
@@ -91,28 +91,30 @@ const BOOT_LINES: [number, string][] = [
 // ── BootSequence component ────────────────────────────────────────────────────
 
 function BootSequence({ onComplete }: { onComplete: () => void }) {
-  const [lines, setLines]       = useState<string[]>([]);
-  const [done, setDone]         = useState(false);
-  const outputRef               = useRef<HTMLDivElement>(null);
-  const { triggerGlitch }       = useNeuralState();
+  const [lines, setLines] = useState<string[]>([]);
+  const [done, setDone]   = useState(false);
+  const outputRef         = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let totalDelay = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    BOOT_LINES.forEach(([delay, text], i) => {
+    BOOT_LINES.forEach(([delay]) => {
       totalDelay += delay;
+    });
+
+    let accumulated = 0;
+    BOOT_LINES.forEach(([delay, text]) => {
+      accumulated += delay;
       const t = setTimeout(() => {
-        setLines(prev => [...prev, text]);
-      }, totalDelay);
+        setLines((prev) => [...prev, text]);
+      }, accumulated);
       timers.push(t);
     });
 
-    // After all lines, flicker then hand off
-    const flickerDelay = totalDelay + 100;
+    const flickerDelay = accumulated + 100;
     const t1 = setTimeout(() => {
       setDone(true);
-      // Rapid glitch burst
       eventBus.emit('neural:glitch-trigger', { intensity: 0.8 });
       setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 1.0 }), 80);
       setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.6 }), 160);
@@ -122,9 +124,8 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
     timers.push(t1);
 
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [onComplete]);
 
-  // Auto scroll
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
@@ -168,9 +169,10 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
               : line.startsWith('n1x-terminal')
               ? 1
               : 0.75,
-            fontWeight: line.startsWith('NeuralOS') || line.startsWith('n1x-terminal[1337]: ready')
-              ? 'bold'
-              : 'normal',
+            fontWeight:
+              line.startsWith('NeuralOS') || line.startsWith('n1x-terminal[1337]: ready')
+                ? 'bold'
+                : 'normal',
           }}
         >
           {line === '' ? '\u00a0' : line}
@@ -186,22 +188,35 @@ export default function ShellInterface() {
   const [input, setInput]           = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
-  const inputRef                    = useRef<HTMLInputElement>(null);
-  const outputRef                   = useRef<HTMLDivElement>(null);
-  const { history, executeCommand, navigateHistory, historyEndRef } = useShell();
+  const [promptUser, setPromptUser] = useState<'n1x' | 'root'>('n1x');
+
+  // Pending password prompt state
+  const [pendingPrompt, setPendingPrompt] = useState<{
+    label: string;
+    onSubmit: (pw: string) => void;
+  } | null>(null);
+
+  const inputRef  = useRef<HTMLInputElement>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  const { history, executeCommand, navigateHistory, historyEndRef, pushOutput } = useShell();
   const { triggerGlitch, unlockGhost } = useNeuralState();
+
+  // requestPrompt: called by commands that need masked password input
+  const requestPrompt: RequestPromptFn = useCallback((label, onSubmit) => {
+    setPendingPrompt({ label, onSubmit });
+  }, []);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
-  // Auto-focus after boot
   useEffect(() => {
     if (!booting) inputRef.current?.focus();
   }, [booting]);
 
-  // Scroll output
+  // Auto-scroll on history change
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
@@ -210,7 +225,7 @@ export default function ShellInterface() {
     });
   }, [history]);
 
-  // Stop scroll events reaching the page
+  // Stop scroll events propagating
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
@@ -227,16 +242,36 @@ export default function ShellInterface() {
     };
   }, []);
 
+  // Async output pushed from commands (john, strace, nc, su result, etc.)
+  useEventBus('shell:push-output', (event) => {
+    if (!event.payload) return;
+    const item: CommandOutput = {
+      id:        Date.now().toString() + Math.random().toString(36).slice(2),
+      command:   event.payload.command ?? '',
+      output:    event.payload.output  ?? null,
+      timestamp: Date.now(),
+      error:     event.payload.error   ?? false,
+    };
+    pushOutput(item);
+  });
+
+  // Dynamic prompt user
+  useEventBus('shell:set-user', (event) => {
+    if (event.payload?.user === 'root' || event.payload?.user === 'n1x') {
+      setPromptUser(event.payload.user);
+    }
+  });
+
   // Tab button commands
   useEventBus('shell:execute-command', (event) => {
     if (event.payload?.command) {
-      executeCommand(event.payload.command);
+      executeCommand(event.payload.command, requestPrompt);
       setInput('');
       setSuggestions([]);
     }
   });
 
-  // Ghost sequence
+  // Ghost sequence (Konami / ./n1x.sh)
   useEventBus('neural:konami', () => {
     const SEQUENCE_DURATION = 4000;
     setTimeout(() => { unlockGhost(); }, SEQUENCE_DURATION);
@@ -248,14 +283,37 @@ export default function ShellInterface() {
       { delay: SEQUENCE_DURATION + 2200, cmd: 'ls'                         },
     ];
     lines.forEach(({ delay, cmd }) => {
-      setTimeout(() => { executeCommand(cmd); }, delay);
+      setTimeout(() => { executeCommand(cmd, requestPrompt); }, delay);
     });
   });
 
+  // Prompt strings
+  const promptSymbol = promptUser === 'root' ? '#' : '$';
+  const promptLabel  = pendingPrompt
+    ? pendingPrompt.label
+    : `${promptUser}@core:~${promptSymbol}`;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Password prompt active
+    if (pendingPrompt) {
+      const pw = input;
+      // Add masked entry to history
+      pushOutput({
+        id:        Date.now().toString(),
+        command:   '*'.repeat(pw.length || 1),
+        output:    null,
+        timestamp: Date.now(),
+      });
+      pendingPrompt.onSubmit(pw);
+      setInput('');
+      setPendingPrompt(null);
+      return;
+    }
+
     if (!input.trim()) return;
-    executeCommand(input);
+    executeCommand(input, requestPrompt);
     setInput('');
     setSuggestions([]);
     triggerGlitch();
@@ -264,6 +322,10 @@ export default function ShellInterface() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
+
+    // No suggestions during password prompt
+    if (pendingPrompt) return;
+
     if (value.trim()) {
       const parts = value.trim().split(/\s+/);
       setSuggestions(parts.length === 1 ? getCommandSuggestions(parts[0]) : []);
@@ -273,6 +335,9 @@ export default function ShellInterface() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Don't allow history navigation in password prompts
+    if (pendingPrompt) return;
+
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       const cmd = navigateHistory('up');
@@ -299,14 +364,14 @@ export default function ShellInterface() {
     <div
       onClick={handleShellClick}
       style={{
-        display: 'flex',
+        display:       'flex',
         flexDirection: 'column',
-        width: '100%',
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-        fontSize: 'var(--text-base)',
-        touchAction: 'none',
+        width:         '100%',
+        height:        '100%',
+        minHeight:     0,
+        overflow:      'hidden',
+        fontSize:      'var(--text-base)',
+        touchAction:   'none',
       }}
     >
       {booting ? (
@@ -318,15 +383,15 @@ export default function ShellInterface() {
             ref={outputRef}
             className="shell-output"
             style={{
-              flex: '1 1 0%',
-              minHeight: 0,
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              padding: '0.75rem',
-              overscrollBehavior: 'contain',
+              flex:                    '1 1 0%',
+              minHeight:               0,
+              overflowY:               'auto',
+              overflowX:               'hidden',
+              padding:                 '0.75rem',
+              overscrollBehavior:      'contain',
               WebkitOverflowScrolling: 'touch',
-              touchAction: 'pan-y',
-              fontSize: 'var(--text-base)',
+              touchAction:             'pan-y',
+              fontSize:                'var(--text-base)',
             }}
           >
             {/* MOTD */}
@@ -338,24 +403,21 @@ export default function ShellInterface() {
                 >
                   &gt; CORE_SYSTEMS_ONLINE
                 </div>
-
                 <div style={{ opacity: 0.9, lineHeight: 1.6, marginBottom: '0.75rem' }}>
                   You are now connected to the N1X neural interface.
                   This terminal provides direct access to my creative output streams.
                 </div>
-
                 <div style={{ marginLeft: '1rem', opacity: 0.8, lineHeight: 1.8 }}>
                   <div>&gt; SYNTHETICS: Machine-generated compositions from my AI substrate</div>
                   <div>&gt; ANALOGUES: Organic creations from biological processes</div>
                   <div>&gt; HYBRIDS: Symbiotic fusion of both consciousness types</div>
                 </div>
-
                 <div
                   style={{
-                    marginTop: '1rem',
-                    paddingTop: '0.75rem',
-                    borderTop: '1px solid rgba(51,255,51,0.3)',
-                    opacity: 0.6,
+                    marginTop:   '1rem',
+                    paddingTop:  '0.75rem',
+                    borderTop:   '1px solid rgba(51,255,51,0.3)',
+                    opacity:     0.6,
                   }}
                 >
                   Type <span className="text-glow">&apos;help&apos;</span> for commands &middot;{' '}
@@ -368,31 +430,39 @@ export default function ShellInterface() {
             {/* Command history */}
             {history.map((item) => (
               <div key={item.id} style={{ marginBottom: '0.75rem' }}>
-                {item.command.startsWith('>>') ? (
-                  <div
-                    className="text-glow"
-                    style={{
-                      marginBottom: '0.25rem',
-                      fontSize: 'var(--text-header)',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    {item.command}
-                  </div>
-                ) : (
-                  <div className="text-glow" style={{ marginBottom: '0.25rem' }}>
-                    <span style={{ opacity: 0.4 }}>ghost@wetware-784988:~$</span>{' '}
-                    {item.command}
-                  </div>
+                {/* Render command line only if command is non-empty */}
+                {item.command !== '' && (
+                  item.command.startsWith('>>') ? (
+                    <div
+                      className="text-glow"
+                      style={{
+                        marginBottom:  '0.25rem',
+                        fontSize:      'var(--text-header)',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      {item.command}
+                    </div>
+                  ) : (
+                    <div className="text-glow" style={{ marginBottom: '0.25rem' }}>
+                      <span style={{ opacity: 0.4 }}>
+                        {/* Show the prompt that was active when command was run */}
+                        {item.command.match(/^\*+$/)
+                          ? 'Password:'
+                          : `${promptUser}@core:~${promptSymbol}`}
+                      </span>{' '}
+                      {item.command}
+                    </div>
+                  )
                 )}
 
                 {item.output != null && (
                   <div
                     style={{
-                      marginLeft: item.command.startsWith('>>') ? 0 : '1rem',
-                      color: item.error ? '#f87171' : 'var(--phosphor-green)',
-                      wordBreak: 'break-all',
-                      overflowWrap: 'break-word',
+                      marginLeft:    item.command.startsWith('>>') ? 0 : '1rem',
+                      color:         item.error ? '#f87171' : 'var(--phosphor-green)',
+                      wordBreak:     'break-all',
+                      overflowWrap:  'break-word',
                     }}
                   >
                     {item.output}
@@ -404,15 +474,15 @@ export default function ShellInterface() {
             <div ref={historyEndRef} />
           </div>
 
-          {/* Autocomplete */}
-          {suggestions.length > 0 && (
+          {/* Autocomplete (hidden during password prompt) */}
+          {suggestions.length > 0 && !pendingPrompt && (
             <div
               style={{
-                flexShrink: 0,
-                padding: '0.4rem 0.75rem',
-                borderTop: '1px solid rgba(51,255,51,0.2)',
-                background: 'rgba(0,0,0,0.7)',
-                fontSize: 'var(--text-base)',
+                flexShrink:  0,
+                padding:     '0.4rem 0.75rem',
+                borderTop:   '1px solid rgba(51,255,51,0.2)',
+                background:  'rgba(0,0,0,0.7)',
+                fontSize:    'var(--text-base)',
                 touchAction: 'none',
               }}
             >
@@ -428,13 +498,13 @@ export default function ShellInterface() {
                       inputRef.current?.focus();
                     }}
                     style={{
-                      padding: '0 0.4rem',
-                      fontSize: 'var(--text-base)',
-                      fontFamily: 'inherit',
-                      background: 'transparent',
-                      color: 'var(--phosphor-green)',
-                      border: '1px solid rgba(51,255,51,0.4)',
-                      cursor: 'pointer',
+                      padding:     '0 0.4rem',
+                      fontSize:    'var(--text-base)',
+                      fontFamily:  'inherit',
+                      background:  'transparent',
+                      color:       'var(--phosphor-green)',
+                      border:      '1px solid rgba(51,255,51,0.4)',
+                      cursor:      'pointer',
                     }}
                   >
                     {cmd}
@@ -448,34 +518,42 @@ export default function ShellInterface() {
           <form
             onSubmit={handleSubmit}
             style={{
-              flexShrink: 0,
-              padding: '0.5rem 0.75rem',
-              borderTop: '1px solid var(--phosphor-green)',
-              background: 'rgba(0,0,0,0.3)',
-              fontSize: 'var(--text-base)',
+              flexShrink:  0,
+              padding:     '0.5rem 0.75rem',
+              borderTop:   '1px solid var(--phosphor-green)',
+              background:  'rgba(0,0,0,0.3)',
+              fontSize:    'var(--text-base)',
               touchAction: 'none',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit' }}>
+            <div
+              style={{
+                display:    'flex',
+                alignItems: 'center',
+                gap:        '0.5rem',
+                fontFamily: 'inherit',
+              }}
+            >
               <span className="text-glow" style={{ opacity: 0.6, whiteSpace: 'nowrap' }}>
-                ghost@wetware-784988:~$
+                {promptLabel}
               </span>
               <input
                 ref={inputRef}
-                type="text"
+                type={pendingPrompt ? 'password' : 'text'}
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'var(--phosphor-green)',
-                  fontFamily: 'inherit',
-                  fontSize: '16px',
-                  caretColor: 'var(--phosphor-green)',
+                  flex:        1,
+                  background:  'transparent',
+                  border:      'none',
+                  outline:     'none',
+                  color:       'var(--phosphor-green)',
+                  fontFamily:  'inherit',
+                  fontSize:    '16px',
+                  caretColor:  'var(--phosphor-green)',
+                  // Mask password text visually; type="password" handles rendering
                 }}
                 autoComplete="off"
                 autoCorrect="off"
