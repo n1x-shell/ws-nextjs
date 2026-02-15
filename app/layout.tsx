@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { VT323 } from 'next/font/google';
+import { Share_Tech_Mono } from 'next/font/google';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
-const vt323 = VT323({
+const shareTechMono = Share_Tech_Mono({
   weight: '400',
   subsets: ['latin'],
   display: 'swap',
@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={vt323.className}
+      className={shareTechMono.className}
       style={{
         width: '100%',
         height: '100%',
