@@ -159,7 +159,7 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
 
 export const NeuralChatSession: React.FC = () => {
   return (
-    <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
+    <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8, paddingBottom: '1.5rem' }}>
       <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.5rem' }}>
         &gt; NEURAL_LINK_ESTABLISHED
       </div>
