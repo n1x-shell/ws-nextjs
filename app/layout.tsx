@@ -52,6 +52,9 @@ export default function RootLayout({
         left: 0,
       }}
     >
+      <head>
+        <meta charSet="UTF-8" />
+      </head>
       <body
         style={{
           width: '100%',
