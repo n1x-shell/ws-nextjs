@@ -5,6 +5,22 @@ import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 
+export function executeCommand(input: string) {
+  const [name, ...args] = input.trim().split(/\s+/);
+  const command = commandRegistry.get(name);
+  if (!command) {
+    return `Command not found: ${name}`;
+  }
+  return command.execute(args);
+}
+
+export function getCommandSuggestions(partial: string): string[] {
+  const commands = commandRegistry.list();
+  return commands
+    .map(c => c.name)
+    .filter(name => name.startsWith(partial));
+}
+
 const SESSION_START = Date.now();
 
 const S = {
