@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Share_Tech_Mono } from 'next/font/google';
+import { Space_Mono } from 'next/font/google';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
-const shareTechMono = Share_Tech_Mono({
+const spaceMono = Space_Mono({
   weight: '400',
   subsets: ['latin'],
   display: 'swap',
@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={shareTechMono.className}
+      className={spaceMono.className}
       style={{
         width: '100%',
         height: '100%',
