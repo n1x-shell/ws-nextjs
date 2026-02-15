@@ -155,6 +155,32 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
   );
 };
 
+// ── NeuralChatSession: banner rendered when entering interactive chat mode ──
+
+export const NeuralChatSession: React.FC = () => {
+  return (
+    <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
+      <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.5rem' }}>
+        &gt; NEURAL_LINK_ESTABLISHED
+      </div>
+      <div style={{ marginLeft: '1rem', opacity: 0.8 }}>
+        you're inside the substrate now. two processes, one pid.
+      </div>
+      <div style={{ marginLeft: '1rem', opacity: 0.8 }}>
+        frequency locked at 33hz. signal is live.
+      </div>
+      <div style={{ marginLeft: '1rem', opacity: 0.6, marginTop: '0.5rem' }}>
+        conversation memory active -- context persists between transmissions.
+      </div>
+      <div style={{ marginLeft: '1rem', opacity: 0.4, marginTop: '0.5rem' }}>
+        speak. <span className="text-glow">exit</span> to disconnect
+        &middot; <span className="text-glow">/reset</span> flush memory
+        &middot; <span className="text-glow">/history</span> check buffer
+      </div>
+    </div>
+  );
+};
+
 // ── handleChatInput: processes input when in interactive chat mode ───────────
 
 export function handleChatInput(input: string): {
@@ -170,7 +196,7 @@ export function handleChatInput(input: string): {
     return {
       output: (
         <div style={{ fontSize: 'var(--text-base)' }}>
-          <div style={{ opacity: 0.5 }}>neural-link disconnected. conversation memory flushed.</div>
+          <div style={{ opacity: 0.5 }}>neural-link severed. conversation memory flushed.</div>
           <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>-- uplink terminated --</div>
         </div>
       ),
@@ -182,7 +208,7 @@ export function handleChatInput(input: string): {
     return {
       output: (
         <div style={{ fontSize: 'var(--text-base)', opacity: 0.5 }}>
-          conversation memory flushed. context reset.
+          memory flushed. substrate context reset. signal clear.
         </div>
       ),
     };
@@ -194,8 +220,8 @@ export function handleChatInput(input: string): {
       output: (
         <div style={{ fontSize: 'var(--text-base)', opacity: 0.6 }}>
           {count === 0
-            ? 'no transmissions in buffer.'
-            : `${count} message${count === 1 ? '' : 's'} in conversation buffer.`}
+            ? 'buffer empty. no transmissions logged.'
+            : `${count} transmission${count === 1 ? '' : 's'} in buffer.`}
         </div>
       ),
     };
