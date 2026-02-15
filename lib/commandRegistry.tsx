@@ -554,7 +554,8 @@ export const commands: Record<string, Command> = {
   ...systemCommands,
 };
 
-export function executeCommand(input: string): CommandResult {
+export function executeCommand(input: string, _requestPrompt?: any): CommandResult {
+
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
 
