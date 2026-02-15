@@ -19,9 +19,9 @@ export function useShell() {
     setState((prev) => ({ ...prev, history: [...prev.history, item] }));
   }, []);
 
-  const executeCommandLine = useCallback(
-    (input: string, requestPrompt: RequestPromptFn) => {
-      const result = executeCommand(input, requestPrompt);
+  const executeCommandLine = useCallback((input: string) => {
+  const result = executeCommand(input);
+
 
       if (result.clearScreen) {
         setState((prev) => ({ ...prev, history: [] }));
