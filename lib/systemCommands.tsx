@@ -1,4 +1,4 @@
-r'use client';
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Command } from '@/types/shell.types';
