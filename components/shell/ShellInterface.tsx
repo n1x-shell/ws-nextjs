@@ -265,7 +265,8 @@ export default function ShellInterface() {
   // Tab button commands
   useEventBus('shell:execute-command', (event) => {
     if (event.payload?.command) {
-      executeCommand(event.payload.command, requestPrompt);
+      executeCommand(event.payload.command);
+
       setInput('');
       setSuggestions([]);
     }
