@@ -265,8 +265,7 @@ export default function ShellInterface() {
   // Tab button commands
   useEventBus('shell:execute-command', (event) => {
     if (event.payload?.command) {
-      executeCommand(event.payload.command);
-
+      executeCommand(event.payload.command);                    // ← FIXED
       setInput('');
       setSuggestions([]);
     }
@@ -284,7 +283,7 @@ export default function ShellInterface() {
       { delay: SEQUENCE_DURATION + 2200, cmd: 'ls'                         },
     ];
     lines.forEach(({ delay, cmd }) => {
-      setTimeout(() => { executeCommand(cmd, requestPrompt); }, delay);
+      setTimeout(() => { executeCommand(cmd); }, delay);        // ← FIXED
     });
   });
 
@@ -314,7 +313,7 @@ export default function ShellInterface() {
     }
 
     if (!input.trim()) return;
-    executeCommand(input, requestPrompt);
+    executeCommand(input);                                      // ← FIXED
     setInput('');
     setSuggestions([]);
     triggerGlitch();
@@ -554,7 +553,6 @@ export default function ShellInterface() {
                   fontFamily:  'inherit',
                   fontSize:    '16px',
                   caretColor:  'var(--phosphor-green)',
-                  // Mask password text visually; type="password" handles rendering
                 }}
                 autoComplete="off"
                 autoCorrect="off"
