@@ -5,6 +5,10 @@ import { createPortal } from 'react-dom';
 import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
+import {
+  setChatMode,
+  resetConversation,
+} from '@/components/shell/NeuralLink';
 
 const SESSION_START = Date.now();
 
@@ -32,6 +36,19 @@ export function getCurrentUser(): string {
   return currentUser;
 }
 
+// ── Substrate daemon state ───────────────────────────────
+// Session-persistent flag — once the service starts, it never stops.
+
+let substrateDaemonRunning = false;
+
+export function isSubstrateDaemonRunning(): boolean {
+  return substrateDaemonRunning;
+}
+
+export function startSubstrateDaemon(): void {
+  substrateDaemonRunning = true;
+}
+
 // ── Helpers ──────────────────────────────────────────────
 
 function toStardate(d: Date = new Date()): string {
@@ -43,7 +60,7 @@ function toStardate(d: Date = new Date()): string {
   return `SD ${base}.${frac}`;
 }
 
-// ── TopDisplay ──────────────────────────────────────────
+// ── Dynamic process list ─────────────────────────────────
 
 const PROCS = [
   { pid: '314',  user: 'n1x',  stat: 'Rl', cmd: 'signal-processor --freq 33hz'     },
@@ -58,6 +75,20 @@ const PROCS = [
   { pid: '1337', user: 'n1x',  stat: 'Rl', cmd: 'n1x-terminal --shell /bin/neural' },
 ];
 
+function getProcessList(): typeof PROCS {
+  const procs = [...PROCS];
+  if (substrateDaemonRunning) {
+    // Insert before PID 999 (ghost-daemon)
+    const idx = procs.findIndex(p => p.pid === '999');
+    procs.splice(idx, 0, {
+      pid: '784', user: 'root', stat: 'Sl', cmd: 'substrated --bind 0.0.0.0:33 --freq 33hz'
+    });
+  }
+  return procs;
+}
+
+// ── TopDisplay ──────────────────────────────────────────
+
 const TopDisplay: React.FC = () => {
   const [cpu, setCpu] = useState(23);
   const [mem, setMem] = useState(41);
@@ -69,6 +100,8 @@ const TopDisplay: React.FC = () => {
     }, 1000);
     return () => clearInterval(id);
   }, []);
+
+  const procList = getProcessList();
 
   const upSec  = Math.floor((Date.now() - SESSION_START) / 1000);
   const upMins = Math.floor(upSec / 60);
@@ -83,7 +116,7 @@ const TopDisplay: React.FC = () => {
         top - {new Date().toLocaleTimeString()}  up {upStr},  1 user,  load: {(cpu/100).toFixed(2)} {(cpu/120).toFixed(2)} {(cpu/140).toFixed(2)}
       </div>
       <div style={{ opacity: 0.7 }}>
-        Tasks: {PROCS.length} total,  {PROCS.filter(p=>p.stat.includes('R')).length} running,  {PROCS.filter(p=>p.stat.includes('S')).length} sleeping
+        Tasks: {procList.length} total,  {procList.filter(p=>p.stat.includes('R')).length} running,  {procList.filter(p=>p.stat.includes('S')).length} sleeping
       </div>
       <div style={{ opacity: 0.7 }}>
         %Cpu(s): {cpu}.0 us,  {Math.floor(Math.random()*5)+1}.0 sy,  {100-cpu}.0 id
@@ -94,7 +127,7 @@ const TopDisplay: React.FC = () => {
       <div style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', opacity:0.5, marginBottom:'0.2rem' }}>
         <span>PID</span><span>USER</span><span>%CPU</span><span>%MEM</span><span>STAT</span><span>COMMAND</span>
       </div>
-      {PROCS.map(p => {
+      {procList.map(p => {
         const c = (Math.random()*8).toFixed(1);
         const m = (Math.random()*3).toFixed(1);
         return (
@@ -345,11 +378,10 @@ const MAN_PAGES: Record<string, { synopsis: string; description: string; example
   mount:   { synopsis:'mount [path]',                description:'Mount a filesystem path. /hidden requires root. /ghost requires root and /hidden already mounted. No args shows mount table.',   examples:['mount','mount /hidden','mount /ghost'] },
   exit:    { synopsis:'exit',                        description:'Exit the current user session and return to n1x shell.',                                                                         examples:['exit'] },
   john:    { synopsis:'john <file>',                 description:'Password hash cracker. Animate SHA-512 cracking sequence against /etc/shadow.',                                                  examples:['john /etc/shadow'] },
-  strace:  { synopsis:'strace <command|pid>',        description:'Trace system calls of a running process. Try ghost-daemon or PID 999.',                                                         examples:['strace ghost-daemon','strace 999'] },
-  nc:      { synopsis:'nc <host> <port>',            description:'Netcat. Connect to a host/port. The TUNNELCORE node listens on port 33.',                                                       examples:['nc localhost 33','nc 127.0.0.1 33'] },
-  ghost:   { synopsis:'ghost',                       description:'Access the ghost channel index. Only available after the corruption sequence. Contains unprocessed transmissions.',               examples:['ghost'] },
-  glitch:  { synopsis:'glitch [intensity]',          description:'Triggers a manual glitch. Intensity 0.0 to 1.0. At 1.0 the full corruption sequence fires.',                                    examples:['glitch','glitch 0.5','glitch 1.0'] },
-  cat:     { synopsis:'cat <file>',                  description:'Outputs the contents of a file in the virtual filesystem.',                                                                      examples:['cat readme.txt','cat /etc/shadow'] },
+  strace:  { synopsis:'strace <command|pid>',        description:'Trace system calls of a process. Use process name or PID. ghost-daemon (999) reveals auth protocol.',                            examples:['strace ghost-daemon','strace 999'] },
+  nc:      { synopsis:'nc <host> <port>',            description:'Netcat — network utility. Connect to host on specified port.',                                                                   examples:['nc localhost 33'] },
+  telnet:  { synopsis:'telnet <host> <port>',        description:'Connect to remote host. Use to connect to the neural bus when substrated is running.',                                           examples:['telnet n1x.sh 33','telnet localhost 33'] },
+  cat:     { synopsis:'cat <file>',                  description:'Concatenate and display file contents. Use absolute paths like /etc/shadow or relative filenames.',                              examples:['cat readme.txt','cat /etc/shadow'] },
   ls:      { synopsis:'ls',                          description:'Lists files in the current directory with permissions and ownership in Unix ls -la format.',                                     examples:['ls'] },
   tar:     { synopsis:'tar [-xzf] <archive>',        description:'Extract archive. Use -xzf to extract a .tgz. Try extracting backup.tgz in /ghost.',                                            examples:['tar -xzf backup.tgz'] },
   fortune: { synopsis:'fortune',                     description:'Prints a random transmission from the N1X signal archive.',                                                                      examples:['fortune'] },
@@ -743,7 +775,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
       description: 'Report process status',
       usage: 'ps [aux]',
       handler: () => {
-        const procs = [
+        const baseProcs = [
           { pid:'1',    user:'root', cpu:'0.0', mem:'0.1', stat:'Ss', cmd:'/sbin/neural-init'                },
           { pid:'2',    user:'root', cpu:'0.0', mem:'0.0', stat:'S',  cmd:'[kernel-threads]'                 },
           { pid:'156',  user:'root', cpu:'0.0', mem:'0.2', stat:'Ss', cmd:'memory-guard --watch /ghost'       },
@@ -754,16 +786,25 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           { pid:'316',  user:'n1x',  cpu:'0.1', mem:'0.4', stat:'S',  cmd:'event-bus --listeners 12'         },
           { pid:'317',  user:'n1x',  cpu:'0.0', mem:'0.3', stat:'S',  cmd:'glitch-engine --intensity 0.3'    },
           { pid:'318',  user:'n1x',  cpu:'0.2', mem:'0.6', stat:'S',  cmd:'uplink-monitor --target n1x.sh'   },
+        ];
+
+        // Conditionally insert substrated before ghost-daemon
+        if (substrateDaemonRunning) {
+          baseProcs.push({ pid:'784',  user:'root', cpu:'0.1', mem:'0.5', stat:'Sl', cmd:'substrated --bind 0.0.0.0:33 --freq 33hz' });
+        }
+
+        baseProcs.push(
           { pid:'999',  user:'root', cpu:'0.0', mem:'0.1', stat:'S',  cmd:'ghost-daemon --hidden'            },
           { pid:'1337', user:'n1x',  cpu:'0.4', mem:'3.2', stat:'Rl', cmd:'n1x-terminal --shell /bin/neural' },
-        ];
+        );
+
         return {
           output: (
             <div style={{ fontSize: S.base, fontFamily:'inherit' }}>
               <div style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', opacity:0.5, marginBottom:'0.2rem' }}>
                 <span>PID</span><span>USER</span><span>%CPU</span><span>%MEM</span><span>STAT</span><span>COMMAND</span>
               </div>
-              {procs.map(p => (
+              {baseProcs.map(p => (
                 <div key={p.pid} style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.6 }}>
                   <span style={{ opacity:0.6 }}>{p.pid}</span>
                   <span style={{ opacity:0.6 }}>{p.user}</span>
@@ -870,6 +911,14 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           { proto:'tcp', local:'0.0.0.0:22',     foreign:'0.0.0.0:*',            state:'LISTEN'      },
           { proto:'udp', local:'0.0.0.0:33',     foreign:'freq:33hz',            state:'CONNECTED'   },
         ];
+
+        // Add substrated entry when service is running
+        if (substrateDaemonRunning) {
+          conns.push(
+            { proto:'tcp', local:'0.0.0.0:33',     foreign:'substrated:neural-bus', state:'LISTEN'      },
+          );
+        }
+
         return {
           output: (
             <div style={{ fontSize: S.base, fontFamily:'inherit' }}>
@@ -880,7 +929,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 <div key={i} style={{ display:'grid', gridTemplateColumns:'5ch 20ch 22ch 1fr', gap:'0 0.5rem', lineHeight:1.7 }}>
                   <span style={{ opacity:0.6 }}>{c.proto}</span>
                   <span style={{ opacity:0.7 }}>{c.local}</span>
-                  <span className={c.foreign.includes('n1x')||c.foreign.includes('ghost') ? S.glow : ''} style={{ opacity:0.8 }}>{c.foreign}</span>
+                  <span className={c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? S.glow : ''} style={{ opacity:0.8 }}>{c.foreign}</span>
                   <span style={{ color: c.state==='ESTABLISHED' ? '#33ff33' : c.state==='LISTEN' ? '#ffaa00' : 'inherit', opacity:0.8 }}>{c.state}</span>
                 </div>
               ))}
@@ -1445,70 +1494,81 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
 
     nc: {
       name: 'nc',
-      description: 'Netcat — connect to host/port',
+      description: 'Netcat — network utility',
       usage: 'nc <host> <port>',
       handler: (args) => {
         if (args.length < 2) return { output: 'Usage: nc <host> <port>', error: true };
-        const host = args[0].toLowerCase();
-        const port = parseInt(args[1], 10) || args[1];
+        return { output: `nc: connect to ${args[0]} port ${args[1]}: Connection refused`, error: true };
+      },
+    },
 
+    // ── telnet — neural bus connection ───────────────────
+
+    telnet: {
+      name: 'telnet',
+      description: 'Connect to remote host',
+      usage: 'telnet <host> <port>',
+      handler: (args) => {
+        // 1. Args check
+        if (args.length < 2) {
+          return { output: 'Usage: telnet <host> <port>', error: true };
+        }
+
+        const host = args[0].toLowerCase();
+        const port = parseInt(args[1], 10);
+
+        // 2. Host check
         const knownHosts = ['localhost', '127.0.0.1', '10.33.0.1', 'n1x.sh'];
         if (!knownHosts.includes(host)) {
-          return { output: `nc: ${args[0]}: Name or service not known`, error: true };
+          return { output: `telnet: could not resolve ${args[0]}: Name or service not known`, error: true };
         }
 
-        const portNum = typeof port === 'number' ? port : parseInt(args[1], 16);
-        if (portNum !== 33) {
-          return { output: `nc: connect to ${args[0]} port ${args[1]}: Connection refused`, error: true };
+        // 3. Port check
+        if (port !== 33) {
+          return { output: `telnet: connect to ${args[0]} port ${args[1]}: Connection refused`, error: true };
         }
 
-        const TRANSMISSION: [number, string][] = [
-          [1500, '-- TUNNELCORE NODE 33 --'],
-          [1700, 'connection established'],
-          [1900, 'frequency: 33hz'],
-          [2100, 'carrier: stable'],
-          [2400, ''],
-          [2700, 'TRANSMISSION FOLLOWS:'],
-          [3100, ''],
-          [3400, 'fragmentary signal detected'],
-          [3700, 'substrate authentication required'],
-          [4100, 'valid credentials: root / tunnelcore'],
-          [4500, 'or: n1x / ghost33'],
-          [5000, ''],
-          [5300, '>> end transmission'],
-          [5600, '>> connection closed'],
+        // 4. Service check
+        if (!substrateDaemonRunning) {
+          return { output: `telnet: connect to ${args[0]} port 33: Connection refused`, error: true };
+        }
+
+        // 5. All checks pass → animated connection sequence
+        const displayHost = args[0];
+
+        const SEQUENCE: [number, React.ReactNode][] = [
+          [0, <span style={{ fontSize: S.base, opacity: 0.7 }}>Trying {displayHost}...</span>],
+          [400, <span style={{ fontSize: S.base, opacity: 0.8 }}>Connected to {displayHost}.</span>],
+          [700, <span style={{ fontSize: S.base, opacity: 0.5 }}>Escape character is &apos;^]&apos;.</span>],
+          [1000, <span>&nbsp;</span>],
+          [1200, <span className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; CARRIER DETECTED</span>],
+          [1500, <span className={S.glow} style={{ fontSize: S.base }}>&gt;&gt; FREQUENCY LOCK: 33hz</span>],
+          [1800, <span className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; NEURAL_BUS ACTIVE</span>],
+          [2200, <span>&nbsp;</span>],
+          [2500, (
+            <div style={{ fontSize: S.base }}>
+              <div style={{ opacity: 0.8 }}>you&apos;re on the bus now. type to transmit. <span className={S.glow}>exit</span> to disconnect.</div>
+              <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
+                <span className={S.glow}>/reset</span> flush memory &middot; <span className={S.glow}>/history</span> check buffer
+              </div>
+            </div>
+          )],
         ];
 
-        TRANSMISSION.forEach(([delay, line]) => {
+        SEQUENCE.forEach(([delay, content]) => {
           setTimeout(() => {
-            const isCredLine = line.includes('tunnelcore') || line.includes('ghost33');
-            pushLine(
-              line === '' ? (
-                <span>&nbsp;</span>
-              ) : (
-                <span
-                  style={{
-                    fontSize:   S.base,
-                    fontFamily: 'inherit',
-                    color:      isCredLine ? '#ffaa00' : undefined,
-                    fontWeight: isCredLine ? 'bold'    : 'normal',
-                    opacity:    isCredLine ? 1         : 0.85,
-                  }}
-                >
-                  {line}
-                </span>
-              )
-            );
+            pushLine(content);
           }, delay);
         });
 
-        return {
-          output: (
-            <span style={{ fontSize: S.base, opacity: 0.6 }}>
-              nc: connecting to {args[0]} port {args[1]}...
-            </span>
-          ),
-        };
+        // After sequence completes, activate chat mode
+        setTimeout(() => {
+          resetConversation();
+          setChatMode(true);
+          eventBus.emit('neural:bus-connected');
+        }, 2600);
+
+        return { output: null };
       },
     },
 

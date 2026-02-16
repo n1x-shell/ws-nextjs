@@ -127,6 +127,22 @@ do not share
           type: 'file',
           content: `backup.tgz: binary file -- use 'tar -xzf backup.tgz' to extract`,
         },
+        {
+          name: 'n1x.sh',
+          type: 'file',
+          content: `#!/bin/neural
+# n1x.sh -- substrate daemon initialization
+# must be run as root from /ghost
+# starts the neural bus service on port 33
+
+if [ "$(whoami)" != "root" ]; then
+  echo "error: root privileges required"
+  exit 1
+fi
+
+substrated --bind 0.0.0.0:33 --freq 33hz --daemon
+echo "substrated: neural bus active on port 33"`,
+        },
       ],
     },
   ],

@@ -6,7 +6,7 @@ import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
-import { createSystemCommands, setRequestPrompt } from './systemCommands';
+import { createSystemCommands, setRequestPrompt, getCurrentUser, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
 import {
   NeuralLinkStream,
   NeuralChatSession,
@@ -107,13 +107,6 @@ export const commands: Record<string, Command> = {
                 ],
               },
               {
-                label: 'NEURAL LINK',
-                cmds: [
-                  ['ask',  'Query the N1X neural substrate'],
-                  ['chat', 'Open direct neural uplink'],
-                ],
-              },
-              {
                 label: 'SYSTEM',
                 cmds: [
                   ['clear',   'Clear terminal'],
@@ -133,6 +126,7 @@ export const commands: Record<string, Command> = {
                   ['strace',  'Trace system calls'],
                   ['su',      'Switch user'],
                   ['sudo',    'Execute as root'],
+                  ['telnet',  'Connect to remote host'],
                   ['top',     'Live process monitor'],
                   ['uname',   'System information'],
                   ['uptime',  'Session uptime'],
@@ -154,6 +148,7 @@ export const commands: Record<string, Command> = {
                   ['man',     'Manual pages'],
                   ['matrix',  'Matrix rain'],
                   ['morse',   'Morse code encoder'],
+                  ['nc',      'Netcat — network utility'],
                   ['sha256',  'SHA-256 hash'],
                   ['sort',    'Sort tokens'],
                   ['tar',     'Archive files'],
@@ -328,83 +323,26 @@ export const commands: Record<string, Command> = {
     },
   },
 
-  // ── Neural Link commands ──────────────────────────────────────────────────
+  // ── Neural Link commands (deprecated — use telnet) ────────────────────────
 
   ask: {
     name: 'ask',
-    description: 'Query the N1X neural substrate via direct uplink',
-    usage: 'ask <question>',
-    aliases: ['query', 'uplink'],
-    handler: (args) => {
-      if (args.length === 0) {
-        return {
-          output: (
-            <div style={{ fontSize: S.base }}>
-              <div style={{ color: '#f87171' }}>no signal provided.</div>
-              <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
-                usage: ask &lt;your question&gt;
-              </div>
-              <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
-                try: ask who are you
-              </div>
-            </div>
-          ),
-          error: true,
-        };
-      }
-
-      const prompt = args.join(' ');
-
-      return {
-        output: <NeuralLinkStream prompt={prompt} />,
-      };
-    },
+    description: 'Deprecated',
+    usage: 'ask',
+    hidden: true,
+    handler: () => ({
+      output: "connection required -- try: telnet n1x.sh 33",
+    }),
   },
 
   chat: {
     name: 'chat',
-    description: 'Open interactive neural uplink session',
+    description: 'Deprecated',
     usage: 'chat',
-    aliases: ['neural', 'link'],
-    handler: () => {
-      if (isChatMode()) {
-        return {
-          output: (
-            <div style={{ fontSize: S.base, opacity: 0.6 }}>
-              neural-link already active. type <span className={S.glow}>exit</span> to disconnect.
-            </div>
-          ),
-        };
-      }
-
-      resetConversation();
-      setChatMode(true);
-
-      return {
-        output: (
-          <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
-            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
-              &gt; NEURAL_LINK_ESTABLISHED
-            </div>
-            <div style={{ marginLeft: '1rem', opacity: 0.8 }}>
-              direct uplink to N1X neural substrate.
-            </div>
-            <div style={{ marginLeft: '1rem', opacity: 0.8 }}>
-              frequency locked at 33hz. signal is live.
-            </div>
-            <div style={{ marginLeft: '1rem', opacity: 0.8, marginTop: '0.5rem' }}>
-              conversation memory active -- context persists between messages.
-            </div>
-            <div style={{ marginLeft: '1rem', opacity: 0.5, marginTop: '0.5rem' }}>
-              type your transmission. <span className={S.glow}>exit</span> to disconnect.
-            </div>
-            <div style={{ marginLeft: '1rem', opacity: 0.4 }}>
-              <span className={S.glow}>/reset</span> to flush memory &middot; <span className={S.glow}>/history</span> to check buffer
-            </div>
-          </div>
-        ),
-      };
-    },
+    hidden: true,
+    handler: () => ({
+      output: "connection required -- try: telnet n1x.sh 33",
+    }),
   },
 
   // ── Content commands ──────────────────────────────────────────────────────
@@ -581,6 +519,7 @@ export const commands: Record<string, Command> = {
             <div>MODE            : {isRoot ? 'ROOT' : 'ACTIVE'}</div>
             <div>HIDDEN          : {fs.isHiddenUnlocked() ? 'MOUNTED' : 'LOCKED'}</div>
             <div>GHOST           : {fs.isGhostUnlocked() ? 'MOUNTED' : 'LOCKED'}</div>
+            <div>SUBSTRATED      : {isSubstrateDaemonRunning() ? 'RUNNING (port 33)' : 'INACTIVE'}</div>
           </div>
         </div>
       ),
@@ -911,30 +850,110 @@ export function executeCommand(
     }
 
     if (resolved === 'n1x.sh') {
-      if (!fs.getCurrentDirectory().startsWith('/hidden')) {
+      const cwd = fs.getCurrentDirectory();
+
+      // Existing: execute from /hidden → trigger konami/ghost unlock
+      if (cwd.startsWith('/hidden')) {
+        eventBus.emit('neural:konami');
+
         return {
           output: (
-            <span style={{ color: '#f87171' }}>
-              Permission denied -- must be in /hidden to execute n1x.sh
-            </span>
+            <div style={{ fontSize: 'var(--text-base)' }}>
+              <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
+                &gt; EXECUTING n1x.sh
+              </div>
+              <div style={{ marginLeft: '1rem', opacity: 0.6 }}>
+                initializing...
+              </div>
+            </div>
           ),
-          error: true,
         };
       }
 
-      eventBus.emit('neural:konami');
+      // NEW: execute from /ghost → start substrated service
+      if (cwd.startsWith('/ghost')) {
+        // Must be root
+        if (getCurrentUser() !== 'root') {
+          return {
+            output: (
+              <span style={{ color: '#f87171', fontSize: 'var(--text-base)' }}>
+                Permission denied — root privileges required
+              </span>
+            ),
+            error: true,
+          };
+        }
 
+        // Already running check
+        if (isSubstrateDaemonRunning()) {
+          return {
+            output: (
+              <span style={{ fontSize: 'var(--text-base)', opacity: 0.6 }}>
+                substrated: service already running on port 33
+              </span>
+            ),
+          };
+        }
+
+        // Animated startup sequence
+        const pushLine = (output: React.ReactNode) => {
+          eventBus.emit('shell:push-output', { command: '', output });
+        };
+
+        const STARTUP: [number, React.ReactNode][] = [
+          [300, <span style={{ fontSize: S.base, opacity: 0.7 }}>initializing substrate daemon...</span>],
+          [600, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: binding to 0.0.0.0:33</span>],
+          [900, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: frequency lock: 33hz</span>],
+          [1200, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: neural bus interface ready</span>],
+          [1500, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: listening for connections</span>],
+          [1800, <span>&nbsp;</span>],
+          [2000, (
+            <div style={{ fontSize: S.base }}>
+              <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
+                &gt; SERVICE_STARTED
+              </div>
+              <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                <div>substrated is now running on port 33</div>
+                <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>connect with: <span className="text-glow">telnet n1x.sh 33</span></div>
+              </div>
+            </div>
+          )],
+        ];
+
+        STARTUP.forEach(([delay, content]) => {
+          setTimeout(() => {
+            pushLine(content);
+          }, delay);
+        });
+
+        // Set flag and emit event after sequence
+        setTimeout(() => {
+          // Module-level state is in systemCommands — we need to set it there
+          // But we imported isSubstrateDaemonRunning as a getter...
+          // We'll emit an event and also directly mutate via an exported setter
+          startSubstrateDaemon();
+          eventBus.emit('neural:substrated-started');
+        }, 2100);
+
+        return {
+          output: (
+            <div style={{ fontSize: 'var(--text-base)' }}>
+              <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
+                &gt; EXECUTING n1x.sh FROM /ghost
+              </div>
+            </div>
+          ),
+        };
+      }
+
+      // Not in /hidden or /ghost
       return {
         output: (
-          <div style={{ fontSize: 'var(--text-base)' }}>
-            <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
-              &gt; EXECUTING n1x.sh
-            </div>
-            <div style={{ marginLeft: '1rem', opacity: 0.6 }}>
-              initializing...
-            </div>
-          </div>
+          <span style={{ color: '#f87171' }}>
+            Permission denied
+          </span>
         ),
+        error: true,
       };
     }
 
@@ -995,7 +1014,8 @@ export function getCommandSuggestions(partial: string): string[] {
     .filter((cmd) => !commands[cmd].hidden && cmd.startsWith(lower))
     .sort();
 
-  if ('./n1x.sh'.startsWith(partial) && fs.getCurrentDirectory().startsWith('/hidden')) {
+  if ('./n1x.sh'.startsWith(partial) &&
+      (fs.getCurrentDirectory().startsWith('/hidden') || fs.getCurrentDirectory().startsWith('/ghost'))) {
     suggestions.unshift('./n1x.sh');
   }
 
