@@ -1,14 +1,38 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useShell } from '@/hooks/useShell';
-import { getCommandSuggestions } from '@/lib/commandRegistry';
+import { useShell, RequestPromptFn } from '@/hooks/useShell';
+import { getCommandSuggestions, getCurrentDirectory } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
 
+// ── Fish prompt renderer ──────────────────────────────────────────────────────
+
+function FishPrompt({ user, cwd, inline }: { user: string; cwd: string; inline?: boolean }) {
+  const isRoot  = user === 'root';
+  const suffix  = isRoot ? '#' : '>';
+
+  return (
+    <span style={{ whiteSpace: 'nowrap', display: inline ? 'inline' : 'inline-flex', alignItems: 'center' }}>
+      <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', fontWeight: 'bold' }}>
+        {user}
+      </span>
+      <span style={{ opacity: 0.4 }}>@</span>
+      <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', fontWeight: 'bold' }}>
+        n1x
+      </span>
+      <span style={{ color: '#38bdf8', marginLeft: '0.4rem' }}>
+        {cwd}
+      </span>
+      <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', marginLeft: '0.25rem' }}>
+        {suffix}
+      </span>
+    </span>
+  );
+}
+
 // ── Boot lines ────────────────────────────────────────────────────────────────
-// Each entry: [delay from previous line in ms, text]
 
 const BOOT_LINES: [number, string][] = [
   [0,    '[    0.000000] NeuralOS 2.0.0-n1x #1 SMP PREEMPT SD 47634.1-7073435a8fa30 SUBSTRATE amd64'],
@@ -108,11 +132,9 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
       timers.push(t);
     });
 
-    // After all lines, flicker then hand off
     const flickerDelay = totalDelay + 100;
     const t1 = setTimeout(() => {
       setDone(true);
-      // Rapid glitch burst
       eventBus.emit('neural:glitch-trigger', { intensity: 0.8 });
       setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 1.0 }), 80);
       setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.6 }), 160);
@@ -124,7 +146,6 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  // Auto scroll
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
@@ -183,54 +204,61 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
 // ── Main ShellInterface ───────────────────────────────────────────────────────
 
 export default function ShellInterface() {
-  const [input, setInput]             = useState('');
+  const [input, setInput]           = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [booting, setBooting]         = useState(true);
-  const [currentUser, setCurrentUser] = useState('n1x');
-
-  // Password prompt state
-  const [passwordPrompt, setPasswordPrompt] = useState<{
-    label: string;
-    onSubmit: (pw: string) => void;
-  } | null>(null);
-  const [passwordInput, setPasswordInput] = useState('');
-
-  const inputRef    = useRef<HTMLInputElement>(null);
-  const pwInputRef  = useRef<HTMLInputElement>(null);
-  const outputRef   = useRef<HTMLDivElement>(null);
-
-  // The requestPrompt callback — this is what su/sudo call to show the password input
-  const requestPrompt = useCallback((label: string, onSubmit: (pw: string) => void) => {
-    setPasswordPrompt({ label, onSubmit });
-    setPasswordInput('');
-    // Focus the password input after it renders
-    setTimeout(() => pwInputRef.current?.focus(), 50);
-  }, []);
-
-  const { history, executeCommand, navigateHistory, historyEndRef } = useShell(requestPrompt);
+  const [booting, setBooting]       = useState(true);
+  const [shellUser, setShellUser]   = useState<string>('ghost');
+  const [shellDir, setShellDir]     = useState<string>('/');
+  const inputRef                    = useRef<HTMLInputElement>(null);
+  const promptInputRef              = useRef<HTMLInputElement>(null);
+  const outputRef                   = useRef<HTMLDivElement>(null);
+  const { history, executeCommand, navigateHistory, historyEndRef, setRequestPrompt } = useShell();
   const { triggerGlitch, unlockGhost } = useNeuralState();
 
-  // ── Listen for user changes (from su/exit) ──
-  useEffect(() => {
-    const unsub = eventBus.on('shell:set-user', (event) => {
-      if (event.payload?.user) {
-        setCurrentUser(event.payload.user);
-      }
-    });
-    return unsub;
+  // ── Password prompt state ────────────────────────────────────────────────
+  const [promptState, setPromptState] = useState<{
+    label: string;
+    onSubmit: (value: string) => void;
+  } | null>(null);
+  const [promptValue, setPromptValue] = useState('');
+
+  const requestPrompt: RequestPromptFn = useCallback((label, onSubmit) => {
+    setPromptValue('');
+    setPromptState({ label, onSubmit });
+    setTimeout(() => promptInputRef.current?.focus(), 50);
   }, []);
+
+  useEffect(() => {
+    setRequestPrompt(requestPrompt);
+  }, [requestPrompt, setRequestPrompt]);
+
+  // ── Track user and directory changes ─────────────────────────────────────
+  useEventBus('shell:set-user', (event) => {
+    const user = event.payload?.user;
+    if (user === 'root')  setShellUser('root');
+    if (user === 'ghost' || user === 'n1x') setShellUser('ghost');
+  });
+
+  useEventBus('shell:set-directory', (event) => {
+    if (event.payload?.directory) {
+      setShellDir(event.payload.directory);
+    }
+  });
+
+  // Sync dir after each command (covers cd inside konami, sudo, etc.)
+  useEffect(() => {
+    setShellDir(getCurrentDirectory());
+  }, [history]);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
-  // Auto-focus after boot
   useEffect(() => {
     if (!booting) inputRef.current?.focus();
   }, [booting]);
 
-  // Scroll output
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
@@ -239,7 +267,6 @@ export default function ShellInterface() {
     });
   }, [history]);
 
-  // Stop scroll events reaching the page
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
@@ -256,7 +283,14 @@ export default function ShellInterface() {
     };
   }, []);
 
-  // Ghost sequence
+  useEventBus('shell:execute-command', (event) => {
+    if (event.payload?.command) {
+      executeCommand(event.payload.command);
+      setInput('');
+      setSuggestions([]);
+    }
+  });
+
   useEventBus('neural:konami', () => {
     const SEQUENCE_DURATION = 4000;
     setTimeout(() => { unlockGhost(); }, SEQUENCE_DURATION);
@@ -272,12 +306,7 @@ export default function ShellInterface() {
     });
   });
 
-  // ── Build prompt string ──
-  const promptStr = currentUser === 'root'
-    ? 'root@wetware-784988:~#'
-    : 'ghost@wetware-784988:~$';
-
-  // ── Normal command submit ──
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -287,19 +316,15 @@ export default function ShellInterface() {
     triggerGlitch();
   };
 
-  // ── Password submit ──
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePromptSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passwordPrompt) return;
-    const pw = passwordInput;
-    const onSubmit = passwordPrompt.onSubmit;
-    // Clear prompt state first so UI returns to normal input
-    setPasswordPrompt(null);
-    setPasswordInput('');
-    // Then deliver the password to the command handler
-    onSubmit(pw);
-    // Refocus normal input
+    if (!promptState) return;
+    const value = promptValue;
+    const callback = promptState.onSubmit;
+    setPromptState(null);
+    setPromptValue('');
     setTimeout(() => inputRef.current?.focus(), 50);
+    callback(value);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -334,13 +359,15 @@ export default function ShellInterface() {
 
   const handleShellClick = useCallback(() => {
     if (!booting) {
-      if (passwordPrompt) {
-        pwInputRef.current?.focus();
+      if (promptState) {
+        promptInputRef.current?.focus();
       } else {
         inputRef.current?.focus();
       }
     }
-  }, [booting, passwordPrompt]);
+  }, [booting, promptState]);
+
+  const isPrompting = promptState !== null;
 
   return (
     <div
@@ -415,10 +442,7 @@ export default function ShellInterface() {
             {/* Command history */}
             {history.map((item) => (
               <div key={item.id} style={{ marginBottom: '0.75rem' }}>
-                {item.command === '' ? (
-                  /* Push-output entries with no command — just show output */
-                  null
-                ) : item.command.startsWith('>>') ? (
+                {item.command.startsWith('>>') ? (
                   <div
                     className="text-glow"
                     style={{
@@ -429,12 +453,15 @@ export default function ShellInterface() {
                   >
                     {item.command}
                   </div>
-                ) : (
-                  <div className="text-glow" style={{ marginBottom: '0.25rem' }}>
-                    <span style={{ opacity: 0.4 }}>{promptStr}</span>{' '}
-                    {item.command}
+                ) : item.command !== '' ? (
+                  <div style={{ marginBottom: '0.25rem' }}>
+                    <FishPrompt
+                      user={item.user || 'ghost'}
+                      cwd={item.cwd || '/'}
+                    />
+                    <span style={{ marginLeft: '0.4rem' }}>{item.command}</span>
                   </div>
-                )}
+                ) : null}
 
                 {item.output != null && (
                   <div
@@ -455,7 +482,7 @@ export default function ShellInterface() {
           </div>
 
           {/* Autocomplete */}
-          {suggestions.length > 0 && !passwordPrompt && (
+          {suggestions.length > 0 && !isPrompting && (
             <div
               style={{
                 flexShrink: 0,
@@ -494,11 +521,10 @@ export default function ShellInterface() {
             </div>
           )}
 
-          {/* Input line — switches between normal input and password prompt */}
-          {passwordPrompt ? (
-            /* ── Password prompt mode ── */
+          {/* Password prompt (replaces normal input when active) */}
+          {isPrompting ? (
             <form
-              onSubmit={handlePasswordSubmit}
+              onSubmit={handlePromptSubmit}
               style={{
                 flexShrink: 0,
                 padding: '0.5rem 0.75rem',
@@ -509,23 +535,15 @@ export default function ShellInterface() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit' }}>
-                <span className="text-glow" style={{ opacity: 0.8, whiteSpace: 'nowrap' }}>
-                  {passwordPrompt.label}
+                <span style={{ opacity: 0.8, color: '#ffaa00', whiteSpace: 'nowrap' }}>
+                  {promptState.label}
                 </span>
                 <input
-                  ref={pwInputRef}
+                  ref={promptInputRef}
                   type="password"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
+                  value={promptValue}
+                  onChange={(e) => setPromptValue(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      // Cancel prompt — deliver empty string
-                      setPasswordPrompt(null);
-                      setPasswordInput('');
-                      setTimeout(() => inputRef.current?.focus(), 50);
-                    }
-                  }}
                   style={{
                     flex: 1,
                     background: 'transparent',
@@ -546,7 +564,7 @@ export default function ShellInterface() {
               </div>
             </form>
           ) : (
-            /* ── Normal command input ── */
+            /* Normal input line — fish-style prompt */
             <form
               onSubmit={handleSubmit}
               style={{
@@ -558,10 +576,8 @@ export default function ShellInterface() {
                 touchAction: 'none',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit' }}>
-                <span className="text-glow" style={{ opacity: 0.6, whiteSpace: 'nowrap' }}>
-                  {promptStr}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit' }}>
+                <FishPrompt user={shellUser} cwd={shellDir} inline />
                 <input
                   ref={inputRef}
                   type="text"
@@ -578,6 +594,7 @@ export default function ShellInterface() {
                     fontFamily: 'inherit',
                     fontSize: '16px',
                     caretColor: 'var(--phosphor-green)',
+                    marginLeft: '0.25rem',
                   }}
                   autoComplete="off"
                   autoCorrect="off"
