@@ -18,14 +18,15 @@ function FishPrompt({ user, cwd, inline }: { user: string; cwd: string; inline?:
       <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', fontWeight: 'bold' }}>
         {user}
       </span>
-      <span style={{ opacity: 0.4 }}>@</span>
+      <span style={{ color: '#ffaa00' }}>@</span>
       <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', fontWeight: 'bold' }}>
         n1x
       </span>
-      <span style={{ color: '#38bdf8', marginLeft: '0.4rem' }}>
+      <span style={{ opacity: 0.5 }}>:</span>
+      <span style={{ color: '#38bdf8' }}>
         {cwd}
       </span>
-      <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', marginLeft: '0.25rem' }}>
+      <span style={{ opacity: 0.5, marginLeft: '0.3rem' }}>
         {suffix}
       </span>
     </span>
