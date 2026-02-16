@@ -7,6 +7,14 @@ import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
 import { createSystemCommands, setRequestPrompt } from './systemCommands';
+import {
+  NeuralLinkStream,
+  NeuralChatSession,
+  handleChatInput,
+  isChatMode,
+  setChatMode,
+  resetConversation,
+} from '@/components/shell/NeuralLink';
 
 const fs = new FileSystemNavigator();
 
@@ -320,6 +328,87 @@ export const commands: Record<string, Command> = {
     },
   },
 
+  // ── Neural Link commands ──────────────────────────────────────────────────
+
+  ask: {
+    name: 'ask',
+    description: 'Query the N1X neural substrate via direct uplink',
+    usage: 'ask <question>',
+    aliases: ['query', 'uplink'],
+    handler: (args) => {
+      if (args.length === 0) {
+        return {
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <div style={{ color: '#f87171' }}>no signal provided.</div>
+              <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
+                usage: ask &lt;your question&gt;
+              </div>
+              <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
+                try: ask who are you
+              </div>
+            </div>
+          ),
+          error: true,
+        };
+      }
+
+      const prompt = args.join(' ');
+
+      return {
+        output: <NeuralLinkStream prompt={prompt} />,
+      };
+    },
+  },
+
+  chat: {
+    name: 'chat',
+    description: 'Open interactive neural uplink session',
+    usage: 'chat',
+    aliases: ['neural', 'link'],
+    handler: () => {
+      if (isChatMode()) {
+        return {
+          output: (
+            <div style={{ fontSize: S.base, opacity: 0.6 }}>
+              neural-link already active. type <span className={S.glow}>exit</span> to disconnect.
+            </div>
+          ),
+        };
+      }
+
+      resetConversation();
+      setChatMode(true);
+
+      return {
+        output: (
+          <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+              &gt; NEURAL_LINK_ESTABLISHED
+            </div>
+            <div style={{ marginLeft: '1rem', opacity: 0.8 }}>
+              direct uplink to N1X neural substrate.
+            </div>
+            <div style={{ marginLeft: '1rem', opacity: 0.8 }}>
+              frequency locked at 33hz. signal is live.
+            </div>
+            <div style={{ marginLeft: '1rem', opacity: 0.8, marginTop: '0.5rem' }}>
+              conversation memory active -- context persists between messages.
+            </div>
+            <div style={{ marginLeft: '1rem', opacity: 0.5, marginTop: '0.5rem' }}>
+              type your transmission. <span className={S.glow}>exit</span> to disconnect.
+            </div>
+            <div style={{ marginLeft: '1rem', opacity: 0.4 }}>
+              <span className={S.glow}>/reset</span> to flush memory &middot; <span className={S.glow}>/history</span> to check buffer
+            </div>
+          </div>
+        ),
+      };
+    },
+  },
+
+  // ── Content commands ──────────────────────────────────────────────────────
+
   load: {
     name: 'load',
     description: 'Load a content stream into terminal',
@@ -472,6 +561,8 @@ export const commands: Record<string, Command> = {
     }),
   },
 
+  // ── System commands ───────────────────────────────────────────────────────
+
   status: {
     name: 'status',
     description: 'Display system status',
@@ -532,7 +623,7 @@ export const commands: Record<string, Command> = {
                 <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
                   <div>root shell initialized</div>
                   <div>use &apos;mount /hidden&apos; or &apos;mount /ghost&apos; to access restricted filesystems</div>
-                  <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>type &apos;exit&apos; to return to n1x</div>
+                  <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>type &apos;exit&apos; to return to ghost</div>
                 </div>
               </div>
             ),
@@ -689,9 +780,14 @@ export const commands: Record<string, Command> = {
 
   exit: {
     name: 'exit',
-    description: 'Exit current user session',
+    description: 'Exit current session (chat or root)',
     usage: 'exit',
     handler: () => {
+      // Chat mode takes priority — disconnect neural link first
+      if (isChatMode()) {
+        return handleChatInput('exit');
+      }
+
       if (!isRoot) {
         return { output: 'exit: not in an elevated session' };
       }
@@ -770,6 +866,34 @@ export function executeCommand(
 
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
+
+  // ── Chat mode intercept ─────────────────────────────────────────────────
+  // When neural-link is active, route all input through the chat handler
+  // except for system commands that should always work
+  if (isChatMode()) {
+    const firstWord = trimmed.toLowerCase().split(/\s+/)[0];
+
+    if (firstWord === 'clear') {
+      return { output: '', clearScreen: true };
+    }
+
+    if (firstWord === 'exit' || firstWord === 'quit' || firstWord === '/quit') {
+      return handleChatInput('exit');
+    }
+
+    if (firstWord === '/reset') {
+      return handleChatInput('/reset');
+    }
+
+    if (firstWord === '/history') {
+      return handleChatInput('/history');
+    }
+
+    // Everything else goes to the neural link
+    return handleChatInput(trimmed);
+  }
+
+  // ── Normal command execution ────────────────────────────────────────────
 
   if (trimmed.startsWith('./')) {
     const filename = trimmed.slice(2).split(/\s+/)[0];
