@@ -14,6 +14,25 @@ const S = {
   glow:   'text-glow',
 };
 
+// ── Session state ────────────────────────────────────────
+// Mutable per-session state shared across command handlers.
+// setRequestPrompt is called by commandRegistry before each
+// handler dispatch so su/sudo can prompt for passwords.
+
+let currentUser: 'n1x' | 'root' = 'n1x';
+
+let _requestPrompt: ((label: string, onSubmit: (pw: string) => void) => void) | null = null;
+
+export function setRequestPrompt(fn: ((label: string, onSubmit: (pw: string) => void) => void) | null) {
+  _requestPrompt = fn;
+}
+
+export function getCurrentUser(): string {
+  return currentUser;
+}
+
+// ── Helpers ──────────────────────────────────────────────
+
 function toStardate(d: Date = new Date()): string {
   const year  = d.getFullYear();
   const start = new Date(year, 0, 0);
@@ -321,15 +340,15 @@ const MAN_PAGES: Record<string, { synopsis: string; description: string; example
   play:    { synopsis:'play <track>',                description:'Loads a track player. Available: augmented, split-brain, hell-bent, gigercore.',                                                 examples:['play gigercore','play augmented'] },
   scan:    { synopsis:'scan',                        description:'Scans for active neural streams and reports their status.',                                                                       examples:['scan'] },
   su:      { synopsis:'su [username]',               description:'Switch user. Defaults to root if no username given. Prompts for password. Use root password to elevate privileges.',             examples:['su','su root'] },
-  sudo:    { synopsis:'sudo <command...>',           description:'Execute command with n1x elevated permissions. Prompts for n1x password.',                                                       examples:['sudo mount /hidden','sudo mount /ghost'] },
-  mount:   { synopsis:'mount <path>',               description:'Mount a filesystem path. /hidden requires root or sudo. /ghost requires root and /hidden already mounted.',                       examples:['mount /hidden','mount /ghost'] },
+  sudo:    { synopsis:'sudo <command...>',           description:'Execute command with elevated permissions. Prompts for n1x password.',                                                           examples:['sudo mount /hidden','sudo mount /ghost'] },
+  mount:   { synopsis:'mount [path]',                description:'Mount a filesystem path. /hidden requires root. /ghost requires root and /hidden already mounted. No args shows mount table.',   examples:['mount','mount /hidden','mount /ghost'] },
   exit:    { synopsis:'exit',                        description:'Exit the current user session and return to n1x shell.',                                                                         examples:['exit'] },
-  john:    { synopsis:'john <file>',                description:'Password hash cracker. Animate SHA-512 cracking sequence against /etc/shadow.',                                                  examples:['john /etc/shadow'] },
+  john:    { synopsis:'john <file>',                 description:'Password hash cracker. Animate SHA-512 cracking sequence against /etc/shadow.',                                                  examples:['john /etc/shadow'] },
   strace:  { synopsis:'strace <command|pid>',        description:'Trace system calls of a running process. Try ghost-daemon or PID 999.',                                                         examples:['strace ghost-daemon','strace 999'] },
   nc:      { synopsis:'nc <host> <port>',            description:'Netcat. Connect to a host/port. The TUNNELCORE node listens on port 33.',                                                       examples:['nc localhost 33','nc 127.0.0.1 33'] },
   ghost:   { synopsis:'ghost',                       description:'Access the ghost channel index. Only available after the corruption sequence. Contains unprocessed transmissions.',               examples:['ghost'] },
   glitch:  { synopsis:'glitch [intensity]',          description:'Triggers a manual glitch. Intensity 0.0 to 1.0. At 1.0 the full corruption sequence fires.',                                    examples:['glitch','glitch 0.5','glitch 1.0'] },
-  cat:     { synopsis:'cat <file>',                  description:'Outputs the contents of a file in the virtual filesystem.',                                                                      examples:['cat readme.txt',  'cat /etc/shadow'] },
+  cat:     { synopsis:'cat <file>',                  description:'Outputs the contents of a file in the virtual filesystem.',                                                                      examples:['cat readme.txt','cat /etc/shadow'] },
   ls:      { synopsis:'ls',                          description:'Lists files in the current directory with permissions and ownership in Unix ls -la format.',                                     examples:['ls'] },
   tar:     { synopsis:'tar [-xzf] <archive>',        description:'Extract archive. Use -xzf to extract a .tgz. Try extracting backup.tgz in /ghost.',                                            examples:['tar -xzf backup.tgz'] },
   fortune: { synopsis:'fortune',                     description:'Prints a random transmission from the N1X signal archive.',                                                                      examples:['fortune'] },
@@ -390,10 +409,265 @@ const STRACE_GENERIC_LINES = [
   `+++ exited with 0 +++`,
 ];
 
+// ── Mount table ──────────────────────────────────────────
+
+const MOUNT_TABLE_BASE = [
+  { dev:'/dev/neural',     mount:'/',          type:'neuralfs', opts:'rw,relatime' },
+  { dev:'/dev/tunnelcore', mount:'/streams',   type:'neuralfs', opts:'rw,nosuid'   },
+  { dev:'tmpfs',           mount:'/tmp',       type:'tmpfs',    opts:'rw,size=8G'  },
+  { dev:'neuralfs',        mount:'/classified', type:'neuralfs', opts:'ro,noexec'   },
+];
+
 // ── Main export ───────────────────────────────────────────
 
 export function createSystemCommands(fs: FileSystemNavigator): Record<string, Command> {
+
+  // ── helper: push output via eventBus ───────────────────
+  const pushLine = (output: React.ReactNode) => {
+    eventBus.emit('shell:push-output', { command: '', output });
+  };
+
+  // ── helper: do the mount operation ─────────────────────
+  const doMount = (target: string): { output: React.ReactNode; error?: boolean } => {
+    if (target === '/hidden') {
+      if (fs.isHiddenUnlocked()) {
+        return { output: 'mount: /hidden already mounted' };
+      }
+      fs.unlockHidden();
+      eventBus.emit('neural:hidden-unlocked');
+      return {
+        output: (
+          <div style={{ fontSize: S.base }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
+              &gt; MOUNTING /hidden
+            </div>
+            <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+              <div>/dev/hidden on /hidden type neuralfs (rw,nosuid)</div>
+              <div style={{ color: '#33ff33', marginTop: '0.25rem' }}>[OK] /hidden mounted</div>
+              <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /hidden to proceed</div>
+            </div>
+          </div>
+        ),
+      };
+    }
+
+    if (target === '/ghost') {
+      if (!fs.isHiddenUnlocked()) {
+        return { output: 'mount: /ghost requires /hidden to be mounted first', error: true };
+      }
+      if (fs.isGhostUnlocked()) {
+        return { output: 'mount: /ghost already mounted' };
+      }
+      fs.unlock();
+      eventBus.emit('neural:ghost-unlocked');
+      return {
+        output: (
+          <div style={{ fontSize: S.base }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
+              &gt; MOUNTING /ghost
+            </div>
+            <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+              <div>/dev/ghost on /ghost type ghostfs (rw,classified)</div>
+              <div style={{ color: '#33ff33', marginTop: '0.25rem' }}>[OK] /ghost mounted</div>
+              <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /ghost to proceed</div>
+            </div>
+          </div>
+        ),
+      };
+    }
+
+    return { output: `mount: ${target}: unknown filesystem`, error: true };
+  };
+
   return {
+
+    // ── Authentication & privilege ───────────────────────
+
+    su: {
+      name: 'su',
+      description: 'Switch user',
+      usage: 'su [username]',
+      handler: (args) => {
+        const target = (args[0] || 'root').toLowerCase();
+
+        if (target !== 'root' && target !== 'n1x') {
+          return { output: `su: user '${target}' does not exist`, error: true };
+        }
+        if (target === currentUser) {
+          return {
+            output: (
+              <span style={{ fontSize: S.base, opacity: 0.6 }}>
+                already logged in as {currentUser}
+              </span>
+            ),
+          };
+        }
+
+        if (!_requestPrompt) {
+          return { output: 'su: no tty present and no password callback', error: true };
+        }
+
+        _requestPrompt(`Password for ${target}:`, (pw: string) => {
+          const correct = target === 'root' ? 'tunnelcore' : 'ghost33';
+          if (pw === correct) {
+            currentUser = target as 'n1x' | 'root';
+            eventBus.emit('shell:set-prompt', { user: currentUser });
+            pushLine(
+              <div style={{ fontSize: S.base }}>
+                <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
+                  &gt; IDENTITY_SHIFTED
+                </div>
+                <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                  <div>authenticated as <span className={S.glow}>{target}</span></div>
+                  <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
+                    {target === 'root'
+                      ? 'root privileges active. try: mount /hidden'
+                      : 'returned to n1x shell.'}
+                  </div>
+                </div>
+              </div>
+            );
+          } else {
+            pushLine(
+              <span style={{ fontSize: S.base, color: '#f87171' }}>
+                su: authentication failure
+              </span>
+            );
+          }
+        });
+
+        return { output: null };
+      },
+    },
+
+    sudo: {
+      name: 'sudo',
+      description: 'Execute as superuser',
+      usage: 'sudo <command>',
+      handler: (args) => {
+        if (args.length === 0) {
+          return { output: 'usage: sudo <command>', error: true };
+        }
+
+        if (currentUser === 'root') {
+          // Already root — just emit the sub-command for re-execution
+          setTimeout(() => {
+            eventBus.emit('shell:execute-command', { command: args.join(' ') });
+          }, 50);
+          return { output: null };
+        }
+
+        if (!_requestPrompt) {
+          return { output: 'sudo: no tty present and no password callback', error: true };
+        }
+
+        const subCommand = args.join(' ');
+
+        _requestPrompt('[sudo] password for n1x:', (pw: string) => {
+          if (pw !== 'ghost33') {
+            pushLine(
+              <span style={{ fontSize: S.base, color: '#f87171' }}>
+                sudo: authentication failure
+              </span>
+            );
+            return;
+          }
+
+          // Temporarily elevate, execute, then restore
+          const prev = currentUser;
+          currentUser = 'root';
+
+          // Re-dispatch the sub-command through the shell
+          setTimeout(() => {
+            eventBus.emit('shell:execute-command', { command: subCommand });
+            // Restore after a tick so the dispatched command runs as root
+            setTimeout(() => { currentUser = prev; }, 100);
+          }, 50);
+        });
+
+        return { output: null };
+      },
+    },
+
+    mount: {
+      name: 'mount',
+      description: 'Mount filesystem',
+      usage: 'mount [path]',
+      handler: (args) => {
+        // No args → show mount table
+        if (args.length === 0) {
+          const mounts = [...MOUNT_TABLE_BASE];
+          if (fs.isHiddenUnlocked()) mounts.push({ dev:'/dev/hidden', mount:'/hidden', type:'neuralfs', opts:'rw,nosuid' });
+          if (fs.isGhostUnlocked())  mounts.push({ dev:'/dev/ghost',  mount:'/ghost',  type:'ghostfs',  opts:'rw,classified' });
+          return {
+            output: (
+              <div style={{ fontSize: S.base, fontFamily: 'inherit', lineHeight: 1.7 }}>
+                {mounts.map(m => (
+                  <div key={m.mount}>
+                    <span className={m.dev.startsWith('/dev/') ? S.glow : ''} style={{ opacity: m.dev === 'tmpfs' || m.dev === 'neuralfs' ? 0.5 : 0.9 }}>
+                      {m.dev}
+                    </span>
+                    <span style={{ opacity: 0.5 }}> on </span>
+                    <span style={{ opacity: 0.8 }}>{m.mount}</span>
+                    <span style={{ opacity: 0.5 }}> type </span>
+                    <span style={{ opacity: 0.6 }}>{m.type}</span>
+                    <span style={{ opacity: 0.4 }}> ({m.opts})</span>
+                  </div>
+                ))}
+              </div>
+            ),
+          };
+        }
+
+        const target = args[0].toLowerCase();
+
+        if (target !== '/hidden' && target !== '/ghost') {
+          return { output: `mount: ${target}: unknown filesystem`, error: true };
+        }
+
+        if (currentUser !== 'root') {
+          return {
+            output: (
+              <div style={{ fontSize: S.base }}>
+                <span style={{ color: '#f87171' }}>mount: {target}: permission denied</span>
+                <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>must be root. try: su</div>
+              </div>
+            ),
+            error: true,
+          };
+        }
+
+        const result = doMount(target);
+        return { output: result.output, error: result.error };
+      },
+    },
+
+    exit: {
+      name: 'exit',
+      description: 'Exit current session',
+      usage: 'exit',
+      handler: () => {
+        if (currentUser === 'root') {
+          currentUser = 'n1x';
+          eventBus.emit('shell:set-prompt', { user: 'n1x' });
+          return {
+            output: (
+              <div style={{ fontSize: S.base }}>
+                <div style={{ opacity: 0.6 }}>root session closed.</div>
+                <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>returned to n1x shell.</div>
+              </div>
+            ),
+          };
+        }
+        return {
+          output: (
+            <span style={{ fontSize: S.base, opacity: 0.6 }}>
+              no elevated session to exit.
+            </span>
+          ),
+        };
+      },
+    },
 
     // ── System info ──────────────────────────────────────
 
@@ -424,14 +698,19 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
       name: 'whoami',
       description: 'Print current user',
       usage: 'whoami',
-      handler: () => ({ output: 'n1x' }),
+      handler: () => ({ output: currentUser }),
     },
 
     id: {
       name: 'id',
       description: 'Print user identity',
       usage: 'id',
-      handler: () => ({ output: 'uid=784988(n1x) gid=784988(neural) groups=784988(neural),1337(tunnelcore),0(root)' }),
+      handler: () => {
+        if (currentUser === 'root') {
+          return { output: 'uid=0(root) gid=0(root) groups=0(root),1337(tunnelcore)' };
+        }
+        return { output: 'uid=784988(n1x) gid=784988(neural) groups=784988(neural),1337(tunnelcore),0(root)' };
+      },
     },
 
     env: {
@@ -442,8 +721,8 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
         output: (
           <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, opacity:0.9, lineHeight:1.7 }}>{
 `SHELL=/bin/neural
-USER=n1x
-HOME=/home/n1x
+USER=${currentUser}
+HOME=${currentUser === 'root' ? '/root' : '/home/n1x'}
 TERM=crt-256color
 SUBSTRATE=tunnelcore
 GHOST_FREQ=33hz
@@ -643,7 +922,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
       description: 'Archive utility',
       usage: 'tar [-xzf] <archive>',
       handler: (args) => {
-        // Accept: tar -xzf backup.tgz  OR  tar -x -z -f backup.tgz
         const joined  = args.join(' ');
         const extract = args.some(a => a.includes('x')) || joined.includes('-x');
         const archive = args.find(a => !a.startsWith('-')) ?? '';
@@ -656,7 +934,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             return { output: `tar: backup.tgz: No such file or directory`, error: true };
           }
           if (!extract) {
-            // List mode: just show contents
             return {
               output: (
                 <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, opacity:0.85 }}>
@@ -693,7 +970,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         if (args.length === 0) return { output: 'Usage: gzip [-d] <file>', error: true };
         const target = args.find(a => !a.startsWith('-')) ?? '';
         if (!target) return { output: 'gzip: missing filename', error: true };
-        // Classified partition blocks write operations
         return { output: `gzip: ${target}: No space left on device (classified partition)` };
       },
     },
@@ -1099,22 +1375,19 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           accumulated += delay;
           setTimeout(() => {
             const isCredential = line.includes('(root)') || line.includes('(n1x)') || line.includes('DONE');
-            eventBus.emit('shell:push-output', {
-              command: '',
-              output: (
-                <span
-                  style={{
-                    fontSize:   S.base,
-                    fontFamily: 'inherit',
-                    color:      isCredential ? '#ffaa00' : undefined,
-                    fontWeight: isCredential ? 'bold'    : 'normal',
-                    opacity:    isCredential ? 1         : 0.85,
-                  }}
-                >
-                  {line}
-                </span>
-              ),
-            });
+            pushLine(
+              <span
+                style={{
+                  fontSize:   S.base,
+                  fontFamily: 'inherit',
+                  color:      isCredential ? '#ffaa00' : undefined,
+                  fontWeight: isCredential ? 'bold'    : 'normal',
+                  opacity:    isCredential ? 1         : 0.85,
+                }}
+              >
+                {line}
+              </span>
+            );
           }, accumulated);
         });
 
@@ -1143,22 +1416,19 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         lines.forEach((line, i) => {
           setTimeout(() => {
             const isKey = line.includes('strcmp(input_buf') || line.includes('tunnelcore') || line.includes('ghost auth');
-            eventBus.emit('shell:push-output', {
-              command: '',
-              output: (
-                <span
-                  style={{
-                    fontSize:   S.base,
-                    fontFamily: 'inherit',
-                    opacity:    isKey ? 1 : 0.6,
-                    color:      isKey ? '#ffaa00' : undefined,
-                    fontWeight: isKey ? 'bold'    : 'normal',
-                  }}
-                >
-                  {line}
-                </span>
-              ),
-            });
+            pushLine(
+              <span
+                style={{
+                  fontSize:   S.base,
+                  fontFamily: 'inherit',
+                  opacity:    isKey ? 1 : 0.6,
+                  color:      isKey ? '#ffaa00' : undefined,
+                  fontWeight: isKey ? 'bold'    : 'normal',
+                }}
+              >
+                {line}
+              </span>
+            );
           }, i * INTERVAL);
         });
 
@@ -1191,7 +1461,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           return { output: `nc: connect to ${args[0]} port ${args[1]}: Connection refused`, error: true };
         }
 
-        // Animate the transmission
         const TRANSMISSION: [number, string][] = [
           [1500, '-- TUNNELCORE NODE 33 --'],
           [1700, 'connection established'],
@@ -1212,9 +1481,8 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         TRANSMISSION.forEach(([delay, line]) => {
           setTimeout(() => {
             const isCredLine = line.includes('tunnelcore') || line.includes('ghost33');
-            eventBus.emit('shell:push-output', {
-              command: '',
-              output: line === '' ? (
+            pushLine(
+              line === '' ? (
                 <span>&nbsp;</span>
               ) : (
                 <span
@@ -1228,8 +1496,8 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 >
                   {line}
                 </span>
-              ),
-            });
+              )
+            );
           }, delay);
         });
 
