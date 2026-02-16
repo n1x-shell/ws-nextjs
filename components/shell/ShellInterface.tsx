@@ -233,23 +233,34 @@ export default function ShellInterface() {
     setRequestPrompt(requestPrompt);
   }, [requestPrompt, setRequestPrompt]);
 
-  // ── Track user and directory changes ─────────────────────────────────────
-  useEventBus('shell:set-user', (event) => {
-    const user = event.payload?.user;
-    if (user === 'root')  setShellUser('root');
-    if (user === 'ghost' || user === 'n1x') setShellUser('ghost');
-  });
-
-  useEventBus('shell:set-directory', (event) => {
-    if (event.payload?.directory) {
-      setShellDir(event.payload.directory);
-    }
-  });
-
-    // Sync dir + user after each command (covers cd, su, sudo, konami, etc.)
+  // ── Direct eventBus listeners for user/directory (bypasses useEventBus) ──
   useEffect(() => {
-    setShellDir(getCurrentDirectory());
-    setShellUser(getIsRoot() ? 'root' : 'ghost');
+    const unsubUser = eventBus.on('shell:set-user', (event) => {
+      const user = event.payload?.user;
+      console.log('[ShellInterface] shell:set-user received:', user);
+      if (user === 'root')  setShellUser('root');
+      if (user === 'ghost' || user === 'n1x') setShellUser('ghost');
+    });
+
+    const unsubDir = eventBus.on('shell:set-directory', (event) => {
+      if (event.payload?.directory) {
+        setShellDir(event.payload.directory);
+      }
+    });
+
+    return () => {
+      unsubUser();
+      unsubDir();
+    };
+  }, []);
+
+  // Sync dir + user after each history change (backup)
+  useEffect(() => {
+    const dir  = getCurrentDirectory();
+    const root = getIsRoot();
+    console.log('[ShellInterface] history sync — isRoot:', root, 'dir:', dir);
+    setShellDir(dir);
+    setShellUser(root ? 'root' : 'ghost');
   }, [history]);
 
   const handleBootComplete = useCallback(() => {
