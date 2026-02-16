@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useShell, RequestPromptFn } from '@/hooks/useShell';
-import { getCommandSuggestions, getCurrentDirectory } from '@/lib/commandRegistry';
+import { getCommandSuggestions, getCurrentDirectory, getIsRoot } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
@@ -246,9 +246,10 @@ export default function ShellInterface() {
     }
   });
 
-  // Sync dir after each command (covers cd inside konami, sudo, etc.)
+    // Sync dir + user after each command (covers cd, su, sudo, konami, etc.)
   useEffect(() => {
     setShellDir(getCurrentDirectory());
+    setShellUser(getIsRoot() ? 'root' : 'ghost');
   }, [history]);
 
   const handleBootComplete = useCallback(() => {
