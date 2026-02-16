@@ -1,12 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { CommandOutput, ShellState } from '@/types/shell.types';
 import { executeCommand } from '@/lib/commandRegistry';
+import { eventBus } from '@/lib/eventBus';
 
 export type RequestPromptFn = (label: string, onSubmit: (pw: string) => void) => void;
 
-const noopPrompt: RequestPromptFn = () => {};
-
-export function useShell() {
+export function useShell(requestPrompt?: RequestPromptFn) {
   const [state, setState] = useState<ShellState>({
     history: [],
     currentDirectory: '/',
@@ -16,39 +15,81 @@ export function useShell() {
 
   const historyEndRef = useRef<HTMLDivElement>(null);
 
-  // Push an output entry directly (used by async commands via shell:push-output)
-  const pushOutput = useCallback((item: CommandOutput) => {
-    setState((prev) => ({ ...prev, history: [...prev.history, item] }));
+  // Stable ref so the eventBus listener always sees the latest requestPrompt
+  const requestPromptRef = useRef<RequestPromptFn | undefined>(requestPrompt);
+  useEffect(() => { requestPromptRef.current = requestPrompt; }, [requestPrompt]);
+
+  // ── Listen for shell:push-output (async output from su, sudo, john, nc, strace) ──
+  useEffect(() => {
+    const unsub = eventBus.on('shell:push-output', (event) => {
+      const { command, output, error } = event.payload || {};
+      const entry: CommandOutput = {
+        id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+        command: command ?? '',
+        output: output ?? null,
+        timestamp: Date.now(),
+        error: !!error,
+      };
+      setState((prev) => ({
+        ...prev,
+        history: [...prev.history, entry],
+      }));
+    });
+    return unsub;
   }, []);
 
-  const executeCommandLine = useCallback(
-    (input: string, requestPrompt?: RequestPromptFn) => {
-      const result = executeCommand(input, requestPrompt ?? noopPrompt);
+  // ── Listen for shell:execute-command (re-dispatch from sudo) ──
+  useEffect(() => {
+    const unsub = eventBus.on('shell:execute-command', (event) => {
+      const cmd = event.payload?.command;
+      if (!cmd) return;
+      const noopPrompt: RequestPromptFn = () => {};
+      const result = executeCommand(cmd, requestPromptRef.current ?? noopPrompt);
 
       if (result.clearScreen) {
         setState((prev) => ({ ...prev, history: [] }));
         return;
       }
 
-      // output: null means command is async (e.g. su waiting for password prompt)
-      // we still record the command line so the user sees what they typed
-      const output: CommandOutput = {
-        id:        Date.now().toString(),
-        command:   input,
-        output:    result.output ?? null,
+      const entry: CommandOutput = {
+        id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+        command: cmd,
+        output: result.output,
         timestamp: Date.now(),
-        error:     result.error,
+        error: result.error,
       };
-
       setState((prev) => ({
         ...prev,
-        history:        [...prev.history, output],
-        commandHistory: [input, ...prev.commandHistory].slice(0, 100),
-        historyIndex:   -1,
+        history: [...prev.history, entry],
       }));
-    },
-    []
-  );
+    });
+    return unsub;
+  }, []);
+
+  const executeCommandLine = useCallback((input: string) => {
+    const noopPrompt: RequestPromptFn = () => {};
+    const result = executeCommand(input, requestPrompt ?? noopPrompt);
+
+    if (result.clearScreen) {
+      setState((prev) => ({ ...prev, history: [] }));
+      return;
+    }
+
+    const output: CommandOutput = {
+      id: Date.now().toString(),
+      command: input,
+      output: result.output,
+      timestamp: Date.now(),
+      error: result.error,
+    };
+
+    setState((prev) => ({
+      ...prev,
+      history: [...prev.history, output],
+      commandHistory: [input, ...prev.commandHistory].slice(0, 100),
+      historyIndex: -1,
+    }));
+  }, [requestPrompt]);
 
   const navigateHistory = useCallback(
     (direction: 'up' | 'down'): string | null => {
@@ -83,7 +124,6 @@ export function useShell() {
     executeCommand: executeCommandLine,
     navigateHistory,
     clearHistory,
-    pushOutput,
     historyEndRef,
   };
 }
