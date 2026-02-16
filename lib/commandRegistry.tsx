@@ -6,7 +6,7 @@ import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
-import { createSystemCommands } from './systemCommands';
+import { createSystemCommands, setRequestPrompt } from './systemCommands';
 
 const fs = new FileSystemNavigator();
 
@@ -143,7 +143,6 @@ export const commands: Record<string, Command> = {
                   ['wc',      'Word count'],
                 ],
               },
-  
 
             ].map((section) => (
               <div key={section.label} style={{ marginBottom: '0.75rem' }}>
@@ -751,6 +750,7 @@ export function executeCommand(
   requestPrompt: (label: string, onSubmit: (pw: string) => void) => void
 ): CommandResult {
   _requestPrompt = requestPrompt;
+  setRequestPrompt(requestPrompt);
 
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
