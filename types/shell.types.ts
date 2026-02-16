@@ -1,33 +1,35 @@
-export type CommandOutput = {
-  id: string;
-  command: string;
-  output: React.ReactNode;
-  timestamp: number;
-  error?: boolean;
-};
+import { ReactNode } from 'react';
 
-export type CommandHandler = (args: string[]) => CommandResult;
-
-export type CommandResult = {
-  output: React.ReactNode;
-  error?: boolean;
-  clearScreen?: boolean;
-};
+export interface VirtualFile {
+  name: string;
+  type: 'file' | 'directory';
+  children?: VirtualFile[];
+  content?: string;
+}
 
 export interface Command {
   name: string;
   description: string;
   usage: string;
-  handler: CommandHandler;
-  hidden?: boolean;
   aliases?: string[];
+  hidden?: boolean;
+  handler: (args: string[]) => CommandResult;
 }
 
-export interface VirtualFile {
-  name: string;
-  type: 'file' | 'directory';
-  content?: string;
-  children?: VirtualFile[];
+export interface CommandResult {
+  output: ReactNode | string | null;
+  error?: boolean;
+  clearScreen?: boolean;
+}
+
+export interface CommandOutput {
+  id: string;
+  command: string;
+  output: ReactNode | string | null;
+  timestamp: number;
+  error?: boolean;
+  cwd?: string;
+  user?: string;
 }
 
 export interface ShellState {
