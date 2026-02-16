@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { CommandOutput, ShellState } from '@/types/shell.types';
-import { executeCommand, getCurrentDirectory, getIsRoot } from '@/lib/commandRegistry';
+import { executeCommand, getCurrentDirectory } from '@/lib/commandRegistry';
 import { eventBus } from '@/lib/eventBus';
 
 export type RequestPromptFn = (label: string, onSubmit: (value: string) => void) => void;
@@ -22,6 +22,25 @@ export function useShell() {
     requestPromptRef.current = fn;
   }, []);
 
+  // ── User tracking via shell:set-user event (authoritative source) ────────
+  const currentUserRef = useRef<string>('ghost');
+  const [currentUser, setCurrentUser] = useState<string>('ghost');
+
+  const userListenerAttached = useRef(false);
+  if (!userListenerAttached.current) {
+    eventBus.on('shell:set-user', (event) => {
+      const user = event.payload?.user;
+      if (user === 'root') {
+        currentUserRef.current = 'root';
+        setCurrentUser('root');
+      } else {
+        currentUserRef.current = 'ghost';
+        setCurrentUser('ghost');
+      }
+    });
+    userListenerAttached.current = true;
+  }
+
   // Listen for shell:push-output from async command sequences (john, strace, nc, su, sudo)
   const pushOutputListenerAttached = useRef(false);
   if (!pushOutputListenerAttached.current) {
@@ -38,7 +57,7 @@ export function useShell() {
             timestamp: Date.now(),
             error: payload.error,
             cwd: getCurrentDirectory(),
-            user: getIsRoot() ? 'root' : 'ghost',
+            user: currentUserRef.current,
           },
         ],
       }));
@@ -49,7 +68,7 @@ export function useShell() {
   const executeCommandLine = useCallback((input: string) => {
     // Snapshot prompt context BEFORE execution (cd changes dir during handler)
     const cwdBefore  = getCurrentDirectory();
-    const userBefore = getIsRoot() ? 'root' : 'ghost';
+    const userBefore = currentUserRef.current;
 
     const result = executeCommand(input, requestPromptRef.current);
 
@@ -111,5 +130,6 @@ export function useShell() {
     clearHistory,
     historyEndRef,
     setRequestPrompt,
+    currentUser,
   };
 }
