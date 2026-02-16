@@ -70,20 +70,20 @@ export const commands: Record<string, Command> = {
               {
                 label: 'NAVIGATION',
                 cmds: [
-                  ['ls',  'List directory'],
-                  ['cd',  'Change directory'],
-                  ['pwd', 'Print working directory'],
                   ['cat', 'Display file contents'],
+                  ['cd',  'Change directory'],
+                  ['ls',  'List directory'],
+                  ['pwd', 'Print working directory'],
                 ],
               },
               {
                 label: 'CONTENT',
                 cmds: [
+                  ['load',    'Load stream content'],
+                  ['play',    'Play specific track'],
                   ['scan',    'Scan for streams'],
                   ['streams', 'List all streams'],
                   ['tracks',  'List available tracks'],
-                  ['load',    'Load stream content'],
-                  ['play',    'Play specific track'],
                 ],
               },
               {
@@ -96,43 +96,43 @@ export const commands: Record<string, Command> = {
               {
                 label: 'SYSTEM',
                 cmds: [
+                  ['clear',   'Clear terminal'],
+                  ['df',      'Disk usage'],
+                  ['dmesg',   'Boot log'],
+                  ['echo',    'Echo text'],
+                  ['env',     'Environment variables'],
+                  ['free',    'Memory usage'],
+                  ['help',    'Show this help'],
+                  ['history', 'Command history'],
+                  ['id',      'User identity'],
+                  ['ifconfig','Network interfaces'],
+                  ['netstat', 'Network connections'],
+                  ['ps',      'Process list'],
                   ['status',  'System telemetry'],
+                  ['top',     'Live process monitor'],
                   ['uname',   'System information'],
                   ['uptime',  'Session uptime'],
                   ['whoami',  'Current user'],
-                  ['id',      'User identity'],
-                  ['ps',      'Process list'],
-                  ['top',     'Live process monitor'],
-                  ['df',      'Disk usage'],
-                  ['free',    'Memory usage'],
-                  ['ifconfig','Network interfaces'],
-                  ['netstat', 'Network connections'],
-                  ['env',     'Environment variables'],
-                  ['dmesg',   'Boot log'],
-                  ['history', 'Command history'],
-                  ['clear',   'Clear terminal'],
-                  ['echo',    'Echo text'],
-                  ['help',    'Show this help'],
                 ],
               },
               {
                 label: 'UTILITIES',
                 cmds: [
-                  ['fortune', 'Random transmission'],
+                  ['base64',  'Base64 encode/decode'],
                   ['cal',     'Calendar'],
-                  ['date',    'Current date/stardate'],
                   ['cowsay',  'ASCII art message'],
+                  ['date',    'Current date/stardate'],
+                  ['diff',    'Compare files'],
+                  ['find',    'Find files'],
+                  ['fortune', 'Random transmission'],
+                  ['grep',    'Search file contents'],
+                  ['man',     'Manual pages'],
                   ['matrix',  'Matrix rain'],
                   ['morse',   'Morse code encoder'],
-                  ['base64',  'Base64 encode/decode'],
                   ['sha256',  'SHA-256 hash'],
-                  ['wc',      'Word count'],
-                  ['grep',    'Search file contents'],
-                  ['find',    'Find files'],
-                  ['diff',    'Compare files'],
                   ['sort',    'Sort tokens'],
                   ['uniq',    'Remove duplicates'],
-                  ['man',     'Manual pages'],
+                  ['wc',      'Word count'],
                 ],
               },
             ].map((section) => (
@@ -273,7 +273,7 @@ export const commands: Record<string, Command> = {
     },
   },
 
-  // ââ Neural Link commands ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // —— Neural Link commands ————————————————————————————————————————————————
 
   ask: {
     name: 'ask',
@@ -352,7 +352,7 @@ export const commands: Record<string, Command> = {
     },
   },
 
-  // ââ Existing content commands âââââââââââââââââââââââââââââââââââââââââââââââ
+  // —— Existing content commands ———————————————————————————————————————————
 
   load: {
     name: 'load',
@@ -600,7 +600,7 @@ export function executeCommand(input: string, _requestPrompt?: any): CommandResu
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
 
-  // ââ Chat mode intercept âââââââââââââââââââââââââââââââââââââââââââââââââ
+  // —— Chat mode intercept ———————————————————————————————————————————————
   // When neural-link is active, route all input through the chat handler
   // except for system commands that should always work
   if (isChatMode()) {
@@ -630,7 +630,7 @@ export function executeCommand(input: string, _requestPrompt?: any): CommandResu
     return handleChatInput(trimmed);
   }
 
-  // ââ Normal command execution ââââââââââââââââââââââââââââââââââââââââââââ
+  // —— Normal command execution ——————————————————————————————————————————
 
   if (trimmed.startsWith('./')) {
     const filename = trimmed.slice(2).split(/\s+/)[0];
