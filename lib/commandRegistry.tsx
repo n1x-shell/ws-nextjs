@@ -32,6 +32,16 @@ const S = {
   glow:   'text-glow',
 };
 
+/** Expose current working directory for prompt rendering */
+export function getCurrentDirectory(): string {
+  return fs.getCurrentDirectory();
+}
+
+/** Expose current user for prompt rendering */
+export function getIsRoot(): boolean {
+  return isRoot;
+}
+
 export const commands: Record<string, Command> = {
 
   help: {
@@ -248,9 +258,15 @@ export const commands: Record<string, Command> = {
     description: 'Change directory',
     usage: 'cd <directory>',
     handler: (args) => {
-      if (args.length === 0) return { output: fs.getCurrentDirectory() };
+      if (args.length === 0) {
+        return { output: fs.getCurrentDirectory() };
+      }
       const result = fs.changeDirectory(args[0]);
-      if (result.success) return { output: `Changed to ${fs.getCurrentDirectory()}` };
+      if (result.success) {
+        const newDir = fs.getCurrentDirectory();
+        eventBus.emit('shell:set-directory', { directory: newDir });
+        return { output: null };
+      }
       return { output: result.error || 'Failed to change directory', error: true };
     },
   },
@@ -543,7 +559,7 @@ export const commands: Record<string, Command> = {
 
       const subcmd = args.join(' ').toLowerCase();
 
-      _requestPrompt('[sudo] password for n1x:', (pw) => {
+      _requestPrompt('[sudo] password for ghost:', (pw) => {
         if (pw !== PASSWORDS.n1x) {
           eventBus.emit('shell:push-output', {
             command: '',
@@ -680,7 +696,7 @@ export const commands: Record<string, Command> = {
         return { output: 'exit: not in an elevated session' };
       }
       isRoot = false;
-      eventBus.emit('shell:set-user', { user: 'n1x' });
+      eventBus.emit('shell:set-user', { user: 'ghost' });
       return { output: 'logout' };
     },
   },
