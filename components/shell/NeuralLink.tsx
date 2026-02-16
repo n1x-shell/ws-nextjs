@@ -11,9 +11,11 @@ interface ChatMessage {
 
 let conversationHistory: ChatMessage[] = [];
 let chatModeActive = false;
+let messageCount = 0;
 
 export function resetConversation() {
   conversationHistory = [];
+  messageCount = 0;
 }
 
 export function isChatMode() {
@@ -48,6 +50,15 @@ const StreamCursor: React.FC = () => {
   );
 };
 
+// ── Prefixed response line ──────────────────────────────────────────────────
+
+const PrefixedLine: React.FC<{ children: React.ReactNode; glow?: boolean }> = ({ children, glow }) => (
+  <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+    <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
+    <span className={glow ? 'text-glow' : ''} style={{ opacity: glow ? 1 : 0.9 }}>{children}</span>
+  </div>
+);
+
 // ── NeuralLinkStream: renders a single streaming response ───────────────────
 
 interface NeuralLinkStreamProps {
@@ -59,10 +70,13 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
   const [status, setStatus] = useState<'connecting' | 'streaming' | 'complete' | 'error'>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const hasStarted = useRef(false);
+  const isFirstMessage = useRef(false);
 
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
+    messageCount++;
+    isFirstMessage.current = messageCount === 1;
 
     const userMessage: ChatMessage = { role: 'user', content: prompt };
     conversationHistory.push(userMessage);
@@ -116,40 +130,57 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
     };
   }, [prompt]);
 
+  // Split response into lines for << prefixing
+  const responseLines = tokens ? tokens.split('\n') : [];
+
   return (
     <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
-      {/* Status line */}
-      <div style={{ marginBottom: '0.5rem' }}>
-        <span style={{ opacity: 0.4 }}>neural-link</span>
-        <span style={{ opacity: 0.3 }}> :: </span>
-        <span style={{ opacity: 0.5 }}>
-          {status === 'connecting' && 'establishing uplink...'}
-          {status === 'streaming' && 'receiving signal'}
-          {status === 'complete' && 'signal complete'}
-          {status === 'error' && 'signal lost'}
-        </span>
-        {status === 'streaming' && <StreamCursor />}
-      </div>
-
-      {/* Response */}
-      {status === 'error' ? (
-        <div style={{ color: '#f87171' }}>
-          [ERROR] uplink failure -- {errorMsg}
-          <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
-            check AI_GATEWAY_API_KEY in env or retry
-          </div>
-        </div>
-      ) : (
-        <div style={{ whiteSpace: 'pre-wrap', opacity: tokens ? 0.95 : 0.4 }}>
-          {tokens || (status === 'connecting' ? 'tuning to 33hz...' : '')}
+      {/* Status line — first message only */}
+      {isFirstMessage.current && (
+        <div style={{ marginBottom: '0.5rem' }}>
+          <span style={{ opacity: 0.4 }}>neural-link</span>
+          <span style={{ opacity: 0.3 }}> :: </span>
+          <span style={{ opacity: 0.5 }}>
+            {status === 'connecting' && 'establishing uplink...'}
+            {status === 'streaming' && 'receiving signal'}
+            {status === 'complete' && 'signal complete'}
+            {status === 'error' && 'signal lost'}
+          </span>
         </div>
       )}
 
-      {/* End marker */}
-      {status === 'complete' && (
-        <div style={{ opacity: 0.3, marginTop: '0.5rem', fontSize: 'var(--text-base)' }}>
-          -- end transmission --
+      {/* Error */}
+      {status === 'error' ? (
+        <div>
+          <PrefixedLine>
+            <span style={{ color: '#f87171' }}>UPLINK FAILURE -- {errorMsg}</span>
+          </PrefixedLine>
+          <PrefixedLine>
+            <span style={{ opacity: 0.5 }}>check AI_GATEWAY_API_KEY in env or retry</span>
+          </PrefixedLine>
         </div>
+      ) : (
+        <>
+          {/* Speaker label */}
+          {(status === 'streaming' || status === 'complete') && (
+            <PrefixedLine glow>N1X ::</PrefixedLine>
+          )}
+
+          {/* Connecting placeholder */}
+          {status === 'connecting' && (
+            <PrefixedLine glow>N1X ::<StreamCursor /></PrefixedLine>
+          )}
+
+          {/* Streamed response lines */}
+          {responseLines.map((line, i) => (
+            <div key={i} style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+              <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
+              <span style={{ opacity: 0.9 }}>{line}</span>
+              {/* Cursor on last line while streaming */}
+              {status === 'streaming' && i === responseLines.length - 1 && <StreamCursor />}
+            </div>
+          ))}
+        </>
       )}
     </div>
   );

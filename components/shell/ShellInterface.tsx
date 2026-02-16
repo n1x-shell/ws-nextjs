@@ -40,7 +40,7 @@ function NeuralBusPrompt({ inline }: { inline?: boolean }) {
   return (
     <span style={{ whiteSpace: 'nowrap', display: inline ? 'inline' : 'inline-flex', alignItems: 'center' }}>
       <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>
-        n1x
+        ghost
       </span>
       <span style={{ opacity: 0.5 }}>&gt;&gt;</span>
     </span>
