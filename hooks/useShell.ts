@@ -10,8 +10,6 @@ export function useShell() {
     historyIndex: -1,
   });
 
-  // Still exported so ShellInterface can use it as a scroll anchor ref
-  // but we never call scrollIntoView on it — ShellInterface owns scrolling
   const historyEndRef = useRef<HTMLDivElement>(null);
 
   const executeCommandLine = useCallback((input: string) => {
@@ -36,11 +34,41 @@ export function useShell() {
       commandHistory: [input, ...prev.commandHistory].slice(0, 100),
       historyIndex: -1,
     }));
-
-    // NO scrollIntoView here — ShellInterface handles scrolling
-    // via outputRef.scrollTop = outputRef.scrollHeight
   }, []);
 
   const navigateHistory = useCallback(
     (direction: 'up' | 'down'): string | null => {
-      let result: string | null =​​​​​​​​​​​​​​​​
+      let result: string | null = null;
+
+      setState((prev) => {
+        if (prev.commandHistory.length === 0) return prev;
+
+        let newIndex = prev.historyIndex;
+
+        if (direction === 'up') {
+          newIndex = Math.min(prev.historyIndex + 1, prev.commandHistory.length - 1);
+        } else {
+          newIndex = Math.max(prev.historyIndex - 1, -1);
+        }
+
+        result = newIndex >= 0 ? prev.commandHistory[newIndex] : null;
+        return { ...prev, historyIndex: newIndex };
+      });
+
+      return result;
+    },
+    []
+  );
+
+  const clearHistory = useCallback(() => {
+    setState((prev) => ({ ...prev, history: [] }));
+  }, []);
+
+  return {
+    history: state.history,
+    executeCommand: executeCommandLine,
+    navigateHistory,
+    clearHistory,
+    historyEndRef,
+  };
+}
