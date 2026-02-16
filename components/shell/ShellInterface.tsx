@@ -269,12 +269,23 @@ export default function ShellInterface() {
     if (!booting) inputRef.current?.focus();
   }, [booting]);
 
+  // Scroll to bottom on any content change (history, streaming tokens, push-output)
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
-    requestAnimationFrame(() => {
+
+    const scrollToBottom = () => {
       requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
-    });
+    };
+
+    // Scroll on history change
+    scrollToBottom();
+
+    // MutationObserver catches streaming token updates and async push-output
+    const observer = new MutationObserver(scrollToBottom);
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
+
+    return () => observer.disconnect();
   }, [history]);
 
   useEffect(() => {
