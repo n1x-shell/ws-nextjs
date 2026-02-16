@@ -233,35 +233,32 @@ export default function ShellInterface() {
     setRequestPrompt(requestPrompt);
   }, [requestPrompt, setRequestPrompt]);
 
-  // ── Direct eventBus listeners for user/directory (bypasses useEventBus) ──
+  // ── Sync helper — single source of truth ─────────────────────────────────
+  const syncPromptState = useCallback(() => {
+    setShellDir(getCurrentDirectory());
+    setShellUser(getIsRoot() ? 'root' : 'ghost');
+  }, []);
+
+  // ── Direct eventBus listeners (bypasses useEventBus) ─────────────────────
   useEffect(() => {
-    const unsubUser = eventBus.on('shell:set-user', (event) => {
-      const user = event.payload?.user;
-      console.log('[ShellInterface] shell:set-user received:', user);
-      if (user === 'root')  setShellUser('root');
-      if (user === 'ghost' || user === 'n1x') setShellUser('ghost');
+    const unsubUser = eventBus.on('shell:set-user', () => {
+      syncPromptState();
     });
 
-    const unsubDir = eventBus.on('shell:set-directory', (event) => {
-      if (event.payload?.directory) {
-        setShellDir(event.payload.directory);
-      }
+    const unsubDir = eventBus.on('shell:set-directory', () => {
+      syncPromptState();
     });
 
     return () => {
       unsubUser();
       unsubDir();
     };
-  }, []);
+  }, [syncPromptState]);
 
-  // Sync dir + user after each history change (backup)
+  // Sync after each history change (backup)
   useEffect(() => {
-    const dir  = getCurrentDirectory();
-    const root = getIsRoot();
-    console.log('[ShellInterface] history sync — isRoot:', root, 'dir:', dir);
-    setShellDir(dir);
-    setShellUser(root ? 'root' : 'ghost');
-  }, [history]);
+    syncPromptState();
+  }, [history, syncPromptState]);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
@@ -336,8 +333,15 @@ export default function ShellInterface() {
     const callback = promptState.onSubmit;
     setPromptState(null);
     setPromptValue('');
-    setTimeout(() => inputRef.current?.focus(), 50);
+    // Fire the password callback (su sets isRoot=true synchronously inside)
     callback(value);
+    // Force-sync prompt state right after callback — isRoot is now true
+    syncPromptState();
+    // Also sync after a tick in case React batched the state updates
+    setTimeout(() => {
+      syncPromptState();
+      inputRef.current?.focus();
+    }, 50);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
