@@ -4,6 +4,8 @@ import { executeCommand } from '@/lib/commandRegistry';
 
 export type RequestPromptFn = (label: string, onSubmit: (pw: string) => void) => void;
 
+const noopPrompt: RequestPromptFn = () => {};
+
 export function useShell() {
   const [state, setState] = useState<ShellState>({
     history: [],
@@ -20,8 +22,8 @@ export function useShell() {
   }, []);
 
   const executeCommandLine = useCallback(
-    (input: string, requestPrompt: RequestPromptFn) => {
-      const result = executeCommand(input, requestPrompt);
+    (input: string, requestPrompt?: RequestPromptFn) => {
+      const result = executeCommand(input, requestPrompt ?? noopPrompt);
 
       if (result.clearScreen) {
         setState((prev) => ({ ...prev, history: [] }));
