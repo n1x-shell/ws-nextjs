@@ -50,14 +50,14 @@ The terminal is not a UI metaphor. It is the UI. This phase built the entire int
 
 **Full command inventory:**
 
-|Category  |Commands                                                                                                                                         |
-|----------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-|Navigation|`ls`, `cd`, `pwd`, `cat`                                                                                                                         |
-|Content   |`scan`, `streams`, `tracks`, `load`, `play`                                                                                                      |
-|System    |`status`, `uname`, `uptime`, `whoami`, `id`, `ps`, `top`, `df`, `free`, `ifconfig`, `netstat`, `env`, `dmesg`, `history`, `clear`, `echo`, `help`|
-|Utilities |`fortune`, `cal`, `date`, `cowsay`, `matrix`, `morse`, `base64`, `sha256`, `wc`, `grep`, `find`, `diff`, `sort`, `uniq`, `man`                   |
-|Hidden    |`unlock`, `glitch`, `ghost`                                                                                                                      |
-|Executable|`./n1x.sh` (from `/hidden` only)                                                                                                                 |
+|Category  |Commands                                                                                                                                                          |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|Navigation|`cat`, `cd`, `ls`, `pwd`                                                                                                                                          |
+|Content   |`load`, `play`, `scan`, `streams`, `tracks`                                                                                                                       |
+|System    |`clear`, `df`, `dmesg`, `echo`, `env`, `free`, `help`, `history`, `id`, `ifconfig`, `mount`, `netstat`, `ps`, `status`, `su`, `sudo`, `top`, `uname`, `uptime`, `whoami`|
+|Utilities |`base64`, `cal`, `cowsay`, `date`, `diff`, `find`, `fortune`, `grep`, `john`, `man`, `matrix`, `morse`, `nc`, `sha256`, `sort`, `strace`, `uniq`, `wc`            |
+|Hidden    |`ghost`, `glitch`, `unlock`                                                                                                                                       |
+|Executable|`./n1x.sh` (from `/hidden` only)                                                                                                                                  |
 
 -----
 
