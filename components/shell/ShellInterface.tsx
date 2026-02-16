@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useShell, RequestPromptFn } from '@/hooks/useShell';
-import { getCommandSuggestions, getCurrentDirectory, getIsRoot } from '@/lib/commandRegistry';
+import { getCommandSuggestions, getCurrentDirectory } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
@@ -213,7 +213,7 @@ export default function ShellInterface() {
   const inputRef                    = useRef<HTMLInputElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
-  const { history, executeCommand, navigateHistory, historyEndRef, setRequestPrompt } = useShell();
+  const { history, executeCommand, navigateHistory, historyEndRef, setRequestPrompt, currentUser } = useShell();
   const { triggerGlitch, unlockGhost } = useNeuralState();
 
   // ── Password prompt state ────────────────────────────────────────────────
@@ -233,32 +233,18 @@ export default function ShellInterface() {
     setRequestPrompt(requestPrompt);
   }, [requestPrompt, setRequestPrompt]);
 
-  // ── Sync helper — single source of truth ─────────────────────────────────
-  const syncPromptState = useCallback(() => {
+  // ── Track directory changes ──────────────────────────────────────────────
+  useEventBus('shell:set-directory', (event) => {
+    if (event.payload?.directory) {
+      setShellDir(event.payload.directory);
+    }
+  });
+
+  // Sync dir + user — currentUser comes from useShell's event listener
+  useEffect(() => {
     setShellDir(getCurrentDirectory());
-    setShellUser(getIsRoot() ? 'root' : 'ghost');
-  }, []);
-
-  // ── Direct eventBus listeners (bypasses useEventBus) ─────────────────────
-  useEffect(() => {
-    const unsubUser = eventBus.on('shell:set-user', () => {
-      syncPromptState();
-    });
-
-    const unsubDir = eventBus.on('shell:set-directory', () => {
-      syncPromptState();
-    });
-
-    return () => {
-      unsubUser();
-      unsubDir();
-    };
-  }, [syncPromptState]);
-
-  // Sync after each history change (backup)
-  useEffect(() => {
-    syncPromptState();
-  }, [history, syncPromptState]);
+    setShellUser(currentUser);
+  }, [history, currentUser]);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
@@ -333,15 +319,8 @@ export default function ShellInterface() {
     const callback = promptState.onSubmit;
     setPromptState(null);
     setPromptValue('');
-    // Fire the password callback (su sets isRoot=true synchronously inside)
     callback(value);
-    // Force-sync prompt state right after callback — isRoot is now true
-    syncPromptState();
-    // Also sync after a tick in case React batched the state updates
-    setTimeout(() => {
-      syncPromptState();
-      inputRef.current?.focus();
-    }, 50);
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
