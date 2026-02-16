@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
@@ -145,13 +146,12 @@ const MatrixOverlay: React.FC = () => {
     };
 
     const interval = setInterval(draw, 33);
-    const timeout  = setTimeout(() => setVisible(false), 8000);
-    return () => { clearInterval(interval); clearTimeout(timeout); };
+    return () => { clearInterval(interval); };
   }, []);
 
   if (!visible) return null;
 
-  return (
+  return createPortal(
     <div
       style={{ position:'fixed', inset:0, zIndex:9999, cursor:'pointer' }}
       onClick={() => setVisible(false)}
@@ -160,7 +160,8 @@ const MatrixOverlay: React.FC = () => {
       <div style={{ position:'absolute', bottom:'2rem', left:'50%', transform:'translateX(-50%)', color:'#33ff33', fontFamily:'monospace', fontSize:'11px', opacity:0.5 }}>
         tap to exit
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -352,7 +353,7 @@ const MAN_PAGES: Record<string, { synopsis: string; description: string; example
   ls:      { synopsis:'ls',                          description:'Lists files in the current directory with permissions and ownership in Unix ls -la format.',                                     examples:['ls'] },
   tar:     { synopsis:'tar [-xzf] <archive>',        description:'Extract archive. Use -xzf to extract a .tgz. Try extracting backup.tgz in /ghost.',                                            examples:['tar -xzf backup.tgz'] },
   fortune: { synopsis:'fortune',                     description:'Prints a random transmission from the N1X signal archive.',                                                                      examples:['fortune'] },
-  matrix:  { synopsis:'matrix',                      description:'Activates matrix rain overlay. Tap or click to exit. Auto-exits after 8 seconds.',                                              examples:['matrix'] },
+  matrix:  { synopsis:'matrix',                      description:'Activates matrix rain overlay. Runs until dismissed. Tap or click anywhere to exit.',                                            examples:['matrix'] },
   morse:   { synopsis:'morse <text>',                description:'Encodes text to Morse code and plays it via Web Audio API at 600hz.',                                                            examples:['morse n1x','morse tunnelcore'] },
   dmesg:   { synopsis:'dmesg',                       description:'Prints the kernel boot log from system initialization. Contains substrate boot sequence.',                                       examples:['dmesg'] },
   ps:      { synopsis:'ps [aux]',                    description:'Reports current process status. Shows all running neural substrate processes.',                                                  examples:['ps','ps aux'] },
