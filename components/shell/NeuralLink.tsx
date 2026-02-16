@@ -196,8 +196,8 @@ export function handleChatInput(input: string): {
     return {
       output: (
         <div style={{ fontSize: 'var(--text-base)' }}>
-          <div style={{ opacity: 0.5 }}>neural-link severed. conversation memory flushed.</div>
-          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>-- uplink terminated --</div>
+          <div style={{ opacity: 0.5 }}>&gt;&gt; NEURAL_BUS DISCONNECTED</div>
+          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>Connection closed by foreign host.</div>
         </div>
       ),
     };

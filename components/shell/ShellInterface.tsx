@@ -6,6 +6,7 @@ import { getCommandSuggestions, getCurrentDirectory } from '@/lib/commandRegistr
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
+import { isChatMode } from '@/components/shell/NeuralLink';
 
 // ── Fish prompt renderer ──────────────────────────────────────────────────────
 
@@ -29,6 +30,19 @@ function FishPrompt({ user, cwd, inline }: { user: string; cwd: string; inline?:
       <span style={{ opacity: 0.5, marginLeft: '0.3rem' }}>
         {suffix}
       </span>
+    </span>
+  );
+}
+
+// ── Neural bus prompt renderer ────────────────────────────────────────────────
+
+function NeuralBusPrompt({ inline }: { inline?: boolean }) {
+  return (
+    <span style={{ whiteSpace: 'nowrap', display: inline ? 'inline' : 'inline-flex', alignItems: 'center' }}>
+      <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>
+        n1x
+      </span>
+      <span style={{ opacity: 0.5 }}>&gt;&gt;</span>
     </span>
   );
 }
@@ -451,10 +465,14 @@ export default function ShellInterface() {
                   </div>
                 ) : item.command !== '' ? (
                   <div style={{ marginBottom: '0.25rem' }}>
-                    <FishPrompt
-                      user={item.user || 'ghost'}
-                      cwd={item.cwd || '/'}
-                    />
+                    {item.chatMode ? (
+                      <NeuralBusPrompt />
+                    ) : (
+                      <FishPrompt
+                        user={item.user || 'ghost'}
+                        cwd={item.cwd || '/'}
+                      />
+                    )}
                     <span style={{ marginLeft: '0.4rem' }}>{item.command}</span>
                   </div>
                 ) : null}
@@ -560,7 +578,7 @@ export default function ShellInterface() {
               </div>
             </form>
           ) : (
-            /* Normal input line — fish-style prompt */
+            /* Normal input line — fish-style prompt or neural bus prompt */
             <form
               onSubmit={handleSubmit}
               style={{
@@ -573,7 +591,11 @@ export default function ShellInterface() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit' }}>
-                <FishPrompt user={shellUser} cwd={shellDir} inline />
+                {isChatMode() ? (
+                  <NeuralBusPrompt inline />
+                ) : (
+                  <FishPrompt user={shellUser} cwd={shellDir} inline />
+                )}
                 <input
                   ref={inputRef}
                   type="text"
