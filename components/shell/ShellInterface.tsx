@@ -254,11 +254,11 @@ export default function ShellInterface() {
     }
   });
 
-  // Sync dir + user — currentUser comes from useShell's event listener
+  // Sync user display — dir is handled by shell:set-directory eventBus above
   useEffect(() => {
     setShellDir(getDisplayDirectory());
     setShellUser(currentUser);
-  }, [history, currentUser]);
+  }, [currentUser]);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
@@ -270,23 +270,40 @@ export default function ShellInterface() {
   }, [booting]);
 
   // Scroll to bottom on any content change (history, streaming tokens, push-output)
+  // Single MutationObserver created once — throttled to avoid iOS layout thrashing
   useEffect(() => {
     const el = outputRef.current;
     if (!el) return;
 
+    let rafId: number | null = null;
     const scrollToBottom = () => {
-      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+      if (rafId !== null) return; // throttle: one rAF at a time
+      rafId = requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+        rafId = null;
+      });
     };
 
-    // Scroll on history change
+    // MutationObserver catches DOM additions (new history entries, streaming tokens)
+    // childList + subtree covers React re-renders; characterData omitted to reduce noise
+    const observer = new MutationObserver(scrollToBottom);
+    observer.observe(el, { childList: true, subtree: true });
+
+    // Also scroll on initial mount and when history ref changes
     scrollToBottom();
 
-    // MutationObserver catches streaming token updates and async push-output
-    const observer = new MutationObserver(scrollToBottom);
-    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => observer.disconnect();
-  }, [history]);
+  // Scroll when history length changes (covers non-mutation updates like clear)
+  useEffect(() => {
+    const el = outputRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  }, [history.length]);
 
   useEffect(() => {
     const el = outputRef.current;
