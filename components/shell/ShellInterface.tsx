@@ -287,7 +287,7 @@ export default function ShellInterface() {
     // MutationObserver catches DOM additions (new history entries, streaming tokens)
     // childList + subtree covers React re-renders; characterData omitted to reduce noise
     const observer = new MutationObserver(scrollToBottom);
-    observer.observe(el, { childList: true, subtree: true });
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
 
     // Also scroll on initial mount and when history ref changes
     scrollToBottom();
