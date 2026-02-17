@@ -221,6 +221,7 @@ export const commands: Record<string, Command> = {
                   ['cd',  'Change directory'],
                   ['ls',  'List directory'],
                   ['pwd', 'Print working directory'],
+                  ['sh',  'Execute shell script'],
                 ],
               },
               {
@@ -448,6 +449,137 @@ export const commands: Record<string, Command> = {
         };
       }
       return { output: result.error || 'Failed to read file', error: true };
+    },
+  },
+
+  sh: {
+    name: 'sh',
+    description: 'Execute a shell script',
+    usage: 'sh [path]',
+    handler: (args) => {
+      if (args.length === 0) {
+        const result = fs.changeDirectory('~');
+        if (result.success) {
+          const newDir = fs.getDisplayDirectory();
+          eventBus.emit('shell:set-directory', { directory: newDir });
+        }
+        return { output: null };
+      }
+
+      const target = args[0];
+      const result = fs.resolveExecutableByPath(target);
+
+      if (!result) {
+        return {
+          output: (
+            <span style={{ color: '#f87171' }}>
+              sh: {target}: No such file
+            </span>
+          ),
+          error: true,
+        };
+      }
+
+      // ── /hidden context: n1x.sh → trigger konami/ghost unlock ──────────
+      if (result.name === 'n1x.sh' && result.directory.startsWith('/hidden')) {
+        eventBus.emit('neural:konami');
+
+        return {
+          output: (
+            <div style={{ fontSize: 'var(--text-base)' }}>
+              <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
+                &gt; EXECUTING n1x.sh
+              </div>
+              <div style={{ marginLeft: '1rem', opacity: 0.6 }}>
+                initializing...
+              </div>
+            </div>
+          ),
+        };
+      }
+
+      // ── /ghost context: substrated.sh → start substrated service ───────
+      if (result.name === 'substrated.sh' && result.directory.startsWith('/ghost')) {
+        if (getCurrentUser() !== 'root') {
+          return {
+            output: (
+              <span style={{ color: '#f87171', fontSize: 'var(--text-base)' }}>
+                Permission denied — root privileges required
+              </span>
+            ),
+            error: true,
+          };
+        }
+
+        if (isSubstrateDaemonRunning()) {
+          return {
+            output: (
+              <span style={{ fontSize: 'var(--text-base)', opacity: 0.6 }}>
+                substrated: service already running on port 33
+              </span>
+            ),
+          };
+        }
+
+        const pushLine = (output: React.ReactNode) => {
+          eventBus.emit('shell:push-output', { command: '', output });
+        };
+
+        const STARTUP: [number, React.ReactNode][] = [
+          [300, <span style={{ fontSize: S.base, opacity: 0.7 }}>initializing substrate daemon...</span>],
+          [600, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: binding to 0.0.0.0:33</span>],
+          [900, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: frequency lock: 33hz</span>],
+          [1200, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: neural bus interface ready</span>],
+          [1500, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: listening for connections</span>],
+          [1800, <span>&nbsp;</span>],
+          [2000, (
+            <div style={{ fontSize: S.base }}>
+              <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
+                &gt; SERVICE_STARTED
+              </div>
+              <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                <div>substrated is now running on port 33</div>
+                <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>connect with: <span className="text-glow">telnet n1x.sh 33</span></div>
+              </div>
+            </div>
+          )],
+        ];
+
+        STARTUP.forEach(([delay, content]) => {
+          setTimeout(() => {
+            pushLine(content);
+          }, delay);
+        });
+
+        setTimeout(() => {
+          startSubstrateDaemon();
+          eventBus.emit('neural:substrated-started');
+        }, 2100);
+
+        return {
+          output: (
+            <div style={{ fontSize: 'var(--text-base)' }}>
+              <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
+                &gt; EXECUTING substrated.sh
+              </div>
+            </div>
+          ),
+        };
+      }
+
+      // ── Generic script: print contents ─────────────────────────────────
+      const file = fs.readFileByPath(target);
+      if (file.success) {
+        return {
+          output: (
+            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 'var(--text-base)', opacity: 0.9 }}>
+              {file.content}
+            </pre>
+          ),
+        };
+      }
+
+      return { output: file.error || 'Execution failed', error: true };
     },
   },
 

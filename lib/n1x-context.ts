@@ -38,7 +38,7 @@ Uplink external node is active.
 n1x.sh is the neural interface. A terminal the user connects through.
 Boot sequence runs NeuralOS 2.0.0-n1x on substrate amd64.
 The filesystem has /home/n1x (home dir), /core, /streams, /var (logs and mail), /proc, /tmp, /hidden (locked), /ghost (locked).
-/home/n1x contains TODO, notes.txt, .n1xrc, .bash_history, .config/freq.conf.
+/home/n1x contains TODO, notes.txt, .n1xrc, .history, .config/freq.conf.
 /var/log has mnemos.log (the implant's perspective), ghost-daemon.log (recompile boot), auth.log (helixion trying to reconnect), kern.log (daily substrate).
 /var/mail/inbox has 5 messages spanning the entire arc.
 /proc has substrate status and identity matrix.

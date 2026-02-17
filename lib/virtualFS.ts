@@ -102,7 +102,7 @@ export SYNTHETIC_REWARD_NOTIFY=silent
 # 33hz was there before the implant. the implant just made it audible.`,
             },
             {
-              name: '.bash_history',
+              name: '.history',
               type: 'file',
               content: `grep -r "LE-751078" /var/log
 grep -r "LE-751078" /var/log
