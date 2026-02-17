@@ -295,8 +295,6 @@ Two locked partitions, one gated service.
 
 `/ghost/substrated.sh` starts the `substrated` daemon on port 33, enabling the neural bus. Requires root privileges. This is a different script from `/hidden/n1x.sh` — the hidden one triggers the corruption sequence, the ghost one starts the service.
 
-Path resolution supports absolute and relative paths from any directory. `cat /ghost/signal.raw` works from `~`. `ls streams/synthetics` works from `/`. `sh /hidden/n1x.sh` and `sh /ghost/substrated.sh` work from anywhere.
-
 -----
 
 ## BOOT SEQUENCE
