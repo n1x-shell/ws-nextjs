@@ -31,20 +31,33 @@ export default function InterfaceLayer() {
     return () => clearInterval(interval);
   }, []);
 
+  // Stochastic glitch scheduler — single chain, properly cleaned up
   useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
+    let cancelled = false;
     const schedule = () => {
       const delay = Math.random() * 6000 + 2000;
-      setTimeout(() => {
+      timerId = setTimeout(() => {
+        if (cancelled) return;
         triggerGlitch();
         schedule();
       }, delay);
     };
     schedule();
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
   }, [triggerGlitch]);
 
+  // Initial glitch burst on mount
   useEffect(() => {
-    setTimeout(() => triggerGlitch(), 500);
-    setTimeout(() => triggerGlitch(), 1200);
+    const t1 = setTimeout(() => triggerGlitch(), 500);
+    const t2 = setTimeout(() => triggerGlitch(), 1200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [triggerGlitch]);
 
   useEventBus('neural:glitch-trigger', () => {
