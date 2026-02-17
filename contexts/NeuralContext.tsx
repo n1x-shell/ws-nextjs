@@ -5,6 +5,8 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
 import { NeuralState, NeuralMode, Tab, SignalIntensity } from '@/types/neural.types';
@@ -68,44 +70,44 @@ export function NeuralProvider({ children }: { children: ReactNode }) {
     }, 1500);
   }, []);
 
-  const setMode = (mode: NeuralMode) => {
+  const setMode = useCallback((mode: NeuralMode) => {
     setState((prev) => ({ ...prev, mode }));
     eventBus.emit('neural:mode-change', { mode });
-  };
+  }, []);
 
-  const setActiveTab = (tab: Tab) => {
+  const setActiveTab = useCallback((tab: Tab) => {
     setState((prev) => ({ ...prev, activeTab: tab }));
     eventBus.emit('neural:tab-change', { tab });
-  };
+  }, []);
 
-  const setGlitchIntensity = (intensity: SignalIntensity) => {
+  const setGlitchIntensity = useCallback((intensity: SignalIntensity) => {
     setState((prev) => ({ ...prev, glitchIntensity: intensity }));
     eventBus.emit('neural:glitch-intensity', { intensity });
-  };
+  }, []);
 
-  const triggerGlitch = () => {
+  const triggerGlitch = useCallback(() => {
     setGlitchIntensity(0.5);
     setTimeout(() => setGlitchIntensity(0), 200);
     eventBus.emit('neural:glitch-trigger');
-  };
+  }, [setGlitchIntensity]);
 
-  const unlockGhost = () => {
+  const unlockGhost = useCallback(() => {
     setGhostUnlocked(true);
     eventBus.emit('neural:ghost-unlocked');
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    ...state,
+    setMode,
+    setActiveTab,
+    setGlitchIntensity,
+    triggerGlitch,
+    ghostUnlocked,
+    unlockGhost,
+  }), [state, setMode, setActiveTab, setGlitchIntensity, triggerGlitch, ghostUnlocked, unlockGhost]);
 
   return (
-    <NeuralContext.Provider
-      value={{
-        ...state,
-        setMode,
-        setActiveTab,
-        setGlitchIntensity,
-        triggerGlitch,
-        ghostUnlocked,
-        unlockGhost,
-      }}
-    >
+    <NeuralContext.Provider value={value}>
       {children}
     </NeuralContext.Provider>
   );
