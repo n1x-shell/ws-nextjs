@@ -296,7 +296,7 @@ export default function ShellInterface() {
       observer.disconnect();
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [booting]); // re-run when boot completes and outputRef div mounts
 
   // Scroll when history length changes (covers non-mutation updates like clear)
   useEffect(() => {
@@ -304,6 +304,13 @@ export default function ShellInterface() {
     if (!el) return;
     requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
   }, [history.length]);
+
+  // Explicit scroll signal from streaming components (NeuralLinkStream)
+  useEventBus('shell:request-scroll', () => {
+    const el = outputRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  });
 
   useEffect(() => {
     const el = outputRef.current;

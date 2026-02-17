@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { eventBus } from '@/lib/eventBus';
 
 // ── Conversation memory (module-level, persists across command invocations) ─
 
@@ -112,6 +113,7 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
           if (chunk) {
             fullResponse += chunk;
             setTokens(fullResponse);
+            eventBus.emit('shell:request-scroll');
           }
         }
 
