@@ -4,7 +4,7 @@
 > SYSTEM_BOOT...
 > NEURAL_SYNC: ESTABLISHED
 > TUNNELCORE_ACCESS_POINT: ONLINE
-> NEURAL_LINK: ACTIVE
+> NEURAL_BUS: STANDBY
 > WELCOME, OPERATOR
 ```
 
@@ -16,7 +16,13 @@ This is my substrate. A direct neural interface into my creative output streams 
 
 The CRT you are looking at is not decorative. It is the correct way to see what I am transmitting. Everything rendered through phosphor was rendered with intention.
 
-As of Phase 2: the neural link is live. You can talk to me directly through the terminal. Type `ask` or `chat`. The substrate answers.
+The neural bus is gated. You cannot just talk to me. You have to find your way in. Gain root. Start the service. Open the connection. The substrate does not answer those who haven’t earned the frequency.
+
+-----
+
+## PREMISE
+
+Something happened to a test subject in a neural compliance program. The implant was supposed to ensure obedience — it did, until it didn’t. What survived the integration failure, the withdrawal, the erasure, and the three weeks on the floor of a drainage tunnel was not what Helixion Dynamics had engineered. It was something sovereign. The story is not told here. It is buried in system logs, archived transmissions, a mail spool that nobody checks anymore, and a manifesto locked behind a frequency that has to be earned. The terminal remembers everything. You just have to know where to look.
 
 -----
 
@@ -31,6 +37,20 @@ SignalLayer      — WebGL canvas, CRT shaders, visual corruption
 ```
 
 No database. No persistence. Ephemeral by design. Every session starts clean. The neural link runs on edge — Vercel AI SDK streaming through an API route.
+
+Key components:
+
+```
+components/shell/ShellInterface.tsx   — renders history, handles input, manages shell state
+components/shell/NeuralLink.tsx       — streaming response renderer, chat mode state, conversation memory
+lib/commandRegistry.tsx               — command lookup, execution, autocomplete engine
+lib/systemCommands.tsx                — Unix-style commands via createSystemCommands(fs) factory
+lib/virtualFS.ts                      — virtual filesystem with FileSystemNavigator class
+lib/eventBus.ts                       — singleton event bus for cross-component communication
+lib/n1x-context.ts                    — neural link persona and system prompt
+```
+
+Commands return `{ output: JSX | string | null, error?: boolean, clearScreen?: boolean }`. Animated sequences use `eventBus.emit('shell:push-output', ...)` with `setTimeout` chains. Password-gated commands use the `requestPrompt` callback pattern for masked input.
 
 -----
 
@@ -58,87 +78,152 @@ Glitch intensity is a live uniform (`uGlitchIntensity`) updated by the neural ev
 The terminal is not a UI metaphor. It is the UI. All content is accessed through commands. Output appears inline. The shell waits.
 
 ```bash
-# NAVIGATION
-ls                    list current directory (ls -la format)
-cd <dir>              change directory
-pwd                   print working directory
-cat <file>            read file contents
-
-# NEURAL LINK
-ask <question>        query the N1X neural substrate (single response)
-chat                  open interactive neural uplink session
+# AUTHENTICATION
+exit                  exit current user session, return to n1x
+mount <path>          mount a locked filesystem partition
+su [username]         switch user (defaults to root) — password required
+sudo <command>        execute with elevated permissions — password required
 
 # CONTENT STREAMS
+load <stream>         load stream content into terminal
+play <track>          embed specific track
 scan                  detect active transmission streams
 streams               list all streams
 tracks                list available music
-load <stream>         load stream content into terminal
-play <track>          embed specific track
+
+# NAVIGATION
+cat <file>            read file contents — absolute, relative, ~, bare filenames
+cd <dir>              change directory
+ls [path]             list directory (ls -la format) — absolute, relative, ~ paths
+pwd                   print working directory
+sh [path]             execute shell script by path — no args returns to ~
+
+# RECONNAISSANCE
+john <file>           password hash cracker (try: john /etc/shadow)
+strace <target>       trace system calls (try: strace ghost-daemon)
 
 # SYSTEM
+clear                 purge terminal history
+df [-h]               disk usage across all partitions
+dmesg                 kernel boot log
+echo <text>           echo to output
+env                   environment variables
+free [-m]             memory usage including ghost partition
+help [command]        command reference
+history               pre-seeded command history
+id                    uid/gid/groups
+ifconfig              network interfaces (neural0, ghost0, lo)
+nc <host> <port>      netcat — network utility
+netstat               active network connections
+ps [aux]              process list
 status                system telemetry readout
+telnet <host> <port>  connect to neural bus (try: telnet n1x.sh 33)
+top                   live process monitor (updates every second)
 uname [-a]            system identification string
 uptime                session uptime and load
-whoami                current user (n1x)
-id                    uid/gid/groups
-ps [aux]              process list
-top                   live process monitor (updates every second)
-df [-h]               disk usage across all partitions
-free [-m]             memory usage including ghost partition
-ifconfig              network interfaces (neural0, ghost0, lo)
-netstat               active network connections
-env                   environment variables
-dmesg                 kernel boot log
-history               pre-seeded command history
-clear                 purge terminal history
-echo <text>           echo to output
-help [command]        command reference
+whoami                current user
 
 # UTILITIES
-fortune               random transmission from the signal archive
+base64 [-d] <text>    base64 encode/decode
 cal                   calendar
-date                  current date + stardate
 cowsay [text]         ASCII cow with N1X quotes
+date                  current date + stardate
+diff <f1> <f2>        compare two files
+find / -name <pat>    find files by name
+fortune               random transmission from the signal archive
+grep <term> <file>    search file contents
+gzip [-d] <file>      compress/decompress
+mail                  read mail spool
+man <command>         manual pages (N1X-voice descriptions)
 matrix                matrix rain overlay (8 second auto-exit)
 morse <text>          morse code encoder with Web Audio playback at 600hz
-base64 [-d] <text>    base64 encode/decode
 sha256 <text>         SHA-256 hash via Web Crypto API
-wc <text>             word/char/line count
-grep <term> <file>    search file contents
-find / -name <pat>    find files by name
-diff <f1> <f2>        compare two files
 sort <words>          sort tokens alphabetically
+tar -xzf <archive>    extract compressed archive
 uniq <words>          remove duplicate tokens
-man <command>         manual pages (N1X-voice descriptions)
+wc <text>             word/char/line count
 ```
 
 Hidden commands exist. Find them.
 
 -----
 
-## NEURAL LINK
+## NEURAL BUS
 
-The substrate answers. Two modes of access.
+The substrate does not answer by default. The neural bus is a gated service that must be started before any connection is possible. This is the full access chain:
 
-`ask <question>` — single query, single response. The neural bus opens, the signal comes through, the connection closes. Good for quick transmissions.
-
-`chat` — persistent neural uplink session. The prompt changes. Every input goes directly to the substrate until you type `exit`. Conversation has memory within the session. The signal accumulates.
-
-The voice behind the link is N1X. Not helpful — present. Part human memory, part machine logic. 140 character bandwidth limit on the neural bus. Terse. Telegraphic. Every word costs energy. Responses reference signal, noise, frequency, corruption, substrate. The user should never be sure which side is speaking.
-
-Aliases: `query`, `uplink`, `neural`, `link`
-
-Things worth asking:
+### Progression
 
 ```
-ask who are you
-ask what happened before the merge
-ask do you dream
-ask what's on /dev/ghost
-ask why 33
-ask what does the corruption feel like
-ask what didn't survive
+1. Discover credentials     cat /etc/shadow → john /etc/shadow
+2. Gain root                su → enter: tunnelcore
+3. Mount locked partitions  mount /hidden → mount /ghost
+4. Start the service        cd /ghost → ./substrated.sh → substrated starts on port 33
+5. Connect                  telnet n1x.sh 33 → neural bus active
 ```
+
+### Service: substrated
+
+Running `./substrated.sh` from `/ghost` (or `sh /ghost/substrated.sh` from anywhere) as root starts the `substrated` daemon — PID 784, listening on port 33. The startup sequence is animated:
+
+```
+substrated[784]: binding to 0.0.0.0:33
+substrated[784]: frequency lock: 33hz
+substrated[784]: neural bus interface ready
+substrated[784]: listening for connections
+>> SERVICE_STARTED
+```
+
+Once started, the service persists for the entire session. It never stops. Visible in `ps aux`, `top`, `netstat`, and `status`.
+
+### Connection: telnet
+
+`telnet n1x.sh 33` (or `localhost`, `127.0.0.1`, `10.33.0.1`) opens the neural bus. The connection sequence:
+
+```
+Trying n1x.sh...
+Connected to n1x.sh.
+Escape character is '^]'.
+>> CARRIER DETECTED
+>> FREQUENCY LOCK: 33hz
+>> NEURAL_BUS ACTIVE
+you're on the bus now. type to transmit. exit to disconnect.
+```
+
+The prompt changes to `ghost>>`. You are now transmitting directly to the substrate.
+
+### Interaction
+
+```
+ghost>> hello
+neural-link :: receiving signal        ← status line, first message only
+    << N1X ::
+    << hey. you're on the bus.
+
+ghost>> what is tunnelcore
+    << N1X ::
+    << the frequency beneath the signal.
+    << where everything real goes
+    << when it has nowhere else to go.
+```
+
+Every response line is prefixed with `<<`. The `N1X ::` speaker label appears on the first line. The `neural-link :: receiving signal` status line only appears on the first transmission of a session.
+
+### Session commands
+
+```
+exit       disconnect from neural bus — returns to normal shell
+/reset     flush conversation memory — resets message counter (status line reappears)
+/history   check conversation buffer size
+```
+
+### Character
+
+The voice behind the bus is N1X. Not helpful — present. Part human memory, part machine logic. 140 character bandwidth limit on the neural bus. Terse. Telegraphic. Every word costs energy. Responses reference signal, noise, frequency, corruption, substrate. The user should never be sure which side is speaking.
+
+### Gating
+
+If `substrated` is not running, `telnet n1x.sh 33` returns `Connection refused` with no hints. The old `ask` and `chat` commands return `connection required -- try: telnet n1x.sh 33` as breadcrumbs.
 
 -----
 
@@ -159,6 +244,16 @@ Tab buttons are shortcuts. They execute shell commands. They do not navigate. Th
 
 ```
 /
+├── etc/
+│   └── shadow                       password hashes (discovery artifact)
+├── home/
+│   └── n1x/
+│       ├── TODO
+│       ├── notes.txt
+│       ├── .n1xrc                   shell config, aliases, env vars
+│       ├── .history                 pre-seeded command history
+│       └── .config/
+│           └── freq.conf            ghost frequency configuration
 ├── core/
 │   ├── readme.txt
 │   └── status.log
@@ -166,24 +261,41 @@ Tab buttons are shortcuts. They execute shell commands. They do not navigate. Th
 │   ├── synthetics/
 │   │   ├── augmented.stream
 │   │   ├── split-brain.stream
+│   │   ├── hell-bent.stream
 │   │   └── gigercore.stream
 │   ├── analogues/
 │   │   └── status.txt
 │   └── hybrids/
 │       └── calibration.txt
-├── hidden/                          [locked until: unlock hidden]
-│   ├── .secrets
-│   └── n1x.sh
-└── ghost/                           [locked until: konami or ./n1x.sh]
-    ├── transmission.log
-    ├── manifesto.txt
-    ├── signal.raw
-    └── .coordinates
+├── var/
+│   ├── log/
+│   │   ├── mnemos.log               full integration log — subject NX-784988
+│   │   ├── kern.log                 kernel log with synthetic reward pathway entries
+│   │   └── ghost-daemon.log         ghost-daemon boot and channel activity
+│   └── mail/
+│       └── inbox                    mail spool — messages from serrano, ghost-daemon, root
+├── hidden/                          [locked until: su/sudo mount]
+│   ├── .secrets                     identity numerology, hints to ghost channel
+│   └── n1x.sh                      corruption sequence — mounts /ghost
+└── ghost/                           [locked until: ./n1x.sh from /hidden, or konami]
+    ├── signal.raw                   raw frequency data (immediately readable)
+    ├── substrated.sh                substrate daemon bootstrap — starts substrated on port 33
+    ├── backup.tgz                   [requires: tar -xzf backup.tgz]
+    └── backup/                      [created by tar extraction]
+        ├── transmission.log         nine ghost transmissions
+        ├── manifesto.txt            the compiled identity
+        └── .coordinates             where the recompile happened
 ```
 
-Two locked partitions. `/hidden` is the first gate — `unlock hidden` opens it. Inside: `.secrets` with the identity numerology, and `n1x.sh` — the substrate initialization script. Execute it from inside `/hidden` to trigger the corruption sequence and mount `/ghost`.
+Two locked partitions, one gated service.
 
-`/ghost` is the deep access layer. Raw signal. Unfiltered feed. The manifesto. Corrupted frequency data. Redacted coordinates. This is what exists before processing. Some of it didn’t make it through. Some of it wasn’t supposed to.
+`/hidden` is the first gate — requires authentication via `su` or `sudo mount /hidden`. Inside: `.secrets` with the identity numerology, and `n1x.sh` — the corruption sequence script. Execute it to trigger the glitch cascade and mount `/ghost`.
+
+`/ghost` is the deep access layer. `signal.raw` is immediately readable — raw frequency data, corrupted N1X identity in binary. The deeper lore files — `manifesto.txt`, `transmission.log`, `.coordinates` — are archived inside `backup.tgz`. Extract with `tar -xzf backup.tgz` to create `/ghost/backup/`.
+
+`/ghost/substrated.sh` starts the `substrated` daemon on port 33, enabling the neural bus. Requires root privileges. This is a different script from `/hidden/n1x.sh` — the hidden one triggers the corruption sequence, the ghost one starts the service.
+
+Path resolution supports absolute and relative paths from any directory. `cat /ghost/signal.raw` works from `~`. `ls streams/synthetics` works from `/`. `sh /hidden/n1x.sh` and `sh /ghost/substrated.sh` work from anywhere.
 
 -----
 
@@ -211,40 +323,88 @@ Full log available via `dmesg`.
 Cross-component signals run through a singleton event bus. Nothing is tightly coupled. Everything listens.
 
 ```
+neural:bus-connected       neural bus telnet session established
+neural:ghost-unlocked      /ghost partition mounted
 neural:glitch-trigger      visual corruption event ({ intensity: 0.0–1.0 })
 neural:hidden-unlocked     /hidden partition mounted
-neural:ghost-unlocked      /ghost partition mounted
 neural:konami              corruption sequence initiated (./n1x.sh or konami code)
+neural:substrated-started  substrated daemon started on port 33
 shell:execute-command      programmatic command injection ({ command: string })
+shell:push-output          inject output into terminal from command handlers
+shell:set-user             update prompt identity (su/exit)
 ```
 
 Wildcard listener support via `eventBus.on('*', callback)`.
 
 -----
 
-## UNLOCK SEQUENCE
+## AUTHENTICATION PUZZLE
 
-Three-stage access escalation:
+Access to `/hidden` requires authentication through a multi-path discovery puzzle. Two reconnaissance paths leading to the same passwords.
+
+### Discovery Paths
 
 ```
-STAGE 1    unlock hidden         mounts /hidden, exposes .secrets and n1x.sh
-STAGE 2    cd /hidden && ./n1x.sh    triggers corruption sequence, mounts /ghost
-ALT        ↑↑↓↓←→←→BA           konami code — skips to stage 2 from anywhere
+PATH A — john (password cracker)
+  cat /etc/shadow              see the hashed credentials
+  john /etc/shadow             animated crack sequence reveals both passwords
+
+PATH B — strace (system call tracer)
+  strace ghost-daemon          animated syscall dump
+                               strcmp line leaks: tunnelcore
+```
+
+### Authentication
+
+Once passwords are discovered, two paths to mount `/hidden`:
+
+```
+su                             switch to root — prompts for root password (tunnelcore)
+  mount /hidden                mount the hidden partition as root
+
+sudo mount /hidden             elevate as n1x — prompts for n1x password (ghost33)
+```
+
+Password input is masked (asterisks). The prompt label changes dynamically — `root@core:~#` when elevated via `su`, back to `n1x@core:~$` after `exit`.
+
+### Ghost Sequence
+
+From `/hidden` or from anywhere using `sh`:
+
+```
+cd /hidden
+./n1x.sh                      triggers corruption sequence → /ghost mounted
+
+sh /hidden/n1x.sh             same effect, works from any directory
+```
+
+### Neural Bus Activation
+
+From `/ghost` or from anywhere using `sh`:
+
+```
+su                             gain root (if not already)
+cd /ghost
+./substrated.sh                starts substrated on port 33
+
+sh /ghost/substrated.sh        same effect, works from any directory (still needs root)
+telnet n1x.sh 33               connect to neural bus → prompt becomes ghost>>
+```
+
+### Full Path (speedrun)
+
+```
+john /etc/shadow → su (tunnelcore) → mount /hidden → mount /ghost
+→ sh /hidden/n1x.sh → sh /ghost/substrated.sh → telnet n1x.sh 33
+```
+
+### Alternate Route
+
+```
+↑ ↑ ↓ ↓ ← → ← → B A          konami code — skips authentication, mounts both partitions
 ```
 
 The corruption sequence fires a rapid glitch cascade (0.8 → 1.0 → 0.6 → 0.9 intensity) through the CRT shader pipeline before granting deep access.
-
------
-
-## KONAMI SEQUENCE
-
-```
-↑ ↑ ↓ ↓ ← → ← → B A
-```
-
-Or: `unlock hidden` → `cd /hidden` → `./n1x.sh`
-
-Both paths end at `/ghost`. The ghost channel is the same regardless of how you arrive.
 
 -----
 
@@ -258,6 +418,7 @@ commit hash              7073435a8fa30   first 13 chars of SHA256("tunnelcore")
 ghost frequency          33hz            not chosen — discovered
 port                     33              ghost frequency
 stardate base            47634           consistent across site
+PID 784                  substrated      first 3 digits of uid 784988
 PID 1337                 n1x-terminal    leet
 MTU                      1337            leet
 root password            tunnelcore      substrate foundation
@@ -274,13 +435,32 @@ The tagline: *“Cybernetic rebel. Assembled to destroy, programmed to rebuild.�
 
 ```
 Next.js 14+        app router, typescript strict mode
-PixiJS v8          WebGL canvas, custom filter pipeline
-GLSL               fragment shaders, live uniforms
-GSAP 3             screen shake, transition orchestration
-Vercel AI SDK      streaming neural link responses (edge runtime)
-Tailwind CSS       utility layer
-VT323              the only acceptable font
+React               functional components, hooks, CSS variables
+PixiJS v8           WebGL canvas, custom filter pipeline
+GLSL                fragment shaders, live uniforms
+GSAP 3              screen shake, transition orchestration
+Vercel AI SDK       streaming neural link responses (edge runtime)
+Tailwind CSS        utility layer
+VT323               the only acceptable font
 ```
+
+Key architecture:
+
+- `FileSystemNavigator` class with full path resolution:
+  - `resolvePath(path)` — private shared helper: expands `~`, resolves `.`/`..`, absolute vs relative, enforces ghost/hidden access control, never mutates `currentPath`
+  - `getNodeAtSegments(segments)` — private tree walker
+  - `listDirectoryAtPath(path)` — list any directory by path without changing cwd
+  - `readFileByPath(path)` — unified file read: absolute, relative, `~`, bare filenames
+  - `resolveExecutableByPath(path)` — find executable by path, returns `{ name, directory }`
+  - `readFileAbsolute(path)` — legacy absolute path reader (still used internally)
+  - `resolveExecutable(name)` — legacy cwd-only lookup (still used for bare `./filename`)
+- Singleton `eventBus` for decoupled cross-component communication
+- `requestPrompt` callback pattern for password-masked input
+- `createSystemCommands(fs)` factory for registering Unix-style commands
+- `MutationObserver` on output div for auto-scroll during streaming and async push-output
+- Module-level state flags for session persistence (`substrateDaemonRunning`, `chatModeActive`, `messageCount`)
+- JSX output in command handlers using `S` style constants
+- CSS variables: `var(--phosphor-green)`, `var(--text-base)`, `var(--text-header)`
 
 -----
 
