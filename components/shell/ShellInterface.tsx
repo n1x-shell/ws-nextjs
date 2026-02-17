@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useShell, RequestPromptFn } from '@/hooks/useShell';
-import { getCommandSuggestions, getCurrentDirectory } from '@/lib/commandRegistry';
+import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, isMailMode } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
@@ -223,7 +223,7 @@ export default function ShellInterface() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
   const [shellUser, setShellUser]   = useState<string>('ghost');
-  const [shellDir, setShellDir]     = useState<string>('/');
+  const [shellDir, setShellDir]     = useState<string>('~');
   const inputRef                    = useRef<HTMLInputElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
@@ -256,7 +256,7 @@ export default function ShellInterface() {
 
   // Sync dir + user — currentUser comes from useShell's event listener
   useEffect(() => {
-    setShellDir(getCurrentDirectory());
+    setShellDir(getDisplayDirectory());
     setShellUser(currentUser);
   }, [history, currentUser]);
 
@@ -445,6 +445,10 @@ export default function ShellInterface() {
                   <div>&gt; HYBRIDS: Symbiotic fusion of both consciousness types</div>
                 </div>
 
+                <div style={{ marginLeft: '1rem', opacity: 0.5, lineHeight: 1.8, marginTop: '0.5rem' }}>
+                  <div>&gt; home: ~/  &middot;  mail spool: 5 messages  &middot;  logs: /var/log</div>
+                </div>
+
                 <div
                   style={{
                     marginTop: '1rem',
@@ -455,7 +459,7 @@ export default function ShellInterface() {
                 >
                   Type <span className="text-glow">&apos;help&apos;</span> for commands &middot;{' '}
                   <span className="text-glow">&apos;scan&apos;</span> to detect streams &middot;{' '}
-                  <span className="text-glow">&apos;tracks&apos;</span> to list music
+                  <span className="text-glow">&apos;mail&apos;</span> to check messages
                 </div>
               </div>
             )}
@@ -604,6 +608,8 @@ export default function ShellInterface() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit' }}>
                 {isChatMode() ? (
                   <NeuralBusPrompt inline />
+                ) : isMailMode() ? (
+                  <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>
                 ) : (
                   <FishPrompt user={shellUser} cwd={shellDir} inline />
                 )}
