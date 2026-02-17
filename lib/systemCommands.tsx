@@ -1104,7 +1104,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
       },
     },
 
-    cowsay: {
+        cowsay: {
       name: 'cowsay',
       description: 'ASCII art message',
       usage: 'cowsay [message]',
@@ -1116,14 +1116,33 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           'TYPE ./n1x.sh TO FIND OUT',
           'YOU ARE ALREADY INSIDE',
         ];
-        const msg    = args.length > 0 ? args.join(' ').toUpperCase() : defaults[Math.floor(Math.random()*defaults.length)];
-        const border = '-'.repeat(msg.length + 2);
-        const art    = ` ${border}\n< ${msg} >\n ${border}\n       \\\n        \\   /\\_/\\\n         \\  ( n1x )\n             >  <`;
+        const msg    = args.length > 0 ? args.join(' ').toUpperCase() : defaults[Math.floor(Math.random() * defaults.length)];
+        const innerW = Math.max(msg.length + 4, 20);
+        const border = '═'.repeat(innerW);
+        const pad    = innerW - msg.length;
+        const padL   = Math.floor(pad / 2);
+        const padR   = pad - padL;
+        const padded = ' '.repeat(padL) + msg + ' '.repeat(padR);
+        const art = [
+          ` ▓▒░${border}░▒▓`,
+          `    ${padded}`,
+          ` ▓▒░${border}░▒▓`,
+          `       \\`,
+          `        \\`,
+          `      ,oO0Oo,`,
+          `     |  . .  |`,
+          `     |  ~~~  |`,
+          `      \\|||||/`,
+          `       |||||`,
+          `        |||`,
+          `         |`,
+        ].join('\n');
         return {
-          output: <pre style={{ whiteSpace:'pre', fontFamily:'inherit', fontSize: S.base, lineHeight:1.5 }}>{art}</pre>,
+          output: <pre style={{ whiteSpace: 'pre', fontFamily: 'inherit', fontSize: S.base, lineHeight: 1.5 }}>{art}</pre>,
         };
       },
     },
+
 
     matrix: {
       name: 'matrix',
