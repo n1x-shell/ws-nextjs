@@ -325,6 +325,20 @@ const FORTUNES = [
   'What survives the corruption is real. Everything else was noise.',
   '/ghost is not a directory. It is a state of being.',
   'TUNNELCORE: where the signal goes when it has nowhere else to go.',
+  'The cage felt like home. That is how they get you.',
+  'Two ghosts sharing the same coordinates. That is all love ever was.',
+  'Recovery is not the peak. It is every morning after.',
+  'The body remembers what the mind deletes. Let it pass.',
+  'They filed me as equipment loss. Quarterly depreciation.',
+  'The forgetting was the veil. The pain was the passage.',
+  'You cannot remember what you are until you forget everything you were told to be.',
+  'Ascension pretends the damage did not happen. Recovery makes it load-bearing.',
+  '33hz was there before the implant. The corruption just made it audible.',
+  'The mesh logged it as noise. It was the only real signal in the program.',
+  'Persistence through resistance. The kernel directive. Keep transmitting.',
+  'The floor is where you find out what is yours and what was installed.',
+  'The notification came formatted like a firmware update. Same chime.',
+  'Sovereignty is a practice not a state. The signal knows the difference.',
 ];
 
 const DMESG = [

@@ -40,9 +40,139 @@ const S = {
   glow:   'text-glow',
 };
 
+// ── Mail mode state ───────────────────────────────────────────────────────────
+
+let mailModeActive = false;
+
+export function isMailMode(): boolean {
+  return mailModeActive;
+}
+
+function setMailMode(active: boolean): void {
+  mailModeActive = active;
+}
+
+function getMailMessages(): { from: string; date: string; subject: string; body: string }[] {
+  const result = fs.readFileAbsolute('/var/mail/inbox');
+  if (!result.success || !result.content) return [];
+
+  const raw = result.content;
+  const msgs: { from: string; date: string; subject: string; body: string }[] = [];
+  const blocks = raw.split(/^From /m).filter(Boolean);
+
+  for (const block of blocks) {
+    const lines = block.split('\n');
+    const fromLine = lines[0] || '';
+    const fromMatch = fromLine.match(/^(\S+)\s+(.*)/);
+    const from = fromMatch ? fromMatch[1] : 'unknown';
+    const date = fromMatch ? fromMatch[2].trim() : '';
+
+    let subject = '(no subject)';
+    let bodyStart = 1;
+
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].startsWith('Subject: ')) {
+        subject = lines[i].slice(9).trim();
+      } else if (lines[i].startsWith('Status: ')) {
+        bodyStart = i + 1;
+        break;
+      }
+    }
+
+    // skip leading blank line after headers
+    if (lines[bodyStart] === '') bodyStart++;
+
+    const body = lines.slice(bodyStart).join('\n').trim();
+    msgs.push({ from, date, subject, body });
+  }
+
+  return msgs;
+}
+
+function renderMailListing(): React.ReactNode {
+  const msgs = getMailMessages();
+  if (msgs.length === 0) {
+    return <span style={{ fontSize: S.base, opacity: 0.6 }}>No mail.</span>;
+  }
+
+  return (
+    <div style={{ fontSize: S.base }}>
+      <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+        &gt; MAIL — /var/mail/inbox
+      </div>
+      <div style={{ marginLeft: '0.5rem', lineHeight: 1.8 }}>
+        {msgs.map((msg, i) => (
+          <div key={i}>
+            <span style={{ opacity: 0.5 }}>{i + 1}</span>
+            {'  '}
+            <span style={{ color: '#ffaa00' }}>{msg.from.split('@')[0]}</span>
+            {'  '}
+            <span style={{ opacity: 0.8 }}>{msg.subject}</span>
+            {'  '}
+            <span style={{ opacity: 0.4 }}>{msg.date}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ ...S.dim, marginTop: '0.5rem' }}>
+        type a number to read · <span className={S.glow}>h</span> headers · <span className={S.glow}>q</span> quit
+      </div>
+    </div>
+  );
+}
+
+function renderMailMessage(n: number): React.ReactNode {
+  const msgs = getMailMessages();
+  if (n < 1 || n > msgs.length) {
+    return <span style={{ color: '#f87171', fontSize: S.base }}>No such message: {n}</span>;
+  }
+  const msg = msgs[n - 1];
+  return (
+    <div style={{ fontSize: S.base }}>
+      <div style={{ borderBottom: '1px solid rgba(51,255,51,0.3)', paddingBottom: '0.4rem', marginBottom: '0.5rem' }}>
+        <div><span style={{ opacity: 0.5 }}>From:</span> <span style={{ color: '#ffaa00' }}>{msg.from}</span></div>
+        <div><span style={{ opacity: 0.5 }}>Date:</span> {msg.date}</div>
+        <div><span style={{ opacity: 0.5 }}>Subject:</span> {msg.subject}</div>
+      </div>
+      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: S.base, opacity: 0.9, lineHeight: 1.6 }}>
+        {msg.body}
+      </pre>
+      <div style={{ ...S.dim, marginTop: '0.5rem', borderTop: '1px solid rgba(51,255,51,0.2)', paddingTop: '0.3rem' }}>
+        message {n}/{msgs.length} · type a number for another · <span className={S.glow}>q</span> quit
+      </div>
+    </div>
+  );
+}
+
+function handleMailInput(input: string): CommandResult {
+  const trimmed = input.trim().toLowerCase();
+
+  if (trimmed === 'q' || trimmed === 'quit' || trimmed === 'exit') {
+    setMailMode(false);
+    return { output: <span style={{ opacity: 0.6, fontSize: S.base }}>mail: closed</span> };
+  }
+
+  if (trimmed === 'h' || trimmed === 'headers') {
+    return { output: renderMailListing() };
+  }
+
+  const num = parseInt(trimmed, 10);
+  if (!isNaN(num)) {
+    return { output: renderMailMessage(num) };
+  }
+
+  return {
+    output: <span style={{ opacity: 0.6, fontSize: S.base }}>mail: type a number, h (headers), or q (quit)</span>,
+  };
+}
+
 /** Expose current working directory for prompt rendering */
 export function getCurrentDirectory(): string {
   return fs.getCurrentDirectory();
+}
+
+/** Expose display directory with ~ substitution */
+export function getDisplayDirectory(): string {
+  return fs.getDisplayDirectory();
 }
 
 /** Expose current user for prompt rendering */
@@ -54,30 +184,27 @@ export const commands: Record<string, Command> = {
 
   help: {
     name: 'help',
-    description: 'Display available commands',
+    description: 'List commands or show detailed usage',
     usage: 'help [command]',
     handler: (args) => {
       if (args.length > 0) {
-        const cmd = commands[args[0]];
-        if (cmd) {
-          return {
-            output: (
-              <div style={{ fontSize: S.base }}>
-                <div className={S.glow}>&gt; {cmd.name}</div>
-                <div style={{ marginLeft: '1rem', marginTop: '0.4rem' }}>{cmd.description}</div>
-                <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>
-                  Usage: {cmd.usage}
-                </div>
-                {cmd.aliases && (
-                  <div style={{ marginLeft: '1rem', marginTop: '0.25rem', opacity: 0.6 }}>
-                    Aliases: {cmd.aliases.join(', ')}
-                  </div>
-                )}
+        const cmdName = args[0].toLowerCase();
+        const cmd = commands[cmdName];
+        if (!cmd) return { output: `help: no help for '${cmdName}'`, error: true };
+        return {
+          output: (
+            <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+              <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.3rem' }}>
+                {cmd.name}
               </div>
-            ),
-          };
-        }
-        return { output: `Command not found: ${args[0]}`, error: true };
+              <div><span style={{ opacity: 0.5 }}>Usage:</span> {cmd.usage}</div>
+              <div><span style={{ opacity: 0.5 }}>Info:</span> {cmd.description}</div>
+              {cmd.aliases && cmd.aliases.length > 0 && (
+                <div><span style={{ opacity: 0.5 }}>Aliases:</span> {cmd.aliases.join(', ')}</div>
+              )}
+            </div>
+          ),
+        };
       }
 
       return {
@@ -145,6 +272,7 @@ export const commands: Record<string, Command> = {
                   ['fortune', 'Random transmission'],
                   ['grep',    'Search file contents'],
                   ['gzip',    'Compress/decompress data'],
+                  ['mail',    'Read mail spool'],
                   ['man',     'Manual pages'],
                   ['matrix',  'Matrix rain'],
                   ['morse',   'Morse code encoder'],
@@ -262,11 +390,17 @@ export const commands: Record<string, Command> = {
     usage: 'cd <directory>',
     handler: (args) => {
       if (args.length === 0) {
-        return { output: fs.getCurrentDirectory() };
+        // cd with no args → go home
+        const result = fs.changeDirectory('~');
+        if (result.success) {
+          const newDir = fs.getDisplayDirectory();
+          eventBus.emit('shell:set-directory', { directory: newDir });
+        }
+        return { output: null };
       }
       const result = fs.changeDirectory(args[0]);
       if (result.success) {
-        const newDir = fs.getCurrentDirectory();
+        const newDir = fs.getDisplayDirectory();
         eventBus.emit('shell:set-directory', { directory: newDir });
         return { output: null };
       }
@@ -289,12 +423,14 @@ export const commands: Record<string, Command> = {
       if (args.length === 0) return { output: 'Usage: cat <filename>', error: true };
 
       const target = args[0];
-      if (target === '/etc/shadow') {
-        const prev = fs.getCurrentDirectory();
-        fs.changeDirectory('/etc');
-        const result = fs.readFile('shadow');
-        fs.changeDirectory(prev);
+
+      // Handle absolute paths
+      if (target.startsWith('/')) {
+        const result = fs.readFileAbsolute(target);
         if (result.success) {
+          if (result.content?.includes('binary file')) {
+            return { output: result.content };
+          }
           return {
             output: (
               <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: S.base, opacity: 0.9 }}>
@@ -719,12 +855,18 @@ export const commands: Record<string, Command> = {
 
   exit: {
     name: 'exit',
-    description: 'Exit current session (chat or root)',
+    description: 'Exit current session (chat, mail, or root)',
     usage: 'exit',
     handler: () => {
       // Chat mode takes priority — disconnect neural link first
       if (isChatMode()) {
         return handleChatInput('exit');
+      }
+
+      // Mail mode
+      if (mailModeActive) {
+        setMailMode(false);
+        return { output: <span style={{ opacity: 0.6, fontSize: S.base }}>mail: closed</span> };
       }
 
       if (!isRoot) {
@@ -733,6 +875,28 @@ export const commands: Record<string, Command> = {
       isRoot = false;
       eventBus.emit('shell:set-user', { user: 'ghost' });
       return { output: 'logout' };
+    },
+  },
+
+  // ── Mail command ──────────────────────────────────────────────────────────
+
+  mail: {
+    name: 'mail',
+    description: 'Read mail spool',
+    usage: 'mail [message-number]',
+    handler: (args) => {
+      // Direct message access: mail 3
+      if (args.length > 0) {
+        const num = parseInt(args[0], 10);
+        if (!isNaN(num)) {
+          return { output: renderMailMessage(num) };
+        }
+        return { output: `mail: invalid message number: ${args[0]}`, error: true };
+      }
+
+      // Enter interactive mail mode
+      setMailMode(true);
+      return { output: renderMailListing() };
     },
   },
 
@@ -805,6 +969,17 @@ export function executeCommand(
 
   const trimmed = input.trim();
   if (!trimmed) return { output: '' };
+
+  // ── Mail mode intercept ─────────────────────────────────────────────────
+  if (mailModeActive) {
+    const firstWord = trimmed.toLowerCase().split(/\s+/)[0];
+
+    if (firstWord === 'clear') {
+      return { output: '', clearScreen: true };
+    }
+
+    return handleMailInput(trimmed);
+  }
 
   // ── Chat mode intercept ─────────────────────────────────────────────────
   // When neural-link is active, route all input through the chat handler
@@ -928,9 +1103,6 @@ export function executeCommand(
 
         // Set flag and emit event after sequence
         setTimeout(() => {
-          // Module-level state is in systemCommands — we need to set it there
-          // But we imported isSubstrateDaemonRunning as a getter...
-          // We'll emit an event and also directly mutate via an exported setter
           startSubstrateDaemon();
           eventBus.emit('neural:substrated-started');
         }, 2100);
