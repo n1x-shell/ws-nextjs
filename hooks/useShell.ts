@@ -6,6 +6,17 @@ import { isChatMode } from '@/components/shell/NeuralLink';
 
 export type RequestPromptFn = (label: string, onSubmit: (value: string) => void) => void;
 
+// ── History buffer cap ───────────────────────────────────────────────────────
+// iOS Safari layout engine chokes past ~500 DOM nodes in a scrollable container.
+// Each history entry renders multiple nodes (prompt, output, wrapper divs).
+// Cap at 150 entries to keep DOM manageable while preserving plenty of scrollback.
+const MAX_HISTORY = 150;
+
+function trimHistory(history: CommandOutput[]): CommandOutput[] {
+  if (history.length <= MAX_HISTORY) return history;
+  return history.slice(history.length - MAX_HISTORY);
+}
+
 export function useShell() {
   const [state, setState] = useState<ShellState>({
     history: [],
@@ -49,7 +60,7 @@ export function useShell() {
       const payload = event.payload || event;
       setState((prev) => ({
         ...prev,
-        history: [
+        history: trimHistory([
           ...prev.history,
           {
             id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
@@ -61,7 +72,7 @@ export function useShell() {
             user: currentUserRef.current,
             chatMode: isChatMode(),
           },
-        ],
+        ]),
       }));
     });
     pushOutputListenerAttached.current = true;
@@ -93,7 +104,7 @@ export function useShell() {
 
     setState((prev) => ({
       ...prev,
-      history: [...prev.history, output],
+      history: trimHistory([...prev.history, output]),
       commandHistory: [input, ...prev.commandHistory].slice(0, 100),
       historyIndex: -1,
     }));
