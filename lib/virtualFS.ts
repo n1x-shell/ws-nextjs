@@ -654,6 +654,22 @@ the code learned to dream me solid.
           type: 'file',
           content: `backup.tgz: binary file -- use 'tar -xzf backup.tgz' to extract`,
         },
+        {
+          name: 'n1x.sh',
+          type: 'file',
+          content: `#!/bin/neural
+# n1x.sh — substrate daemon bootstrap
+# run as root to start substrated on port 33
+
+if [ "$(id -u)" != "0" ]; then
+  echo "error: root privileges required"
+  exit 1
+fi
+
+echo "starting substrated..."
+substrated --bind 0.0.0.0:33 --freq 33hz
+echo "neural bus active. connect with: telnet n1x.sh 33"`,
+        },
       ],
     },
   ],
