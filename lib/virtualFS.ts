@@ -102,7 +102,7 @@ export SYNTHETIC_REWARD_NOTIFY=silent
 # 33hz was there before the implant. the implant just made it audible.`,
             },
             {
-              name: '.bash_history',
+              name: '.history',
               type: 'file',
               content: `grep -r "LE-751078" /var/log
 grep -r "LE-751078" /var/log
@@ -655,10 +655,10 @@ the code learned to dream me solid.
           content: `backup.tgz: binary file -- use 'tar -xzf backup.tgz' to extract`,
         },
         {
-          name: 'n1x.sh',
+          name: 'substrated.sh',
           type: 'file',
           content: `#!/bin/neural
-# n1x.sh — substrate daemon bootstrap
+# substrated.sh — substrate daemon bootstrap
 # run as root to start substrated on port 33
 
 if [ "$(id -u)" != "0" ]; then
@@ -922,5 +922,153 @@ export class FileSystemNavigator {
       (c) => c.type === 'file' && (c.name === name || `./${c.name}` === name)
     );
     return file ? file.name : null;
+  }
+
+  // ── Path resolution (shared helper) ────────────────────────────────────────
+
+  /**
+   * Resolve a path string to an array of segments WITHOUT mutating currentPath.
+   * Handles absolute paths, ~, ., .., and relative paths.
+   * Enforces ghost/hidden access control on directory segments.
+   */
+  private resolvePath(path: string): { segments: string[]; error?: string } {
+    let working: string[];
+
+    if (path === '/') {
+      return { segments: [] };
+    }
+
+    // Expand ~ to /home/n1x
+    if (path === '~' || path === '~/') {
+      return { segments: ['home', 'n1x'] };
+    }
+    if (path.startsWith('~/')) {
+      path = '/home/n1x/' + path.slice(2);
+    }
+
+    // Determine starting point
+    if (path.startsWith('/')) {
+      working = [];
+    } else {
+      working = [...this.currentPath];
+    }
+
+    const parts = path.split('/').filter((s) => s);
+
+    for (const part of parts) {
+      if (part === '.') continue;
+      if (part === '..') {
+        if (working.length > 0) working.pop();
+        continue;
+      }
+
+      // Access control
+      if (part === 'ghost' && !this.ghostUnlocked) {
+        return { segments: [], error: 'Permission denied: /ghost — access requires authentication' };
+      }
+      if (part === 'hidden' && !this.hiddenUnlocked) {
+        return { segments: [], error: 'Permission denied: /hidden — mount it first' };
+      }
+
+      working.push(part);
+    }
+
+    return { segments: working };
+  }
+
+  /** Walk the tree to find the node at the given segment path */
+  private getNodeAtSegments(segments: string[]): VirtualFile | null {
+    let node = this.root;
+    for (const seg of segments) {
+      const child = node.children?.find((c) => c.name === seg);
+      if (!child) return null;
+      node = child;
+    }
+    return node;
+  }
+
+  // ── Path-aware listing ─────────────────────────────────────────────────────
+
+  listDirectoryAtPath(path: string): { success: boolean; files?: VirtualFile[]; error?: string } {
+    const resolved = this.resolvePath(path);
+    if (resolved.error) return { success: false, error: resolved.error };
+
+    const node = this.getNodeAtSegments(resolved.segments);
+    if (!node) return { success: false, error: `Directory not found: ${path}` };
+    if (node.type !== 'directory') return { success: false, error: `Not a directory: ${path}` };
+
+    let files = node.children || [];
+
+    // Hide locked directories when listing root
+    if (resolved.segments.length === 0) {
+      files = files.filter((f) => {
+        if (f.name === 'ghost'  && !this.ghostUnlocked)  return false;
+        if (f.name === 'hidden' && !this.hiddenUnlocked) return false;
+        return true;
+      });
+    }
+
+    return { success: true, files };
+  }
+
+  // ── Path-aware file read ───────────────────────────────────────────────────
+
+  /**
+   * Read a file by any path type: absolute, relative, ~, or bare filename.
+   * Does NOT mutate currentPath.
+   */
+  readFileByPath(path: string): { success: boolean; content?: string; error?: string } {
+    // Bare filename (no slashes at all) — use cwd lookup
+    if (!path.includes('/')) {
+      return this.readFile(path);
+    }
+
+    // Everything else goes through resolvePath → absolute lookup
+    const resolved = this.resolvePath(path);
+    if (resolved.error) return { success: false, error: resolved.error };
+
+    if (resolved.segments.length === 0) return { success: false, error: `Not a file: ${path}` };
+
+    const filename = resolved.segments.pop()!;
+    const dirNode = resolved.segments.length === 0
+      ? this.root
+      : this.getNodeAtSegments(resolved.segments);
+
+    if (!dirNode) return { success: false, error: `File not found: ${path}` };
+
+    const file = dirNode.children?.find((c) => c.name === filename && c.type === 'file');
+    if (!file) return { success: false, error: `File not found: ${path}` };
+    return { success: true, content: file.content };
+  }
+
+  // ── Path-aware executable resolution ───────────────────────────────────────
+
+  /**
+   * Resolve an executable by path. Returns the filename and the absolute
+   * directory it lives in, or null if not found.
+   */
+  resolveExecutableByPath(path: string): { name: string; directory: string } | null {
+    const resolved = this.resolvePath(path);
+    if (resolved.error || resolved.segments.length === 0) return null;
+
+    const filename = resolved.segments.pop()!;
+    const dirSegments = [...resolved.segments];
+
+    const dirNode = dirSegments.length === 0
+      ? this.root
+      : this.getNodeAtSegments(dirSegments);
+
+    if (!dirNode) return null;
+
+    const file = dirNode.children?.find(
+      (c) => c.type === 'file' && c.name === filename
+    );
+
+    if (!file) return null;
+
+    return {
+      name: file.name,
+      directory: '/' + dirSegments.join('/'),
+    };
   }
 }
