@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useShell, RequestPromptFn } from '@/hooks/useShell';
-import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, isMailMode } from '@/lib/commandRegistry';
+import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPathSuggestions, isMailMode } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
@@ -455,9 +455,19 @@ export default function ShellInterface() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
+
     if (value.trim()) {
       const parts = value.trim().split(/\s+/);
-      setSuggestions(parts.length === 1 ? getCommandSuggestions(parts[0]) : []);
+      if (parts.length === 1) {
+        // Still typing the command name — suggest commands as before
+        setSuggestions(getCommandSuggestions(parts[0]));
+      } else {
+        // Command already typed — suggest filesystem paths for the last argument.
+        // Use the raw value so a trailing space means "blank prefix in cwd".
+        const rawParts = value.split(/\s+/);
+        const pathPartial = rawParts[rawParts.length - 1];
+        setSuggestions(getPathSuggestions(pathPartial));
+      }
     } else {
       setSuggestions([]);
     }
@@ -473,12 +483,25 @@ export default function ShellInterface() {
       setInput(navigateHistory('down') ?? '');
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (suggestions.length === 1) {
-        setInput(suggestions[0] + ' ');
-        setSuggestions([]);
-      } else if (suggestions.length > 0) {
-        setInput(suggestions[0]);
+      if (suggestions.length === 0) return;
+
+      const completed = suggestions[0];
+      // Split on whitespace to detect whether we're completing a command or an argument
+      const parts = input.trimEnd().split(/\s+/);
+      const isPathCompletion = parts.length > 1;
+
+      if (isPathCompletion) {
+        // Replace only the last token with the completed path fragment.
+        // Re-split the raw input so a trailing space registers as an empty last token.
+        const rawParts = input.split(/\s+/);
+        rawParts[rawParts.length - 1] = completed;
+        setInput(rawParts.join(' '));
+      } else {
+        // Command completion — append a space when unique so the user can keep typing
+        setInput(completed + (suggestions.length === 1 ? ' ' : ''));
       }
+
+      if (suggestions.length === 1) setSuggestions([]);
     }
   };
 
@@ -655,7 +678,7 @@ export default function ShellInterface() {
             <div ref={historyEndRef} />
           </div>
 
-          {/* Autocomplete */}
+          {/* Autocomplete suggestion bar */}
           {suggestions.length > 0 && !isPrompting && (
             <div
               style={{
@@ -674,7 +697,16 @@ export default function ShellInterface() {
                     key={cmd}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setInput(cmd + ' ');
+                      // Determine whether this is a path completion (command already typed)
+                      // and replace only the last token rather than the whole input.
+                      const parts = input.trimEnd().split(/\s+/);
+                      if (parts.length > 1) {
+                        const rawParts = input.split(/\s+/);
+                        rawParts[rawParts.length - 1] = cmd;
+                        setInput(rawParts.join(' '));
+                      } else {
+                        setInput(cmd + ' ');
+                      }
                       setSuggestions([]);
                       inputRef.current?.focus();
                     }}
