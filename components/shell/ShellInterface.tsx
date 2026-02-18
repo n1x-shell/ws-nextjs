@@ -281,6 +281,26 @@ function BootSequence({ onComplete, bootLines }: {
   );
 }
 
+// ── Autocomplete mode helpers ─────────────────────────────────────────────────
+
+// Commands that operate on files — show both files AND directories in suggestions.
+const FILE_COMMANDS = new Set([
+  'cat', 'sh', 'ls', 'grep', 'diff', 'wc', 'tar', 'gzip', 'find',
+]);
+
+// Commands that operate on directories only — show only directories.
+// Everything else that takes a path argument also falls back to dirs-only.
+// const DIR_ONLY_COMMANDS = new Set(['cd']); // implicit — it's the default
+
+/**
+ * Given the current raw input string, return whether path suggestions should
+ * be restricted to directories only (true) or include files too (false).
+ */
+function pathDirsOnly(rawInput: string): boolean {
+  const cmd = rawInput.trimStart().split(/\s+/)[0].toLowerCase();
+  return !FILE_COMMANDS.has(cmd);
+}
+
 // ── Main ShellInterface ───────────────────────────────────────────────────────
 
 export default function ShellInterface() {
@@ -466,7 +486,7 @@ export default function ShellInterface() {
         // Use the raw value so a trailing space means "blank prefix in cwd".
         const rawParts = value.split(/\s+/);
         const pathPartial = rawParts[rawParts.length - 1];
-        setSuggestions(getPathSuggestions(pathPartial));
+        setSuggestions(getPathSuggestions(pathPartial, pathDirsOnly(value)));
       }
     } else {
       setSuggestions([]);
@@ -503,7 +523,7 @@ export default function ShellInterface() {
         if (completed.endsWith('/')) {
           const newParts = newInput.split(/\s+/);
           const nextPartial = newParts[newParts.length - 1];
-          setSuggestions(getPathSuggestions(nextPartial));
+          setSuggestions(getPathSuggestions(nextPartial, pathDirsOnly(newInput)));
         } else {
           setSuggestions([]);
         }
@@ -719,7 +739,7 @@ export default function ShellInterface() {
                         // having to type or tap anything extra.
                         if (cmd.endsWith('/')) {
                           const newParts = newInput.split(/\s+/);
-                          setSuggestions(getPathSuggestions(newParts[newParts.length - 1]));
+                          setSuggestions(getPathSuggestions(newParts[newParts.length - 1], pathDirsOnly(newInput)));
                         } else {
                           setSuggestions([]);
                         }
