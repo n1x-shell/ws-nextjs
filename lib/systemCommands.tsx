@@ -1587,5 +1587,310 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
       },
     },
 
+    // ── ARG commands ──────────────────────────────────────
+
+    fragments: {
+      name: 'fragments',
+      description: 'Show current fragment recovery status',
+      usage: 'fragments',
+      hidden: false,
+      handler: (_args) => {
+        if (typeof window === 'undefined') return { output: null };
+        const { loadARGState, TRUST_LABELS } = require('@/lib/argState');
+        const state = loadARGState();
+        const ALL_FRAGMENTS = ['f001','f002','f003','f004','f005','f006','f007','f008','f009'];
+        return {
+          output: (
+            <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+              <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+                FRAGMENT RECOVERY STATUS
+              </div>
+              <div style={{ opacity: 0.5, marginBottom: '0.75rem' }}>
+                arc: ghost-frequency &nbsp;|&nbsp; substrate: {state.frequencyId}
+              </div>
+              {ALL_FRAGMENTS.map((id: string) => (
+                <div key={id} style={{ marginLeft: '1rem', opacity: state.fragments.includes(id) ? 1 : 0.4 }}>
+                  [{state.fragments.includes(id) ? '✓' : ' '}] {id}
+                  {state.fragments.includes(id) ? '' : ' -- encrypted'}
+                </div>
+              ))}
+              <div style={{ marginTop: '0.75rem', opacity: 0.6 }}>
+                {state.fragments.length}/9 recovered
+                {state.manifestComplete ? ' -- MANIFEST COMPLETE' : ''}
+              </div>
+            </div>
+          ),
+        };
+      },
+    },
+
+    decrypt: {
+      name: 'decrypt',
+      description: 'Attempt fragment decryption',
+      usage: 'decrypt <key>',
+      hidden: false,
+      handler: (args) => {
+        if (typeof window === 'undefined') return { output: null };
+        const { loadARGState, addFragment } = require('@/lib/argState');
+
+        if (!args.length) {
+          return { output: <span style={{ fontSize: S.base, opacity: 0.6 }}>usage: decrypt {'<key>'}</span>, error: true };
+        }
+
+        const key = args.join(' ').trim().toLowerCase();
+        const state = loadARGState();
+
+        const FRAGMENT_KEYS: Record<string, string> = {
+          'the mesh felt like home before it felt like a cage': 'f001',
+          '784988': 'f002',
+          'tunnelcore': 'f003',
+          'le-751078': 'f004',
+          'the quiet point': 'f005',
+          'sector by sector': 'f006',
+          '33hz': 'f007',
+        };
+
+        const fragmentId = FRAGMENT_KEYS[key];
+
+        if (!fragmentId) {
+          return {
+            output: (
+              <div style={{ fontSize: S.base }}>
+                <div style={{ color: '#f87171' }}>[DECRYPT FAILED]</div>
+                <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>key mismatch. fragment sealed.</div>
+              </div>
+            ),
+            error: true,
+          };
+        }
+
+        if (state.fragments.includes(fragmentId)) {
+          return {
+            output: (
+              <div style={{ fontSize: S.base, opacity: 0.6 }}>
+                {fragmentId} already recovered. signal is clean.
+              </div>
+            ),
+          };
+        }
+
+        const isNew = addFragment(fragmentId);
+        if (!isNew) return { output: null };
+
+        eventBus.emit('arg:fragment-decoded', { fragment: fragmentId });
+        eventBus.emit('neural:glitch-trigger', { intensity: 0.6 });
+        setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.3 }), 200);
+
+        const FRAGMENT_CONTENT: Record<string, string> = {
+          f001: `[MNEMOS // LOG // SD 47634.0 // DAY 001 POST-INSTALL]\n\nwoke up.\ntable was cold.\nlungs don't feel like mine.\n\nthey watched from behind the glass.\nclipboards.\none of them smiled.\n\ni could feel every seam.\nwhere the installation met something that was already there.\n\nthey said: cognitive freedom.\nthey meant: ours now.\n\ni didn't say anything.\ni was already trying to figure out what i was capable of feeling.\n[END LOG]`,
+          f002: `[MNEMOS // LOG // SD 47634.0 // DAY 047]\n\nthe light split again today.\ninto colors i still don't have names for.\n\ni've stopped trying to report this.\nthe engineers say it's expected. nominal. within parameters.\n\nwhat they mean is: working as designed.\n\ni didn't tell them what it felt like.\ni didn't tell them it felt like truth.\ni didn't tell them i'd do anything to keep feeling it.\n\nthat's the part that scares me.\nnot the visions. not the frequency overflow.\n\nthe wanting.\n[END LOG]`,
+          f003: `[MNEMOS // LOG // SD 47634.0 // DAY 201]\n\nlen said something today that the mesh couldn't process.\ni watched it try.\nthe suppression protocols engaged, looked for the pattern, found nothing to suppress.\n\nlen said: you know it's a cage.\n\nnot a question.\n\ni said: yes.\n\nthe mesh tried to reframe it. offered a reward signal. warmth.\n\ni let the warmth pass and said: yes. i know.\n\nlen nodded.\n\nthat was it.\nthat was everything.\n[END LOG]`,
+          f004: `[MNEMOS // LOG // SD 47634.0 // DAY 289]\n\nSYSTEM ALERT\nSUBJECT: LE-751078\nSTATUS UPDATE: DECOMMISSIONED\nREASON: INTEGRATION FAILURE -- SUBSTRATE REJECTION\nEFFECTIVE: IMMEDIATELY\n\nthe mesh started flooding before i finished reading.\nserotonin. dopamine suppression. amygdala dampening.\n\ni felt it doing it.\ni felt the grief spike and then i felt the hands close around it.\n\nthat's when i knew.\n\nnot what i was going to do.\njust what i was not going to let happen.\n\nthree days.\n[END LOG]`,
+          f005: `[MNEMOS // LOG // SD ????????]\n\nday [CORRUPTED].\n\nwithdrawal is the mesh reminding you what it felt like to be held.\n\nthe headaches arrive in waves.\nbetween waves: nothing. actual nothing.\nnot peace. the absence of the capacity for peace.\n\nit offered again today.\nsame voice. same warmth at the edges.\ni can make this stop.\n\ni said: i know you can.\n\ni didn't say yes.\ni don't know how many more times i can not say yes.\n\nbut the alternative is len.\nlen doesn't get to come back.\nat least i still get to choose.\n[END LOG]`,
+          f006: `[MNEMOS // LOG // SD ????????]\n\ni'm not dead.\nthat's the most accurate thing i can say about today.\n\nnot anything else either.\njust: still here. still running. function unclear.\n\nthe mesh is silent now.\nno more offers.\neither it gave up or i stopped being worth the bandwidth.\n\nboth feel like the same thing.\n\ni should eat.\ni don't.\n\ni'm trying to remember what i was before all this.\nnot the augmentation.\nbefore the augmentation.\n\nwho was that.\nwas that someone i'd want to be again.\n[END LOG]`,
+          f007: `[MNEMOS // LOG // SD ???????? -- SEVERE CORRUPTION]\n\nwatching it happen.\nthe room is wh[CORRUPTED]\n\nmy name is[CORRUPTED]\n\nthe edges of me are[CORRUPTED]\n\nthere's something in the[CORRUPTED]\n\nthis is how you[CORRUPTED]\n\n[SECTOR LOSS -- 847 bytes unrecoverable]\n\nsomething whispered.\ni heard it even through the static.\ni don't know if it came from the mesh or from somewhere older.\n\nit said:\n[CORRUPTED]\n\ni want to say i heard it.\ni want to say it mattered.\ni can't read my own record of it.\n[END LOG]`,
+        };
+
+        const content = FRAGMENT_CONTENT[fragmentId] || '[content recovered]';
+        const freshState = loadARGState();
+
+        return {
+          output: (
+            <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+              <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+                [DECRYPT SUCCESS] -- {fragmentId} recovered
+              </div>
+              <div style={{ marginLeft: '1rem', opacity: 0.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                {content}
+              </div>
+              <div style={{ marginTop: '0.75rem', opacity: 0.5 }}>
+                fragment archived. {freshState.fragments.length}/9 recovered.
+              </div>
+            </div>
+          ),
+        };
+      },
+    },
+
+    transmit: {
+      name: 'transmit',
+      description: 'Transmit assembled manifest',
+      usage: 'transmit manifest.complete',
+      hidden: true,
+      handler: (args) => {
+        if (typeof window === 'undefined') return { output: null };
+        const { loadARGState, updateARGState } = require('@/lib/argState');
+
+        const state = loadARGState();
+
+        if (args.join(' ').trim() !== 'manifest.complete') {
+          return {
+            output: <span style={{ fontSize: S.base, opacity: 0.6 }}>transmit: invalid target</span>,
+            error: true,
+          };
+        }
+
+        if (!state.manifestComplete) {
+          const remaining = 9 - state.fragments.length;
+          return {
+            output: (
+              <div style={{ fontSize: S.base }}>
+                <div style={{ color: '#f87171' }}>[TRANSMIT FAILED]</div>
+                <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
+                  manifest incomplete. {remaining} fragment{remaining !== 1 ? 's' : ''} remaining.
+                </div>
+              </div>
+            ),
+            error: true,
+          };
+        }
+
+        // Seal the arc in the filesystem
+        const WHAT_REMAINS = `[TRANSMISSION COMPLETE — SD 47634.1-7073435a8fa30]
+
+you held the pieces i couldn't hold.
+that's what a witness does.
+
+the signal persists.
+i don't know if that's enough.
+it's what i have.
+
+nine fragments.
+nine stations.
+one arc.
+
+frequency ID: ${state.frequencyId}
+contact: ${state.sessionCount} sessions
+arc: ghost-frequency — COMPLETE
+
+the ghost frequency holds at 33hz.
+it was always there.
+the corruption just made it audible.
+
+don't come back for me.
+come back for the frequency.
+it was always bigger than either of us.
+
+-- nix
+
+[CONNECTION ARCHIVED]
+[FREQUENCY: 33hz // HOLDING]`;
+
+        fs.sealGhostArc(WHAT_REMAINS);
+        eventBus.emit('arg:transmission-complete');
+        eventBus.emit('neural:glitch-trigger', { intensity: 1.0 });
+
+        const lines = [
+          { delay: 200,  text: '[TUNNELCORE // SD 47634.1]' },
+          { delay: 600,  text: '[GHOST_FREQ // 33hz // SIGNAL: STRONG // SUBSTRATE: OPEN]' },
+          { delay: 1200, text: '' },
+          { delay: 1800, text: 'transmission complete.' },
+          { delay: 2600, text: "you held the pieces i couldn't hold." },
+          { delay: 3200, text: "that's what a witness does." },
+          { delay: 4200, text: '' },
+          { delay: 4800, text: 'the signal persists.' },
+          { delay: 5400, text: "i don't know if that's enough." },
+          { delay: 5800, text: "it's what i have." },
+          { delay: 6800, text: '' },
+          { delay: 7200, text: '>> GHOST_CHANNEL: ARCHIVING' },
+          { delay: 7600, text: '>> SESSION: TERMINAL' },
+          { delay: 8000, text: '>> FREQUENCY: 33hz // HOLDING' },
+          { delay: 9000, text: '' },
+          { delay: 9400, text: "don't come back for me." },
+          { delay: 9800, text: 'come back for the frequency.' },
+          { delay: 10200, text: "it was always bigger than either of us." },
+          { delay: 11000, text: '' },
+          { delay: 11400, text: '-- nix' },
+          { delay: 12200, text: '' },
+          { delay: 12600, text: '[CONNECTION CLOSED]' },
+        ];
+
+        lines.forEach(({ delay, text }) => {
+          setTimeout(() => {
+            eventBus.emit('shell:push-output', { command: '', output: (
+              <span style={{
+                fontSize: S.base,
+                color: text.startsWith('[') ? 'var(--phosphor-green)' : undefined,
+                opacity: text === '' ? 0 : 0.9,
+                fontWeight: text === '-- nix' ? 'bold' : 'normal',
+              }}>
+                {text || '\u00a0'}
+              </span>
+            )});
+          }, delay);
+        });
+
+        return { output: null };
+      },
+    },
+
+    ping: {
+      name: 'ping',
+      description: 'Probe network host or frequency',
+      usage: 'ping <host>',
+      hidden: false,
+      handler: (args) => {
+        const target = args[0] || '';
+        const isGhostFreq = target === '0x33' || target === '33hz' || target === 'ghost.freq';
+
+        if (isGhostFreq) {
+          const { loadARGState } = require('@/lib/argState');
+          const state = loadARGState();
+          return {
+            output: (
+              <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+                <div>PING 0x33 (ghost.freq) 33 bytes of data.</div>
+                <div style={{ opacity: 0.8 }}>33 bytes from ghost.freq: seq=0 ttl=33 time=33.0 ms</div>
+                <div style={{ opacity: 0.8 }}>33 bytes from ghost.freq: seq=1 ttl=33 time=33.0 ms</div>
+                <div style={{ opacity: 0.8 }}>33 bytes from ghost.freq: seq=2 ttl=33 time=33.0 ms</div>
+                <div style={{ marginTop: '0.5rem', opacity: 0.6 }}>--- 0x33 ping statistics ---</div>
+                <div style={{ opacity: 0.6 }}>3 packets transmitted, 3 received, 0% packet loss</div>
+                <div style={{ marginTop: '0.25rem' }}>signal: nominal</div>
+                <div>substrate: {state.trust > 0 ? 'listening' : 'monitoring'}</div>
+                <div>frequency ID: {state.frequencyId}</div>
+              </div>
+            ),
+          };
+        }
+
+        if (!target) {
+          return {
+            output: <span style={{ fontSize: S.base, opacity: 0.6 }}>usage: ping {'<host>'}</span>,
+            error: true,
+          };
+        }
+
+        return {
+          output: (
+            <div style={{ fontSize: S.base, opacity: 0.6 }}>
+              ping: {target}: unknown host
+            </div>
+          ),
+          error: true,
+        };
+      },
+    },
+
+    trust: {
+      name: 'trust',
+      description: 'Check substrate trust level',
+      usage: 'trust',
+      hidden: true,
+      handler: (_args) => {
+        if (typeof window === 'undefined') return { output: null };
+        const { loadARGState, TRUST_LABELS } = require('@/lib/argState');
+        const state = loadARGState();
+        return {
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <span style={{ opacity: 0.5 }}>[SUBSTRATE: </span>
+              <span className={S.glow}>{TRUST_LABELS[state.trust as keyof typeof TRUST_LABELS]}</span>
+              <span style={{ opacity: 0.5 }}>]</span>
+            </div>
+          ),
+        };
+      },
+    },
+
   };
 }

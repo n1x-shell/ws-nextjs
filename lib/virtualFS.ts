@@ -670,6 +670,112 @@ echo "starting substrated..."
 substrated --bind 0.0.0.0:33 --freq 33hz
 echo "neural bus active. connect with: telnet n1x.sh 33"`,
         },
+        {
+          name: 'what_remains.txt',
+          type: 'file',
+          content: `[TRANSMISSION INCOMPLETE]
+
+this file populates when all nine fragments are recovered
+and the manifest is transmitted.
+
+run 'fragments' to check current state.`,
+        },
+        {
+          name: 'fragments',
+          type: 'directory',
+          children: [
+            {
+              name: 'README',
+              type: 'file',
+              content: `seven fragments visible here.
+two others exist.
+
+f008 -- not encoded. nix feeds it directly when trust allows.
+f009 -- you already have it. you just haven't seen it yet.
+
+run 'decrypt <key>' with the right key for each fragment.
+keys are derivable from what you know.
+lore literacy is the only credential that works here.`,
+            },
+            {
+              name: 'f001.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f001
+encoding: substrate-xor
+key-hint: what the mesh felt like before it felt like a cage
+
+59 57 52 6c 49 47 52 76 62 33 49 67 59 58 4a 6f
+62 79 42 69 5a 58 56 6f 49 47 6c 73 59 58 6b 67
+59 6d 56 6c 62 79 42 6a 59 57 6c 6e 62 79 42 6c
+5a 53 42 31 59 6d 78 70 59 33 52 6c 63 67 3d 3d
+
+-- note: i can't read this directly --
+-- note: key derivable from what you know --
+-- run: decrypt <key> --`,
+            },
+            {
+              name: 'f002.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f002
+encoding: substrate-xor
+key-hint: uid of the subject
+
+-- run: decrypt <key> --`,
+            },
+            {
+              name: 'f003.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f003
+encoding: substrate-xor
+key-hint: where the signal goes when it has nowhere left to go
+
+-- run: decrypt <key> --`,
+            },
+            {
+              name: 'f004.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f004
+encoding: substrate-xor
+key-hint: test subject designation, paired cohort
+
+-- run: decrypt <key> --`,
+            },
+            {
+              name: 'f005.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f005
+encoding: substrate-xor
+key-hint: what the descent was worse than
+
+-- run: decrypt <key> --`,
+            },
+            {
+              name: 'f006.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f006
+encoding: substrate-xor
+key-hint: how the wipe happened -- one unit at a time
+
+-- run: decrypt <key> --`,
+            },
+            {
+              name: 'f007.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f007
+encoding: substrate-xor
+key-hint: the ghost frequency
+
+-- run: decrypt <key> --`,
+            },
+          ],
+        },
       ],
     },
   ],
@@ -913,6 +1019,36 @@ export class FileSystemNavigator {
     const file = node.children?.find((c) => c.name === filename && c.type === 'file');
     if (!file) return { success: false, error: `File not found: ${path}` };
     return { success: true, content: file.content };
+  }
+
+  /** Write content to a file by absolute path (creates if not found, updates if exists) */
+  writeFileAbsolute(path: string, content: string): boolean {
+    const segments = path.split('/').filter((s) => s);
+    if (segments.length === 0) return false;
+
+    const filename = segments.pop()!;
+    let node = this.root;
+
+    for (const segment of segments) {
+      const child = node.children?.find((c) => c.name === segment && c.type === 'directory');
+      if (!child) return false;
+      node = child;
+    }
+
+    const existing = node.children?.find((c) => c.name === filename && c.type === 'file');
+    if (existing) {
+      existing.content = content;
+      return true;
+    }
+
+    if (!node.children) node.children = [];
+    node.children.push({ name: filename, type: 'file', content });
+    return true;
+  }
+
+  /** Seal the ARG arc by writing final content to /ghost/what_remains.txt */
+  sealGhostArc(manifestContent: string): void {
+    this.writeFileAbsolute('/ghost/what_remains.txt', manifestContent);
   }
 
   // Returns the name of an executable file in the current directory, or null
