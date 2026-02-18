@@ -307,6 +307,7 @@ export default function ShellInterface() {
   const [input, setInput]           = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
+  const [shellUser, setShellUser]   = useState<string>('ghost');
   const [shellDir, setShellDir]     = useState<string>('~');
   const inputRef                    = useRef<HTMLInputElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
@@ -346,10 +347,17 @@ export default function ShellInterface() {
     }
   });
 
-  // Sync displayed directory on mount
+  // ── Track user changes ───────────────────────────────────────────────────
+  useEventBus('shell:set-user', (event) => {
+    const user = event.payload?.user;
+    if (user) setShellUser(user === 'root' ? 'root' : 'ghost');
+  });
+
+  // Sync displayed directory and user on mount
   useEffect(() => {
     setShellDir(getDisplayDirectory());
-  }, []);
+    setShellUser(currentUser);
+  }, [currentUser]);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
