@@ -825,7 +825,7 @@ export default function ShellInterface() {
                 ) : isMailMode() ? (
                   <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>
                 ) : (
-                  <FishPrompt user={currentUser} cwd={shellDir} inline />
+                  <FishPrompt user={shellUser} cwd={shellDir} inline />
                 )}
                 <input
                   ref={inputRef}
