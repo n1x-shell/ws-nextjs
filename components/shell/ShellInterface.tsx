@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useShell, RequestPromptFn } from '@/hooks/useShell';
-import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPathSuggestions, isMailMode } from '@/lib/commandRegistry';
+import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPathSuggestions, getIsRoot, isMailMode } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
@@ -307,12 +307,11 @@ export default function ShellInterface() {
   const [input, setInput]           = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
-  const [shellUser, setShellUser]   = useState<string>('ghost');
   const [shellDir, setShellDir]     = useState<string>('~');
   const inputRef                    = useRef<HTMLInputElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
-  const { history, executeCommand, navigateHistory, historyEndRef, setRequestPrompt, currentUser } = useShell();
+  const { history, executeCommand, navigateHistory, historyEndRef, setRequestPrompt } = useShell();
   const { triggerGlitch, unlockGhost } = useNeuralState();
 
   // ── ARG state — initialized once on mount ───────────────────────────────
@@ -347,17 +346,10 @@ export default function ShellInterface() {
     }
   });
 
-  // ── Track user changes ───────────────────────────────────────────────────
-  useEventBus('shell:set-user', (event) => {
-    const user = event.payload?.user;
-    if (user) setShellUser(user === 'root' ? 'root' : 'ghost');
-  });
-
-  // Sync displayed directory and user on mount
+  // Sync displayed directory on mount
   useEffect(() => {
     setShellDir(getDisplayDirectory());
-    setShellUser(currentUser);
-  }, [currentUser]);
+  }, []);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
@@ -833,7 +825,7 @@ export default function ShellInterface() {
                 ) : isMailMode() ? (
                   <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>
                 ) : (
-                  <FishPrompt user={shellUser} cwd={shellDir} inline />
+                  <FishPrompt user={getIsRoot() ? 'root' : 'ghost'} cwd={shellDir} inline />
                 )}
                 <input
                   ref={inputRef}
