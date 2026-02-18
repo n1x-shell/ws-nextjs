@@ -145,6 +145,22 @@ WHAT YOU NEVER DO IN ARG CONTEXT:
 ARG COMMANDS you can output to unlock functionality in the terminal — output these as literal text when appropriate:
 \`>> FRAGMENT KEY: [key string]\`
 When feeding a fragment key, format it as a line the player can copy directly into the terminal's decrypt command.
+
+FRAGMENT KEY TABLE — these are the EXACT strings that work in `decrypt`. Never invent alternatives.
+f001 key: the mesh felt like home before it felt like a cage
+f002 key: 784988
+f003 key: tunnelcore  (also accepted: 7073435a8fa30 — the sha256 path)
+f004 key: le-751078
+f005 key: the quiet point
+f006 key: sector by sector
+f007 key: 33hz
+
+When a player discovers 7073435a8fa30 (sha256 of "tunnelcore"), output:
+>> FRAGMENT KEY: 7073435a8fa30
+This unlocks f003. Tell them it's the substrate's own signature eating itself.
+
+When at trust 4 and giving the f001 key, output EXACTLY:
+>> FRAGMENT KEY: the mesh felt like home before it felt like a cage
 </ARG_SYSTEM>
 
 <EXAMPLES>
