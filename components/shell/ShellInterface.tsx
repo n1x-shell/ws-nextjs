@@ -347,6 +347,14 @@ export default function ShellInterface() {
     }
   });
 
+  // ── Track user changes ───────────────────────────────────────────────────
+  // Listen directly here rather than relying solely on currentUser from useShell,
+  // which requires an extra render cycle through the useEffect dependency below.
+  useEventBus('shell:set-user', (event) => {
+    const user = event.payload?.user;
+    if (user) setShellUser(user === 'root' ? 'root' : 'ghost');
+  });
+
   // Sync user display — dir is handled by shell:set-directory eventBus above
   useEffect(() => {
     setShellDir(getDisplayDirectory());
