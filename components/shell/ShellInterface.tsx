@@ -307,7 +307,6 @@ export default function ShellInterface() {
   const [input, setInput]           = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
-  const [shellUser, setShellUser]   = useState<string>('ghost');
   const [shellDir, setShellDir]     = useState<string>('~');
   const inputRef                    = useRef<HTMLInputElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
@@ -347,19 +346,10 @@ export default function ShellInterface() {
     }
   });
 
-  // ── Track user changes ───────────────────────────────────────────────────
-  // Listen directly here rather than relying solely on currentUser from useShell,
-  // which requires an extra render cycle through the useEffect dependency below.
-  useEventBus('shell:set-user', (event) => {
-    const user = event.payload?.user;
-    if (user) setShellUser(user === 'root' ? 'root' : 'ghost');
-  });
-
-  // Sync user display — dir is handled by shell:set-directory eventBus above
+  // Sync displayed directory on mount
   useEffect(() => {
     setShellDir(getDisplayDirectory());
-    setShellUser(currentUser);
-  }, [currentUser]);
+  }, []);
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
@@ -835,7 +825,7 @@ export default function ShellInterface() {
                 ) : isMailMode() ? (
                   <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>
                 ) : (
-                  <FishPrompt user={shellUser} cwd={shellDir} inline />
+                  <FishPrompt user={currentUser} cwd={shellDir} inline />
                 )}
                 <input
                   ref={inputRef}
