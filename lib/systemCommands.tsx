@@ -37,9 +37,12 @@ export function getCurrentUser(): string {
 }
 
 // ── Substrate daemon state ───────────────────────────────
-// Session-persistent flag — once the service starts, it never stops.
+// Persisted via localStorage — survives page reloads.
 
-let substrateDaemonRunning = false;
+const DAEMON_KEY = 'n1x_substrated';
+
+let substrateDaemonRunning: boolean =
+  typeof window !== 'undefined' && localStorage.getItem(DAEMON_KEY) === 'true';
 
 export function isSubstrateDaemonRunning(): boolean {
   return substrateDaemonRunning;
@@ -47,6 +50,9 @@ export function isSubstrateDaemonRunning(): boolean {
 
 export function startSubstrateDaemon(): void {
   substrateDaemonRunning = true;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(DAEMON_KEY, 'true');
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────
