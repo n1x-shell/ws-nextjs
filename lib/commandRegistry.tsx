@@ -1364,6 +1364,13 @@ export function getPathSuggestions(partial: string): string[] {
 
   let basePath: string;
   let namePrefix: string;
+  // pathPrefix is the literal string to prepend to every returned suggestion
+  // so that replacing the last input token produces a complete valid path.
+  // e.g. partial='/'        → pathPrefix='/'
+  //      partial='/str'     → pathPrefix='/'
+  //      partial='/streams/'→ pathPrefix='/streams/'
+  //      partial='aug'      → pathPrefix=''
+  let pathPrefix: string;
 
   if (normalised.includes('/')) {
     // Split on the LAST slash: everything before is the directory to list,
@@ -1371,6 +1378,8 @@ export function getPathSuggestions(partial: string): string[] {
     const lastSlash = normalised.lastIndexOf('/');
     const dirPart   = normalised.slice(0, lastSlash) || '/';
     namePrefix      = normalised.slice(lastSlash + 1);
+    // Preserve everything the user typed up to and including the last slash
+    pathPrefix      = partial.slice(0, partial.lastIndexOf('/') + 1);
 
     // Resolve absolute vs relative base path
     if (dirPart.startsWith('/')) {
@@ -1383,6 +1392,7 @@ export function getPathSuggestions(partial: string): string[] {
     // No slash — list the current directory and filter by the whole partial
     basePath   = fs.getCurrentDirectory();
     namePrefix = normalised;
+    pathPrefix = '';
   }
 
   // Fetch the entries for basePath
@@ -1397,9 +1407,9 @@ export function getPathSuggestions(partial: string): string[] {
     entries = result.files;
   }
 
-  // Filter by prefix and format
+  // Filter by prefix, prepend pathPrefix, append '/' to directories
   return entries
     .filter((e) => e.name.startsWith(namePrefix))
-    .map((e)    => (e.type === 'directory' ? e.name + '/' : e.name))
+    .map((e)    => pathPrefix + e.name + (e.type === 'directory' ? '/' : ''))
     .sort();
 }
