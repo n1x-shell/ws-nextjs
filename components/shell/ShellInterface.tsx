@@ -495,13 +495,23 @@ export default function ShellInterface() {
         // Re-split the raw input so a trailing space registers as an empty last token.
         const rawParts = input.split(/\s+/);
         rawParts[rawParts.length - 1] = completed;
-        setInput(rawParts.join(' '));
+        const newInput = rawParts.join(' ');
+        setInput(newInput);
+        // If the completed token is a directory (ends with '/'), immediately
+        // populate suggestions for the next level — Tab doesn't fire onChange
+        // so without this the user has to type a character to see the next level.
+        if (completed.endsWith('/')) {
+          const newParts = newInput.split(/\s+/);
+          const nextPartial = newParts[newParts.length - 1];
+          setSuggestions(getPathSuggestions(nextPartial));
+        } else {
+          setSuggestions([]);
+        }
       } else {
         // Command completion — append a space when unique so the user can keep typing
         setInput(completed + (suggestions.length === 1 ? ' ' : ''));
+        if (suggestions.length === 1) setSuggestions([]);
       }
-
-      if (suggestions.length === 1) setSuggestions([]);
     }
   };
 
