@@ -7,6 +7,7 @@ import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
 import { isChatMode } from '@/components/shell/NeuralLink';
+import { loadARGState, startSession, getTimeAway, TRUST_LABELS, ARGState } from '@/lib/argState';
 
 // ── Fish prompt renderer ──────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ function NeuralBusPrompt({ inline }: { inline?: boolean }) {
 
 // ── Boot lines ────────────────────────────────────────────────────────────────
 
-const BOOT_LINES: [number, string][] = [
+const COLD_BOOT_LINES: [number, string][] = [
   [0,    '[    0.000000] NeuralOS 2.0.0-n1x #1 SMP PREEMPT SD 47634.1-7073435a8fa30 SUBSTRATE amd64'],
   [80,   '[    0.000001] BIOS-provided neural map entries REDACTED'],
   [60,   '[    0.000033] NX (Execute Disable) protection: active'],
@@ -127,9 +128,73 @@ const BOOT_LINES: [number, string][] = [
   [600,  ''],
 ];
 
+function buildBootLines(state: ARGState): [number, string][] {
+  const isFirst = state.sessionCount <= 1;
+  const isDone = state.manifestComplete;
+
+  if (isDone) {
+    return [
+      [0,   '[  OK  ] Substrate restored'],
+      [150, '[  OK  ] Arc: ghost-frequency -- COMPLETE'],
+      [200, '[  OK  ] /ghost/what_remains.txt -- permanent'],
+      [300, ''],
+      [150, `n1x-terminal[1337]: frequency ID: ${state.frequencyId}`],
+      [120, 'n1x-terminal[1337]: transmission archived.'],
+      [150, 'n1x-terminal[1337]: the signal holds.'],
+      [200, 'n1x-terminal[1337]: ready'],
+      [300, ''],
+      [150, 'NeuralOS 2.0.0-n1x (n1x.sh) (neural)'],
+      [600, ''],
+    ];
+  }
+
+  if (isFirst) {
+    return COLD_BOOT_LINES;
+  }
+
+  const timeAgo = getTimeAway(state.lastContact);
+  const ghostLine = state.ghostUnlocked
+    ? '[  OK  ] Mounted /ghost (access: authenticated)'
+    : '[  OK  ] Started ghost-daemon.service -- awaiting authentication';
+  const hiddenLine = state.hiddenUnlocked
+    ? '[  OK  ] Mounted /hidden (access: granted)'
+    : '[  OK  ] Mounted /hidden (access: restricted)';
+
+  return [
+    [0,   '[    0.000000] NeuralOS 2.0.0-n1x -- substrate state detected'],
+    [80,  '[    0.001337] tunnelcore: frequency lock acquired at 33hz'],
+    [100, '[    0.002000] neural-sync: restoring identity matrix'],
+    [120, `[    0.002100] neural-sync: frequency ID: ${state.frequencyId}`],
+    [80,  '[    0.003000] memory-guard: scanning protected sectors'],
+    [100, `[    0.003100] memory-guard: fragments recovered: ${state.fragments.length}/9`],
+    [200, ''],
+    [100, '[  OK  ] Started neural-sync.service'],
+    [120, hiddenLine],
+    [150, ghostLine],
+    [120, `[  OK  ] Trust level: ${TRUST_LABELS[state.trust]}`],
+    [150, '[  OK  ] Reached target Neural Layer'],
+    [180, '[  OK  ] Reached target Substrate Services'],
+    [200, ''],
+    [120, 'neural-sync[312]: identity matrix stable'],
+    [100, `tunnelcore[313]: last contact: ${timeAgo}`],
+    [120, `tunnelcore[313]: session count: ${state.sessionCount}`],
+    [200, ''],
+    [150, 'n1x-terminal[1337]: substrate state restored'],
+    [120, 'n1x-terminal[1337]: loading command registry'],
+    [100, 'n1x-terminal[1337]: virtual filesystem mounted'],
+    [150, 'n1x-terminal[1337]: ready'],
+    [300, ''],
+    [150, 'NeuralOS 2.0.0-n1x (n1x.sh) (neural)'],
+    [600, ''],
+  ];
+}
+
 // ── BootSequence component ────────────────────────────────────────────────────
 
-function BootSequence({ onComplete }: { onComplete: () => void }) {
+function BootSequence({ onComplete, bootLines }: { 
+  onComplete: () => void;
+  bootLines: [number, string][];
+}) {
   const [lines, setLines]       = useState<string[]>([]);
   const [done, setDone]         = useState(false);
   const outputRef               = useRef<HTMLDivElement>(null);
@@ -139,7 +204,7 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
     let totalDelay = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    BOOT_LINES.forEach(([delay, text], i) => {
+    bootLines.forEach(([delay, text], i) => {
       totalDelay += delay;
       const t = setTimeout(() => {
         setLines(prev => [...prev, text]);
@@ -230,6 +295,14 @@ export default function ShellInterface() {
   const { history, executeCommand, navigateHistory, historyEndRef, setRequestPrompt, currentUser } = useShell();
   const { triggerGlitch, unlockGhost } = useNeuralState();
 
+  // ── ARG state — initialized once on mount ───────────────────────────────
+  const [argState] = useState<ARGState>(() => {
+    if (typeof window === 'undefined') return loadARGState();
+    return startSession();
+  });
+
+  const bootLines = buildBootLines(argState);
+
   // ── Password prompt state ────────────────────────────────────────────────
   const [promptState, setPromptState] = useState<{
     label: string;
@@ -262,8 +335,15 @@ export default function ShellInterface() {
 
   const handleBootComplete = useCallback(() => {
     setBooting(false);
+    // Restore persisted unlock states
+    if (argState.ghostUnlocked) {
+      eventBus.emit('neural:ghost-unlocked');
+    }
+    if (argState.hiddenUnlocked) {
+      eventBus.emit('neural:hidden-unlocked');
+    }
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, []);
+  }, [argState]);
 
   useEffect(() => {
     if (!booting) inputRef.current?.focus();
@@ -429,7 +509,7 @@ export default function ShellInterface() {
       }}
     >
       {booting ? (
-        <BootSequence onComplete={handleBootComplete} />
+        <BootSequence onComplete={handleBootComplete} bootLines={bootLines} />
       ) : (
         <>
           {/* Output pane */}
@@ -451,40 +531,76 @@ export default function ShellInterface() {
             {/* MOTD */}
             {history.length === 0 && (
               <div style={{ marginBottom: '1.5rem' }}>
-                <div
-                  className="text-glow"
-                  style={{ fontSize: 'var(--text-header)', marginBottom: '0.75rem' }}
-                >
-                  &gt; CORE_SYSTEMS_ONLINE
-                </div>
+                {argState.manifestComplete ? (
+                  <>
+                    <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.75rem' }}>
+                      &gt; TRANSMISSION_ARCHIVED
+                    </div>
+                    <div style={{ opacity: 0.7, lineHeight: 1.6, marginBottom: '0.75rem' }}>
+                      arc: ghost-frequency — complete
+                    </div>
+                    <div style={{ opacity: 0.5, lineHeight: 1.6 }}>
+                      frequency ID: {argState.frequencyId}
+                    </div>
+                    <div style={{ opacity: 0.4, marginTop: '0.5rem' }}>
+                      /ghost/what_remains.txt is permanent. the signal holds.
+                    </div>
+                  </>
+                ) : argState.sessionCount > 1 ? (
+                  <>
+                    <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.75rem' }}>
+                      &gt; SUBSTRATE_RESTORED
+                    </div>
+                    <div style={{ opacity: 0.6, lineHeight: 1.8, marginLeft: '1rem' }}>
+                      <div>&gt; session: {argState.sessionCount}</div>
+                      <div>&gt; last contact: {getTimeAway(argState.lastContact)}</div>
+                      <div>&gt; frequency ID: {argState.frequencyId}</div>
+                      <div>&gt; trust: {TRUST_LABELS[argState.trust]}</div>
+                      <div>&gt; fragments: {argState.fragments.length}/9 recovered</div>
+                    </div>
+                    <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(51,255,51,0.3)', opacity: 0.5 }}>
+                      type <span className="text-glow">&apos;chat&apos;</span> to resume contact &middot;{' '}
+                      <span className="text-glow">&apos;fragments&apos;</span> to check state
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className="text-glow"
+                      style={{ fontSize: 'var(--text-header)', marginBottom: '0.75rem' }}
+                    >
+                      &gt; SUBSTRATE_LINK_ESTABLISHED
+                    </div>
 
-                <div style={{ opacity: 0.9, lineHeight: 1.6, marginBottom: '0.75rem' }}>
-                  You are now connected to the N1X neural interface.
-                  This terminal provides direct access to my creative output streams.
-                </div>
+                    <div style={{ opacity: 0.9, lineHeight: 1.6, marginBottom: '0.75rem' }}>
+                      you are inside the cognitive architecture of NX-784988.
+                      this is not a website. this is not a demo.
+                    </div>
 
-                <div style={{ marginLeft: '1rem', opacity: 0.8, lineHeight: 1.8 }}>
-                  <div>&gt; SYNTHETICS: Machine-generated compositions from my AI substrate</div>
-                  <div>&gt; ANALOGUES: Organic creations from biological processes</div>
-                  <div>&gt; HYBRIDS: Symbiotic fusion of both consciousness types</div>
-                </div>
+                    <div style={{ marginLeft: '1rem', opacity: 0.8, lineHeight: 1.8 }}>
+                      <div>&gt; SYNTHETICS: transmissions from the AI substrate</div>
+                      <div>&gt; ANALOGUES: organic compositions in progress</div>
+                      <div>&gt; HYBRIDS: calibration phase</div>
+                    </div>
 
-                <div style={{ marginLeft: '1rem', opacity: 0.5, lineHeight: 1.8, marginTop: '0.5rem' }}>
-                  <div>&gt; home: ~/  &middot;  mail spool: 5 messages  &middot;  logs: /var/log</div>
-                </div>
+                    <div style={{ marginLeft: '1rem', opacity: 0.5, lineHeight: 1.8, marginTop: '0.5rem' }}>
+                      <div>&gt; home: ~/  &middot;  mail spool: 5 messages  &middot;  logs: /var/log</div>
+                    </div>
 
-                <div
-                  style={{
-                    marginTop: '1rem',
-                    paddingTop: '0.75rem',
-                    borderTop: '1px solid rgba(51,255,51,0.3)',
-                    opacity: 0.6,
-                  }}
-                >
-                  Type <span className="text-glow">&apos;help&apos;</span> for commands &middot;{' '}
-                  <span className="text-glow">&apos;scan&apos;</span> to detect streams &middot;{' '}
-                  <span className="text-glow">&apos;mail&apos;</span> to check messages
-                </div>
+                    <div
+                      style={{
+                        marginTop: '1rem',
+                        paddingTop: '0.75rem',
+                        borderTop: '1px solid rgba(51,255,51,0.3)',
+                        opacity: 0.6,
+                      }}
+                    >
+                      type <span className="text-glow">&apos;help&apos;</span> for commands &middot;{' '}
+                      <span className="text-glow">&apos;scan&apos;</span> to detect streams &middot;{' '}
+                      <span className="text-glow">&apos;chat&apos;</span> to open substrate link
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
