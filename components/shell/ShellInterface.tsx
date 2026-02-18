@@ -707,17 +707,26 @@ export default function ShellInterface() {
                     key={cmd}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Determine whether this is a path completion (command already typed)
-                      // and replace only the last token rather than the whole input.
                       const parts = input.trimEnd().split(/\s+/);
                       if (parts.length > 1) {
+                        // Path completion — replace only the last token
                         const rawParts = input.split(/\s+/);
                         rawParts[rawParts.length - 1] = cmd;
-                        setInput(rawParts.join(' '));
+                        const newInput = rawParts.join(' ');
+                        setInput(newInput);
+                        // If the selected entry is a directory, immediately show
+                        // its contents so the user can keep drilling down without
+                        // having to type or tap anything extra.
+                        if (cmd.endsWith('/')) {
+                          const newParts = newInput.split(/\s+/);
+                          setSuggestions(getPathSuggestions(newParts[newParts.length - 1]));
+                        } else {
+                          setSuggestions([]);
+                        }
                       } else {
                         setInput(cmd + ' ');
+                        setSuggestions([]);
                       }
-                      setSuggestions([]);
                       inputRef.current?.focus();
                     }}
                     style={{
