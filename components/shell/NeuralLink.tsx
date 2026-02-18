@@ -61,11 +61,20 @@ function isCopyableLine(line: string): boolean {
   return BASE64_RE.test(trimmed) || FRAGMENT_KEY_RE.test(trimmed);
 }
 
+function extractCopyText(line: string): string {
+  const trimmed = line.trim();
+  if (FRAGMENT_KEY_RE.test(trimmed)) {
+    // User needs just the bare key to paste into `decrypt <key>`
+    return trimmed.replace(/^>>\s*FRAGMENT KEY:\s*/i, '').trim();
+  }
+  return trimmed;
+}
+
 const CopyableLine: React.FC<{ line: string }> = ({ line }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    const text = line.trim();
+    const text = extractCopyText(line);
     const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1500); };
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(done).catch(() => {
