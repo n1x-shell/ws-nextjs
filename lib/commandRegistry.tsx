@@ -29,8 +29,19 @@ const PASSWORDS = {
 const systemCommands = createSystemCommands(fs);
 
 if (typeof window !== 'undefined') {
-  eventBus.on('neural:ghost-unlocked',  () => fs.unlock());
-  eventBus.on('neural:hidden-unlocked', () => fs.unlockHidden());
+  eventBus.on('neural:ghost-unlocked', () => {
+    fs.unlock();
+    import('@/lib/argState').then(({ updateARGState }) => {
+      updateARGState({ ghostUnlocked: true });
+    });
+  });
+
+  eventBus.on('neural:hidden-unlocked', () => {
+    fs.unlockHidden();
+    import('@/lib/argState').then(({ updateARGState }) => {
+      updateARGState({ hiddenUnlocked: true });
+    });
+  });
 }
 
 const S = {
@@ -268,8 +279,10 @@ export const commands: Record<string, Command> = {
                   ['cal',     'Calendar'],
                   ['cowsay',  'ASCII art message'],
                   ['date',    'Current date/stardate'],
+                  ['decrypt',  'Attempt fragment decryption'],
                   ['diff',    'Compare files'],
                   ['find',    'Find files'],
+                  ['fragments','Fragment recovery status'],
                   ['fortune', 'Random transmission'],
                   ['grep',    'Search file contents'],
                   ['gzip',    'Compress/decompress data'],
@@ -278,6 +291,7 @@ export const commands: Record<string, Command> = {
                   ['matrix',  'Matrix rain'],
                   ['morse',   'Morse code encoder'],
                   ['nc',      'Netcat — network utility'],
+                  ['ping',     'Probe network host or frequency'],
                   ['sha256',  'SHA-256 hash'],
                   ['sort',    'Sort tokens'],
                   ['tar',     'Archive files'],

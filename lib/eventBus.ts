@@ -61,3 +61,9 @@ class EventBus {
 }
 
 export const eventBus = new EventBus();
+
+// ARG events:
+// 'arg:fragment-decoded'      payload: { fragment: string }
+// 'arg:manifest-complete'     payload: none
+// 'arg:transmission-complete' payload: none
+// 'arg:trust-level-change'    payload: { level: TrustLevel }
