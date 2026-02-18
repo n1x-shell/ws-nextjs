@@ -1643,13 +1643,16 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           return { output: <span style={{ fontSize: S.base, opacity: 0.6 }}>usage: decrypt {'<key>'}</span>, error: true };
         }
 
-        const key = args.join(' ').trim().toLowerCase();
+        // Strip ">> FRAGMENT KEY:" prefix if user copied from chat UI
+        const rawKey = args.join(' ').trim().toLowerCase();
+        const key = rawKey.replace(/^>>\s*fragment key:\s*/i, '').trim();
         const state = loadARGState();
 
         const FRAGMENT_KEYS: Record<string, string> = {
           'the mesh felt like home before it felt like a cage': 'f001',
           '784988': 'f002',
           'tunnelcore': 'f003',
+          '7073435a8fa30': 'f003',  // sha256("tunnelcore") first 13 — alternate discovery path
           'le-751078': 'f004',
           'the quiet point': 'f005',
           'sector by sector': 'f006',
