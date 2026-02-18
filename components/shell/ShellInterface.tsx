@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useShell, RequestPromptFn } from '@/hooks/useShell';
-import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, isMailMode } from '@/lib/commandRegistry';
+import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPathSuggestions, isMailMode } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
@@ -281,6 +281,26 @@ function BootSequence({ onComplete, bootLines }: {
   );
 }
 
+// ── Autocomplete mode helpers ─────────────────────────────────────────────────
+
+// Commands that operate on files — show both files AND directories in suggestions.
+const FILE_COMMANDS = new Set([
+  'cat', 'sh', 'ls', 'grep', 'diff', 'wc', 'tar', 'gzip', 'find',
+]);
+
+// Commands that operate on directories only — show only directories.
+// Everything else that takes a path argument also falls back to dirs-only.
+// const DIR_ONLY_COMMANDS = new Set(['cd']); // implicit — it's the default
+
+/**
+ * Given the current raw input string, return whether path suggestions should
+ * be restricted to directories only (true) or include files too (false).
+ */
+function pathDirsOnly(rawInput: string): boolean {
+  const cmd = rawInput.trimStart().split(/\s+/)[0].toLowerCase();
+  return !FILE_COMMANDS.has(cmd);
+}
+
 // ── Main ShellInterface ───────────────────────────────────────────────────────
 
 export default function ShellInterface() {
@@ -455,9 +475,19 @@ export default function ShellInterface() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
+
     if (value.trim()) {
       const parts = value.trim().split(/\s+/);
-      setSuggestions(parts.length === 1 ? getCommandSuggestions(parts[0]) : []);
+      if (parts.length === 1) {
+        // Still typing the command name — suggest commands as before
+        setSuggestions(getCommandSuggestions(parts[0]));
+      } else {
+        // Command already typed — suggest filesystem paths for the last argument.
+        // Use the raw value so a trailing space means "blank prefix in cwd".
+        const rawParts = value.split(/\s+/);
+        const pathPartial = rawParts[rawParts.length - 1];
+        setSuggestions(getPathSuggestions(pathPartial, pathDirsOnly(value)));
+      }
     } else {
       setSuggestions([]);
     }
@@ -473,11 +503,34 @@ export default function ShellInterface() {
       setInput(navigateHistory('down') ?? '');
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (suggestions.length === 1) {
-        setInput(suggestions[0] + ' ');
-        setSuggestions([]);
-      } else if (suggestions.length > 0) {
-        setInput(suggestions[0]);
+      if (suggestions.length === 0) return;
+
+      const completed = suggestions[0];
+      // Split on whitespace to detect whether we're completing a command or an argument
+      const parts = input.trimEnd().split(/\s+/);
+      const isPathCompletion = parts.length > 1;
+
+      if (isPathCompletion) {
+        // Replace only the last token with the completed path fragment.
+        // Re-split the raw input so a trailing space registers as an empty last token.
+        const rawParts = input.split(/\s+/);
+        rawParts[rawParts.length - 1] = completed;
+        const newInput = rawParts.join(' ');
+        setInput(newInput);
+        // If the completed token is a directory (ends with '/'), immediately
+        // populate suggestions for the next level — Tab doesn't fire onChange
+        // so without this the user has to type a character to see the next level.
+        if (completed.endsWith('/')) {
+          const newParts = newInput.split(/\s+/);
+          const nextPartial = newParts[newParts.length - 1];
+          setSuggestions(getPathSuggestions(nextPartial, pathDirsOnly(newInput)));
+        } else {
+          setSuggestions([]);
+        }
+      } else {
+        // Command completion — append a space when unique so the user can keep typing
+        setInput(completed + (suggestions.length === 1 ? ' ' : ''));
+        if (suggestions.length === 1) setSuggestions([]);
       }
     }
   };
@@ -655,7 +708,7 @@ export default function ShellInterface() {
             <div ref={historyEndRef} />
           </div>
 
-          {/* Autocomplete */}
+          {/* Autocomplete suggestion bar */}
           {suggestions.length > 0 && !isPrompting && (
             <div
               style={{
@@ -674,8 +727,26 @@ export default function ShellInterface() {
                     key={cmd}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setInput(cmd + ' ');
-                      setSuggestions([]);
+                      const parts = input.trimEnd().split(/\s+/);
+                      if (parts.length > 1) {
+                        // Path completion — replace only the last token
+                        const rawParts = input.split(/\s+/);
+                        rawParts[rawParts.length - 1] = cmd;
+                        const newInput = rawParts.join(' ');
+                        setInput(newInput);
+                        // If the selected entry is a directory, immediately show
+                        // its contents so the user can keep drilling down without
+                        // having to type or tap anything extra.
+                        if (cmd.endsWith('/')) {
+                          const newParts = newInput.split(/\s+/);
+                          setSuggestions(getPathSuggestions(newParts[newParts.length - 1], pathDirsOnly(newInput)));
+                        } else {
+                          setSuggestions([]);
+                        }
+                      } else {
+                        setInput(cmd + ' ');
+                        setSuggestions([]);
+                      }
                       inputRef.current?.focus();
                     }}
                     style={{

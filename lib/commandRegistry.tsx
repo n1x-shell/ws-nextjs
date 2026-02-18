@@ -826,6 +826,8 @@ export const commands: Record<string, Command> = {
         if (pw === PASSWORDS.root) {
           isRoot = true;
           eventBus.emit('shell:set-user', { user: 'root' });
+          // Reset displayed directory to / to reflect root's home context
+          eventBus.emit('shell:set-directory', { directory: '/' });
           eventBus.emit('shell:push-output', {
             command: '',
             output: (
@@ -1012,6 +1014,8 @@ export const commands: Record<string, Command> = {
       }
       isRoot = false;
       eventBus.emit('shell:set-user', { user: 'ghost' });
+      // Resync displayed directory to wherever ghost's fs cursor actually is
+      eventBus.emit('shell:set-directory', { directory: fs.getDisplayDirectory() });
       return { output: 'logout' };
     },
   },
@@ -1338,4 +1342,74 @@ export function getCommandSuggestions(partial: string): string[] {
   }
 
   return suggestions;
+}
+
+/**
+ * Returns filesystem entry names in the relevant directory that match the
+ * given partial path fragment. Used for tab-completion of arguments.
+ *
+ * partial examples:
+ *   ''          → list everything in cwd
+ *   'aug'       → entries in cwd starting with 'aug'
+ *   '/str'      → entries in / starting with 'str'
+ *   '/streams/' → entries inside /streams with no prefix filter
+ *   './n1x'     → entries in cwd starting with 'n1x'
+ *
+ * Directories are returned with a trailing '/' appended so the user can
+ * immediately see they can cd further without running ls.
+ */
+export function getPathSuggestions(partial: string, dirsOnly = false): string[] {
+  // Strip a leading './' — treat it as relative to cwd
+  const normalised = partial.startsWith('./') ? partial.slice(2) : partial;
+
+  let basePath: string;
+  let namePrefix: string;
+  // pathPrefix is the literal string to prepend to every returned suggestion
+  // so that replacing the last input token produces a complete valid path.
+  // e.g. partial='/'        → pathPrefix='/'
+  //      partial='/str'     → pathPrefix='/'
+  //      partial='/streams/'→ pathPrefix='/streams/'
+  //      partial='aug'      → pathPrefix=''
+  let pathPrefix: string;
+
+  if (normalised.includes('/')) {
+    // Split on the LAST slash: everything before is the directory to list,
+    // everything after is the prefix to filter on.
+    const lastSlash = normalised.lastIndexOf('/');
+    const dirPart   = normalised.slice(0, lastSlash) || '/';
+    namePrefix      = normalised.slice(lastSlash + 1);
+    // Preserve everything the user typed up to and including the last slash
+    pathPrefix      = partial.slice(0, partial.lastIndexOf('/') + 1);
+
+    // Resolve absolute vs relative base path
+    if (dirPart.startsWith('/')) {
+      basePath = dirPart;
+    } else {
+      const cwd = fs.getCurrentDirectory();
+      basePath  = cwd === '/' ? `/${dirPart}` : `${cwd}/${dirPart}`;
+    }
+  } else {
+    // No slash — list the current directory and filter by the whole partial
+    basePath   = fs.getCurrentDirectory();
+    namePrefix = normalised;
+    pathPrefix = '';
+  }
+
+  // Fetch the entries for basePath
+  let entries: { name: string; type: string }[];
+
+  if (basePath === fs.getCurrentDirectory()) {
+    // Use listDirectory() so existing ghost/hidden permission gates are honoured
+    entries = fs.listDirectory();
+  } else {
+    const result = fs.listDirectoryAtPath(basePath);
+    if (!result.success || !result.files) return [];
+    entries = result.files;
+  }
+
+  // Filter by prefix, prepend pathPrefix, append '/' to directories
+  return entries
+    .filter((e) => e.name.startsWith(namePrefix) && (!dirsOnly || e.type === 'directory'))
+    .map((e)    => pathPrefix + e.name + (e.type === 'directory' ? '/' : ''))
+    .sort();
 }
