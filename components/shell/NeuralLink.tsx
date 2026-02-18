@@ -51,7 +51,74 @@ const StreamCursor: React.FC = () => {
   );
 };
 
-// ── Prefixed response line ──────────────────────────────────────────────────
+// ── Copyable line — tap to copy on mobile ───────────────────────────────────
+
+const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
+const FRAGMENT_KEY_RE = /^>>\s*FRAGMENT KEY:/i;
+
+function isCopyableLine(line: string): boolean {
+  const trimmed = line.trim();
+  return BASE64_RE.test(trimmed) || FRAGMENT_KEY_RE.test(trimmed);
+}
+
+const CopyableLine: React.FC<{ line: string }> = ({ line }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = line.trim();
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1500); };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => {
+        const el = document.createElement('textarea');
+        el.value = text; el.style.cssText = 'position:fixed;opacity:0;';
+        document.body.appendChild(el); el.select();
+        document.execCommand('copy'); document.body.removeChild(el);
+        done();
+      });
+    } else {
+      const el = document.createElement('textarea');
+      el.value = text; el.style.cssText = 'position:fixed;opacity:0;';
+      document.body.appendChild(el); el.select();
+      document.execCommand('copy'); document.body.removeChild(el);
+      done();
+    }
+  };
+
+  return (
+    <div
+      style={{ marginLeft: '1rem', lineHeight: 1.8, cursor: 'pointer' }}
+      onClick={handleCopy}
+      title="tap to copy"
+    >
+      <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
+      <span
+        style={{
+          opacity: 0.9,
+          borderBottom: '1px dashed rgba(51,255,51,0.4)',
+          paddingBottom: '1px',
+          wordBreak: 'break-all',
+        }}
+      >
+        {line}
+      </span>
+      <span
+        style={{
+          opacity: copied ? 0.8 : 0.3,
+          fontSize: '0.75em',
+          marginLeft: '0.5rem',
+          transition: 'opacity 0.2s',
+          color: copied ? 'var(--phosphor-green)' : undefined,
+        }}
+      >
+        {copied ? 'copied' : '⎘'}
+      </span>
+    </div>
+  );
+};
+
+
+
+// ── Prefixed response line ───────────────────────────────────────────────────
 
 const PrefixedLine: React.FC<{ children: React.ReactNode; glow?: boolean }> = ({ children, glow }) => (
   <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
@@ -174,14 +241,18 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
           )}
 
           {/* Streamed response lines */}
-          {responseLines.map((line, i) => (
-            <div key={i} style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-              <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
-              <span style={{ opacity: 0.9 }}>{line}</span>
-              {/* Cursor on last line while streaming */}
-              {status === 'streaming' && i === responseLines.length - 1 && <StreamCursor />}
-            </div>
-          ))}
+          {responseLines.map((line, i) =>
+            isCopyableLine(line) ? (
+              <CopyableLine key={i} line={line} />
+            ) : (
+              <div key={i} style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+                <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
+                <span style={{ opacity: 0.9 }}>{line}</span>
+                {/* Cursor on last line while streaming */}
+                {status === 'streaming' && i === responseLines.length - 1 && <StreamCursor />}
+              </div>
+            )
+          )}
         </>
       )}
     </div>

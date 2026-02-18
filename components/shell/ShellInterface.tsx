@@ -484,6 +484,9 @@ export default function ShellInterface() {
 
   const handleShellClick = useCallback(() => {
     if (!booting) {
+      // Don't steal focus if the user has selected text (mobile long-press)
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) return;
       if (promptState) {
         promptInputRef.current?.focus();
       } else {
@@ -505,7 +508,6 @@ export default function ShellInterface() {
         minHeight: 0,
         overflow: 'hidden',
         fontSize: 'var(--text-base)',
-        touchAction: 'none',
       }}
     >
       {booting ? (
@@ -525,6 +527,9 @@ export default function ShellInterface() {
               overscrollBehavior: 'contain',
               WebkitOverflowScrolling: 'touch',
               touchAction: 'pan-y',
+              userSelect: 'text',
+              WebkitUserSelect: 'text',
+              WebkitTouchCallout: 'default',
               fontSize: 'var(--text-base)',
             }}
           >
