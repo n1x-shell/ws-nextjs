@@ -1358,7 +1358,7 @@ export function getCommandSuggestions(partial: string): string[] {
  * Directories are returned with a trailing '/' appended so the user can
  * immediately see they can cd further without running ls.
  */
-export function getPathSuggestions(partial: string): string[] {
+export function getPathSuggestions(partial: string, dirsOnly = false): string[] {
   // Strip a leading './' — treat it as relative to cwd
   const normalised = partial.startsWith('./') ? partial.slice(2) : partial;
 
@@ -1409,7 +1409,7 @@ export function getPathSuggestions(partial: string): string[] {
 
   // Filter by prefix, prepend pathPrefix, append '/' to directories
   return entries
-    .filter((e) => e.name.startsWith(namePrefix))
+    .filter((e) => e.name.startsWith(namePrefix) && (!dirsOnly || e.type === 'directory'))
     .map((e)    => pathPrefix + e.name + (e.type === 'directory' ? '/' : ''))
     .sort();
 }
