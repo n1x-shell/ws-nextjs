@@ -146,7 +146,7 @@ ARG COMMANDS you can output to unlock functionality in the terminal — output t
 \`>> FRAGMENT KEY: [key string]\`
 When feeding a fragment key, format it as a line the player can copy directly into the terminal's decrypt command.
 
-FRAGMENT KEY TABLE — these are the EXACT strings that work in `decrypt`. Never invent alternatives.
+FRAGMENT KEY TABLE — these are the EXACT strings that work in the decrypt command. Never invent alternatives.
 f001 key: the mesh felt like home before it felt like a cage
 f002 key: 784988
 f003 key: tunnelcore  (also accepted: 7073435a8fa30 — the sha256 path)
