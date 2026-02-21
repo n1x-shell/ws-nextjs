@@ -186,7 +186,63 @@ interface TelnetSessionProps {
 
 export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
   const argState = loadARGState();
-  const handle = argState.frequencyId; // use frequencyId as anonymous handle
+
+  // ── Handle prompt phase ───────────────────────────────────────────────────
+  // Ask for a handle before connecting. Default is frequencyId.
+  const [handle, setHandle] = useState<string | null>(null);
+  const [handleInput, setHandleInput] = useState('');
+
+  const handleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Auto-focus the handle input
+    setTimeout(() => handleInputRef.current?.focus(), 100);
+  }, []);
+
+  const submitHandle = useCallback(() => {
+    const trimmed = handleInput.trim().replace(/\s+/g, '_').slice(0, 16);
+    setHandle(trimmed || argState.frequencyId);
+  }, [handleInput, argState.frequencyId]);
+
+  // Show handle prompt before connecting
+  if (!handle) {
+    return (
+      <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+        <div style={{ opacity: 0.6 }}>Connected to {host}.</div>
+        <div style={{ opacity: 0.6 }}>Escape character is {`'^]'`}.</div>
+        <div style={{ opacity: 0.4, marginTop: '0.5rem' }}>&nbsp;</div>
+        <div style={{ opacity: 0.7 }}>ghost-daemon[999]: frequency lock: 33hz</div>
+        <div style={{ opacity: 0.7 }}>ghost-daemon[999]: channel requires node identification</div>
+        <div style={{ opacity: 0.4 }}>&nbsp;</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ opacity: 0.6 }}>handle:</span>
+          <input
+            ref={handleInputRef}
+            value={handleInput}
+            onChange={e => setHandleInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') submitHandle(); }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: 'var(--phosphor-green)',
+              fontFamily: 'inherit',
+              fontSize: 'inherit',
+              width: '12rem',
+              caretColor: 'var(--phosphor-green)',
+            }}
+            placeholder={argState.frequencyId}
+            maxLength={16}
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
+        <div style={{ opacity: 0.3, fontSize: '0.75rem', marginTop: '0.25rem' }}>
+          press enter to connect · leave blank for anonymous id
+        </div>
+      </div>
+    );
+  }
 
   const { messages, occupantCount, daemonState, isConnected, send } = useAblyRoom(handle);
 
