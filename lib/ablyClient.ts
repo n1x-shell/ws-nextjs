@@ -31,19 +31,23 @@ function makeId(): string {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
+export type ConnectionStatus = 'connecting' | 'connected' | 'failed';
+
 interface UseAblyRoomResult {
   messages: RoomMsg[];
   occupantCount: number;
   daemonState: DaemonState;
   isConnected: boolean;
+  connectionStatus: ConnectionStatus;
   send: (text: string) => void;
 }
 
 export function useAblyRoom(handle: string): UseAblyRoomResult {
   const [messages, setMessages]           = useState<RoomMsg[]>([]);
   const [occupantCount, setOccupantCount] = useState(0);
-  const [daemonState, setDaemonState]     = useState<DaemonState>('active');
-  const [isConnected, setIsConnected]     = useState(false);
+  const [daemonState, setDaemonState]         = useState<DaemonState>('active');
+  const [isConnected, setIsConnected]         = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
 
   const clientRef    = useRef<Ably.Realtime | null>(null);
   const channelRef   = useRef<Ably.RealtimeChannel | null>(null);
@@ -150,6 +154,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     // If no Ably configured, fall straight to solo mode
     const ablyConfigured = typeof window !== 'undefined';
     if (!ablyConfigured) {
+      setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
       return;
@@ -160,6 +165,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       client = new Ably.Realtime({ authUrl: '/api/ably/token', clientId: handle });
     } catch {
       // Ably init failed — fall back to solo
+      setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
       return;
@@ -248,18 +254,20 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     // ── Connection ────────────────────────────────────────────────────────────
 
-    // Fallback: if Ably doesn't connect within 5s, go solo
+    // Fallback: if Ably doesn't connect within 30s, go solo
     const connectionTimeout = setTimeout(() => {
       if (!isMountedRef.current) return;
       if (client.connection.state !== 'connected') {
+        setConnectionStatus('failed');
         setIsConnected(true);
         setOccupantCount(1);
       }
-    }, 5000);
+    }, 30000);
 
     client.connection.on('connected', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
+      setConnectionStatus('connected');
       setIsConnected(true);
       joinedAtRef.current = Date.now();
 
@@ -270,6 +278,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('failed', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
+      setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
     });
@@ -277,6 +286,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('suspended', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
+      setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
     });
@@ -305,5 +315,5 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     };
   }, [handle, addMessage, triggerN1X, maybeUnprompted, checkF010]);
 
-  return { messages, occupantCount, daemonState, isConnected, send };
+  return { messages, occupantCount, daemonState, isConnected, connectionStatus, send };
 }
