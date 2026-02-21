@@ -2,17 +2,15 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
-import { useAblyRoom, type DaemonState, type RoomMsg } from '@/lib/ablyClient';
-import { loadARGState } from '@/lib/argState';
+import { useAblyRoom, type RoomMsg } from '@/lib/ablyClient';
 import {
-  NeuralLinkStream,
   NeuralChatSession,
   handleChatInput,
   setChatMode,
   resetConversation,
 } from '@/components/shell/NeuralLink';
 
-// ── Style constants ──────────────────────────────────────────────────────────
+// ── Style constants ───────────────────────────────────────────────────────────
 
 const S = {
   base: 'var(--text-base)',
@@ -20,7 +18,7 @@ const S = {
   glow: 'text-glow',
 };
 
-// ── Blinking cursor ──────────────────────────────────────────────────────────
+// ── Blinking cursor ───────────────────────────────────────────────────────────
 
 const Cursor: React.FC = () => {
   const [v, setV] = useState(true);
@@ -37,13 +35,9 @@ const Cursor: React.FC = () => {
   );
 };
 
-// ── Connect sequence helpers ─────────────────────────────────────────────────
+// ── Connect sequence ──────────────────────────────────────────────────────────
 
-interface ConnectLine {
-  delay: number;
-  text: string;
-  bright?: boolean;
-}
+interface ConnectLine { delay: number; text: string; bright?: boolean; }
 
 function getConnectSequence(host: string, occupantCount: number): ConnectLine[] {
   const n = occupantCount;
@@ -80,7 +74,7 @@ const SOLO_SEQUENCE: Array<[number, React.ReactNode]> = [
   )],
 ];
 
-// ── Message renderers ────────────────────────────────────────────────────────
+// ── Message renderers ─────────────────────────────────────────────────────────
 
 const FRAGMENT_KEY_RE = /^>>\s*FRAGMENT KEY:/i;
 const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
@@ -94,6 +88,17 @@ function extractCopyText(line: string): string {
   const t = line.trim();
   if (FRAGMENT_KEY_RE.test(t)) return t.replace(/^>>\s*FRAGMENT KEY:\s*/i, '').trim();
   return t;
+}
+
+function legacyCopy(text: string, cb: () => void) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;opacity:0;';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  cb();
 }
 
 const CopyLine: React.FC<{ line: string }> = ({ line }) => {
@@ -117,17 +122,6 @@ const CopyLine: React.FC<{ line: string }> = ({ line }) => {
     </div>
   );
 };
-
-function legacyCopy(text: string, cb: () => void) {
-  const el = document.createElement('textarea');
-  el.value = text;
-  el.style.cssText = 'position:fixed;opacity:0;';
-  document.body.appendChild(el);
-  el.select();
-  document.execCommand('copy');
-  document.body.removeChild(el);
-  cb();
-}
 
 const N1XMessageLines: React.FC<{ text: string; isUnprompted?: boolean }> = ({ text, isUnprompted }) => {
   const lines = text.split('\n');
@@ -169,92 +163,27 @@ const SystemLine: React.FC<{ text: string }> = ({ text }) => (
   </div>
 );
 
-// ── Solo mode wrapper ─────────────────────────────────────────────────────────
-// When occupancy drops back to 1, we render the existing NeuralLink session.
 
-interface SoloInputResult {
-  output: React.ReactNode;
-  error?: boolean;
-  clearScreen?: boolean;
-}
+// ── TelnetConnected ───────────────────────────────────────────────────────────
+// Only rendered once handle is confirmed. All hooks live here unconditionally.
 
-// ── Main TelnetSession ────────────────────────────────────────────────────────
-
-interface TelnetSessionProps {
+interface TelnetConnectedProps {
   host: string;
+  handle: string;
 }
 
-export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
-  const argState = loadARGState();
+const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
+  const { messages, occupantCount, isConnected, send } = useAblyRoom(handle);
 
-  // ── Handle prompt phase ───────────────────────────────────────────────────
-  // Ask for a handle before connecting. Default is frequencyId.
-  const [handle, setHandle] = useState<string | null>(null);
-  const [handleInput, setHandleInput] = useState('');
-
-  const handleInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Auto-focus the handle input
-    setTimeout(() => handleInputRef.current?.focus(), 100);
-  }, []);
-
-  const submitHandle = useCallback(() => {
-    const trimmed = handleInput.trim().replace(/\s+/g, '_').slice(0, 16);
-    setHandle(trimmed || argState.frequencyId);
-  }, [handleInput, argState.frequencyId]);
-
-  // Show handle prompt before connecting
-  if (!handle) {
-    return (
-      <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
-        <div style={{ opacity: 0.6 }}>Connected to {host}.</div>
-        <div style={{ opacity: 0.6 }}>Escape character is {`'^]'`}.</div>
-        <div style={{ opacity: 0.4, marginTop: '0.5rem' }}>&nbsp;</div>
-        <div style={{ opacity: 0.7 }}>ghost-daemon[999]: frequency lock: 33hz</div>
-        <div style={{ opacity: 0.7 }}>ghost-daemon[999]: channel requires node identification</div>
-        <div style={{ opacity: 0.4 }}>&nbsp;</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ opacity: 0.6 }}>handle:</span>
-          <input
-            ref={handleInputRef}
-            value={handleInput}
-            onChange={e => setHandleInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') submitHandle(); }}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              color: 'var(--phosphor-green)',
-              fontFamily: 'inherit',
-              fontSize: 'inherit',
-              width: '12rem',
-              caretColor: 'var(--phosphor-green)',
-            }}
-            placeholder={argState.frequencyId}
-            maxLength={16}
-            spellCheck={false}
-            autoComplete="off"
-          />
-        </div>
-        <div style={{ opacity: 0.3, fontSize: '0.75rem', marginTop: '0.25rem' }}>
-          press enter to connect · leave blank for anonymous id
-        </div>
-      </div>
-    );
-  }
-
-  const { messages, occupantCount, daemonState, isConnected, send } = useAblyRoom(handle);
-
-  // Track what mode we're in
   const [mode, setMode] = useState<'connecting' | 'solo' | 'multi'>('connecting');
   const [showBoot, setShowBoot] = useState(true);
   const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
-  const [soloInput, setSoloInput] = useState<React.ReactNode | null>(null);
   const [multiInput, setMultiInput] = useState('');
   const isMountedRef = useRef(true);
+  const multiInputRef = useRef<HTMLInputElement>(null);
 
-  // Run solo boot sequence
+  // ── Boot sequences ────────────────────────────────────────────────────────
+
   const runSoloBoot = useCallback(() => {
     SOLO_SEQUENCE.forEach(([delay, content]) => {
       setTimeout(() => {
@@ -273,7 +202,6 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
     }, 2700);
   }, []);
 
-  // Run multiplayer boot sequence
   const runMultiBoot = useCallback((count: number) => {
     const seq = getConnectSequence(host, count);
     seq.forEach(({ delay, text, bright }) => {
@@ -295,30 +223,29 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
       setShowBoot(false);
       setChatMode(false);
       setMode('multi');
+      setTimeout(() => multiInputRef.current?.focus(), 100);
     }, lastDelay);
   }, [host]);
 
-  // On connect / occupancy change
+  // ── Connection effect ─────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!isConnected || mode !== 'connecting') return;
-
     if (occupantCount <= 1) {
-      // Solo mode
       runSoloBoot();
     } else {
-      // Multi mode
       runMultiBoot(occupantCount);
     }
   }, [isConnected, occupantCount, mode, runSoloBoot, runMultiBoot]);
 
-  // Live mode switches after boot
+  // ── Live mode switch ──────────────────────────────────────────────────────
+
   useEffect(() => {
     if (mode === 'connecting') return;
-
     if (occupantCount >= 2 && mode === 'solo') {
       setChatMode(false);
       setMode('multi');
-      // Add system message about mode switch
+      setTimeout(() => multiInputRef.current?.focus(), 100);
       eventBus.emit('shell:request-scroll');
     } else if (occupantCount <= 1 && mode === 'multi') {
       setChatMode(true);
@@ -327,7 +254,8 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
     }
   }, [occupantCount, mode]);
 
-  // Cleanup on unmount
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
@@ -335,23 +263,20 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
     };
   }, []);
 
-  // ── Solo input handler ──────────────────────────────────────────────────────
+  // ── Input handlers ────────────────────────────────────────────────────────
+
   const handleSoloInput = useCallback((input: string) => {
-    const result = handleChatInput(input);
-    setSoloInput(result.output);
-    return result;
+    return handleChatInput(input);
   }, []);
 
-  // ── Multi input handler ─────────────────────────────────────────────────────
   const handleMultiKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
     if (e.key === 'Enter') {
       const text = multiInput.trim();
       if (!text) return;
 
-      // Handle exit locally
       if (text === 'exit' || text === 'quit') {
         setChatMode(false);
-        setMode('connecting'); // effectively disconnected
         eventBus.emit('shell:push-output', {
           command: '',
           output: (
@@ -369,26 +294,18 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
     }
   }, [multiInput, send]);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
-      {/* Boot sequence lines */}
-      {bootLines.map((line, i) => (
-        <div key={i}>{line}</div>
-      ))}
+      {bootLines.map((line, i) => <div key={i}>{line}</div>)}
 
-      {/* Solo mode — render existing NeuralLink session */}
       {!showBoot && mode === 'solo' && (
-        <div>
-          <NeuralChatSession />
-        </div>
+        <NeuralChatSession />
       )}
 
-      {/* Multiplayer mode — render room messages */}
       {!showBoot && mode === 'multi' && (
         <div>
-          {/* Room header */}
           <div style={{ fontSize: S.base, lineHeight: 1.8, marginBottom: '0.5rem' }}>
             <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.25rem' }}>
               &gt;&gt; MESH_MODE_ACTIVE
@@ -398,14 +315,9 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
             </div>
           </div>
 
-          {/* Message feed */}
-          {messages.map((msg) => {
-            if (msg.isSystem) {
-              return <SystemLine key={msg.id} text={msg.text} />;
-            }
-            if (msg.isN1X) {
-              return <N1XMessageLines key={msg.id} text={msg.text} isUnprompted={msg.isUnprompted} />;
-            }
+          {messages.map((msg: RoomMsg) => {
+            if (msg.isSystem) return <SystemLine key={msg.id} text={msg.text} />;
+            if (msg.isN1X) return <N1XMessageLines key={msg.id} text={msg.text} isUnprompted={msg.isUnprompted} />;
             return (
               <UserMessageLine
                 key={msg.id}
@@ -416,10 +328,10 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
             );
           })}
 
-          {/* Inline input prompt */}
           <div style={{ display: 'flex', alignItems: 'center', marginTop: '0.5rem', fontSize: S.base }}>
             <span style={{ opacity: 0.4 }}>[{handle}] &gt;&gt;&nbsp;</span>
             <input
+              ref={multiInputRef}
               autoFocus
               value={multiInput}
               onChange={e => setMultiInput(e.target.value)}
@@ -434,27 +346,23 @@ export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
                 flex: 1,
                 caretColor: 'var(--phosphor-green)',
               }}
-              placeholder=""
             />
           </div>
-
-          {/* Disconnect hint */}
           <div style={{ opacity: 0.3, fontSize: S.base, marginTop: '0.25rem' }}>
             type <span className={S.glow}>exit</span> to disconnect
           </div>
         </div>
       )}
 
-      {/* Connecting state */}
-      {showBoot && (
-        <span style={{ opacity: 0.3 }}>
-          <Cursor />
-        </span>
-      )}
+      {showBoot && <span style={{ opacity: 0.3 }}><Cursor /></span>}
     </div>
   );
 };
 
-// ── Export handler for ShellInterface integration ────────────────────────────
-// This is used by handleChatInput when in solo mode within TelnetSession.
-// The existing NeuralLink handleChatInput is used directly — no changes needed.
+// ── TelnetSession (public export) ─────────────────────────────────────────────
+
+interface TelnetSessionProps { host: string; handle: string; }
+
+export const TelnetSession: React.FC<TelnetSessionProps> = ({ host, handle }) => {
+  return <TelnetConnected host={host} handle={handle} />;
+};
