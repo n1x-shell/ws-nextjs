@@ -1,7 +1,4 @@
-// Validates f010 keys.
-// Keys are 16-char hex strings delivered by N1X in the Ably channel
-// when daemonState transitions to 'exposed'.
-// The real gate is receiving the key from N1X — format check is the validation.
+import { validateF010Key } from '@/lib/f010Store';
 
 const F010_CONTENT = `this one doesn't have a title.
 
@@ -24,9 +21,9 @@ export async function POST(req: Request) {
 
     const normalized = key.toLowerCase().trim();
 
-    // 16-char hex — the key format N1X generates.
-    // The real gate is that N1X delivered this key in the Ably channel.
-    const isValid = /^[0-9a-f]{16}$/.test(normalized);
+    // Check module-level store (works when same warm instance served the /messages request)
+    // Fallback: accept any well-formed 16-char hex — the real gate is N1X delivering it in-channel
+    const isValid = validateF010Key(normalized) || /^[0-9a-f]{16}$/.test(normalized);
 
     return Response.json({
       valid: isValid,
