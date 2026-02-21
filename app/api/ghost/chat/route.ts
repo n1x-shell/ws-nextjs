@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       model: 'alibaba/qwen3-max',
       system: systemPrompt,
       messages,
-      maxTokens: unprompted ? 100 : 200,
+      maxOutputTokens: unprompted ? 100 : 200,
       temperature: unprompted ? 0.95 : 0.8,
     });
 
