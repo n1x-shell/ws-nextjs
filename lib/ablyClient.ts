@@ -155,12 +155,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     // ── Presence ────────────────────────────────────────────────────────────
 
-    const updatePresence = () => {
-      channel.presence.get((err, members) => {
-        if (err || !members || !isMountedRef.current) return;
+    const updatePresence = async () => {
+      try {
+        const members = await channel.presence.get();
+        if (!isMountedRef.current) return;
         handlesRef.current = members.map(m => m.clientId ?? 'unknown');
         setOccupantCount(members.length);
-      });
+      } catch { /* ignore */ }
     };
 
     channel.presence.subscribe(updatePresence);
