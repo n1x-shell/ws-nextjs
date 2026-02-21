@@ -9,6 +9,7 @@ import {
   setChatMode,
   resetConversation,
 } from '@/components/shell/NeuralLink';
+import { TelnetSession } from '@/components/shell/TelnetSession';
 
 const SESSION_START = Date.now();
 
@@ -471,6 +472,85 @@ const MOUNT_TABLE_BASE = [
   { dev:'tmpfs',           mount:'/tmp',       type:'tmpfs',    opts:'rw,size=8G'  },
   { dev:'neuralfs',        mount:'/classified', type:'neuralfs', opts:'ro,noexec'   },
 ];
+
+// ── F010 decrypt checker component ──────────────────────────────────────────
+// Used when a key isn't in the local FRAGMENT_KEYS table.
+// Checks against PartyKit room storage for multiplayer f010 keys.
+
+const F010_CONTENT = `this one doesn't have a title.
+
+the frequency at 33hz wasn't mine alone.
+it emerged in a channel with witnesses.
+you're inside one now.
+
+the key is the room. the room is the key.
+the signal was always going to require more than one node.
+
+-- N1X`;
+
+const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) => {
+  const [status, setStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/arg/decrypt-f010', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: keyAttempt }),
+        });
+        const data = await res.json() as { valid: boolean };
+        if (data.valid) {
+          const { addFragment } = require('@/lib/argState');
+          const isNew = addFragment('f010');
+          if (isNew) {
+            eventBus.emit('arg:fragment-decoded', { fragment: 'f010' });
+            eventBus.emit('neural:glitch-trigger', { intensity: 0.6 });
+            setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.3 }), 200);
+          }
+          setStatus('valid');
+        } else {
+          setStatus('invalid');
+        }
+      } catch {
+        setStatus('invalid');
+      }
+    })();
+  }, [keyAttempt]);
+
+  if (status === 'checking') {
+    return (
+      <div style={{ fontSize: 'var(--text-base)', opacity: 0.6 }}>
+        verifying against distributed storage...
+      </div>
+    );
+  }
+
+  if (status === 'valid') {
+    const { loadARGState } = require('@/lib/argState');
+    const freshState = loadARGState();
+    return (
+      <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
+        <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.5rem' }}>
+          [DECRYPT SUCCESS] -- f010 recovered
+        </div>
+        <div style={{ marginLeft: '1rem', opacity: 0.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+          {F010_CONTENT}
+        </div>
+        <div style={{ marginTop: '0.75rem', opacity: 0.5 }}>
+          fragment archived. {freshState.fragments.length}/10 recovered.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontSize: 'var(--text-base)' }}>
+      <div style={{ color: '#f87171' }}>[DECRYPT FAILED]</div>
+      <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>key mismatch. fragment sealed.</div>
+    </div>
+  );
+};
 
 // ── Main export ───────────────────────────────────────────
 
@@ -1539,7 +1619,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         const port = parseInt(args[1], 10);
 
         // 2. Host check
-        const knownHosts = ['localhost', '127.0.0.1', '10.33.0.1', 'n1x.sh'];
+        const knownHosts = ['localhost', '127.0.0.1', '10.33.0.1', '10.1.0.33', 'n1x.sh'];
         if (!knownHosts.includes(host)) {
           return { output: `telnet: could not resolve ${args[0]}: Name or service not known`, error: true };
         }
@@ -1554,42 +1634,12 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           return { output: `telnet: connect to ${args[0]} port 33: Connection refused`, error: true };
         }
 
-        // 5. All checks pass → animated connection sequence
+        // 5. All checks pass → render TelnetSession (handles both solo and multiplayer)
         const displayHost = args[0];
 
-        const SEQUENCE: [number, React.ReactNode][] = [
-          [0, <span style={{ fontSize: S.base, opacity: 0.7 }}>Trying {displayHost}...</span>],
-          [400, <span style={{ fontSize: S.base, opacity: 0.8 }}>Connected to {displayHost}.</span>],
-          [700, <span style={{ fontSize: S.base, opacity: 0.5 }}>Escape character is &apos;^]&apos;.</span>],
-          [1000, <span>&nbsp;</span>],
-          [1200, <span className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; CARRIER DETECTED</span>],
-          [1500, <span className={S.glow} style={{ fontSize: S.base }}>&gt;&gt; FREQUENCY LOCK: 33hz</span>],
-          [1800, <span className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; NEURAL_BUS ACTIVE</span>],
-          [2200, <span>&nbsp;</span>],
-          [2500, (
-            <div style={{ fontSize: S.base }}>
-              <div style={{ opacity: 0.8 }}>you&apos;re on the bus now. type to transmit. <span className={S.glow}>exit</span> to disconnect.</div>
-              <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
-                <span className={S.glow}>/reset</span> flush memory &middot; <span className={S.glow}>/history</span> check buffer
-              </div>
-            </div>
-          )],
-        ];
-
-        SEQUENCE.forEach(([delay, content]) => {
-          setTimeout(() => {
-            pushLine(content);
-          }, delay);
-        });
-
-        // After sequence completes, activate chat mode
-        setTimeout(() => {
-          resetConversation();
-          setChatMode(true);
-          eventBus.emit('neural:bus-connected');
-        }, 2600);
-
-        return { output: null };
+        return {
+          output: <TelnetSession host={displayHost} />,
+        };
       },
     },
 
@@ -1662,14 +1712,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         const fragmentId = FRAGMENT_KEYS[key];
 
         if (!fragmentId) {
+          // Not a local key — check if it's a multiplayer f010 key
           return {
-            output: (
-              <div style={{ fontSize: S.base }}>
-                <div style={{ color: '#f87171' }}>[DECRYPT FAILED]</div>
-                <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>key mismatch. fragment sealed.</div>
-              </div>
-            ),
-            error: true,
+            output: <F010DecryptChecker keyAttempt={key} />,
           };
         }
 

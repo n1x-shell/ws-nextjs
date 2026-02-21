@@ -96,6 +96,46 @@ export function isComplete(): boolean {
   return loadARGState().manifestComplete;
 }
 
+// ── Room sync ─────────────────────────────────────────────────────────────────
+
+export interface RoomArgExport {
+  trust: TrustLevel;
+  fragments: string[];
+  ghostUnlocked: boolean;
+  hiddenUnlocked: boolean;
+  manifestComplete: boolean;
+}
+
+export function exportForRoom(): RoomArgExport {
+  const state = loadARGState();
+  return {
+    trust: state.trust,
+    fragments: state.fragments,
+    ghostUnlocked: state.ghostUnlocked,
+    hiddenUnlocked: state.hiddenUnlocked,
+    manifestComplete: state.manifestComplete,
+  };
+}
+
+export interface RoomSync {
+  trust: TrustLevel;
+  fragments: string[];
+  ghostUnlocked?: boolean;
+}
+
+export function mergeFromRoom(sync: RoomSync): void {
+  const state = loadARGState();
+  const mergedTrust = Math.max(state.trust, sync.trust) as TrustLevel;
+  const mergedFragments = [...new Set([...state.fragments, ...sync.fragments])];
+  const manifestComplete = mergedFragments.length >= 10; // 9 solo + f010
+  updateARGState({
+    trust: mergedTrust,
+    fragments: mergedFragments,
+    ghostUnlocked: sync.ghostUnlocked || state.ghostUnlocked,
+    manifestComplete,
+  });
+}
+
 export function getTimeAway(lastContact: number): string {
   if (lastContact === 0) return 'first contact';
   const ms = Date.now() - lastContact;
