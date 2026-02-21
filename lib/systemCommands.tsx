@@ -1649,7 +1649,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             command: '',
             output: <TelnetSession host={displayHost} handle={handle} />,
           });
-        });
+        }, 'text');
 
         return { output: null };
       },

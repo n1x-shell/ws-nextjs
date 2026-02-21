@@ -248,8 +248,18 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     // ── Connection ────────────────────────────────────────────────────────────
 
+    // Fallback: if Ably doesn't connect within 5s, go solo
+    const connectionTimeout = setTimeout(() => {
+      if (!isMountedRef.current) return;
+      if (client.connection.state !== 'connected') {
+        setIsConnected(true);
+        setOccupantCount(1);
+      }
+    }, 5000);
+
     client.connection.on('connected', () => {
       if (!isMountedRef.current) return;
+      clearTimeout(connectionTimeout);
       setIsConnected(true);
       joinedAtRef.current = Date.now();
 
@@ -259,7 +269,14 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     client.connection.on('failed', () => {
       if (!isMountedRef.current) return;
-      // Ably failed (e.g. no API key) — fall back to solo mode
+      clearTimeout(connectionTimeout);
+      setIsConnected(true);
+      setOccupantCount(1);
+    });
+
+    client.connection.on('suspended', () => {
+      if (!isMountedRef.current) return;
+      clearTimeout(connectionTimeout);
       setIsConnected(true);
       setOccupantCount(1);
     });
@@ -274,6 +291,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     return () => {
       isMountedRef.current = false;
+      clearTimeout(connectionTimeout);
       clearInterval(unpromptedInterval);
 
       mergeFromRoom({
