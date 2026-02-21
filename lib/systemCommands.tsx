@@ -27,7 +27,7 @@ const S = {
 
 let currentUser: 'n1x' | 'root' = 'n1x';
 
-let _requestPrompt: ((label: string, onSubmit: (pw: string) => void) => void) | null = null;
+let _requestPrompt: ((label: string, onSubmit: (pw: string) => void, type?: string) => void) | null = null;
 
 export function setRequestPrompt(fn: ((label: string, onSubmit: (pw: string) => void) => void) | null) {
   _requestPrompt = fn;
