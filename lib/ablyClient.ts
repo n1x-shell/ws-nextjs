@@ -165,15 +165,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     let client: Ably.Realtime;
     try {
       client = new Ably.Realtime({
-        authCallback: async (_data: Ably.TokenParams, callback: (err: Ably.ErrorInfo | null, tokenRequest: Ably.TokenRequest | null) => void) => {
-          try {
-            const res = await fetch('/api/ably/token');
-            const tokenRequest = await res.json();
-            callback(null, tokenRequest);
-          } catch (err) {
-            callback(err as Ably.ErrorInfo, null);
-          }
-        },
+        authUrl: `${window.location.origin}/api/ably/token`,
         clientId: handle,
       });
     } catch {
