@@ -1,0 +1,5 @@
+{
+  "name": "n1x-ghost",
+  "main": "party/ghost-daemon.ts",
+  "compatibilityDate": "2024-01-01"
+}
