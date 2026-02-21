@@ -74,7 +74,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const triggerN1X = useCallback(async (text: string, triggerHandle: string) => {
     const recent = recentHistoryRef.current.slice(-8).join('\n');
     try {
-      await fetch('/api/ghost/message', {
+      await fetch('/api/ghost/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -98,7 +98,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     lastUnpromptedRef.current = Date.now();
     try {
-      await fetch('/api/ghost/message', {
+      await fetch('/api/ghost/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -129,7 +129,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setDaemonState('exposed');
 
       try {
-        await fetch('/api/ghost/message', {
+        await fetch('/api/ghost/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
