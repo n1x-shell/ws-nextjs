@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
-import { useAblyRoom, type RoomMsg } from '@/lib/ablyClient';
+import { useAblyRoom, type RoomMsg, type ConnectionStatus } from '@/lib/ablyClient';
 import {
   NeuralChatSession,
   handleChatInput,
@@ -164,6 +164,47 @@ const SystemLine: React.FC<{ text: string }> = ({ text }) => (
 );
 
 
+
+// ── Mesh connection status ────────────────────────────────────────────────────
+// Shown while Ably is connecting, before the boot sequence starts.
+
+const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
+  const [dots, setDots] = useState('');
+  const [showResult, setShowResult] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'connecting') {
+      setDots('');
+      setShowResult(true);
+      return;
+    }
+    const id = setInterval(() => {
+      setDots(d => d.length >= 3 ? '' : d + '.');
+    }, 400);
+    return () => clearInterval(id);
+  }, [status]);
+
+  return (
+    <div style={{ fontSize: S.base, lineHeight: 1.8, marginBottom: '0.5rem' }}>
+      <div style={{ opacity: 0.6 }}>
+        contacting N1X neural mesh
+        {status === 'connecting' && <span style={{ opacity: 0.8 }}>{dots}</span>}
+        {status !== 'connecting' && <span>...</span>}
+      </div>
+      {showResult && status === 'connected' && (
+        <div className={S.glow} style={{ opacity: 0.9 }}>connected.</div>
+      )}
+      {showResult && status === 'failed' && (
+        <>
+          <div style={{ opacity: 0.6, color: 'var(--phosphor-amber, #ffaa00)' }}>mesh network failure.</div>
+          <div style={{ opacity: 0.5 }}>solo mode enabled.</div>
+          <div className={S.glow} style={{ opacity: 0.9 }}>connected.</div>
+        </>
+      )}
+    </div>
+  );
+};
+
 // ── TelnetConnected ───────────────────────────────────────────────────────────
 // Only rendered once handle is confirmed. All hooks live here unconditionally.
 
@@ -173,7 +214,7 @@ interface TelnetConnectedProps {
 }
 
 const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
-  const { messages, occupantCount, isConnected, send } = useAblyRoom(handle);
+  const { messages, occupantCount, isConnected, connectionStatus, send } = useAblyRoom(handle);
 
   const [mode, setMode] = useState<'connecting' | 'solo' | 'multi'>('connecting');
   const [showBoot, setShowBoot] = useState(true);
@@ -298,6 +339,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
   return (
     <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+      <MeshStatus status={connectionStatus} />
       {bootLines.map((line, i) => <div key={i}>{line}</div>)}
 
       {!showBoot && mode === 'solo' && (
