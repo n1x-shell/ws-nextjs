@@ -1634,12 +1634,24 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           return { output: `telnet: connect to ${args[0]} port 33: Connection refused`, error: true };
         }
 
-        // 5. All checks pass → render TelnetSession (handles both solo and multiplayer)
+        // 5. All checks pass → ask for handle via terminal prompt, then connect
         const displayHost = args[0];
+        const { loadARGState: loadARG } = require('@/lib/argState');
+        const argState = loadARG();
 
-        return {
-          output: <TelnetSession host={displayHost} />,
-        };
+        if (!_requestPrompt) {
+          return { output: <TelnetSession host={displayHost} handle={argState.frequencyId} /> };
+        }
+
+        _requestPrompt(`handle [${argState.frequencyId}]:`, (input: string) => {
+          const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || argState.frequencyId;
+          eventBus.emit('shell:push-output', {
+            command: '',
+            output: <TelnetSession host={displayHost} handle={handle} />,
+          });
+        });
+
+        return { output: null };
       },
     },
 
