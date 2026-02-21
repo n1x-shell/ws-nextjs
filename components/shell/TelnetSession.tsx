@@ -214,7 +214,7 @@ interface TelnetConnectedProps {
 }
 
 const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
-  const { messages, occupantCount, isConnected, connectionStatus, send } = useAblyRoom(handle);
+  const { messages, occupantCount, isConnected, connectionStatus, ablyDebug, send } = useAblyRoom(handle);
 
   const [mode, setMode] = useState<'connecting' | 'solo' | 'multi'>('connecting');
   const [showBoot, setShowBoot] = useState(true);
@@ -340,6 +340,11 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   return (
     <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
       <MeshStatus status={connectionStatus} />
+      {connectionStatus !== 'connected' && (
+        <div style={{ opacity: 0.3, fontSize: '0.7rem', fontFamily: 'monospace', marginBottom: '0.25rem' }}>
+          ably: {ablyDebug}
+        </div>
+      )}
       {bootLines.map((line, i) => <div key={i}>{line}</div>)}
 
       {!showBoot && mode === 'solo' && (
