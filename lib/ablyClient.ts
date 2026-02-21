@@ -147,7 +147,23 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     if (!handle) return;
     isMountedRef.current = true;
 
-    const client = new Ably.Realtime({ authUrl: '/api/ably/token', clientId: handle });
+    // If no Ably configured, fall straight to solo mode
+    const ablyConfigured = typeof window !== 'undefined';
+    if (!ablyConfigured) {
+      setIsConnected(true);
+      setOccupantCount(1);
+      return;
+    }
+
+    let client: Ably.Realtime;
+    try {
+      client = new Ably.Realtime({ authUrl: '/api/ably/token', clientId: handle });
+    } catch {
+      // Ably init failed — fall back to solo
+      setIsConnected(true);
+      setOccupantCount(1);
+      return;
+    }
     clientRef.current = client;
 
     const channel = client.channels.get('port-33');
@@ -239,6 +255,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
       channel.presence.enter({ trust: exportForRoom().trust });
       setTimeout(updatePresence, 500);
+    });
+
+    client.connection.on('failed', () => {
+      if (!isMountedRef.current) return;
+      // Ably failed (e.g. no API key) — fall back to solo mode
+      setIsConnected(true);
+      setOccupantCount(1);
     });
 
     client.connection.on('disconnected', () => {
