@@ -4,7 +4,7 @@ import { executeCommand, getCurrentDirectory } from '@/lib/commandRegistry';
 import { eventBus } from '@/lib/eventBus';
 import { isChatMode } from '@/components/shell/NeuralLink';
 
-export type RequestPromptFn = (label: string, onSubmit: (value: string) => void) => void;
+export type RequestPromptFn = (label: string, onSubmit: (value: string) => void, type?: string) => void;
 
 // ── History buffer cap ───────────────────────────────────────────────────────
 // iOS Safari layout engine chokes past ~500 DOM nodes in a scrollable container.
