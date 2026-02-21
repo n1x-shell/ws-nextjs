@@ -39,6 +39,7 @@ interface UseAblyRoomResult {
   daemonState: DaemonState;
   isConnected: boolean;
   connectionStatus: ConnectionStatus;
+  ablyDebug: string;
   send: (text: string) => void;
 }
 
@@ -48,6 +49,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const [daemonState, setDaemonState]         = useState<DaemonState>('active');
   const [isConnected, setIsConnected]         = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  const [ablyDebug, setAblyDebug]               = useState('initializing...');
 
   const clientRef    = useRef<Ably.Realtime | null>(null);
   const channelRef   = useRef<Ably.RealtimeChannel | null>(null);
@@ -264,7 +266,9 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       }
     }, 30000);
 
+    client.connection.on('connecting', () => { setAblyDebug('connecting...'); });
     client.connection.on('connected', () => {
+      setAblyDebug('connected');
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
       setConnectionStatus('connected');
@@ -278,6 +282,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('failed', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
+      setAblyDebug('failed: ' + (client.connection.errorReason?.message ?? 'unknown'));
       setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
@@ -286,6 +291,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('suspended', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
+      setAblyDebug('suspended: ' + (client.connection.errorReason?.message ?? 'unknown'));
       setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
@@ -293,6 +299,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     client.connection.on('disconnected', () => {
       if (!isMountedRef.current) return;
+      setAblyDebug('disconnected: ' + (client.connection.errorReason?.message ?? ''));
       setIsConnected(false);
     });
 
@@ -315,5 +322,5 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     };
   }, [handle, addMessage, triggerN1X, maybeUnprompted, checkF010]);
 
-  return { messages, occupantCount, daemonState, isConnected, connectionStatus, send };
+  return { messages, occupantCount, daemonState, isConnected, connectionStatus, ablyDebug, send };
 }
