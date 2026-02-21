@@ -164,7 +164,18 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     let client: Ably.Realtime;
     try {
-      client = new Ably.Realtime({ authUrl: '/api/ably/token', clientId: handle });
+      client = new Ably.Realtime({
+        authCallback: async (_data: Ably.TokenParams, callback: (err: Ably.ErrorInfo | null, tokenRequest: Ably.TokenRequest | null) => void) => {
+          try {
+            const res = await fetch('/api/ably/token');
+            const tokenRequest = await res.json();
+            callback(null, tokenRequest);
+          } catch (err) {
+            callback(err as Ably.ErrorInfo, null);
+          }
+        },
+        clientId: handle,
+      });
     } catch {
       // Ably init failed — fall back to solo
       setConnectionStatus('failed');
