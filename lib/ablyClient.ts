@@ -165,7 +165,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     let client: Ably.Realtime;
     try {
       client = new Ably.Realtime({
-        authUrl: `${window.location.origin}/api/ably/token`,
+        authUrl: `${window.location.origin}/api/ably/token?clientId=${encodeURIComponent(handle)}`,
         clientId: handle,
       });
     } catch {
@@ -285,7 +285,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('failed', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
-      setAblyDebug('failed: ' + (client.connection.errorReason?.message ?? 'unknown'));
+      const err = client.connection.errorReason;
+      setAblyDebug(`failed [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'} | statusCode: ${err?.statusCode ?? '?'}`);
       setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
@@ -294,7 +295,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('suspended', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
-      setAblyDebug('suspended: ' + (client.connection.errorReason?.message ?? 'unknown'));
+      const err = client.connection.errorReason;
+      setAblyDebug(`suspended [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'}`);
       setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
@@ -302,7 +304,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     client.connection.on('disconnected', () => {
       if (!isMountedRef.current) return;
-      setAblyDebug('disconnected: ' + (client.connection.errorReason?.message ?? ''));
+      const err = client.connection.errorReason;
+      setAblyDebug(`disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`);
       setIsConnected(false);
     });
 
