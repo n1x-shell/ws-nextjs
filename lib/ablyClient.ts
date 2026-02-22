@@ -160,6 +160,10 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       client = new Ably.Realtime({
         authUrl: `${window.location.origin}/api/ably/token`,
         authMethod: 'GET',
+        // clientId must be set here so Ably includes it in the token exchange.
+        // Presence operations (enter/leave/get) require a clientId on the connection —
+        // without it, presence.enter() throws 40012 silently and occupant counts break.
+        clientId: handle,
       });
     } catch {
       // Ably init threw synchronously — go offline immediately
