@@ -6,6 +6,8 @@ import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
 import ShellInterface from '../shell/ShellInterface';
 import { eventBus } from '@/lib/eventBus';
+import { deactivateTelnet } from '@/lib/telnetBridge';
+import { isChatMode } from '@/components/shell/NeuralLink';
 
 export default function InterfaceLayer() {
   const { uptime, processorLoad, triggerGlitch } = useNeuralState();
@@ -260,7 +262,21 @@ export default function InterfaceLayer() {
                     onTouchStart={handleHover}
                     onClick={() => {
                       if (tab.cmd) {
-                        eventBus.emit('shell:execute-command', { command: tab.cmd });
+                        if (isChatMode()) {
+                          // Exit chat, clear screen, then run as shell command
+                          deactivateTelnet();
+                          setTimeout(() => {
+                            eventBus.emit('shell:clear');
+                            setTimeout(() => {
+                              eventBus.emit('shell:execute-command', { command: tab.cmd });
+                            }, 50);
+                          }, 50);
+                        } else {
+                          eventBus.emit('shell:clear');
+                          setTimeout(() => {
+                            eventBus.emit('shell:execute-command', { command: tab.cmd });
+                          }, 50);
+                        }
                       }
                       triggerGlitch();
                     }}
