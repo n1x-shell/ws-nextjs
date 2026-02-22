@@ -153,9 +153,9 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     if (!handle) return;
     isMountedRef.current = true;
 
-    // If no Ably configured, fall straight to solo mode
-    const ablyConfigured = typeof window !== 'undefined';
-    if (!ablyConfigured) {
+    const ablyKey = process.env.NEXT_PUBLIC_ABLY_API_KEY;
+    if (!ablyKey) {
+      setAblyDebug('NEXT_PUBLIC_ABLY_API_KEY not set — solo mode');
       setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
@@ -164,17 +164,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     let client: Ably.Realtime;
     try {
-      // Ably v2: authCallback must return a Promise, not use a callback param
-      client = new Ably.Realtime({
-        authCallback: async () => {
-          const res = await fetch('/api/ably/token');
-          if (!res.ok) throw new Error(`token endpoint ${res.status}`);
-          return res.json();
-        },
-        queryTime: true,   // sync with Ably server time — prevents 40104 clock skew errors
-      });
+      client = new Ably.Realtime(ablyKey);
     } catch {
-      // Ably init failed — fall back to solo
       setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
