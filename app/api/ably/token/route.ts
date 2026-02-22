@@ -11,6 +11,10 @@ export async function GET() {
     const rest = new Ably.Rest(apiKey);
     const tokenRequest = await rest.auth.createTokenRequest({
       capability: { ghost: ['publish', 'subscribe', 'presence', 'history'] },
+      // Wildcard clientId: lets the Realtime client set its own (the player handle).
+      // Without this, presence.enter() throws a 40012 "unable to enter presence
+      // channel without a client ID" error, silently breaking occupant counts.
+      clientId: '*',
       ttl: 3600 * 1000,
     });
     return Response.json(tokenRequest);
