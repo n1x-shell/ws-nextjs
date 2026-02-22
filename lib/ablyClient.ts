@@ -7,7 +7,6 @@ import { eventBus } from '@/lib/eventBus';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-// Multiplayer is always 'active'. 'exposed' fires when Option D thresholds hit.
 export type DaemonState = 'active' | 'exposed';
 
 export interface RoomMsg {
@@ -21,9 +20,13 @@ export interface RoomMsg {
 }
 
 // ── f010 thresholds (Option D) ────────────────────────────────────────────────
-const F010_MIN_TIME_MS   = 10 * 60 * 1000; // 10 minutes in room together
-const F010_MIN_MESSAGES  = 10;              // messages exchanged
-const F010_MIN_N1X_PINGS = 2;              // @n1x triggers sent
+const F010_MIN_TIME_MS   = 10 * 60 * 1000;
+const F010_MIN_MESSAGES  = 10;
+const F010_MIN_N1X_PINGS = 2;
+
+// How long to wait after presence.enter() before reading member count.
+// Ably presence propagates across the network in ~500-800ms. 1200ms is safe.
+const PRESENCE_SETTLE_MS = 1200;
 
 function makeId(): string {
   return Math.random().toString(36).slice(2, 9);
@@ -44,22 +47,22 @@ interface UseAblyRoomResult {
 }
 
 export function useAblyRoom(handle: string): UseAblyRoomResult {
-  const [messages, setMessages]           = useState<RoomMsg[]>([]);
-  const [occupantCount, setOccupantCount] = useState(0);
+  const [messages, setMessages]               = useState<RoomMsg[]>([]);
+  const [occupantCount, setOccupantCount]     = useState(0);
   const [daemonState, setDaemonState]         = useState<DaemonState>('active');
   const [isConnected, setIsConnected]         = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
-  const [ablyDebug, setAblyDebug]               = useState('initializing...');
+  const [ablyDebug, setAblyDebug]             = useState('initializing...');
 
   const clientRef    = useRef<Ably.Realtime | null>(null);
   const channelRef   = useRef<Ably.RealtimeChannel | null>(null);
   const isMountedRef = useRef(true);
 
-  // f010 tracking — session-scoped
-  const joinedAtRef      = useRef<number>(0);
-  const messageCountRef  = useRef(0);
-  const n1xPingCountRef  = useRef(0);
-  const f010IssuedRef    = useRef(false);
+  // f010 tracking
+  const joinedAtRef       = useRef<number>(0);
+  const messageCountRef   = useRef(0);
+  const n1xPingCountRef   = useRef(0);
+  const f010IssuedRef     = useRef(false);
   const lastUnpromptedRef = useRef(0);
 
   const handlesRef       = useRef<string[]>([]);
@@ -117,9 +120,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     } catch { /* fail silently */ }
   }, []);
 
-  // ── f010 threshold check (Option D) ──────────────────────────────────────
-  // Runs after every message sent by this client.
-  // Only this client triggers the API call — avoids duplicates.
+  // ── f010 threshold check ──────────────────────────────────────────────────
 
   const checkF010 = useCallback(async () => {
     if (f010IssuedRef.current) return;
@@ -153,47 +154,41 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     if (!handle) return;
     isMountedRef.current = true;
 
-    // If no Ably configured, fall straight to solo mode
-    const ablyConfigured = typeof window !== 'undefined';
-    if (!ablyConfigured) {
-      setConnectionStatus('failed');
-      setIsConnected(true);
-      setOccupantCount(1);
-      return;
-    }
-
     let client: Ably.Realtime;
+
     try {
       client = new Ably.Realtime({
         authUrl: `${window.location.origin}/api/ably/token`,
         authMethod: 'GET',
       });
     } catch {
-      // Ably init failed — fall back to solo
+      // Ably init threw synchronously — go offline immediately
       setConnectionStatus('failed');
       setIsConnected(true);
-      setOccupantCount(1);
       return;
     }
-    clientRef.current = client;
 
+    clientRef.current = client;
     const channel = client.channels.get('ghost');
     channelRef.current = channel;
 
-    // ── Presence ────────────────────────────────────────────────────────────
+    // ── Presence ──────────────────────────────────────────────────────────
 
     const updatePresence = async () => {
       try {
         const members = await channel.presence.get();
         if (!isMountedRef.current) return;
-        handlesRef.current = members.map(m => (m.data as { handle?: string })?.handle ?? m.clientId ?? 'unknown');
+        handlesRef.current = members.map(
+          m => (m.data as { handle?: string })?.handle ?? m.clientId ?? 'unknown'
+        );
         setOccupantCount(members.length);
       } catch { /* ignore */ }
     };
 
+    // Keep occupant count live after boot
     channel.presence.subscribe(updatePresence);
 
-    // ── Chat ─────────────────────────────────────────────────────────────────
+    // ── Chat ──────────────────────────────────────────────────────────────
 
     channel.subscribe('chat', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
@@ -213,7 +208,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         `  [${data.handle}]: ${data.text}`,
       ];
 
-      // Only count + check thresholds from this client's own sends
       if (data.handle === handle) {
         messageCountRef.current += 1;
 
@@ -227,7 +221,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       }
     });
 
-    // ── N1X ──────────────────────────────────────────────────────────────────
+    // ── N1X ───────────────────────────────────────────────────────────────
 
     channel.subscribe('n1x', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
@@ -242,7 +236,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       });
     });
 
-    // ── System ───────────────────────────────────────────────────────────────
+    // ── System ────────────────────────────────────────────────────────────
 
     channel.subscribe('system', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
@@ -257,39 +251,55 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       });
     });
 
-    // ── Connection ────────────────────────────────────────────────────────────
+    // ── Connection ────────────────────────────────────────────────────────
 
-    // Fallback: if Ably doesn't connect within 30s, go solo
     const connectionTimeout = setTimeout(() => {
       if (!isMountedRef.current) return;
       if (client.connection.state !== 'connected') {
+        setAblyDebug('timeout after 30s');
         setConnectionStatus('failed');
         setIsConnected(true);
-        setOccupantCount(1);
       }
     }, 30000);
 
-    client.connection.on('connecting', () => { setAblyDebug('connecting...'); });
+    client.connection.on('connecting', () => {
+      setAblyDebug('connecting...');
+    });
+
     client.connection.on('connected', () => {
-      setAblyDebug('connected');
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
+      setAblyDebug('connected');
       setConnectionStatus('connected');
-      setIsConnected(true);
       joinedAtRef.current = Date.now();
 
-      channel.presence.enter({ handle, trust: exportForRoom().trust });
-      setTimeout(updatePresence, 500);
+      // Enter presence, wait for it to propagate across the Ably network,
+      // then read the real member count BEFORE signalling isConnected.
+      // TelnetSession gates its boot decision on isConnected — delaying it
+      // here guarantees it sees the correct occupantCount and does not
+      // false-trigger offline mode because presence hadn't settled yet.
+      channel.presence
+        .enter({ handle, trust: exportForRoom().trust })
+        .then(() => new Promise<void>(resolve => setTimeout(resolve, PRESENCE_SETTLE_MS)))
+        .then(() => updatePresence())
+        .then(() => {
+          if (isMountedRef.current) setIsConnected(true);
+        })
+        .catch(() => {
+          // presence.enter failed — unblock the UI anyway
+          if (isMountedRef.current) setIsConnected(true);
+        });
     });
 
     client.connection.on('failed', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
       const err = client.connection.errorReason;
-      setAblyDebug(`failed [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'} | statusCode: ${err?.statusCode ?? '?'}`);
+      setAblyDebug(
+        `failed [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'} | status: ${err?.statusCode ?? '?'}`
+      );
       setConnectionStatus('failed');
       setIsConnected(true);
-      setOccupantCount(1);
     });
 
     client.connection.on('suspended', () => {
@@ -299,17 +309,16 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setAblyDebug(`suspended [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'}`);
       setConnectionStatus('failed');
       setIsConnected(true);
-      setOccupantCount(1);
     });
 
     client.connection.on('disconnected', () => {
       if (!isMountedRef.current) return;
       const err = client.connection.errorReason;
-      setAblyDebug(`disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`);
-      setIsConnected(false);
+      setAblyDebug(
+        `disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`
+      );
     });
 
-    // Unprompted check every 10 minutes
     const unpromptedInterval = setInterval(maybeUnprompted, 10 * 60 * 1000);
 
     return () => {
