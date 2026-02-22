@@ -18,7 +18,7 @@
     "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.3",
     "ai": "latest",
-    "ably": "latest",
+    "ably": "^2.6.0",
     "@mux/mux-player-react": "latest",
     "@mux/mux-audio-react": "latest"
   },
