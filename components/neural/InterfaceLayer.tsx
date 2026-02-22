@@ -6,6 +6,8 @@ import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
 import ShellInterface from '../shell/ShellInterface';
 import { eventBus } from '@/lib/eventBus';
+import { deactivateTelnet } from '@/lib/telnetBridge';
+import { isChatMode, setChatMode, resetConversation } from '@/components/shell/NeuralLink';
 
 export default function InterfaceLayer() {
   const { uptime, processorLoad, triggerGlitch } = useNeuralState();
@@ -260,7 +262,15 @@ export default function InterfaceLayer() {
                     onTouchStart={handleHover}
                     onClick={() => {
                       if (tab.cmd) {
-                        eventBus.emit('shell:execute-command', { command: tab.cmd });
+                        // Always fully reset to base shell state before running tab command.
+                        // Covers both Ably mesh mode and solo NeuralLink chat mode.
+                        deactivateTelnet();
+                        setChatMode(false);
+                        resetConversation();
+                        eventBus.emit('shell:clear');
+                        setTimeout(() => {
+                          eventBus.emit('shell:execute-command', { command: tab.cmd });
+                        }, 50);
                       }
                       triggerGlitch();
                     }}
