@@ -54,6 +54,7 @@ export function useShell() {
   }
 
   // Listen for shell:push-output from async command sequences (john, strace, nc, su, sudo, telnet)
+  // Listen for shell:clear to wipe history (e.g. when ably mesh mode activates)
   const pushOutputListenerAttached = useRef(false);
   if (!pushOutputListenerAttached.current) {
     eventBus.on('shell:push-output', (event) => {
@@ -74,6 +75,9 @@ export function useShell() {
           },
         ]),
       }));
+    });
+    eventBus.on('shell:clear', () => {
+      setState((prev) => ({ ...prev, history: [] }));
     });
     pushOutputListenerAttached.current = true;
   }
