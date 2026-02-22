@@ -1,307 +1,415 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
-import { useAblyRoom, DaemonState, RoomMessage } from '@/lib/ablyClient';
-import { telnetBridge } from '@/lib/telnetBridge';
+import { useAblyRoom, type RoomMsg, type ConnectionStatus } from '@/lib/ablyClient';
 import {
+  NeuralChatSession,
+  handleChatInput,
   setChatMode,
   resetConversation,
-  NeuralChatSession,
 } from '@/components/shell/NeuralLink';
-import { loadARGState } from '@/lib/argState';
 
-// ── Style constants (match systemCommands.tsx) ───────────────────────────────
+// ── Style constants ───────────────────────────────────────────────────────────
+
 const S = {
-  base:   'var(--text-base)',
+  base: 'var(--text-base)',
   header: 'var(--text-header)',
-  glow:   'text-glow',
+  glow: 'text-glow',
 };
 
-function pushLine(output: React.ReactNode) {
-  eventBus.emit('shell:push-output', { command: '', output });
-}
+// ── Blinking cursor ───────────────────────────────────────────────────────────
 
-// ── Formatted message renderers ──────────────────────────────────────────────
-
-function renderRoomMsg(msg: RoomMessage): React.ReactNode {
-  const key = msg.id;
-
-  if (msg.isSystem) {
-    return (
-      <div key={key} style={{ fontSize: S.base, opacity: 0.45, fontStyle: 'italic' }}>
-        {msg.text}
-      </div>
-    );
-  }
-
-  if (msg.isUnprompted) {
-    return (
-      <div key={key} style={{ fontSize: S.base }}>
-        <span style={{ opacity: 0.4 }}>[UNFILTERED] ghost-daemon[999]: </span>
-        <span className={S.glow} style={{ opacity: 0.9 }}>{msg.text}</span>
-      </div>
-    );
-  }
-
-  if (msg.isN1X) {
-    // Fragment key lines get copyable treatment
-    const lines = msg.text.split('\n');
-    return (
-      <div key={key} style={{ fontSize: S.base }}>
-        {lines.map((line, i) => {
-          if (/^>>\s*FRAGMENT KEY:/i.test(line.trim())) {
-            return (
-              <CopyableLine key={i} line={line.trim()} />
-            );
-          }
-          return (
-            <div key={i}>
-              {i === 0 && (
-                <span className={S.glow} style={{ fontSize: S.header, marginRight: '0.5rem' }}>
-                  [N1X] &gt;&gt;
-                </span>
-              )}
-              <span style={{ opacity: 0.9 }}>{line}</span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  // Normal user message
+const Cursor: React.FC = () => {
+  const [v, setV] = useState(true);
+  useEffect(() => {
+    const id = setInterval(() => setV(p => !p), 400);
+    return () => clearInterval(id);
+  }, []);
   return (
-    <div key={key} style={{ fontSize: S.base }}>
-      <span style={{ opacity: 0.55, marginRight: '0.5rem' }}>[{msg.handle}] &gt;&gt;</span>
-      <span style={{ opacity: 0.9 }}>{msg.text}</span>
-    </div>
+    <span style={{
+      display: 'inline-block', width: 6, height: 12,
+      background: v ? 'var(--phosphor-green)' : 'transparent',
+      marginLeft: 4, verticalAlign: 'middle',
+    }} />
   );
+};
+
+// ── Connect sequence ──────────────────────────────────────────────────────────
+
+interface ConnectLine { delay: number; text: string; bright?: boolean; }
+
+function getConnectSequence(host: string, occupantCount: number): ConnectLine[] {
+  const n = occupantCount;
+  return [
+    { delay: 0,    text: `Trying ${host}...` },
+    { delay: 400,  text: `Connected to ${host}.` },
+    { delay: 700,  text: `Escape character is '^]'.` },
+    { delay: 900,  text: '' },
+    { delay: 1100, text: 'ghost-daemon[999]: connection established' },
+    { delay: 1400, text: 'ghost-daemon[999]: frequency lock: 33hz', bright: true },
+    { delay: 1700, text: 'ghost-daemon[999]: signal integrity: NOMINAL' },
+    { delay: 2000, text: `ghost-daemon[999]: ${n} node(s) on channel` },
+    { delay: 2300, text: 'ghost-daemon[999]: classification level: ACTIVE', bright: true },
+    { delay: 2600, text: 'ghost-daemon[999]: this channel is being monitored' },
+  ];
 }
 
-// ── Copyable fragment key line ───────────────────────────────────────────────
-const CopyableLine: React.FC<{ line: string }> = ({ line }) => {
-  const [copied, setCopied] = useState(false);
-  const keyText = line.replace(/^>>\s*FRAGMENT KEY:\s*/i, '').trim();
+const SOLO_SEQUENCE: Array<[number, React.ReactNode]> = [
+  [0,    <span key="s0" style={{ fontSize: S.base, opacity: 0.7 }}>Trying n1x.sh...</span>],
+  [400,  <span key="s1" style={{ fontSize: S.base, opacity: 0.8 }}>Connected to n1x.sh.</span>],
+  [700,  <span key="s2" style={{ fontSize: S.base, opacity: 0.5 }}>Escape character is &apos;^]&apos;.</span>],
+  [1000, <span key="s3">&nbsp;</span>],
+  [1200, <span key="s4" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; CARRIER DETECTED</span>],
+  [1500, <span key="s5" className={S.glow} style={{ fontSize: S.base }}>&gt;&gt; FREQUENCY LOCK: 33hz</span>],
+  [1800, <span key="s6" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; NEURAL_BUS ACTIVE</span>],
+  [2200, <span key="s7">&nbsp;</span>],
+  [2500, (
+    <div key="s8" style={{ fontSize: S.base }}>
+      <div style={{ opacity: 0.8 }}>you&apos;re on the bus now. type to transmit. <span className={S.glow}>exit</span> to disconnect.</div>
+      <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
+        <span className={S.glow}>/reset</span> flush memory &middot; <span className={S.glow}>/history</span> check buffer
+      </div>
+    </div>
+  )],
+];
 
+// ── Message renderers ─────────────────────────────────────────────────────────
+
+const FRAGMENT_KEY_RE = /^>>\s*FRAGMENT KEY:/i;
+const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
+
+function isCopyableLine(line: string): boolean {
+  const t = line.trim();
+  return BASE64_RE.test(t) || FRAGMENT_KEY_RE.test(t);
+}
+
+function extractCopyText(line: string): string {
+  const t = line.trim();
+  if (FRAGMENT_KEY_RE.test(t)) return t.replace(/^>>\s*FRAGMENT KEY:\s*/i, '').trim();
+  return t;
+}
+
+function legacyCopy(text: string, cb: () => void) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;opacity:0;';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  cb();
+}
+
+const CopyLine: React.FC<{ line: string }> = ({ line }) => {
+  const [copied, setCopied] = useState(false);
   const handleCopy = () => {
+    const text = extractCopyText(line);
     const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1500); };
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(keyText).then(done).catch(() => done());
+      navigator.clipboard.writeText(text).then(done).catch(() => legacyCopy(text, done));
     } else {
-      done();
+      legacyCopy(text, done);
     }
   };
-
   return (
-    <div
-      onClick={handleCopy}
-      style={{
-        cursor: 'pointer',
-        display: 'inline-block',
-        marginTop: '0.25rem',
-        padding: '0.1rem 0.4rem',
-        border: '1px solid var(--phosphor-green)',
-        borderRadius: '2px',
-        opacity: 0.9,
-        fontSize: S.base,
-      }}
-      title="tap to copy key"
-    >
-      <span className={S.glow}>&gt;&gt; FRAGMENT KEY: </span>
-      <span>{keyText}</span>
-      {copied && <span style={{ opacity: 0.5, marginLeft: '0.5rem' }}>[copied]</span>}
+    <div style={{ marginLeft: '1rem', lineHeight: 1.8, cursor: 'pointer' }} onClick={handleCopy} title="tap to copy">
+      <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
+      <span style={{ opacity: 0.9, borderBottom: '1px dashed rgba(51,255,51,0.4)', paddingBottom: 1, wordBreak: 'break-all' }}>{line}</span>
+      <span style={{ opacity: copied ? 0.8 : 0.3, fontSize: '0.75em', marginLeft: '0.5rem', transition: 'opacity 0.2s', color: copied ? 'var(--phosphor-green)' : undefined }}>
+        {copied ? 'copied' : '⎘'}
+      </span>
     </div>
   );
 };
 
-// ── Connect sequences (daemonState-aware) ────────────────────────────────────
+const N1XMessageLines: React.FC<{ text: string; isUnprompted?: boolean }> = ({ text, isUnprompted }) => {
+  const lines = text.split('\n');
+  return (
+    <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+      {isUnprompted && (
+        <div style={{ opacity: 0.4, fontSize: S.base, marginBottom: '0.25rem' }}>
+          [UNFILTERED] ghost-daemon[999]:
+        </div>
+      )}
+      <div style={{ marginLeft: '1rem', opacity: 0.4, lineHeight: 1.8 }}>
+        <span className={S.glow}>[N1X] &gt;&gt;</span>
+      </div>
+      {lines.map((line, i) =>
+        isCopyableLine(line) ? (
+          <CopyLine key={i} line={line} />
+        ) : (
+          <div key={i} style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+            <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
+            <span style={{ opacity: 0.9 }}>{line}</span>
+          </div>
+        )
+      )}
+    </div>
+  );
+};
 
-function getConnectSequence(host: string, daemonState: DaemonState, occupancy: number): [number, React.ReactNode][] {
-  const nodeCount = occupancy;
+const UserMessageLine: React.FC<{ handle: string; text: string; isSelf: boolean }> = ({ handle, text, isSelf }) => (
+  <div style={{ fontSize: S.base, lineHeight: 1.8, opacity: isSelf ? 0.6 : 0.9 }}>
+    <span className={isSelf ? '' : S.glow} style={{ opacity: 0.7 }}>[{handle}]</span>
+    <span style={{ opacity: 0.5 }}> &gt;&gt; </span>
+    <span>{text}</span>
+  </div>
+);
 
-  const base: [number, React.ReactNode][] = [
-    [0, <span key="t1" style={{ fontSize: S.base, opacity: 0.7 }}>Trying {host}...</span>],
-    [400, <span key="t2" style={{ fontSize: S.base, opacity: 0.8 }}>Connected to {host}.</span>],
-    [700, <span key="t3" style={{ fontSize: S.base, opacity: 0.4 }}>Escape character is &apos;^]&apos;.</span>],
-    [900, <span key="t4">&nbsp;</span>],
-  ];
+const SystemLine: React.FC<{ text: string }> = ({ text }) => (
+  <div style={{ fontSize: S.base, lineHeight: 1.8, opacity: 0.4, fontStyle: 'italic' }}>
+    {text}
+  </div>
+);
 
-  if (daemonState === 'dormant') {
-    return [
-      ...base,
-      [1100, <span key="d1" style={{ fontSize: S.base, opacity: 0.6 }}>ghost-daemon[999]: connection from unknown</span>],
-      [1400, <span key="d2" style={{ fontSize: S.base, opacity: 0.5 }}>ghost-daemon[999]: frequency check... 33hz</span>],
-      [1700, <span key="d3" style={{ fontSize: S.base, opacity: 0.4 }}>ghost-daemon[999]: signal integrity: LOW</span>],
-      [2000, <span key="d4" style={{ fontSize: S.base, opacity: 0.4 }}>ghost-daemon[999]: {nodeCount} node(s) on channel</span>],
-    ];
-  }
 
-  if (daemonState === 'aware') {
-    return [
-      ...base,
-      [1100, <span key="a1" style={{ fontSize: S.base, opacity: 0.7 }}>ghost-daemon[999]: connection from unknown</span>],
-      [1400, <span key="a2" style={{ fontSize: S.base, opacity: 0.6 }}>ghost-daemon[999]: frequency check... 33hz confirmed</span>],
-      [1700, <span key="a3" style={{ fontSize: S.base, opacity: 0.6 }}>ghost-daemon[999]: signal integrity: PARTIAL</span>],
-      [2000, <span key="a4" style={{ fontSize: S.base, opacity: 0.6 }}>ghost-daemon[999]: {nodeCount} node(s) on channel</span>],
-      [2300, <span key="a5" style={{ fontSize: S.base, opacity: 0.5 }}>ghost-daemon[999]: substrate activity detected</span>],
-    ];
-  }
 
-  if (daemonState === 'active') {
-    return [
-      ...base,
-      [1100, <span key="ac1" style={{ fontSize: S.base, opacity: 0.8 }}>ghost-daemon[999]: connection from unknown</span>],
-      [1400, <span key="ac2" style={{ fontSize: S.base, opacity: 0.8 }}>ghost-daemon[999]: frequency lock: 33hz</span>],
-      [1700, <span key="ac3" style={{ fontSize: S.base, opacity: 0.7 }}>ghost-daemon[999]: signal integrity: NOMINAL</span>],
-      [2000, <span key="ac4" style={{ fontSize: S.base, opacity: 0.7 }}>ghost-daemon[999]: {nodeCount} node(s) on channel</span>],
-      [2300, <span key="ac5" style={{ fontSize: S.base, opacity: 0.6 }}>ghost-daemon[999]: classification level: ACTIVE</span>],
-      [2600, <span key="ac6" style={{ fontSize: S.base, opacity: 0.5 }}>ghost-daemon[999]: this channel is being monitored</span>],
-    ];
-  }
+// ── Mesh connection status ────────────────────────────────────────────────────
+// Shown while Ably is connecting, before the boot sequence starts.
 
-  // exposed
-  return [
-    ...base,
-    [1100, <span key="e1" className={S.glow} style={{ fontSize: S.base }}>ghost-daemon[999]: connection from unknown</span>],
-    [1400, <span key="e2" className={S.glow} style={{ fontSize: S.base }}>ghost-daemon[999]: frequency: 33hz -- LOCKED</span>],
-    [1700, <span key="e3" className={S.glow} style={{ fontSize: S.base }}>ghost-daemon[999]: signal integrity: FULL</span>],
-    [2000, <span key="e4" className={S.glow} style={{ fontSize: S.base }}>ghost-daemon[999]: {nodeCount} node(s) on channel</span>],
-    [2300, <span key="e5" className={S.glow} style={{ fontSize: S.base }}>ghost-daemon[999]: /ghost -- DECRYPTED</span>],
-    [2600, <span key="e6" className={S.glow} style={{ fontSize: S.header }}>ghost-daemon[999]: the channel is open</span>],
-  ];
-}
+const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
+  const [dots, setDots] = useState('');
+  const [showResult, setShowResult] = useState(false);
 
-// ── TelnetSession ────────────────────────────────────────────────────────────
-// Headless orchestration component — renders null, pushes everything via
-// eventBus shell:push-output. Manages solo/multiplayer switching reactively.
-
-interface TelnetSessionProps {
-  host: string;
-}
-
-export const TelnetSession: React.FC<TelnetSessionProps> = ({ host }) => {
-  // Derive handle from argState frequencyId
-  const argState = loadARGState();
-  const handle = `node-${argState.frequencyId}`;
-  const trust = argState.trust;
-
-  const { messages, occupantCount, daemonState, isConnected, send, disconnect } = useAblyRoom({
-    handle,
-    trust,
-  });
-
-  // Track what we've already pushed to shell history
-  const pushedMsgIds = useRef<Set<string>>(new Set());
-  const sequenceFired = useRef(false);
-  const prevOccupantCount = useRef(0);
-  const prevIsConnected = useRef(false);
-  const isMultiplayerRef = useRef(false);
-  const prevDaemonState = useRef<DaemonState>('dormant');
-
-  // ── Fire connect sequence once connected ───────────────────────────────────
   useEffect(() => {
-    if (!isConnected || sequenceFired.current) return;
-    sequenceFired.current = true;
-
-    const seq = getConnectSequence(host, daemonState, occupantCount);
-    const maxDelay = seq.reduce((m, [d]) => Math.max(m, d), 0);
-
-    seq.forEach(([delay, content]) => {
-      setTimeout(() => pushLine(content), delay);
-    });
-
-    // After sequence: show handle + instructions, then activate solo/multi
-    setTimeout(() => {
-      pushLine(
-        <div style={{ fontSize: S.base }}>
-          <div style={{ opacity: 0.5, marginBottom: '0.25rem' }}>
-            ghost-daemon[999]: handle assigned -- <span className={S.glow}>{handle}</span>
-          </div>
-          <div style={{ opacity: 0.4 }}>
-            type to transmit &nbsp;·&nbsp; <span className={S.glow}>exit</span> to disconnect
-          </div>
-        </div>
-      );
-    }, maxDelay + 200);
-
-    setTimeout(() => {
-      if (occupantCount <= 1) {
-        // Solo mode
-        pushLine(<NeuralChatSession />);
-        resetConversation();
-        setChatMode(true);
-      }
-      // Multiplayer handled by occupancy effect below
-    }, maxDelay + 400);
-
-  }, [isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── React to occupancy changes ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!sequenceFired.current) return;
-
-    const prev = prevOccupantCount.current;
-    const curr = occupantCount;
-    prevOccupantCount.current = curr;
-
-    const wasMulti = prev >= 2;
-    const isMulti = curr >= 2;
-
-    if (!wasMulti && isMulti) {
-      // Solo → Multiplayer
-      isMultiplayerRef.current = true;
-      setChatMode(false);
-      telnetBridge.activate(send, () => {
-        // Disconnect callback
-        telnetBridge.deactivate();
-        setChatMode(false);
-        disconnect();
-        pushLine(
-          <div style={{ fontSize: S.base, opacity: 0.5 }}>
-            &gt;&gt; CHANNEL DISCONNECTED
-          </div>
-        );
-      });
-      pushLine(
-        <div style={{ fontSize: S.base, opacity: 0.6, fontStyle: 'italic' }}>
-          ghost-daemon[999]: additional node detected -- switching to mesh mode
-        </div>
-      );
-    } else if (wasMulti && !isMulti && curr === 1) {
-      // Multiplayer → Solo
-      isMultiplayerRef.current = false;
-      telnetBridge.deactivate();
-      setChatMode(true);
-      resetConversation();
-      pushLine(
-        <div style={{ fontSize: S.base, opacity: 0.6, fontStyle: 'italic' }}>
-          ghost-daemon[999]: mesh collapsed to single node -- returning to direct link
-        </div>
-      );
-      pushLine(<NeuralChatSession />);
+    if (status !== 'connecting') {
+      setDots('');
+      setShowResult(true);
+      return;
     }
-  }, [occupantCount, send, disconnect]);
+    const id = setInterval(() => {
+      setDots(d => d.length >= 3 ? '' : d + '.');
+    }, 400);
+    return () => clearInterval(id);
+  }, [status]);
 
-  // ── Push new room messages to shell history ────────────────────────────────
-  useEffect(() => {
-    messages.forEach(msg => {
-      if (pushedMsgIds.current.has(msg.id)) return;
-      pushedMsgIds.current.add(msg.id);
-      pushLine(renderRoomMsg(msg));
+  return (
+    <div style={{ fontSize: S.base, lineHeight: 1.8, marginBottom: '0.5rem' }}>
+      <div style={{ opacity: 0.6 }}>
+        contacting N1X neural mesh
+        {status === 'connecting' && <span style={{ opacity: 0.8 }}>{dots}</span>}
+        {status !== 'connecting' && <span>...</span>}
+      </div>
+      {showResult && status === 'connected' && (
+        <div className={S.glow} style={{ opacity: 0.9 }}>connected.</div>
+      )}
+      {showResult && status === 'failed' && (
+        <>
+          <div style={{ opacity: 0.6, color: 'var(--phosphor-amber, #ffaa00)' }}>mesh network failure.</div>
+          <div style={{ opacity: 0.5 }}>solo mode enabled.</div>
+          <div className={S.glow} style={{ opacity: 0.9 }}>connected.</div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── TelnetConnected ───────────────────────────────────────────────────────────
+// Only rendered once handle is confirmed. All hooks live here unconditionally.
+
+interface TelnetConnectedProps {
+  host: string;
+  handle: string;
+}
+
+const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
+  const { messages, occupantCount, isConnected, connectionStatus, ablyDebug, send } = useAblyRoom(handle);
+
+  const [mode, setMode] = useState<'connecting' | 'solo' | 'multi'>('connecting');
+  const [showBoot, setShowBoot] = useState(true);
+  const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
+  const [multiInput, setMultiInput] = useState('');
+  const isMountedRef = useRef(true);
+  const multiInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Boot sequences ────────────────────────────────────────────────────────
+
+  const runSoloBoot = useCallback(() => {
+    SOLO_SEQUENCE.forEach(([delay, content]) => {
+      setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setBootLines(prev => [...prev, content]);
+        eventBus.emit('shell:request-scroll');
+      }, delay as number);
     });
-  }, [messages]);
+    setTimeout(() => {
+      if (!isMountedRef.current) return;
+      setShowBoot(false);
+      resetConversation();
+      setChatMode(true);
+      setMode('solo');
+      eventBus.emit('neural:bus-connected');
+    }, 2700);
+  }, []);
 
-  // ── Cleanup on unmount ─────────────────────────────────────────────────────
+  const runMultiBoot = useCallback((count: number) => {
+    const seq = getConnectSequence(host, count);
+    seq.forEach(({ delay, text, bright }) => {
+      setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setBootLines(prev => [
+          ...prev,
+          <div key={`mb-${delay}`} style={{ fontSize: S.base, lineHeight: 1.8, opacity: bright ? 1 : 0.6 }}
+               className={bright ? S.glow : ''}>
+            {text || '\u00a0'}
+          </div>,
+        ]);
+        eventBus.emit('shell:request-scroll');
+      }, delay);
+    });
+    const lastDelay = Math.max(...seq.map(s => s.delay)) + 400;
+    setTimeout(() => {
+      if (!isMountedRef.current) return;
+      setShowBoot(false);
+      setChatMode(false);
+      setMode('multi');
+      setTimeout(() => multiInputRef.current?.focus(), 100);
+    }, lastDelay);
+  }, [host]);
+
+  // ── Connection effect ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!isConnected || mode !== 'connecting') return;
+    if (occupantCount <= 1) {
+      runSoloBoot();
+    } else {
+      runMultiBoot(occupantCount);
+    }
+  }, [isConnected, occupantCount, mode, runSoloBoot, runMultiBoot]);
+
+  // ── Live mode switch ──────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (mode === 'connecting') return;
+    if (occupantCount >= 2 && mode === 'solo') {
+      setChatMode(false);
+      setMode('multi');
+      setTimeout(() => multiInputRef.current?.focus(), 100);
+      eventBus.emit('shell:request-scroll');
+    } else if (occupantCount <= 1 && mode === 'multi') {
+      setChatMode(true);
+      setMode('solo');
+      eventBus.emit('shell:request-scroll');
+    }
+  }, [occupantCount, mode]);
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+
   useEffect(() => {
     return () => {
-      telnetBridge.deactivate();
+      isMountedRef.current = false;
       setChatMode(false);
     };
   }, []);
 
-  // Headless — renders nothing
-  return null;
+  // ── Input handlers ────────────────────────────────────────────────────────
+
+  const handleSoloInput = useCallback((input: string) => {
+    return handleChatInput(input);
+  }, []);
+
+  const handleMultiKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      const text = multiInput.trim();
+      if (!text) return;
+
+      if (text === 'exit' || text === 'quit') {
+        setChatMode(false);
+        eventBus.emit('shell:push-output', {
+          command: '',
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <div style={{ opacity: 0.5 }}>&gt;&gt; NEURAL_BUS DISCONNECTED</div>
+              <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>Connection closed by foreign host.</div>
+            </div>
+          ),
+        });
+        return;
+      }
+
+      send(text);
+      setMultiInput('');
+    }
+  }, [multiInput, send]);
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  return (
+    <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+      <MeshStatus status={connectionStatus} />
+      {connectionStatus !== 'connected' && (
+        <div style={{ opacity: 0.3, fontSize: '0.7rem', fontFamily: 'monospace', marginBottom: '0.25rem' }}>
+          ably: {ablyDebug}
+        </div>
+      )}
+      {bootLines.map((line, i) => <div key={i}>{line}</div>)}
+
+      {!showBoot && mode === 'solo' && (
+        <NeuralChatSession />
+      )}
+
+      {!showBoot && mode === 'multi' && (
+        <div>
+          <div style={{ fontSize: S.base, lineHeight: 1.8, marginBottom: '0.5rem' }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.25rem' }}>
+              &gt;&gt; MESH_MODE_ACTIVE
+            </div>
+            <div style={{ opacity: 0.5 }}>
+              {occupantCount} node(s) on channel &middot; 33hz &middot; <span style={{ opacity: 0.4 }}>@n1x</span> to address the daemon
+            </div>
+          </div>
+
+          {messages.map((msg: RoomMsg) => {
+            if (msg.isSystem) return <SystemLine key={msg.id} text={msg.text} />;
+            if (msg.isN1X) return <N1XMessageLines key={msg.id} text={msg.text} isUnprompted={msg.isUnprompted} />;
+            return (
+              <UserMessageLine
+                key={msg.id}
+                handle={msg.handle}
+                text={msg.text}
+                isSelf={msg.handle === handle}
+              />
+            );
+          })}
+
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: '0.5rem', fontSize: S.base }}>
+            <span style={{ opacity: 0.4 }}>[{handle}] &gt;&gt;&nbsp;</span>
+            <input
+              ref={multiInputRef}
+              autoFocus
+              value={multiInput}
+              onChange={e => setMultiInput(e.target.value)}
+              onKeyDown={handleMultiKeyDown}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'var(--phosphor-green)',
+                fontSize: S.base,
+                fontFamily: 'inherit',
+                flex: 1,
+                caretColor: 'var(--phosphor-green)',
+              }}
+            />
+          </div>
+          <div style={{ opacity: 0.3, fontSize: S.base, marginTop: '0.25rem' }}>
+            type <span className={S.glow}>exit</span> to disconnect
+          </div>
+        </div>
+      )}
+
+      {showBoot && <span style={{ opacity: 0.3 }}><Cursor /></span>}
+    </div>
+  );
 };
 
-export default TelnetSession;
+// ── TelnetSession (public export) ─────────────────────────────────────────────
+
+interface TelnetSessionProps { host: string; handle: string; }
+
+export const TelnetSession: React.FC<TelnetSessionProps> = ({ host, handle }) => {
+  return <TelnetConnected host={host} handle={handle} />;
+};
