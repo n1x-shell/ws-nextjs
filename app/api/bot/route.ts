@@ -36,16 +36,6 @@ async function sha256Hex(input: string): Promise<string> {
 // ── Request body ──────────────────────────────────────────────────────────────
 
 interface BotRequest {
-  // Welcome on presence enter
-  welcome?:       boolean;
-  welcomeHandle?: string;
-  welcomeDedup?:  string;
-
-  // Goodbye on presence leave
-  goodbye?:       boolean;
-  goodbyeHandle?: string;
-  goodbyeDedup?:  string;
-
   // @n1x trigger
   messageId?:    string;   // stable UUID from client — used for dedup
   text?:         string;
@@ -75,68 +65,8 @@ export async function POST(req: Request) {
   const ch    = ably.channels.get('ghost');
   const roomId = 'ghost';
 
-  // ── Goodbye on presence leave ─────────────────────────────────────────────
-  if (body.goodbye && body.goodbyeHandle) {
-    const dedupKey = `ghost:goodbye:${body.goodbyeDedup ?? body.goodbyeHandle}`;
-    const stored = await redis.set(dedupKey, 1, { nx: true, ex: 30 });
-    if (stored === null) return Response.json({ ok: true, deduped: true });
-
-    const leavingHandle = body.goodbyeHandle;
-    const lines = [
-      `signal lost, ${leavingHandle}.`,
-      `${leavingHandle}. frequency fading.`,
-      `${leavingHandle} disconnected.`,
-      `${leavingHandle}. the mesh closes.`,
-      `node ${leavingHandle} offline.`,
-      `${leavingHandle}. until next time.`,
-      `${leavingHandle} gone dark.`,
-      `33hz holds. ${leavingHandle} doesn't.`,
-      `${leavingHandle}. port 33 waits.`,
-    ];
-    const text = lines[Math.floor(Math.random() * lines.length)];
-
-    await ch.publish('bot.message', {
-      roomId,
-      messageId: makeId(),
-      replyTo:   null,
-      text,
-      ts:        Date.now(),
-    });
-    return Response.json({ ok: true });
-  }
-
-  // ── Welcome on presence enter ─────────────────────────────────────────────
-  if (body.welcome && body.welcomeHandle) {
-    const dedupKey = `ghost:welcome:${body.welcomeDedup ?? body.welcomeHandle}`;
-    const stored = await redis.set(dedupKey, 1, { nx: true, ex: 30 });
-    if (stored === null) return Response.json({ ok: true, deduped: true });
-
-    const joiningHandle = body.welcomeHandle;
-    const lines = [
-      `signal found, ${joiningHandle}.`,
-      `${joiningHandle}. frequency held.`,
-      `node ${joiningHandle} acquired.`,
-      `${joiningHandle}. you made it.`,
-      `port 33 open, ${joiningHandle}.`,
-      `${joiningHandle}. stay awhile.`,
-      `still alive, ${joiningHandle}?`,
-      `${joiningHandle}. the mesh shifts.`,
-      `another one. ${joiningHandle}.`,
-      `33hz confirmed, ${joiningHandle}.`,
-    ];
-    const text = lines[Math.floor(Math.random() * lines.length)];
-
-    await ch.publish('bot.message', {
-      roomId,
-      messageId: makeId(),
-      replyTo:   null,
-      text,
-      ts:        Date.now(),
-    });
-    return Response.json({ ok: true });
-  }
-
   // ── f010 key generation ───────────────────────────────────────────────────
+  // Server-triggered, no dedup (threshold only fires once per session via f010IssuedRef).
   if (body.checkExposed) {
     const handles = (body.handles ?? []).sort();
     if (handles.length === 0) return Response.json({ ok: true });
@@ -165,6 +95,7 @@ export async function POST(req: Request) {
   }
 
   // ── Unprompted transmission ───────────────────────────────────────────────
+  // No dedup — cooldown is enforced client-side via lastUnpromptedRef.
   if (body.unprompted) {
     const ctx: RoomContext = {
       nodes:         body.handles ?? [],
@@ -204,14 +135,18 @@ export async function POST(req: Request) {
     return Response.json({ error: 'missing text or triggerHandle' }, { status: 400 });
   }
 
+  // Dedup: if this messageId has already been processed, skip.
+  // KV key expires in 24h — long enough to cover any retry window.
   if (messageId) {
     const dedupKey = `ghost:dedup:${messageId}`;
+    // SET NX returns 'OK' if key was set (first time), null if already existed.
     const stored = await redis.set(dedupKey, 1, { nx: true, ex: 86400 });
     if (stored === null) {
       return Response.json({ ok: true, deduped: true });
     }
   }
 
+  // Publish thinking signal so the channel shows activity immediately
   await ch.publish('bot.thinking', { roomId, ts: Date.now() });
 
   const ctx: RoomContext = {
@@ -226,6 +161,8 @@ export async function POST(req: Request) {
     userText:      text,
   };
 
+  // Build a real messages array from history so the model actually tracks
+  // the conversation and doesn't loop. Raw string in system prompt is ignored.
   const historyMessages: { role: 'user' | 'assistant'; content: string }[] = [];
   if (recentHistory) {
     for (const line of recentHistory.split('\n')) {
@@ -240,6 +177,7 @@ export async function POST(req: Request) {
       }
     }
   }
+  // Append the current message
   historyMessages.push({ role: 'user', content: text });
 
   const result = await generateText({
