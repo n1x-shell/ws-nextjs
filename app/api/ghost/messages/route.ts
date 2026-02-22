@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       activityScore: 0,
       roomTrust: 0,
       eligibleNodes: [],
-      recentHistory: '',
+      recentHistory: [],
       triggerHandle: null,
       userText: null,
     };
