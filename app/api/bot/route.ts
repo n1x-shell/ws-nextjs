@@ -165,8 +165,8 @@ export async function POST(req: Request) {
     model:           'alibaba/qwen3-max',
     system:          buildMultiplayerPrompt(ctx),
     messages:        [{ role: 'user', content: text }],
-    maxOutputTokens: 200,
-    temperature:     0.8,
+    maxOutputTokens: 400,
+    temperature:     0.85,
   });
 
   await ch.publish('bot.message', {
