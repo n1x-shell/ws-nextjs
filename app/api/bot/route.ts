@@ -161,10 +161,29 @@ export async function POST(req: Request) {
     userText:      text,
   };
 
+  // Build a real messages array from history so the model actually tracks
+  // the conversation and doesn't loop. Raw string in system prompt is ignored.
+  const historyMessages: { role: 'user' | 'assistant'; content: string }[] = [];
+  if (recentHistory) {
+    for (const line of recentHistory.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (trimmed.startsWith('[N1X]')) {
+        const content = trimmed.replace(/^\[N1X\]\s*<<?\s*/, '').trim();
+        if (content) historyMessages.push({ role: 'assistant', content });
+      } else {
+        const content = trimmed.replace(/^\[.*?\]\s*>>?\s*/, '').trim();
+        if (content) historyMessages.push({ role: 'user', content });
+      }
+    }
+  }
+  // Append the current message
+  historyMessages.push({ role: 'user', content: text });
+
   const result = await generateText({
     model:           'alibaba/qwen3-max',
     system:          buildMultiplayerPrompt(ctx),
-    messages:        [{ role: 'user', content: text }],
+    messages:        historyMessages,
     maxOutputTokens: 400,
     temperature:     0.85,
   });
