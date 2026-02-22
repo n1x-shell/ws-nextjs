@@ -7,6 +7,7 @@ import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
 import { isChatMode } from '@/components/shell/NeuralLink';
+import { getTelnetHandle, onHandleChange } from '@/lib/telnetBridge';
 import { loadARGState, startSession, getTimeAway, TRUST_LABELS, ARGState } from '@/lib/argState';
 
 // ── Fish prompt renderer ──────────────────────────────────────────────────────
@@ -38,10 +39,12 @@ function FishPrompt({ user, cwd, inline }: { user: string; cwd: string; inline?:
 // ── Neural bus prompt renderer ────────────────────────────────────────────────
 
 function NeuralBusPrompt({ inline }: { inline?: boolean }) {
+  const [handle, setHandle] = useState(getTelnetHandle);
+  useEffect(() => onHandleChange(setHandle), []);
   return (
     <span style={{ whiteSpace: 'nowrap', display: inline ? 'inline' : 'inline-flex', alignItems: 'center' }}>
       <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>
-        ghost
+        [{handle}]
       </span>
       <span style={{ opacity: 0.5 }}>&gt;&gt;</span>
     </span>

@@ -8,6 +8,12 @@ import {
   setChatMode,
   resetConversation,
 } from '@/components/shell/NeuralLink';
+import {
+  activateTelnet,
+  deactivateTelnet,
+  setHandleLabel,
+  clearHandle,
+} from '@/lib/telnetBridge';
 
 // ── Style constants ───────────────────────────────────────────────────────────
 
@@ -38,7 +44,7 @@ const Cursor: React.FC = () => {
 
 interface ConnectLine { delay: number; text: string; bright?: boolean; }
 
-// Shown when Ably fails completely — pure offline fallback
+// Ably unreachable — offline fallback
 const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
   [0,    <span key="o0" style={{ fontSize: S.base, opacity: 0.7 }}>Trying n1x.sh...</span>],
   [400,  <span key="o1" style={{ fontSize: S.base, opacity: 0.8 }}>Connected to n1x.sh.</span>],
@@ -61,7 +67,7 @@ const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
   )],
 ];
 
-// Shown when connected to Ably but alone on the ghost channel
+// Alone on ghost channel — waiting for others
 function getSingleSequence(host: string): ConnectLine[] {
   return [
     { delay: 0,    text: `Trying ${host}...` },
@@ -71,13 +77,13 @@ function getSingleSequence(host: string): ConnectLine[] {
     { delay: 1100, text: 'ghost-daemon[999]: connection established' },
     { delay: 1400, text: 'ghost-daemon[999]: frequency lock: 33hz', bright: true },
     { delay: 1700, text: 'ghost-daemon[999]: signal integrity: NOMINAL' },
-    { delay: 2000, text: 'ghost-daemon[999]: 1 node on channel', bright: false },
-    { delay: 2300, text: 'ghost-daemon[999]: standing by for additional nodes...', bright: false },
+    { delay: 2000, text: 'ghost-daemon[999]: 1 node on channel — you' },
+    { delay: 2300, text: 'ghost-daemon[999]: standing by for additional nodes...' },
     { delay: 2700, text: '>> DIRECT_LINK ESTABLISHED', bright: true },
   ];
 }
 
-// Shown when 2+ nodes are present
+// 2+ nodes on channel — mesh mode
 function getMultiSequence(host: string, count: number): ConnectLine[] {
   return [
     { delay: 0,    text: `Trying ${host}...` },
@@ -90,6 +96,7 @@ function getMultiSequence(host: string, count: number): ConnectLine[] {
     { delay: 2000, text: `ghost-daemon[999]: ${count} node(s) on channel` },
     { delay: 2300, text: 'ghost-daemon[999]: classification level: ACTIVE', bright: true },
     { delay: 2600, text: 'ghost-daemon[999]: this channel is being monitored' },
+    { delay: 3000, text: '>> MESH_MODE_ACTIVE', bright: true },
   ];
 }
 
@@ -182,6 +189,27 @@ const SystemLine: React.FC<{ text: string }> = ({ text }) => (
   </div>
 );
 
+// ── Channel stats bar ─────────────────────────────────────────────────────────
+
+const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occupantCount, handle }) => (
+  <div style={{
+    fontSize: '0.7rem',
+    fontFamily: 'monospace',
+    opacity: 0.4,
+    borderBottom: '1px solid rgba(51,255,51,0.1)',
+    paddingBottom: '0.4rem',
+    marginBottom: '0.5rem',
+    display: 'flex',
+    gap: '1rem',
+  }}>
+    <span>ghost channel</span>
+    <span className="text-glow" style={{ opacity: 0.8 }}>{occupantCount} node{occupantCount !== 1 ? 's' : ''} connected</span>
+    <span>33hz</span>
+    <span style={{ opacity: 0.6 }}>you: {handle}</span>
+    <span style={{ opacity: 0.5 }}>@n1x to address daemon</span>
+  </div>
+);
+
 // ── Mesh connection status ────────────────────────────────────────────────────
 
 const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
@@ -218,15 +246,17 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
 };
 
 // ── TelnetConnected ───────────────────────────────────────────────────────────
-// Rendered only once handle is confirmed.
 //
 // Three modes:
-//   offline — Ably unreachable, pure solo NeuralLink (last resort)
-//   single  — connected to Ably, alone on ghost channel, N1X solo persona
-//   multi   — 2+ nodes on channel, mesh broadcast chat
+//   offline — Ably unreachable. Pure NeuralLink solo. Last resort.
+//   single  — Connected to Ably, alone on channel. N1X solo persona.
+//             Bottom bar: [handle]>> → NeuralLink (solo AI)
+//             When someone joins → upgrades to multi live.
+//   multi   — 2+ nodes. Mesh broadcast. Bottom bar: [handle]>> → Ably.
+//             telnetBridge active so commandRegistry routes input to Ably.
 //
-// Mode is decided once, after isConnected fires with presence settled.
-// Live occupancy changes switch between single <-> multi after boot.
+// There is ONE input: the bottom shell bar (NeuralBusPrompt).
+// No duplicate inline input in this component.
 
 type Mode = 'waiting' | 'offline' | 'single' | 'multi';
 
@@ -242,10 +272,24 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   const [mode, setMode]           = useState<Mode>('waiting');
   const [showBoot, setShowBoot]   = useState(true);
   const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
-  const [multiInput, setMultiInput] = useState('');
   const isMountedRef  = useRef(true);
-  const multiInputRef = useRef<HTMLInputElement>(null);
-  const bootFiredRef  = useRef(false); // guard: only boot once
+  const bootFiredRef  = useRef(false);
+
+  // ── Disconnect handler (called by commandRegistry via telnetBridge) ───────
+
+  const handleDisconnect = useCallback(() => {
+    deactivateTelnet();
+    setChatMode(false);
+    eventBus.emit('shell:push-output', {
+      command: '',
+      output: (
+        <div style={{ fontSize: S.base }}>
+          <div style={{ opacity: 0.5 }}>&gt;&gt; NEURAL_BUS DISCONNECTED</div>
+          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>Connection closed by foreign host.</div>
+        </div>
+      ),
+    });
+  }, []);
 
   // ── Boot helpers ──────────────────────────────────────────────────────────
 
@@ -276,7 +320,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     [pushLine]
   );
 
-  // ── Boot: offline (Ably unreachable) ─────────────────────────────────────
+  // ── Boot: offline ─────────────────────────────────────────────────────────
 
   const runOfflineBoot = useCallback(() => {
     OFFLINE_SEQUENCE.forEach(([delay, content]) => {
@@ -286,42 +330,43 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
       resetConversation();
+      // Offline: no telnetBridge, NeuralLink handles input
       setChatMode(true);
       setMode('offline');
       eventBus.emit('neural:bus-connected');
     }, 3600);
   }, [pushLine]);
 
-  // ── Boot: single node (alone on ghost channel) ────────────────────────────
+  // ── Boot: single (alone on channel) ──────────────────────────────────────
 
   const runSingleBoot = useCallback(() => {
-    const seq = getSingleSequence(host);
-    runSequence(seq, () => {
+    runSequence(getSingleSequence(host), () => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
       resetConversation();
+      // Single mode: set handle label so [handle]>> shows, but don't activate
+      // routing — input goes to NeuralLink, not Ably.
+      setHandleLabel(handle);
       setChatMode(true);
       setMode('single');
       eventBus.emit('neural:bus-connected');
     });
-  }, [host, runSequence]);
+  }, [host, handle, runSequence]);
 
-  // ── Boot: multi node ──────────────────────────────────────────────────────
+  // ── Boot: multi (mesh mode) ───────────────────────────────────────────────
 
   const runMultiBoot = useCallback((count: number) => {
-    const seq = getMultiSequence(host, count);
-    runSequence(seq, () => {
+    runSequence(getMultiSequence(host, count), () => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
-      setChatMode(false);
+      // Multi: activate telnetBridge so bottom bar routes to Ably
+      activateTelnet(handle, send, handleDisconnect);
+      setChatMode(true); // keeps bottom bar in [handle]>> mode
       setMode('multi');
-      setTimeout(() => multiInputRef.current?.focus(), 100);
     });
-  }, [host, runSequence]);
+  }, [host, handle, send, handleDisconnect, runSequence]);
 
   // ── Initial boot decision ─────────────────────────────────────────────────
-  // Fires once when isConnected becomes true. By then presence has settled
-  // (ablyClient delays isConnected until PRESENCE_SETTLE_MS after enter).
 
   useEffect(() => {
     if (!isConnected || bootFiredRef.current) return;
@@ -336,27 +381,30 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     }
   }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runSingleBoot, runMultiBoot]);
 
-  // ── Live mode switch (after boot) ────────────────────────────────────────
-  // offline mode never switches — Ably is down, no point watching
+  // ── Live mode switch ──────────────────────────────────────────────────────
 
   useEffect(() => {
     if (mode === 'waiting' || mode === 'offline') return;
 
     if (occupantCount >= 2 && mode === 'single') {
-      // Another node joined — upgrade to mesh
-      setChatMode(false);
+      // Someone joined — upgrade to mesh
+      activateTelnet(handle, send, handleDisconnect);
+      setChatMode(true);
       setMode('multi');
       pushLine(
-        <div key="upgrade" style={{ fontSize: S.base, lineHeight: 1.8, opacity: 0.5 }}>
-          ghost-daemon[999]: additional node detected — mesh mode active
+        <div key="upgrade" style={{ fontSize: S.base, lineHeight: 1.8 }}>
+          <div style={{ opacity: 0.5 }}>ghost-daemon[999]: additional node detected</div>
+          <div className={S.glow} style={{ opacity: 0.9, marginTop: '0.1rem' }}>&gt;&gt; MESH_MODE_ACTIVE</div>
         </div>
       );
-      setTimeout(() => multiInputRef.current?.focus(), 100);
       eventBus.emit('shell:request-scroll');
     } else if (occupantCount <= 1 && mode === 'multi') {
-      // Last node left — drop back to single
-      setChatMode(true);
+      // Last other node left — drop back to single
+      deactivateTelnet();
+      // Keep handle label showing — setHandleLabel was already set, deactivateTelnet
+      // preserves _handle so prompt stays [handle]>>
       resetConversation();
+      setChatMode(true);
       setMode('single');
       pushLine(
         <div key="downgrade" style={{ fontSize: S.base, lineHeight: 1.8, opacity: 0.4 }}>
@@ -365,93 +413,69 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       );
       eventBus.emit('shell:request-scroll');
     }
-  }, [occupantCount, mode, pushLine]);
+  }, [occupantCount, mode, handle, send, handleDisconnect, pushLine]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      deactivateTelnet();
+      clearHandle();
       setChatMode(false);
     };
   }, []);
-
-  // ── Multi input handler ───────────────────────────────────────────────────
-
-  const handleMultiKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    if (e.key !== 'Enter') return;
-
-    const text = multiInput.trim();
-    if (!text) return;
-
-    if (text === 'exit' || text === 'quit') {
-      setChatMode(false);
-      eventBus.emit('shell:push-output', {
-        command: '',
-        output: (
-          <div style={{ fontSize: S.base }}>
-            <div style={{ opacity: 0.5 }}>&gt;&gt; NEURAL_BUS DISCONNECTED</div>
-            <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>Connection closed by foreign host.</div>
-          </div>
-        ),
-      });
-      return;
-    }
-
-    send(text);
-    setMultiInput('');
-  }, [multiInput, send]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
 
-      {/* Connection status spinner */}
+      {/* Ably connection spinner */}
       <MeshStatus status={connectionStatus} />
 
-      {/* Debug line — only shown while connecting or on failure */}
+      {/* Debug — only while connecting or on failure */}
       {connectionStatus !== 'connected' && (
-        <div style={{ opacity: 0.3, fontSize: '0.7rem', fontFamily: 'monospace', marginBottom: '0.25rem' }}>
+        <div style={{ opacity: 0.25, fontSize: '0.65rem', fontFamily: 'monospace', marginBottom: '0.25rem' }}>
           ably: {ablyDebug}
         </div>
       )}
 
-      {/* Boot lines */}
+      {/* Boot sequence lines */}
       {bootLines.map((line, i) => <div key={i}>{line}</div>)}
 
-      {/* Blinking cursor while booting */}
+      {/* Cursor while booting */}
       {showBoot && <span style={{ opacity: 0.3 }}><Cursor /></span>}
 
-      {/* ── Offline mode: Ably down, direct N1X link ── */}
-      {!showBoot && (mode === 'offline') && (
+      {/* ── Offline: Ably down, NeuralLink solo ── */}
+      {!showBoot && mode === 'offline' && (
         <NeuralChatSession />
       )}
 
-      {/* ── Single mode: on ghost channel, alone, N1X persona ── */}
+      {/* ── Single: on channel, alone, NeuralLink persona ── */}
       {!showBoot && mode === 'single' && (
         <div>
-          {/* Subtle channel indicator */}
-          <div style={{ opacity: 0.3, fontSize: '0.75rem', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
-            ghost channel · {occupantCount} node · 33hz · waiting for signal
+          <div style={{
+            fontSize: '0.7rem', fontFamily: 'monospace', opacity: 0.3,
+            marginBottom: '0.5rem', borderBottom: '1px solid rgba(51,255,51,0.08)',
+            paddingBottom: '0.4rem',
+          }}>
+            ghost channel · 1 node · 33hz · {handle} · waiting for signal
           </div>
           <NeuralChatSession />
         </div>
       )}
 
-      {/* ── Multi mode: mesh broadcast ── */}
+      {/* ── Multi: mesh broadcast, message feed ── */}
       {!showBoot && mode === 'multi' && (
         <div>
-          <div style={{ fontSize: S.base, lineHeight: 1.8, marginBottom: '0.5rem' }}>
-            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.25rem' }}>
-              &gt;&gt; MESH_MODE_ACTIVE
+          <ChannelStats occupantCount={occupantCount} handle={handle} />
+
+          {messages.length === 0 && (
+            <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
+              channel open. transmit to begin.
             </div>
-            <div style={{ opacity: 0.5 }}>
-              {occupantCount} node(s) on channel &middot; 33hz &middot;{' '}
-              <span style={{ opacity: 0.4 }}>@n1x</span> to address the daemon
-            </div>
-          </div>
+          )}
 
           {messages.map((msg: RoomMsg) => {
             if (msg.isSystem) return <SystemLine key={msg.id} text={msg.text} />;
@@ -466,27 +490,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             );
           })}
 
-          <div style={{ display: 'flex', alignItems: 'center', marginTop: '0.5rem', fontSize: S.base }}>
-            <span style={{ opacity: 0.4 }}>[{handle}] &gt;&gt;&nbsp;</span>
-            <input
-              ref={multiInputRef}
-              autoFocus
-              value={multiInput}
-              onChange={e => setMultiInput(e.target.value)}
-              onKeyDown={handleMultiKeyDown}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: 'var(--phosphor-green)',
-                fontSize: S.base,
-                fontFamily: 'inherit',
-                flex: 1,
-                caretColor: 'var(--phosphor-green)',
-              }}
-            />
-          </div>
-          <div style={{ opacity: 0.3, fontSize: S.base, marginTop: '0.25rem' }}>
+          {/* No inline input here — bottom shell bar handles all input via telnetBridge */}
+          <div style={{ opacity: 0.25, fontSize: '0.65rem', marginTop: '0.75rem', fontFamily: 'monospace' }}>
             type <span className={S.glow}>exit</span> to disconnect
           </div>
         </div>
