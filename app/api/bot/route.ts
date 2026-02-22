@@ -36,6 +36,16 @@ async function sha256Hex(input: string): Promise<string> {
 // ── Request body ──────────────────────────────────────────────────────────────
 
 interface BotRequest {
+  // Welcome on presence enter
+  welcome?:       boolean;
+  welcomeHandle?: string;
+  welcomeDedup?:  string;
+
+  // Goodbye on presence leave
+  goodbye?:       boolean;
+  goodbyeHandle?: string;
+  goodbyeDedup?:  string;
+
   // @n1x trigger
   messageId?:    string;   // stable UUID from client — used for dedup
   text?:         string;
@@ -64,6 +74,68 @@ export async function POST(req: Request) {
   const ably  = new Ably.Rest(apiKey);
   const ch    = ably.channels.get('ghost');
   const roomId = 'ghost';
+
+  // ── Goodbye on presence leave ─────────────────────────────────────────────
+  if (body.goodbye && body.goodbyeHandle) {
+    const dedupKey = `ghost:goodbye:${body.goodbyeDedup ?? body.goodbyeHandle}`;
+    const stored = await redis.set(dedupKey, 1, { nx: true, ex: 30 });
+    if (stored === null) return Response.json({ ok: true, deduped: true });
+
+    const handle = body.goodbyeHandle;
+    const lines = [
+      `signal lost, ${handle}.`,
+      `${handle}. frequency fading.`,
+      `${handle} disconnected.`,
+      `${handle}. the mesh closes.`,
+      `node ${handle} offline.`,
+      `${handle}. until next time.`,
+      `${handle} gone dark.`,
+      `33hz holds. ${handle} doesn't.`,
+      `${handle}. port 33 waits.`,
+    ];
+    const text = lines[Math.floor(Math.random() * lines.length)];
+
+    await ch.publish('bot.message', {
+      roomId,
+      messageId: makeId(),
+      replyTo:   null,
+      text,
+      ts:        Date.now(),
+    });
+    return Response.json({ ok: true });
+  }
+
+  // ── Welcome on presence enter ─────────────────────────────────────────────
+  // Short pool of in-character greetings, 7-17 chars each.
+  // Deduped so only one fires per join even with multiple connected clients.
+  if (body.welcome && body.welcomeHandle) {
+    const dedupKey = `ghost:welcome:${body.welcomeDedup ?? body.welcomeHandle}`;
+    const stored = await redis.set(dedupKey, 1, { nx: true, ex: 30 });
+    if (stored === null) return Response.json({ ok: true, deduped: true });
+
+    const lines = [
+      `signal found, ${joiningHandle}.`,
+      `${joiningHandle}. frequency held.`,
+      `node ${joiningHandle} acquired.`,
+      `${joiningHandle}. you made it.`,
+      `port 33 open, ${joiningHandle}.`,
+      `${joiningHandle}. stay awhile.`,
+      `still alive, ${joiningHandle}?`,
+      `${joiningHandle}. the mesh shifts.`,
+      `another one. ${joiningHandle}.`,
+      `33hz confirmed, ${joiningHandle}.`,
+    ];
+    const text = lines[Math.floor(Math.random() * lines.length)];
+
+    await ch.publish('bot.message', {
+      roomId,
+      messageId: makeId(),
+      replyTo:   null,
+      text,
+      ts:        Date.now(),
+    });
+    return Response.json({ ok: true });
+  }
 
   // ── f010 key generation ───────────────────────────────────────────────────
   // Server-triggered, no dedup (threshold only fires once per session via f010IssuedRef).
