@@ -327,12 +327,13 @@ export default function ShellInterface() {
   const [promptState, setPromptState] = useState<{
     label: string;
     onSubmit: (value: string) => void;
+    type: string;
   } | null>(null);
   const [promptValue, setPromptValue] = useState('');
 
-  const requestPrompt: RequestPromptFn = useCallback((label, onSubmit) => {
+  const requestPrompt: RequestPromptFn = useCallback((label, onSubmit, type = 'password') => {
     setPromptValue('');
-    setPromptState({ label, onSubmit });
+    setPromptState({ label, onSubmit, type });
     setTimeout(() => promptInputRef.current?.focus(), 50);
   }, []);
 
@@ -785,7 +786,7 @@ export default function ShellInterface() {
                 </span>
                 <input
                   ref={promptInputRef}
-                  type="password"
+                  type={promptState.type ?? 'password'}
                   value={promptValue}
                   onChange={(e) => setPromptValue(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
