@@ -220,7 +220,40 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     // ── Presence ──────────────────────────────────────────────────────────
 
-    const updatePresence = async () => {
+    const welcomedRef = useRef<Set<string>>(new Set());
+    const goodbyedRef = useRef<Set<string>>(new Set());
+
+    const updatePresence = async (member?: Ably.PresenceMessage) => {
+      // Welcome each handle once per session
+      if (member?.action === 'enter' && member.clientId !== handle) {
+        const joiningHandle = (member.data as { handle?: string })?.handle ?? member.clientId ?? 'unknown';
+        if (!welcomedRef.current.has(joiningHandle)) {
+          welcomedRef.current.add(joiningHandle);
+          goodbyedRef.current.delete(joiningHandle); // reset so goodbye fires if they leave again
+          const dedupKey = `${joiningHandle}:${Math.floor(Date.now() / 10000)}`;
+          fetch('/api/bot', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ welcome: true, welcomeHandle: joiningHandle, welcomeDedup: dedupKey }),
+          }).catch(() => {});
+        }
+      }
+
+      // Goodbye each handle once per departure
+      if (member?.action === 'leave' && member.clientId !== handle) {
+        const leavingHandle = (member.data as { handle?: string })?.handle ?? member.clientId ?? 'unknown';
+        if (!goodbyedRef.current.has(leavingHandle)) {
+          goodbyedRef.current.add(leavingHandle);
+          welcomedRef.current.delete(leavingHandle); // reset so welcome fires if they return
+          const dedupKey = `${leavingHandle}:${Math.floor(Date.now() / 10000)}`;
+          fetch('/api/bot', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ goodbye: true, goodbyeHandle: leavingHandle, goodbyeDedup: dedupKey }),
+          }).catch(() => {});
+        }
+      }
+
       try {
         const members = await channel.presence.get();
         if (!isMountedRef.current) return;
