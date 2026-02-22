@@ -164,18 +164,12 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     let client: Ably.Realtime;
     try {
-      // Use authCallback so the browser's own fetch() is used.
-      // This carries cookies/auth headers that Ably's internal HTTP client doesn't,
-      // ensuring the request to /api/ably/token is never blocked by Vercel protection.
+      // Ably v2: authCallback must return a Promise, not use a callback param
       client = new Ably.Realtime({
-        authCallback: (_tokenParams, callback) => {
-          fetch(`${window.location.origin}/api/ably/token`)
-            .then(res => {
-              if (!res.ok) throw new Error(`token endpoint returned ${res.status}`);
-              return res.json();
-            })
-            .then(tokenRequest => callback(null, tokenRequest))
-            .catch(err => callback(err, null));
+        authCallback: async () => {
+          const res = await fetch('/api/ably/token');
+          if (!res.ok) throw new Error(`token endpoint ${res.status}`);
+          return res.json();
         },
       });
     } catch {
