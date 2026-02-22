@@ -106,14 +106,13 @@ export async function POST(req: Request) {
   }
 
   // ── Welcome on presence enter ─────────────────────────────────────────────
-  // Short pool of in-character greetings, 7-17 chars each.
-  // Deduped so only one fires per join even with multiple connected clients.
   if (body.welcome && body.welcomeHandle) {
     const dedupKey = `ghost:welcome:${body.welcomeDedup ?? body.welcomeHandle}`;
     const stored = await redis.set(dedupKey, 1, { nx: true, ex: 30 });
     if (stored === null) return Response.json({ ok: true, deduped: true });
 
     const joiningHandle = body.welcomeHandle;
+    const lines = [
       `signal found, ${joiningHandle}.`,
       `${joiningHandle}. frequency held.`,
       `node ${joiningHandle} acquired.`,
@@ -138,7 +137,6 @@ export async function POST(req: Request) {
   }
 
   // ── f010 key generation ───────────────────────────────────────────────────
-  // Server-triggered, no dedup (threshold only fires once per session via f010IssuedRef).
   if (body.checkExposed) {
     const handles = (body.handles ?? []).sort();
     if (handles.length === 0) return Response.json({ ok: true });
@@ -167,7 +165,6 @@ export async function POST(req: Request) {
   }
 
   // ── Unprompted transmission ───────────────────────────────────────────────
-  // No dedup — cooldown is enforced client-side via lastUnpromptedRef.
   if (body.unprompted) {
     const ctx: RoomContext = {
       nodes:         body.handles ?? [],
@@ -207,18 +204,14 @@ export async function POST(req: Request) {
     return Response.json({ error: 'missing text or triggerHandle' }, { status: 400 });
   }
 
-  // Dedup: if this messageId has already been processed, skip.
-  // KV key expires in 24h — long enough to cover any retry window.
   if (messageId) {
     const dedupKey = `ghost:dedup:${messageId}`;
-    // SET NX returns 'OK' if key was set (first time), null if already existed.
     const stored = await redis.set(dedupKey, 1, { nx: true, ex: 86400 });
     if (stored === null) {
       return Response.json({ ok: true, deduped: true });
     }
   }
 
-  // Publish thinking signal so the channel shows activity immediately
   await ch.publish('bot.thinking', { roomId, ts: Date.now() });
 
   const ctx: RoomContext = {
@@ -233,8 +226,6 @@ export async function POST(req: Request) {
     userText:      text,
   };
 
-  // Build a real messages array from history so the model actually tracks
-  // the conversation and doesn't loop. Raw string in system prompt is ignored.
   const historyMessages: { role: 'user' | 'assistant'; content: string }[] = [];
   if (recentHistory) {
     for (const line of recentHistory.split('\n')) {
@@ -249,7 +240,6 @@ export async function POST(req: Request) {
       }
     }
   }
-  // Append the current message
   historyMessages.push({ role: 'user', content: text });
 
   const result = await generateText({
