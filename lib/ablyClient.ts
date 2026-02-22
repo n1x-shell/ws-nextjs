@@ -153,18 +153,15 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     if (!handle) return;
     isMountedRef.current = true;
 
-    const ablyKey = process.env.NEXT_PUBLIC_ABLY_API_KEY;
-    if (!ablyKey) {
-      setAblyDebug('NEXT_PUBLIC_ABLY_API_KEY not set — solo mode');
-      setConnectionStatus('failed');
-      setIsConnected(true);
-      setOccupantCount(1);
-      return;
-    }
-
     let client: Ably.Realtime;
     try {
-      client = new Ably.Realtime(ablyKey);
+      client = new Ably.Realtime({
+        authCallback: async () => {
+          const res = await fetch('/api/ably/token');
+          if (!res.ok) throw new Error(`token endpoint ${res.status}`);
+          return res.json();
+        },
+      });
     } catch {
       setConnectionStatus('failed');
       setIsConnected(true);
