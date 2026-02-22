@@ -96,20 +96,7 @@ export function isComplete(): boolean {
   return loadARGState().manifestComplete;
 }
 
-export function getTimeAway(lastContact: number): string {
-  if (lastContact === 0) return 'first contact';
-  const ms = Date.now() - lastContact;
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(ms / 3600000);
-  const days = Math.floor(ms / 86400000);
-  if (minutes < 2) return 'moments ago';
-  if (hours < 1) return `${minutes} minutes ago`;
-  if (days < 1) return `${hours} hours ago`;
-  if (days === 1) return 'yesterday';
-  return `${days} days ago`;
-}
-
-// ── Room sync exports (for Ably multiplayer telnet) ──────────────────────────
+// ── Room sync ─────────────────────────────────────────────────────────────────
 
 export interface RoomArgExport {
   trust: TrustLevel;
@@ -147,4 +134,17 @@ export function mergeFromRoom(sync: RoomSync): void {
     ghostUnlocked: sync.ghostUnlocked || state.ghostUnlocked,
     manifestComplete,
   });
+}
+
+export function getTimeAway(lastContact: number): string {
+  if (lastContact === 0) return 'first contact';
+  const ms = Date.now() - lastContact;
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(ms / 3600000);
+  const days = Math.floor(ms / 86400000);
+  if (minutes < 2) return 'moments ago';
+  if (hours < 1) return `${minutes} minutes ago`;
+  if (days < 1) return `${hours} hours ago`;
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
 }

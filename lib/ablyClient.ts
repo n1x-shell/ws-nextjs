@@ -10,26 +10,57 @@ import { eventBus } from '@/lib/eventBus';
 export type DaemonState = 'active' | 'exposed';
 
 export interface RoomMsg {
-  id: string;
-  handle: string;
-  text: string;
-  ts: number;
-  isN1X: boolean;
-  isSystem: boolean;
+  id:           string;
+  handle:       string;
+  text:         string;
+  ts:           number;
+  isN1X:        boolean;
+  isSystem:     boolean;
   isUnprompted: boolean;
+  isThinking?:  boolean; // ephemeral — N1X typing indicator
 }
 
-// ── f010 thresholds (Option D) ────────────────────────────────────────────────
+// ── Event shapes (must match /api/bot) ───────────────────────────────────────
+
+interface UserMessageEvent {
+  roomId:    string;
+  userId:    string;
+  messageId: string;
+  text:      string;
+  ts:        number;
+}
+
+interface BotMessageEvent {
+  roomId:      string;
+  messageId:   string;
+  replyTo:     string | null;
+  text:        string;
+  ts:          number;
+  isUnprompted?: boolean;
+  isF010?:     boolean;
+}
+
+interface BotThinkingEvent {
+  roomId: string;
+  ts:     number;
+}
+
+// ── f010 thresholds ───────────────────────────────────────────────────────────
+
 const F010_MIN_TIME_MS   = 10 * 60 * 1000;
 const F010_MIN_MESSAGES  = 10;
 const F010_MIN_N1X_PINGS = 2;
 
-// How long to wait after presence.enter() before reading member count.
-// Ably presence propagates across the network in ~500-800ms. 1200ms is safe.
+// How long after presence.enter() to wait before reading member count.
 const PRESENCE_SETTLE_MS = 1200;
 
+// How long to show the "N1X is thinking" indicator before it auto-clears.
+const THINKING_CLEAR_MS = 8000;
+
 function makeId(): string {
-  return Math.random().toString(36).slice(2, 9);
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -37,13 +68,13 @@ function makeId(): string {
 export type ConnectionStatus = 'connecting' | 'connected' | 'failed';
 
 interface UseAblyRoomResult {
-  messages: RoomMsg[];
-  occupantCount: number;
-  daemonState: DaemonState;
-  isConnected: boolean;
+  messages:       RoomMsg[];
+  occupantCount:  number;
+  daemonState:    DaemonState;
+  isConnected:    boolean;
   connectionStatus: ConnectionStatus;
-  ablyDebug: string;
-  send: (text: string) => void;
+  ablyDebug:      string;
+  send:           (text: string) => void;
 }
 
 export function useAblyRoom(handle: string): UseAblyRoomResult {
@@ -64,9 +95,12 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const n1xPingCountRef   = useRef(0);
   const f010IssuedRef     = useRef(false);
   const lastUnpromptedRef = useRef(0);
+  const thinkingTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlesRef       = useRef<string[]>([]);
   const recentHistoryRef = useRef<string[]>([]);
+
+  // ── Message helpers ───────────────────────────────────────────────────────
 
   const addMessage = useCallback((msg: Omit<RoomMsg, 'id'>) => {
     if (!isMountedRef.current) return;
@@ -74,29 +108,46 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     eventBus.emit('shell:request-scroll');
   }, []);
 
+  // Replace or remove the thinking indicator
+  const clearThinking = useCallback(() => {
+    if (!isMountedRef.current) return;
+    setMessages(prev => prev.filter(m => !m.isThinking));
+  }, []);
+
+  // ── send ──────────────────────────────────────────────────────────────────
+  // Publishes user.message with a stable messageId for dedup on /api/bot.
+
   const send = useCallback((text: string) => {
-    channelRef.current?.publish('chat', { handle, text, ts: Date.now() });
+    const messageId = makeId();
+    channelRef.current?.publish('user.message', {
+      roomId:    'ghost',
+      userId:    handle,
+      messageId,
+      text,
+      ts: Date.now(),
+    } satisfies UserMessageEvent);
   }, [handle]);
 
-  // ── N1X response ─────────────────────────────────────────────────────────
+  // ── N1X trigger ───────────────────────────────────────────────────────────
 
-  const triggerN1X = useCallback(async (text: string, triggerHandle: string) => {
-    const recent = recentHistoryRef.current.slice(-8).join('\n');
+  const triggerN1X = useCallback(async (text: string, messageId: string) => {
+    const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
-      await fetch('/api/ghost/messages', {
-        method: 'POST',
+      await fetch('/api/bot', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          messageId,
           text,
-          triggerHandle,
-          handles: handlesRef.current,
-          daemonState: f010IssuedRef.current ? 'exposed' : 'active',
-          occupantCount: handlesRef.current.length,
-          recentHistory: recent,
+          triggerHandle:  handle,
+          handles:        handlesRef.current,
+          daemonState:    f010IssuedRef.current ? 'exposed' : 'active',
+          occupantCount:  handlesRef.current.length,
+          recentHistory,
         }),
       });
     } catch { /* ghost channel unreliable by design */ }
-  }, []);
+  }, [handle]);
 
   // ── Unprompted transmission ───────────────────────────────────────────────
 
@@ -107,42 +158,37 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     lastUnpromptedRef.current = Date.now();
     try {
-      await fetch('/api/ghost/messages', {
-        method: 'POST',
+      await fetch('/api/bot', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          unprompted: true,
-          handles: handlesRef.current,
-          daemonState: f010IssuedRef.current ? 'exposed' : 'active',
+          unprompted:    true,
+          handles:       handlesRef.current,
+          daemonState:   f010IssuedRef.current ? 'exposed' : 'active',
           occupantCount: count,
         }),
       });
     } catch { /* fail silently */ }
   }, []);
 
-  // ── f010 threshold check ──────────────────────────────────────────────────
+  // ── f010 check ────────────────────────────────────────────────────────────
 
   const checkF010 = useCallback(async () => {
     if (f010IssuedRef.current) return;
     if (handlesRef.current.length < 2) return;
 
-    const timeInRoom = Date.now() - joinedAtRef.current;
-    const timeOk     = timeInRoom >= F010_MIN_TIME_MS;
-    const msgsOk     = messageCountRef.current >= F010_MIN_MESSAGES;
-    const pingsOk    = n1xPingCountRef.current >= F010_MIN_N1X_PINGS;
+    const timeOk = Date.now() - joinedAtRef.current >= F010_MIN_TIME_MS;
+    const msgsOk = messageCountRef.current   >= F010_MIN_MESSAGES;
+    const pingOk = n1xPingCountRef.current   >= F010_MIN_N1X_PINGS;
 
-    if (timeOk && msgsOk && pingsOk) {
+    if (timeOk && msgsOk && pingOk) {
       f010IssuedRef.current = true;
       setDaemonState('exposed');
-
       try {
-        await fetch('/api/ghost/messages', {
-          method: 'POST',
+        await fetch('/api/bot', {
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            checkExposed: true,
-            handles: handlesRef.current,
-          }),
+          body: JSON.stringify({ checkExposed: true, handles: handlesRef.current }),
         });
       } catch { /* fail silently */ }
     }
@@ -155,24 +201,20 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     isMountedRef.current = true;
 
     let client: Ably.Realtime;
-
     try {
       client = new Ably.Realtime({
-        authUrl: `${window.location.origin}/api/ably/token`,
+        authUrl:    `${window.location.origin}/api/ably-token`,
         authMethod: 'GET',
-        // clientId must be set here so Ably includes it in the token exchange.
-        // Presence operations (enter/leave/get) require a clientId on the connection —
-        // without it, presence.enter() throws 40012 silently and occupant counts break.
-        clientId: handle,
+        // clientId required for presence.enter() — must match capability '*' on token
+        clientId:   handle,
       });
     } catch {
-      // Ably init threw synchronously — go offline immediately
       setConnectionStatus('failed');
       setIsConnected(true);
       return;
     }
 
-    clientRef.current = client;
+    clientRef.current  = client;
     const channel = client.channels.get('ghost');
     channelRef.current = channel;
 
@@ -189,35 +231,37 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       } catch { /* ignore */ }
     };
 
-    // Keep occupant count live after boot
     channel.presence.subscribe(updatePresence);
 
-    // ── Chat ──────────────────────────────────────────────────────────────
+    // ── user.message ─────────────────────────────────────────────────────
+    // All nodes publish with this event type; everyone subscribes to display.
 
-    channel.subscribe('chat', (msg: Ably.Message) => {
+    channel.subscribe('user.message', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
-      const data = msg.data as { handle: string; text: string; ts: number };
+      const data = msg.data as UserMessageEvent;
 
       addMessage({
-        handle: data.handle,
-        text: data.text,
-        ts: data.ts,
-        isN1X: false,
-        isSystem: false,
+        handle:       data.userId,
+        text:         data.text,
+        ts:           data.ts,
+        isN1X:        false,
+        isSystem:     false,
         isUnprompted: false,
       });
 
+      // Append to history for N1X context
       recentHistoryRef.current = [
-        ...recentHistoryRef.current.slice(-19),
-        `  [${data.handle}]: ${data.text}`,
+        ...recentHistoryRef.current.slice(-29),
+        `  [${data.userId}] >> ${data.text}`,
       ];
 
-      if (data.handle === handle) {
+      // Only the sender triggers the bot — prevents N * responses
+      if (data.userId === handle) {
         messageCountRef.current += 1;
 
         if (data.text.toLowerCase().includes('@n1x')) {
           n1xPingCountRef.current += 1;
-          triggerN1X(data.text, handle);
+          triggerN1X(data.text, data.messageId);
         }
 
         checkF010();
@@ -225,32 +269,75 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       }
     });
 
-    // ── N1X ───────────────────────────────────────────────────────────────
+    // ── bot.thinking ─────────────────────────────────────────────────────
+    // Ephemeral typing indicator — shown for up to THINKING_CLEAR_MS then removed.
 
-    channel.subscribe('n1x', (msg: Ably.Message) => {
+    channel.subscribe('bot.thinking', (_msg: Ably.Message) => {
       if (!isMountedRef.current) return;
-      const data = msg.data as { text: string; isUnprompted?: boolean };
-      addMessage({
-        handle: 'N1X',
-        text: data.text,
-        ts: Date.now(),
-        isN1X: true,
-        isSystem: false,
-        isUnprompted: data.isUnprompted ?? false,
-      });
+
+      // Remove any existing thinking indicator before adding a new one
+      setMessages(prev => [
+        ...prev.filter(m => !m.isThinking),
+        {
+          id:           makeId(),
+          handle:       'N1X',
+          text:         '...',
+          ts:           Date.now(),
+          isN1X:        true,
+          isSystem:     false,
+          isUnprompted: false,
+          isThinking:   true,
+        },
+      ]);
+      eventBus.emit('shell:request-scroll');
+
+      // Auto-clear in case bot.message arrives late or not at all
+      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = setTimeout(clearThinking, THINKING_CLEAR_MS);
     });
 
-    // ── System ────────────────────────────────────────────────────────────
+    // ── bot.message ───────────────────────────────────────────────────────
+    // Final AI response. Replaces the thinking indicator.
 
-    channel.subscribe('system', (msg: Ably.Message) => {
+    channel.subscribe('bot.message', (msg: Ably.Message) => {
+      if (!isMountedRef.current) return;
+      const data = msg.data as BotMessageEvent;
+
+      // Clear thinking indicator and timer
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+      clearThinking();
+
+      addMessage({
+        handle:       'N1X',
+        text:         data.text,
+        ts:           data.ts,
+        isN1X:        true,
+        isSystem:     false,
+        isUnprompted: data.isUnprompted ?? false,
+      });
+
+      // Append N1X response to history for future context
+      recentHistoryRef.current = [
+        ...recentHistoryRef.current.slice(-29),
+        `  [N1X] << ${data.text.replace(/\n/g, ' ').slice(0, 120)}`,
+      ];
+    });
+
+    // ── bot.system ────────────────────────────────────────────────────────
+    // System notices from the server (rare — reserved for future use).
+
+    channel.subscribe('bot.system', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
       const data = msg.data as { text: string };
       addMessage({
-        handle: 'SYSTEM',
-        text: data.text,
-        ts: Date.now(),
-        isN1X: false,
-        isSystem: true,
+        handle:       'SYSTEM',
+        text:         data.text,
+        ts:           Date.now(),
+        isN1X:        false,
+        isSystem:     true,
         isUnprompted: false,
       });
     });
@@ -266,9 +353,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       }
     }, 30000);
 
-    client.connection.on('connecting', () => {
-      setAblyDebug('connecting...');
-    });
+    client.connection.on('connecting', () => setAblyDebug('connecting...'));
 
     client.connection.on('connected', () => {
       if (!isMountedRef.current) return;
@@ -277,31 +362,22 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setConnectionStatus('connected');
       joinedAtRef.current = Date.now();
 
-      // Enter presence, wait for it to propagate across the Ably network,
-      // then read the real member count BEFORE signalling isConnected.
-      // TelnetSession gates its boot decision on isConnected — delaying it
-      // here guarantees it sees the correct occupantCount and does not
-      // false-trigger offline mode because presence hadn't settled yet.
+      // Enter presence, wait for network propagation, read real count, THEN
+      // signal isConnected. This is what prevents the presence race and false
+      // offline boots — TelnetSession gates its boot decision on isConnected.
       channel.presence
         .enter({ handle, trust: exportForRoom().trust })
         .then(() => new Promise<void>(resolve => setTimeout(resolve, PRESENCE_SETTLE_MS)))
         .then(() => updatePresence())
-        .then(() => {
-          if (isMountedRef.current) setIsConnected(true);
-        })
-        .catch(() => {
-          // presence.enter failed — unblock the UI anyway
-          if (isMountedRef.current) setIsConnected(true);
-        });
+        .then(() => { if (isMountedRef.current) setIsConnected(true); })
+        .catch(() => { if (isMountedRef.current) setIsConnected(true); });
     });
 
     client.connection.on('failed', () => {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
       const err = client.connection.errorReason;
-      setAblyDebug(
-        `failed [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'} | status: ${err?.statusCode ?? '?'}`
-      );
+      setAblyDebug(`failed [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'} | status: ${err?.statusCode ?? '?'}`);
       setConnectionStatus('failed');
       setIsConnected(true);
     });
@@ -318,9 +394,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('disconnected', () => {
       if (!isMountedRef.current) return;
       const err = client.connection.errorReason;
-      setAblyDebug(
-        `disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`
-      );
+      setAblyDebug(`disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`);
     });
 
     const unpromptedInterval = setInterval(maybeUnprompted, 10 * 60 * 1000);
@@ -329,17 +403,18 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       isMountedRef.current = false;
       clearTimeout(connectionTimeout);
       clearInterval(unpromptedInterval);
+      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
 
       mergeFromRoom({
-        trust: exportForRoom().trust as TrustLevel,
-        fragments: [],
+        trust:        exportForRoom().trust as TrustLevel,
+        fragments:    [],
         ghostUnlocked: false,
       });
 
       channel.presence.leave();
       client.close();
     };
-  }, [handle, addMessage, triggerN1X, maybeUnprompted, checkF010]);
+  }, [handle, addMessage, clearThinking, triggerN1X, maybeUnprompted, checkF010]);
 
   return { messages, occupantCount, daemonState, isConnected, connectionStatus, ablyDebug, send };
 }

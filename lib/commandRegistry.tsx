@@ -1154,7 +1154,7 @@ export function executeCommand(
     // ── Ably mesh mode: route input to ghost channel ─────────────────────
     if (isTelnetActive()) {
       telnetSend(trimmed);
-      return { output: null }; // TelnetSession renders its own message feed
+      return { output: null, silent: true }; // TelnetSession renders its own feed
     }
 
     // Everything else goes to the neural link
