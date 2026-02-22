@@ -171,6 +171,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           if (!res.ok) throw new Error(`token endpoint ${res.status}`);
           return res.json();
         },
+        queryTime: true,   // sync with Ably server time — prevents 40104 clock skew errors
       });
     } catch {
       // Ably init failed — fall back to solo
@@ -290,7 +291,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       if (!isMountedRef.current) return;
       clearTimeout(connectionTimeout);
       const err = client.connection.errorReason;
-      setAblyDebug(`failed [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'} | statusCode: ${err?.statusCode ?? '?'}`);
+      const cause = (err as { cause?: { message?: string; statusCode?: number } } | null)?.cause;
+      setAblyDebug(`failed [${err?.code ?? '?'}]: ${err?.message ?? 'unknown'} | status: ${err?.statusCode ?? '?'}${cause ? ` | cause: ${cause.message ?? ''} ${cause.statusCode ?? ''}` : ''}`);
       setConnectionStatus('failed');
       setIsConnected(true);
       setOccupantCount(1);
@@ -309,7 +311,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     client.connection.on('disconnected', () => {
       if (!isMountedRef.current) return;
       const err = client.connection.errorReason;
-      setAblyDebug(`disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`);
+      const cause = (err as { cause?: { message?: string; statusCode?: number } } | null)?.cause;
+      setAblyDebug(`disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}${cause ? ` | cause: ${cause.message ?? ''} ${cause.statusCode ?? ''}` : ''}`);
       setIsConnected(false);
     });
 
