@@ -139,52 +139,89 @@ const CopyLine: React.FC<{ line: string }> = ({ line }) => {
     }
   };
   return (
-    <div style={{ marginLeft: '1rem', lineHeight: 1.8, cursor: 'pointer' }} onClick={handleCopy} title="tap to copy">
-      <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
-      <span style={{ opacity: 0.9, borderBottom: '1px dashed rgba(51,255,51,0.4)', paddingBottom: 1, wordBreak: 'break-all' }}>{line}</span>
-      <span style={{ opacity: copied ? 0.8 : 0.3, fontSize: '0.75em', marginLeft: '0.5rem', transition: 'opacity 0.2s', color: copied ? 'var(--phosphor-green)' : undefined }}>
+    <div
+      style={{ cursor: 'pointer', lineHeight: 1.8, paddingLeft: '2ch' }}
+      onClick={handleCopy}
+      title="tap to copy"
+    >
+      <span style={{ opacity: 0.35 }}>&lt;&lt; </span>
+      <span style={{
+        opacity: 0.95,
+        borderBottom: '1px dashed rgba(51,255,51,0.35)',
+        paddingBottom: 1,
+        wordBreak: 'break-all',
+      }}>
+        {line}
+      </span>
+      <span style={{
+        opacity: copied ? 0.9 : 0.3,
+        fontSize: '0.7em',
+        marginLeft: '0.6rem',
+        transition: 'opacity 0.2s',
+        color: copied ? 'var(--phosphor-green)' : undefined,
+      }}>
         {copied ? 'copied' : '⎘'}
       </span>
     </div>
   );
 };
 
-const N1XMessageLines: React.FC<{ text: string; isUnprompted?: boolean }> = ({ text, isUnprompted }) => {
-  const lines = text.split('\n');
+const ThinkingDots: React.FC = () => {
+  const [dots, setDots] = useState('');
+  useEffect(() => {
+    const id = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 400);
+    return () => clearInterval(id);
+  }, []);
+  return <span>{dots}</span>;
+};
+
+const N1XMessage: React.FC<{ text: string; isUnprompted?: boolean; isThinking?: boolean }> = ({ text, isUnprompted, isThinking }) => {
+  const lines = text.split('\n').filter(l => l.trim() !== '');
   return (
-    <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
-      {isUnprompted && (
-        <div style={{ opacity: 0.4, fontSize: S.base, marginBottom: '0.25rem' }}>
-          [UNFILTERED] ghost-daemon[999]:
-        </div>
-      )}
-      <div style={{ marginLeft: '1rem', opacity: 0.4, lineHeight: 1.8 }}>
-        <span className={S.glow}>[N1X] &gt;&gt;</span>
+    <div style={{ lineHeight: 1.9, marginBottom: '0.1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', marginBottom: '0.1rem' }}>
+        <span className={S.glow} style={{ opacity: 0.5, fontSize: '0.7em', fontFamily: 'monospace' }}>
+          {isUnprompted ? '[UNFILTERED]' : ''}
+        </span>
+        <span className={S.glow} style={{ opacity: isThinking ? 0.4 : 0.6 }}>[N1X]</span>
+        <span style={{ opacity: 0.3 }}>&lt;&lt;</span>
+        {isThinking && (
+          <span style={{ opacity: 0.4, fontStyle: 'italic', fontSize: '0.85em' }}>
+            signal processing
+            <ThinkingDots />
+          </span>
+        )}
       </div>
-      {lines.map((line, i) =>
-        isCopyableLine(line) ? (
-          <CopyLine key={i} line={line} />
-        ) : (
-          <div key={i} style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <span style={{ opacity: 0.4 }}>&lt;&lt; </span>
-            <span style={{ opacity: 0.9 }}>{line}</span>
-          </div>
-        )
+      {!isThinking && (
+        <div style={{ paddingLeft: '2ch' }}>
+          {lines.map((line, i) =>
+            isCopyableLine(line) ? (
+              <CopyLine key={i} line={line} />
+            ) : (
+              <div key={i} style={{ lineHeight: 1.9, opacity: 0.92 }}>{line}</div>
+            )
+          )}
+        </div>
       )}
     </div>
   );
 };
 
-const UserMessageLine: React.FC<{ handle: string; text: string; isSelf: boolean }> = ({ handle, text, isSelf }) => (
-  <div style={{ fontSize: S.base, lineHeight: 1.8, opacity: isSelf ? 0.6 : 0.9 }}>
-    <span className={isSelf ? '' : S.glow} style={{ opacity: 0.7 }}>[{handle}]</span>
-    <span style={{ opacity: 0.5 }}> &gt;&gt; </span>
-    <span>{text}</span>
+const UserMessage: React.FC<{ handle: string; text: string; isSelf: boolean }> = ({ handle, text, isSelf }) => (
+  <div style={{ lineHeight: 1.9, display: 'flex', alignItems: 'baseline', gap: '0.5ch', opacity: isSelf ? 0.55 : 1 }}>
+    <span
+      className={isSelf ? '' : S.glow}
+      style={{ opacity: isSelf ? 0.6 : 0.8, whiteSpace: 'nowrap', flexShrink: 0 }}
+    >
+      [{handle}]
+    </span>
+    <span style={{ opacity: 0.35 }}>&gt;&gt;</span>
+    <span style={{ wordBreak: 'break-word' }}>{text}</span>
   </div>
 );
 
-const SystemLine: React.FC<{ text: string }> = ({ text }) => (
-  <div style={{ fontSize: S.base, lineHeight: 1.8, opacity: 0.4, fontStyle: 'italic' }}>
+const SystemMsg: React.FC<{ text: string }> = ({ text }) => (
+  <div style={{ lineHeight: 1.9, opacity: 0.35, fontStyle: 'italic', fontSize: '0.85em' }}>
     {text}
   </div>
 );
@@ -193,20 +230,22 @@ const SystemLine: React.FC<{ text: string }> = ({ text }) => (
 
 const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occupantCount, handle }) => (
   <div style={{
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0 1.5rem',
     fontSize: '0.7rem',
     fontFamily: 'monospace',
-    opacity: 0.4,
+    opacity: 0.45,
     borderBottom: '1px solid rgba(51,255,51,0.1)',
-    paddingBottom: '0.4rem',
-    marginBottom: '0.5rem',
-    display: 'flex',
-    gap: '1rem',
+    paddingBottom: '0.5rem',
+    marginBottom: '0.75rem',
+    lineHeight: 1.6,
   }}>
     <span>ghost channel</span>
-    <span className="text-glow" style={{ opacity: 0.8 }}>{occupantCount} node{occupantCount !== 1 ? 's' : ''} connected</span>
+    <span><span className={S.glow} style={{ opacity: 1 }}>{occupantCount}</span> node{occupantCount !== 1 ? 's' : ''} connected</span>
     <span>33hz</span>
-    <span style={{ opacity: 0.6 }}>you: {handle}</span>
-    <span style={{ opacity: 0.5 }}>@n1x to address daemon</span>
+    <span>you: <span style={{ opacity: 0.8 }}>{handle}</span></span>
+    <span style={{ opacity: 0.6 }}>@n1x to address daemon</span>
   </div>
 );
 
@@ -477,21 +516,23 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             </div>
           )}
 
-          {messages.map((msg: RoomMsg) => {
-            if (msg.isSystem) return <SystemLine key={msg.id} text={msg.text} />;
-            if (msg.isN1X)    return <N1XMessageLines key={msg.id} text={msg.text} isUnprompted={msg.isUnprompted} />;
-            return (
-              <UserMessageLine
-                key={msg.id}
-                handle={msg.handle}
-                text={msg.text}
-                isSelf={msg.handle === handle}
-              />
-            );
-          })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+            {messages.map((msg: RoomMsg) => {
+              if (msg.isSystem) return <SystemMsg key={msg.id} text={msg.text} />;
+              if (msg.isN1X)    return <N1XMessage key={msg.id} text={msg.text} isUnprompted={msg.isUnprompted} isThinking={msg.isThinking} />;
+              return (
+                <UserMessage
+                  key={msg.id}
+                  handle={msg.handle}
+                  text={msg.text}
+                  isSelf={msg.handle === handle}
+                />
+              );
+            })}
+          </div>
 
-          {/* No inline input here — bottom shell bar handles all input via telnetBridge */}
-          <div style={{ opacity: 0.25, fontSize: '0.65rem', marginTop: '0.75rem', fontFamily: 'monospace' }}>
+          {/* No inline input — bottom shell bar handles input via telnetBridge */}
+          <div style={{ opacity: 0.2, fontSize: '0.65rem', marginTop: '0.75rem', fontFamily: 'monospace' }}>
             type <span className={S.glow}>exit</span> to disconnect
           </div>
         </div>
