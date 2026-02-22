@@ -1,11 +1,10 @@
 import Ably from 'ably';
 
-export async function GET() {
+async function createToken() {
   const apiKey = process.env.ABLY_API_KEY;
   if (!apiKey) {
     return Response.json({ error: 'ABLY_API_KEY not configured' }, { status: 500 });
   }
-
   try {
     const client = new Ably.Rest(apiKey);
     const tokenRequest = await client.auth.createTokenRequest({
@@ -17,3 +16,6 @@ export async function GET() {
     return Response.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function GET()  { return createToken(); }
+export async function POST() { return createToken(); }
