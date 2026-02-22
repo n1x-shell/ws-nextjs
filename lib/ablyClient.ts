@@ -165,7 +165,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     let client: Ably.Realtime;
     try {
       client = new Ably.Realtime({
-        authUrl: `${window.location.origin}/api/ably/token?clientId=${encodeURIComponent(handle)}`,
+        authUrl: `${window.location.origin}/api/ably/token`,
         clientId: handle,
       });
     } catch {
