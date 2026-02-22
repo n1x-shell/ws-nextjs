@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Command, CommandResult } from '@/types/shell.types';
+import { telnetBridge } from '@/lib/telnetBridge';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
@@ -1121,6 +1122,32 @@ export function executeCommand(
     }
 
     return handleMailInput(trimmed);
+  }
+
+  // ── Telnet multiplayer intercept ────────────────────────────────────────
+  // When an Ably multiplayer session is active, route all input to the room.
+  if (telnetBridge.isActive()) {
+    const firstWord = trimmed.toLowerCase().split(/\s+/)[0];
+
+    if (firstWord === 'clear') {
+      return { output: '', clearScreen: true };
+    }
+
+    if (firstWord === 'exit' || firstWord === 'quit') {
+      telnetBridge.disconnect();
+      return {
+        output: (
+          <div style={{ fontSize: 'var(--text-base)', opacity: 0.5 }}>
+            &gt;&gt; CHANNEL DISCONNECTED
+            <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>Connection closed by foreign host.</div>
+          </div>
+        ),
+      };
+    }
+
+    // Everything else goes to the room
+    telnetBridge.send(trimmed);
+    return { output: null };
   }
 
   // ── Chat mode intercept ─────────────────────────────────────────────────
