@@ -20,6 +20,7 @@ export interface CommandResult {
   output: ReactNode | string | null;
   error?: boolean;
   clearScreen?: boolean;
+  silent?: boolean; // if true, suppress history entry (used by telnet bridge routing)
 }
 
 export interface CommandOutput {
