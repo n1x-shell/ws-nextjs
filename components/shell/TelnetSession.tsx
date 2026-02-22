@@ -169,16 +169,20 @@ const CopyLine: React.FC<{ line: string }> = ({ line }) => {
 // ── Colors ────────────────────────────────────────────────────────────────────
 
 const C = {
-  bracket:   'var(--phosphor-green)',          // [ ]
-  username:  '#e8b84b',                         // user handles — amber/yellow
-  n1xName:   '#ff4444',                         // N1X name — red
-  message:   '#ffffff',                         // sent message text — white
-  timestamp: 'rgba(51,255,51,0.35)',            // faded green
-  system:    '#ff8c00',                         // system messages — orange
-  thinking:  'rgba(51,255,51,0.4)',             // thinking indicator
+  bracket:     'var(--phosphor-green)',       // [ ] always green
+  selfUser:    'var(--phosphor-green)',       // my own handle
+  otherUser:   '#b0b0b0',                    // other users — light grey
+  n1xName:     '#ff4444',                    // N1X name — red
+  selfMsg:     '#ffffff',                    // my messages — white
+  otherMsg:    '#b0b0b0',                    // others — light grey
+  n1xMsg:      'var(--phosphor-green)',      // N1X responses — green
+  timestamp:   'rgba(51,255,51,0.3)',        // faded green
+  system:      '#ff8c00',                    // system — orange
+  thinking:    'rgba(51,255,51,0.45)',
 };
 
 function formatTs(ts: number): string {
+  if (!ts) return '';
   const d = new Date(ts);
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
@@ -195,99 +199,106 @@ const ThinkingDots: React.FC = () => {
   return <span>{dots}</span>;
 };
 
-// TIMESTAMP    [handle] > text
-// All rows share the same flex layout — timestamp, bracket-name, arrow, text.
+// Layout per message:
+//   HH:MM:SS
+//   [handle] > text text text
 
-const Row: React.FC<{ ts: number; name: React.ReactNode; text: React.ReactNode }> = ({ ts, name, text }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: '0.6ch',
-    lineHeight: 1.8,
-    fontFamily: 'monospace',
-  }}>
-    <span style={{ color: C.timestamp, flexShrink: 0, fontSize: '0.8em' }}>
+interface MsgRowProps {
+  ts:         number;
+  bracket:    string;  // color of [ ]
+  nameColor:  string;
+  name:       string;
+  arrow?:     React.ReactNode;
+  msgColor:   string;
+  children:   React.ReactNode;
+}
+
+const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, children }) => (
+  <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+    {/* Timestamp line */}
+    <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
       {formatTs(ts)}
-    </span>
-    {name}
-    <span style={{ color: C.bracket, opacity: 0.5, flexShrink: 0 }}>&gt;</span>
-    {text}
+    </div>
+    {/* Handle + message line */}
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+      <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ color: bracket }}>[</span>
+        <span style={{ color: nameColor }}>{name}</span>
+        <span style={{ color: bracket }}>]</span>
+      </span>
+      <span style={{ color: bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
+      <span style={{ color: msgColor, wordBreak: 'break-word' }}>{children}</span>
+    </div>
   </div>
 );
 
 const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
   if (msg.isThinking) {
     return (
-      <Row
+      <MsgRow
         ts={msg.ts}
-        name={
-          <span>
-            <span style={{ color: C.bracket }}>[</span>
-            <span style={{ color: C.n1xName }}>N1X</span>
-            <span style={{ color: C.bracket }}>]</span>
-          </span>
-        }
-        text={
-          <span style={{ color: C.thinking, fontStyle: 'italic' }}>
-            signal processing<ThinkingDots />
-          </span>
-        }
-      />
+        bracket={C.bracket}
+        nameColor={C.n1xName}
+        name="N1X"
+        msgColor={C.thinking}
+      >
+        <span style={{ fontStyle: 'italic' }}>signal processing<ThinkingDots /></span>
+      </MsgRow>
     );
   }
 
   const lines = msg.text.split('\n').filter(l => l.trim() !== '');
+
   return (
-    <>
-      {lines.map((line, i) => (
-        <Row
-          key={i}
-          ts={i === 0 ? msg.ts : 0}
-          name={i === 0
-            ? (
-              <span>
-                <span style={{ color: C.bracket }}>[</span>
-                <span style={{ color: C.n1xName }}>N1X</span>
-                <span style={{ color: C.bracket }}>]</span>
-              </span>
-            )
-            : <span style={{ minWidth: '9ch', display: 'inline-block' }} />
-          }
-          text={
+    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+        {formatTs(msg.ts)}
+        {msg.isUnprompted && (
+          <span style={{ marginLeft: '0.75ch', opacity: 0.6 }}>[UNFILTERED]</span>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ color: C.bracket }}>[</span>
+          <span style={{ color: C.n1xName }}>N1X</span>
+          <span style={{ color: C.bracket }}>]</span>
+        </span>
+        <span style={{ color: C.bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
+        <span style={{ color: C.n1xMsg, wordBreak: 'break-word' }}>
+          {lines.map((line, i) =>
             isCopyableLine(line)
-              ? <CopyLine line={line} />
-              : <span style={{ color: C.message, wordBreak: 'break-word' }}>{line}</span>
-          }
-        />
-      ))}
-    </>
+              ? <CopyLine key={i} line={line} />
+              : <span key={i} style={{ display: i > 0 ? 'block' : 'inline' }}>{line}</span>
+          )}
+        </span>
+      </div>
+    </div>
   );
 };
 
-const UserMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
-  <Row
+const UserMessage: React.FC<{ msg: RoomMsg; isSelf: boolean }> = ({ msg, isSelf }) => (
+  <MsgRow
     ts={msg.ts}
-    name={
-      <span>
-        <span style={{ color: C.bracket }}>[</span>
-        <span style={{ color: C.username }}>{msg.handle}</span>
-        <span style={{ color: C.bracket }}>]</span>
-      </span>
-    }
-    text={<span style={{ color: C.message, wordBreak: 'break-word' }}>{msg.text}</span>}
-  />
+    bracket={C.bracket}
+    nameColor={isSelf ? C.selfUser : C.otherUser}
+    name={msg.handle}
+    msgColor={isSelf ? C.selfMsg : C.otherMsg}
+  >
+    {msg.text}
+  </MsgRow>
 );
 
 const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
   <div style={{
-    color: C.system,
-    fontStyle: 'italic',
-    fontSize: '0.8em',
-    lineHeight: 1.8,
-    opacity: 0.85,
-    fontFamily: 'monospace',
+    color:       C.system,
+    fontStyle:   'italic',
+    fontSize:    '0.8em',
+    lineHeight:  1.7,
+    marginBottom: '0.35rem',
+    fontFamily:  'monospace',
+    opacity:     0.9,
   }}>
-    <span style={{ color: C.timestamp, fontSize: '0.8em', marginRight: '0.6ch' }}>{formatTs(msg.ts)}</span>
+    <span style={{ color: C.timestamp, marginRight: '0.6ch' }}>{formatTs(msg.ts)}</span>
     {msg.text}
   </div>
 );
@@ -464,9 +475,10 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     runSequence(getMultiSequence(host, count), () => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
-      // Multi: activate telnetBridge so bottom bar routes to Ably
+      // Clear shell history so boot lines + any prior solo chat don't persist
+      eventBus.emit('shell:clear');
       activateTelnet(handle, send, handleDisconnect);
-      setChatMode(true); // keeps bottom bar in [handle]>> mode
+      setChatMode(true);
       setMode('multi');
     });
   }, [host, handle, send, handleDisconnect, runSequence]);
@@ -492,7 +504,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     if (mode === 'waiting' || mode === 'offline') return;
 
     if (occupantCount >= 2 && mode === 'single') {
-      // Someone joined — upgrade to mesh
+      // Someone joined — upgrade to mesh, wipe solo chat history
+      eventBus.emit('shell:clear');
       activateTelnet(handle, send, handleDisconnect);
       setChatMode(true);
       setMode('multi');
@@ -586,7 +599,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             {messages.map((msg: RoomMsg) => {
               if (msg.isSystem) return <SystemMsg key={msg.id} msg={msg} />;
               if (msg.isN1X)    return <N1XMessage key={msg.id} msg={msg} />;
-              return <UserMessage key={msg.id} msg={msg} />;
+              return <UserMessage key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
             })}
           </div>
 
