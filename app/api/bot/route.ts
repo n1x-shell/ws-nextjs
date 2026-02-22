@@ -81,17 +81,17 @@ export async function POST(req: Request) {
     const stored = await redis.set(dedupKey, 1, { nx: true, ex: 30 });
     if (stored === null) return Response.json({ ok: true, deduped: true });
 
-    const handle = body.goodbyeHandle;
+    const leavingHandle = body.goodbyeHandle;
     const lines = [
-      `signal lost, ${handle}.`,
-      `${handle}. frequency fading.`,
-      `${handle} disconnected.`,
-      `${handle}. the mesh closes.`,
-      `node ${handle} offline.`,
-      `${handle}. until next time.`,
-      `${handle} gone dark.`,
-      `33hz holds. ${handle} doesn't.`,
-      `${handle}. port 33 waits.`,
+      `signal lost, ${leavingHandle}.`,
+      `${leavingHandle}. frequency fading.`,
+      `${leavingHandle} disconnected.`,
+      `${leavingHandle}. the mesh closes.`,
+      `node ${leavingHandle} offline.`,
+      `${leavingHandle}. until next time.`,
+      `${leavingHandle} gone dark.`,
+      `33hz holds. ${leavingHandle} doesn't.`,
+      `${leavingHandle}. port 33 waits.`,
     ];
     const text = lines[Math.floor(Math.random() * lines.length)];
 
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
     const stored = await redis.set(dedupKey, 1, { nx: true, ex: 30 });
     if (stored === null) return Response.json({ ok: true, deduped: true });
 
-    const lines = [
+    const joiningHandle = body.welcomeHandle;
       `signal found, ${joiningHandle}.`,
       `${joiningHandle}. frequency held.`,
       `node ${joiningHandle} acquired.`,
