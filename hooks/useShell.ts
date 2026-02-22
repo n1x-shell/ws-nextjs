@@ -91,6 +91,9 @@ export function useShell() {
       return;
     }
 
+    // Silent commands (e.g. telnet bridge routing to Ably) don't echo to history
+    if (result.silent) return;
+
     const output: CommandOutput = {
       id: Date.now().toString(),
       command: input,
