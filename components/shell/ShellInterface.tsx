@@ -507,7 +507,7 @@ export default function ShellInterface() {
       setInput(navigateHistory('down') ?? '');
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (suggestions.length === 0) return;
+      if (isChatMode() || suggestions.length === 0) return;
 
       const completed = suggestions[0];
       // Split on whitespace to detect whether we're completing a command or an argument
@@ -713,7 +713,7 @@ export default function ShellInterface() {
           </div>
 
           {/* Autocomplete suggestion bar */}
-          {suggestions.length > 0 && !isPrompting && (
+          {suggestions.length > 0 && !isPrompting && !isChatMode() && (
             <div
               style={{
                 flexShrink: 0,
