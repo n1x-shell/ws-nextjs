@@ -1,3 +1,5 @@
+import Ably from 'ably';
+
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -9,34 +11,21 @@ export async function GET() {
     });
   }
 
-  const colonIdx = apiKey.indexOf(':');
-  if (colonIdx === -1) {
-    return new Response(JSON.stringify({ error: 'ABLY_API_KEY malformed — expected keyName:keySecret' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const keyName = apiKey.slice(0, colonIdx);
-  const credentials = btoa(apiKey);
-
-  const res = await fetch(`https://rest.ably.io/keys/${keyName}/requestToken`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${credentials}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({
-      capability: { 'port-33': ['publish', 'subscribe', 'presence', 'history'] },
-      ttl: 3600000,
-    }),
+  const rest = new Ably.Rest(apiKey);
+  const tr = await rest.auth.createTokenRequest({
+    capability: { 'port-33': ['publish', 'subscribe', 'presence', 'history'] },
+    ttl: 3600000,
   });
 
-  const body = await res.json();
+  // Ably REST requires timestamp as a string, not a number
+  const body = {
+    ...tr,
+    timestamp: String(tr.timestamp),
+    ttl: String(tr.ttl),
+  };
 
   return new Response(JSON.stringify(body), {
-    status: res.ok ? 200 : 502,
+    status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
 }
