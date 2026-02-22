@@ -166,7 +166,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     try {
       client = new Ably.Realtime({
         authUrl: `${window.location.origin}/api/ably/token`,
-        clientId: handle,
+        authMethod: 'GET',
       });
     } catch {
       // Ably init failed — fall back to solo
@@ -186,7 +186,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       try {
         const members = await channel.presence.get();
         if (!isMountedRef.current) return;
-        handlesRef.current = members.map(m => m.clientId ?? 'unknown');
+        handlesRef.current = members.map(m => (m.data as { handle?: string })?.handle ?? m.clientId ?? 'unknown');
         setOccupantCount(members.length);
       } catch { /* ignore */ }
     };
@@ -278,7 +278,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setIsConnected(true);
       joinedAtRef.current = Date.now();
 
-      channel.presence.enter({ trust: exportForRoom().trust });
+      channel.presence.enter({ handle, trust: exportForRoom().trust });
       setTimeout(updatePresence, 500);
     });
 
