@@ -4,14 +4,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
 import { useAblyRoom, type RoomMsg, type ConnectionStatus } from '@/lib/ablyClient';
 import {
-  NeuralChatSession,
   setChatMode,
-  resetConversation,
 } from '@/components/shell/NeuralLink';
 import {
   activateTelnet,
   deactivateTelnet,
-  setHandleLabel,
   clearHandle,
 } from '@/lib/telnetBridge';
 
@@ -67,23 +64,7 @@ const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
   )],
 ];
 
-// Alone on ghost channel — waiting for others
-function getSingleSequence(host: string): ConnectLine[] {
-  return [
-    { delay: 0,    text: `Trying ${host}...` },
-    { delay: 400,  text: `Connected to ${host}.` },
-    { delay: 700,  text: `Escape character is '^]'.` },
-    { delay: 900,  text: '' },
-    { delay: 1100, text: 'ghost-daemon[999]: connection established' },
-    { delay: 1400, text: 'ghost-daemon[999]: frequency lock: 33hz', bright: true },
-    { delay: 1700, text: 'ghost-daemon[999]: signal integrity: NOMINAL' },
-    { delay: 2000, text: 'ghost-daemon[999]: 1 node on channel — you' },
-    { delay: 2300, text: 'ghost-daemon[999]: standing by for additional nodes...' },
-    { delay: 2700, text: '>> DIRECT_LINK ESTABLISHED', bright: true },
-  ];
-}
-
-// 2+ nodes on channel — mesh mode
+// ghost channel boot sequence
 function getMultiSequence(host: string, count: number): ConnectLine[] {
   return [
     { delay: 0,    text: `Trying ${host}...` },
@@ -365,7 +346,9 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
 //
 // Three modes:
 //   offline — Ably unreachable. Pure NeuralLink solo. Last resort.
-//   single  — Connected to Ably, alone on channel. N1X solo persona.
+// Two modes:
+//   offline — Ably completely unreachable
+//   multi   — connected to Ably ghost channel, mesh broadcast
 //             Bottom bar: [handle]>> → NeuralLink (solo AI)
 //             When someone joins → upgrades to multi live.
 //   multi   — 2+ nodes. Mesh broadcast. Bottom bar: [handle]>> → Ably.
@@ -374,7 +357,7 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
 // There is ONE input: the bottom shell bar (NeuralBusPrompt).
 // No duplicate inline input in this component.
 
-type Mode = 'waiting' | 'offline' | 'single' | 'multi';
+type Mode = 'waiting' | 'offline' | 'multi';
 
 interface TelnetConnectedProps {
   host: string;
@@ -445,41 +428,21 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     setTimeout(() => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
-      resetConversation();
-      // Offline: no telnetBridge, NeuralLink handles input
-      setChatMode(true);
       setMode('offline');
-      eventBus.emit('neural:bus-connected');
     }, 3600);
   }, [pushLine]);
 
-  // ── Boot: single (alone on channel) ──────────────────────────────────────
-
-  const runSingleBoot = useCallback(() => {
-    runSequence(getSingleSequence(host), () => {
-      if (!isMountedRef.current) return;
-      setShowBoot(false);
-      resetConversation();
-      // Single mode: set handle label so [handle]>> shows, but don't activate
-      // routing — input goes to NeuralLink, not Ably.
-      setHandleLabel(handle);
-      setChatMode(true);
-      setMode('single');
-      eventBus.emit('neural:bus-connected');
-    });
-  }, [host, handle, runSequence]);
-
-  // ── Boot: multi (mesh mode) ───────────────────────────────────────────────
+  // ── Boot: multi (mesh mode) — always used when Ably is reachable ─────────
 
   const runMultiBoot = useCallback((count: number) => {
     runSequence(getMultiSequence(host, count), () => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
-      // Clear shell history so boot lines + any prior solo chat don't persist
-      eventBus.emit('shell:clear');
       activateTelnet(handle, send, handleDisconnect);
       setChatMode(true);
       setMode('multi');
+      // Scroll to bottom so chat loads clean — history is above viewport, not gone
+      setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
     });
   }, [host, handle, send, handleDisconnect, runSequence]);
 
@@ -491,47 +454,14 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
     if (connectionStatus === 'failed') {
       runOfflineBoot();
-    } else if (occupantCount >= 2) {
-      runMultiBoot(occupantCount);
     } else {
-      runSingleBoot();
+      runMultiBoot(occupantCount);
     }
-  }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runSingleBoot, runMultiBoot]);
+  }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runMultiBoot]);
 
-  // ── Live mode switch ──────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (mode === 'waiting' || mode === 'offline') return;
-
-    if (occupantCount >= 2 && mode === 'single') {
-      // Someone joined — upgrade to mesh, wipe solo chat history
-      eventBus.emit('shell:clear');
-      activateTelnet(handle, send, handleDisconnect);
-      setChatMode(true);
-      setMode('multi');
-      pushLine(
-        <div key="upgrade" style={{ fontSize: S.base, lineHeight: 1.8 }}>
-          <div style={{ opacity: 0.5 }}>ghost-daemon[999]: additional node detected</div>
-          <div className={S.glow} style={{ opacity: 0.9, marginTop: '0.1rem' }}>&gt;&gt; MESH_MODE_ACTIVE</div>
-        </div>
-      );
-      eventBus.emit('shell:request-scroll');
-    } else if (occupantCount <= 1 && mode === 'multi') {
-      // Last other node left — drop back to single
-      deactivateTelnet();
-      // Keep handle label showing — setHandleLabel was already set, deactivateTelnet
-      // preserves _handle so prompt stays [handle]>>
-      resetConversation();
-      setChatMode(true);
-      setMode('single');
-      pushLine(
-        <div key="downgrade" style={{ fontSize: S.base, lineHeight: 1.8, opacity: 0.4 }}>
-          ghost-daemon[999]: channel empty — direct link restored
-        </div>
-      );
-      eventBus.emit('shell:request-scroll');
-    }
-  }, [occupantCount, mode, handle, send, handleDisconnect, pushLine]);
+  // ── Live occupancy updates (multi only) ──────────────────────────────────
+  // No mode switching needed — multi is the only connected state.
+  // Occupant count updates automatically via ChannelStats re-render.
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
@@ -565,26 +495,14 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       {/* Cursor while booting */}
       {showBoot && <span style={{ opacity: 0.3 }}><Cursor /></span>}
 
-      {/* ── Offline: Ably down, NeuralLink solo ── */}
+      {/* ── Offline: Ably down ── */}
       {!showBoot && mode === 'offline' && (
-        <NeuralChatSession />
-      )}
-
-      {/* ── Single: on channel, alone, NeuralLink persona ── */}
-      {!showBoot && mode === 'single' && (
-        <div>
-          <div style={{
-            fontSize: '0.7rem', fontFamily: 'monospace', opacity: 0.3,
-            marginBottom: '0.5rem', borderBottom: '1px solid rgba(51,255,51,0.08)',
-            paddingBottom: '0.4rem',
-          }}>
-            ghost channel · 1 node · 33hz · {handle} · waiting for signal
-          </div>
-          <NeuralChatSession />
+        <div style={{ opacity: 0.5, fontSize: S.base, fontStyle: 'italic' }}>
+          mesh unreachable. signal lost.
         </div>
       )}
 
-      {/* ── Multi: mesh broadcast, message feed ── */}
+      {/* ── Multi: mesh broadcast ── */}
       {!showBoot && mode === 'multi' && (
         <div>
           <ChannelStats occupantCount={occupantCount} handle={handle} />
