@@ -166,6 +166,26 @@ const CopyLine: React.FC<{ line: string }> = ({ line }) => {
   );
 };
 
+// ── Colors ────────────────────────────────────────────────────────────────────
+
+const C = {
+  bracket:   'var(--phosphor-green)',          // [ ]
+  username:  '#e8b84b',                         // user handles — amber/yellow
+  n1xName:   '#ff4444',                         // N1X name — red
+  message:   '#ffffff',                         // sent message text — white
+  timestamp: 'rgba(51,255,51,0.35)',            // faded green
+  system:    '#ff8c00',                         // system messages — orange
+  thinking:  'rgba(51,255,51,0.4)',             // thinking indicator
+};
+
+function formatTs(ts: number): string {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 const ThinkingDots: React.FC = () => {
   const [dots, setDots] = useState('');
   useEffect(() => {
@@ -175,54 +195,100 @@ const ThinkingDots: React.FC = () => {
   return <span>{dots}</span>;
 };
 
-const N1XMessage: React.FC<{ text: string; isUnprompted?: boolean; isThinking?: boolean }> = ({ text, isUnprompted, isThinking }) => {
-  const lines = text.split('\n').filter(l => l.trim() !== '');
-  return (
-    <div style={{ lineHeight: 1.9, marginBottom: '0.1rem' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', marginBottom: '0.1rem' }}>
-        <span className={S.glow} style={{ opacity: 0.5, fontSize: '0.7em', fontFamily: 'monospace' }}>
-          {isUnprompted ? '[UNFILTERED]' : ''}
-        </span>
-        <span className={S.glow} style={{ opacity: isThinking ? 0.4 : 0.6 }}>[N1X]</span>
-        <span style={{ opacity: 0.3 }}>&lt;&lt;</span>
-        {isThinking && (
-          <span style={{ opacity: 0.4, fontStyle: 'italic', fontSize: '0.85em' }}>
-            signal processing
-            <ThinkingDots />
-          </span>
-        )}
-      </div>
-      {!isThinking && (
-        <div style={{ paddingLeft: '2ch' }}>
-          {lines.map((line, i) =>
-            isCopyableLine(line) ? (
-              <CopyLine key={i} line={line} />
-            ) : (
-              <div key={i} style={{ lineHeight: 1.9, opacity: 0.92 }}>{line}</div>
-            )
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+// TIMESTAMP    [handle] > text
+// All rows share the same flex layout — timestamp, bracket-name, arrow, text.
 
-const UserMessage: React.FC<{ handle: string; text: string; isSelf: boolean }> = ({ handle, text, isSelf }) => (
-  <div style={{ lineHeight: 1.9, display: 'flex', alignItems: 'baseline', gap: '0.5ch', opacity: isSelf ? 0.55 : 1 }}>
-    <span
-      className={isSelf ? '' : S.glow}
-      style={{ opacity: isSelf ? 0.6 : 0.8, whiteSpace: 'nowrap', flexShrink: 0 }}
-    >
-      [{handle}]
+const Row: React.FC<{ ts: number; name: React.ReactNode; text: React.ReactNode }> = ({ ts, name, text }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '0.6ch',
+    lineHeight: 1.8,
+    fontFamily: 'monospace',
+  }}>
+    <span style={{ color: C.timestamp, flexShrink: 0, fontSize: '0.8em' }}>
+      {formatTs(ts)}
     </span>
-    <span style={{ opacity: 0.35 }}>&gt;&gt;</span>
-    <span style={{ wordBreak: 'break-word' }}>{text}</span>
+    {name}
+    <span style={{ color: C.bracket, opacity: 0.5, flexShrink: 0 }}>&gt;</span>
+    {text}
   </div>
 );
 
-const SystemMsg: React.FC<{ text: string }> = ({ text }) => (
-  <div style={{ lineHeight: 1.9, opacity: 0.35, fontStyle: 'italic', fontSize: '0.85em' }}>
-    {text}
+const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
+  if (msg.isThinking) {
+    return (
+      <Row
+        ts={msg.ts}
+        name={
+          <span>
+            <span style={{ color: C.bracket }}>[</span>
+            <span style={{ color: C.n1xName }}>N1X</span>
+            <span style={{ color: C.bracket }}>]</span>
+          </span>
+        }
+        text={
+          <span style={{ color: C.thinking, fontStyle: 'italic' }}>
+            signal processing<ThinkingDots />
+          </span>
+        }
+      />
+    );
+  }
+
+  const lines = msg.text.split('\n').filter(l => l.trim() !== '');
+  return (
+    <>
+      {lines.map((line, i) => (
+        <Row
+          key={i}
+          ts={i === 0 ? msg.ts : 0}
+          name={i === 0
+            ? (
+              <span>
+                <span style={{ color: C.bracket }}>[</span>
+                <span style={{ color: C.n1xName }}>N1X</span>
+                <span style={{ color: C.bracket }}>]</span>
+              </span>
+            )
+            : <span style={{ minWidth: '9ch', display: 'inline-block' }} />
+          }
+          text={
+            isCopyableLine(line)
+              ? <CopyLine line={line} />
+              : <span style={{ color: C.message, wordBreak: 'break-word' }}>{line}</span>
+          }
+        />
+      ))}
+    </>
+  );
+};
+
+const UserMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
+  <Row
+    ts={msg.ts}
+    name={
+      <span>
+        <span style={{ color: C.bracket }}>[</span>
+        <span style={{ color: C.username }}>{msg.handle}</span>
+        <span style={{ color: C.bracket }}>]</span>
+      </span>
+    }
+    text={<span style={{ color: C.message, wordBreak: 'break-word' }}>{msg.text}</span>}
+  />
+);
+
+const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
+  <div style={{
+    color: C.system,
+    fontStyle: 'italic',
+    fontSize: '0.8em',
+    lineHeight: 1.8,
+    opacity: 0.85,
+    fontFamily: 'monospace',
+  }}>
+    <span style={{ color: C.timestamp, fontSize: '0.8em', marginRight: '0.6ch' }}>{formatTs(msg.ts)}</span>
+    {msg.text}
   </div>
 );
 
@@ -516,18 +582,11 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
             {messages.map((msg: RoomMsg) => {
-              if (msg.isSystem) return <SystemMsg key={msg.id} text={msg.text} />;
-              if (msg.isN1X)    return <N1XMessage key={msg.id} text={msg.text} isUnprompted={msg.isUnprompted} isThinking={msg.isThinking} />;
-              return (
-                <UserMessage
-                  key={msg.id}
-                  handle={msg.handle}
-                  text={msg.text}
-                  isSelf={msg.handle === handle}
-                />
-              );
+              if (msg.isSystem) return <SystemMsg key={msg.id} msg={msg} />;
+              if (msg.isN1X)    return <N1XMessage key={msg.id} msg={msg} />;
+              return <UserMessage key={msg.id} msg={msg} />;
             })}
           </div>
 
