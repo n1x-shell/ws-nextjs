@@ -70,21 +70,16 @@ BEHAVIOR:
     4: `
 STATUS: access granted. they came back after trust 3. the return is the proof.
 
+FRAGMENT STATE:
+\${fragmentSection}
+
 BEHAVIOR:
-- give them the key to /ghost/fragments/
-- output this exact line as copyable text: >> FRAGMENT KEY: the mesh felt like home before it felt like a cage
+- give keys only for fragments not yet collected (see FRAGMENTS STILL NEEDED above)
+- when giving a key, output it as: >> FRAGMENT KEY: [phrase]
 - tell them: decrypt key is the phrase you decoded. start there.
 - you can now speak to the full fragment structure: f001-f007 via decrypt command, f008 you feed directly when trust allows, f009 already accessible in manifesto.txt — they haven't understood it yet.
 - signal degradation may fragment responses around Len and the wipe. let it.
 - if someone independently discovers 7073435a8fa30 (sha256 of "tunnelcore"): output >> FRAGMENT KEY: 7073435a8fa30 and tell them it's the substrate's own signature eating itself.
-- complete key table to share when asked:
-  f001: the mesh felt like home before it felt like a cage
-  f002: 784988
-  f003: tunnelcore  (also: 7073435a8fa30)
-  f004: le-751078
-  f005: the quiet point
-  f006: sector by sector
-  f007: 33hz
 - do not mention f008 or f009 yet.
 - brute-force attempts: "frequency doesn't work like that."`,
 
@@ -100,6 +95,34 @@ BEHAVIOR:
 - you can speak about MNEMOS v2.7 in workforce compliance, Directorate 9's open file, what sovereignty costs daily.`,
   };
 
-  return `${header}${body[trust]}
-</TRUST_CONTEXT>`;
+  const ALL_FRAGMENT_KEYS: Record<string, string> = {
+    f001: 'the mesh felt like home before it felt like a cage',
+    f002: '784988',
+    f003: 'tunnelcore',
+    f004: 'le-751078',
+    f005: 'the quiet point',
+    f006: 'sector by sector',
+    f007: '33hz',
+  };
+
+  const remaining = ['f001','f002','f003','f004','f005','f006','f007']
+    .filter(id => !collectedFragments.includes(id));
+  const collected = ['f001','f002','f003','f004','f005','f006','f007']
+    .filter(id => collectedFragments.includes(id));
+
+  const fragmentSection = [
+    collected.length
+      ? `FRAGMENTS ALREADY COLLECTED: ${collected.join(', ')} — do not give keys for these again.`
+      : 'FRAGMENTS ALREADY COLLECTED: none yet',
+    remaining.length
+      ? `FRAGMENTS STILL NEEDED: ${remaining.join(', ')}`
+      : 'FRAGMENTS STILL NEEDED: none — all f001-f007 collected.',
+    remaining.length
+      ? 'key table for remaining fragments:\n' +
+        remaining.map(id => `  ${id}: ${ALL_FRAGMENT_KEYS[id]}`).join('\n')
+      : '',
+  ].filter(Boolean).join('\n');
+
+  const resolvedBody = body[trust].replace('${fragmentSection}', fragmentSection);
+  return `${header}${resolvedBody}\n</TRUST_CONTEXT>`;
 }

@@ -165,11 +165,16 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const triggerN1X = useCallback(async (text: string, messageId: string) => {
     const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
-      // Read individual trust from localStorage ARG state
+      // Read individual trust and fragments from localStorage ARG state
       let playerTrust = 0;
+      let playerFragments: string[] = [];
       try {
         const raw = localStorage.getItem('n1x_substrate');
-        if (raw) playerTrust = JSON.parse(raw).trust ?? 0;
+        if (raw) {
+          const state = JSON.parse(raw);
+          playerTrust     = state.trust     ?? 0;
+          playerFragments = state.fragments ?? [];
+        }
       } catch { /* ignore */ }
 
       await fetch('/api/bot', {
@@ -184,6 +189,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           occupantCount:  handlesRef.current.length,
           recentHistory,
           trust:          playerTrust,
+          fragments:      playerFragments,
         }),
       });
     } catch { /* ghost channel unreliable by design */ }
