@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useShell, RequestPromptFn } from '@/hooks/useShell';
-import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPathSuggestions, isMailMode } from '@/lib/commandRegistry';
+import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPathSuggestions, isMailMode, isRootMode } from '@/lib/commandRegistry';
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
@@ -47,6 +47,21 @@ function NeuralBusPrompt({ inline }: { inline?: boolean }) {
         [{handle}]
       </span>
       <span style={{ opacity: 0.5 }}>&gt;&gt;</span>
+    </span>
+  );
+}
+
+// ── Root prompt renderer ──────────────────────────────────────────────────────
+
+function RootPrompt({ cwd, inline }: { cwd: string; inline?: boolean }) {
+  return (
+    <span style={{ whiteSpace: 'nowrap', display: inline ? 'inline' : 'inline-flex', alignItems: 'center' }}>
+      <span style={{ color: '#f87171', fontWeight: 'bold' }}>root</span>
+      <span style={{ color: '#ffaa00' }}>@</span>
+      <span style={{ color: '#f87171', fontWeight: 'bold' }}>n1x</span>
+      <span style={{ opacity: 0.5 }}>:</span>
+      <span style={{ color: '#fb923c' }}>{cwd}</span>
+      <span style={{ color: '#f87171', opacity: 0.8, marginLeft: '0.3rem' }}>#</span>
     </span>
   );
 }
@@ -312,6 +327,7 @@ export default function ShellInterface() {
   const [booting, setBooting]       = useState(true);
   const [shellUser, setShellUser]   = useState<string>('ghost');
   const [shellDir, setShellDir]     = useState<string>('~');
+  const [rootMode, setRootMode]     = useState(false);
   const inputRef                    = useRef<HTMLInputElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
@@ -349,6 +365,11 @@ export default function ShellInterface() {
     if (event.payload?.directory) {
       setShellDir(event.payload.directory);
     }
+  });
+
+  // ── Track root mode — driven by isRootMode flag via shell:root-mode-change ──
+  useEventBus('shell:root-mode-change', (event) => {
+    setRootMode(!!event.payload?.active);
   });
 
   // Sync user display — dir is handled by shell:set-directory eventBus above
@@ -684,6 +705,8 @@ export default function ShellInterface() {
                   <div style={{ marginBottom: '0.25rem' }}>
                     {item.chatMode ? (
                       <NeuralBusPrompt />
+                    ) : item.user === 'root' ? (
+                      <RootPrompt cwd={item.cwd || '/'} />
                     ) : (
                       <FishPrompt
                         user={item.user || 'ghost'}
@@ -830,6 +853,8 @@ export default function ShellInterface() {
                   <NeuralBusPrompt inline />
                 ) : isMailMode() ? (
                   <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>
+                ) : rootMode ? (
+                  <RootPrompt cwd={shellDir} inline />
                 ) : (
                   <FishPrompt user={shellUser} cwd={shellDir} inline />
                 )}
