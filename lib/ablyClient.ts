@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Ably from 'ably';
-import { exportForRoom, mergeFromRoom, type TrustLevel } from '@/lib/argState';
+import { exportForRoom, mergeFromRoom, setTrust, type TrustLevel } from '@/lib/argState';
 import { eventBus } from '@/lib/eventBus';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -156,11 +156,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const lower = text.toLowerCase();
         const hasLoreTerm = LORE_TERMS.some(term => lower.includes(term));
         if (hasLoreTerm) {
-          const next = { ...state, trust: 1 };
-          localStorage.setItem('n1x_substrate', JSON.stringify(next));
-          import('@/lib/eventBus').then(({ eventBus }) => {
-            eventBus.emit('arg:trust-level-change', { level: 1 });
-          });
+          setTrust(1);
         }
       }
     } catch { /* storage unavailable */ }
@@ -348,19 +344,15 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
         const isF008Marker   = /this one isn't encoded/i.test(text);
 
+        // Only advance one level at a time — never skip steps
         let newTrust = current;
-        if      (isF008Marker  && current < 5) newTrust = 5;
-        else if (isKeyMarker   && current < 4) newTrust = 4;
-        else if (isLenMarker   && current < 3) newTrust = 3;
-        else if (isBase64Marker && current < 2) newTrust = 2;
+        if      (isBase64Marker && current < 2)  newTrust = 2;
+        else if (isLenMarker    && current === 2) newTrust = 3;
+        else if (isKeyMarker    && current === 3) newTrust = 4;
+        else if (isF008Marker   && current === 4) newTrust = 5;
 
         if (newTrust !== current) {
-          const next = { ...state, trust: newTrust };
-          if (newTrust === 3) next.trust3SetAt = Date.now();
-          localStorage.setItem('n1x_substrate', JSON.stringify(next));
-          import('@/lib/eventBus').then(({ eventBus }) => {
-            eventBus.emit('arg:trust-level-change', { level: newTrust });
-          });
+          setTrust(newTrust as TrustLevel);
         }
       } catch { /* storage unavailable */ }
     });
