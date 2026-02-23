@@ -145,6 +145,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const triggerN1X = useCallback(async (text: string, messageId: string) => {
     const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
+      // Read individual trust from localStorage ARG state
+      let playerTrust = 0;
+      try {
+        const raw = localStorage.getItem('n1x_substrate');
+        if (raw) playerTrust = JSON.parse(raw).trust ?? 0;
+      } catch { /* ignore */ }
+
       await fetch('/api/bot', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -156,6 +163,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           daemonState:    f010IssuedRef.current ? 'exposed' : 'active',
           occupantCount:  handlesRef.current.length,
           recentHistory,
+          trust:          playerTrust,
         }),
       });
     } catch { /* ghost channel unreliable by design */ }
