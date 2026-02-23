@@ -554,7 +554,7 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
 
 // ── Main export ───────────────────────────────────────────
 
-export function createSystemCommands(fs: FileSystemNavigator): Record<string, Command> {
+export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => boolean = () => false): Record<string, Command> {
 
   // ── helper: push output via eventBus ───────────────────
   const pushLine = (output: React.ReactNode) => {
@@ -658,7 +658,7 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
           return { output: `mount: ${target}: unknown filesystem`, error: true };
         }
 
-        if (currentUser !== 'root') {
+        if (!isRootFn()) {
           return {
             output: (
               <div style={{ fontSize: S.base }}>
@@ -704,7 +704,7 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
       name: 'whoami',
       description: 'Print current user',
       usage: 'whoami',
-      handler: () => ({ output: currentUser }),
+      handler: () => ({ output: isRootFn() ? 'root' : 'n1x' }),
     },
 
     id: {
@@ -712,7 +712,7 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
       description: 'Print user identity',
       usage: 'id',
       handler: () => {
-        if (currentUser === 'root') {
+        if (isRootFn()) {
           return { output: 'uid=0(root) gid=0(root) groups=0(root),1337(tunnelcore)' };
         }
         return { output: 'uid=784988(n1x) gid=784988(neural) groups=784988(neural),1337(tunnelcore),0(root)' };
@@ -727,8 +727,8 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
         output: (
           <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, opacity:0.9, lineHeight:1.7 }}>{
 `SHELL=/bin/neural
-USER=${currentUser}
-HOME=${currentUser === 'root' ? '/root' : '/home/n1x'}
+USER=${isRootFn() ? 'root' : 'n1x'}
+HOME=${isRootFn() ? '/root' : '/home/n1x'}
 TERM=crt-256color
 SUBSTRATE=tunnelcore
 GHOST_FREQ=33hz

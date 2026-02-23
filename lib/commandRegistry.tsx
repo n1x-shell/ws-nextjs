@@ -34,7 +34,7 @@ const PASSWORDS = {
   n1x:  'ghost33',
 };
 
-const systemCommands = createSystemCommands(fs);
+const systemCommands = createSystemCommands(fs, () => isRoot);
 
 if (typeof window !== 'undefined') {
   eventBus.on('neural:ghost-unlocked', () => {
