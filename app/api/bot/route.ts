@@ -188,11 +188,14 @@ export async function POST(req: Request) {
   const trustContext = buildTrustContext(trust);
   const systemPrompt = `${trustContext}\n\n${buildMultiplayerPrompt(ctx)}`;
 
+  // Token budget scales with trust — low trust = short responses enforced at API level too
+  const maxTokens = trust <= 1 ? 80 : trust <= 3 ? 150 : 300;
+
   const result = await generateText({
     model:           'alibaba/qwen3-max',
     system:          systemPrompt,
     messages:        historyMessages,
-    maxOutputTokens: 400,
+    maxOutputTokens: maxTokens,
     temperature:     0.85,
   });
 
