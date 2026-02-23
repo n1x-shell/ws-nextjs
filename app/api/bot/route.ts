@@ -15,6 +15,7 @@ import {
   buildUnpromptedPrompt,
   type RoomContext,
 } from '@/lib/ghostDaemonPrompt';
+import { buildTrustContext } from '@/lib/trustContext';
 import { registerF010Key } from '@/lib/f010Store';
 
 export const maxDuration = 30;
@@ -50,6 +51,9 @@ interface BotRequest {
 
   // f010 key generation (threshold hit, no dedup needed)
   checkExposed?: boolean;
+
+  // Individual player trust level (0-5) from localStorage ARG state
+  trust?: number;
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -180,9 +184,13 @@ export async function POST(req: Request) {
   // Append the current message
   historyMessages.push({ role: 'user', content: text });
 
+  const trust = typeof body.trust === 'number' ? body.trust : 0;
+  const trustContext = buildTrustContext(trust);
+  const systemPrompt = `${trustContext}\n\n${buildMultiplayerPrompt(ctx)}`;
+
   const result = await generateText({
     model:           'alibaba/qwen3-max',
-    system:          buildMultiplayerPrompt(ctx),
+    system:          systemPrompt,
     messages:        historyMessages,
     maxOutputTokens: 400,
     temperature:     0.85,
