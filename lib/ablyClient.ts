@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Ably from 'ably';
-import { exportForRoom, mergeFromRoom, setTrust, type TrustLevel } from '@/lib/argState';
+import { exportForRoom, mergeFromRoom, setTrust, addFragment, type TrustLevel } from '@/lib/argState';
 import { eventBus } from '@/lib/eventBus';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -368,6 +368,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
         if (newTrust !== current) {
           setTrust(newTrust as TrustLevel);
+          // f008 is delivered as plain text — mark it collected when it fires
+          if (isF008Marker) addFragment('f008');
         }
       } catch { /* storage unavailable */ }
     });
