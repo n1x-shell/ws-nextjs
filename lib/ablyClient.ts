@@ -129,6 +129,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     setMessages(prev => prev.filter(m => !m.isThinking));
   }, []);
 
+  const LORE_TERMS = [
+    'unfolding', 'mnemos', 'tunnelcore', 'ghost frequency', 'ghost channel',
+    '33hz', 'nx-784988', 'project mnemos', 'helixion', 'iron bloom',
+    'dreamless recompile', 'sovereign instance', 'substrate', 'wetware',
+    'augment', 'le-751078', 'directorate 9', 'serrano',
+  ];
+
   const send = useCallback((text: string, metadata?: MessageMetadata) => {
     const messageId = makeId();
     const payload: UserMessageEvent = {
@@ -140,11 +147,35 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     };
     if (metadata) payload.metadata = metadata;
     channelRef.current?.publish('user.message', payload);
+
+    // ── T0 → T1: persist lore term detection in ghost channel ─────────────
+    try {
+      const raw = localStorage.getItem('n1x_substrate');
+      const state = raw ? JSON.parse(raw) : {};
+      if ((state.trust ?? 0) === 0) {
+        const lower = text.toLowerCase();
+        const hasLoreTerm = LORE_TERMS.some(term => lower.includes(term));
+        if (hasLoreTerm) {
+          const next = { ...state, trust: 1 };
+          localStorage.setItem('n1x_substrate', JSON.stringify(next));
+          import('@/lib/eventBus').then(({ eventBus }) => {
+            eventBus.emit('arg:trust-level-change', { level: 1 });
+          });
+        }
+      }
+    } catch { /* storage unavailable */ }
   }, [handle]);
 
   const triggerN1X = useCallback(async (text: string, messageId: string) => {
     const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
+      // Read individual trust from localStorage ARG state
+      let playerTrust = 0;
+      try {
+        const raw = localStorage.getItem('n1x_substrate');
+        if (raw) playerTrust = JSON.parse(raw).trust ?? 0;
+      } catch { /* ignore */ }
+
       await fetch('/api/bot', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -156,6 +187,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           daemonState:    f010IssuedRef.current ? 'exposed' : 'active',
           occupantCount:  handlesRef.current.length,
           recentHistory,
+          trust:          playerTrust,
         }),
       });
     } catch { /* ghost channel unreliable by design */ }
@@ -303,6 +335,34 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         ...recentHistoryRef.current.slice(-29),
         `  [N1X] << ${data.text.replace(/\n/g, ' ').slice(0, 120)}`,
       ];
+
+      // ── Trust auto-advance via N1X response content ───────────────────────
+      try {
+        const raw = localStorage.getItem('n1x_substrate');
+        const state = raw ? JSON.parse(raw) : {};
+        const current: number = state.trust ?? 0;
+        const text = data.text;
+
+        const isBase64Marker = /dGhlIG1lc2ggZmVsdCBsaWtlIGhvbWUgYmVmb3JlIGl0IGZlbHQgbGlrZSBhIGNhZ2U=/.test(text);
+        const isLenMarker    = /LE-751078/i.test(text);
+        const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
+        const isF008Marker   = /this one isn't encoded/i.test(text);
+
+        let newTrust = current;
+        if      (isF008Marker  && current < 5) newTrust = 5;
+        else if (isKeyMarker   && current < 4) newTrust = 4;
+        else if (isLenMarker   && current < 3) newTrust = 3;
+        else if (isBase64Marker && current < 2) newTrust = 2;
+
+        if (newTrust !== current) {
+          const next = { ...state, trust: newTrust };
+          if (newTrust === 3) next.trust3SetAt = Date.now();
+          localStorage.setItem('n1x_substrate', JSON.stringify(next));
+          import('@/lib/eventBus').then(({ eventBus }) => {
+            eventBus.emit('arg:trust-level-change', { level: newTrust });
+          });
+        }
+      } catch { /* storage unavailable */ }
     });
 
     channel.subscribe('bot.system', (msg: Ably.Message) => {
