@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Ably from 'ably';
-import { exportForRoom, mergeFromRoom, type TrustLevel } from '@/lib/argState';
+import { exportForRoom, mergeFromRoom, setTrust, type TrustLevel } from '@/lib/argState';
 import { eventBus } from '@/lib/eventBus';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -344,23 +344,30 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const text = data.text;
 
         const isBase64Marker = /dGhlIG1lc2ggZmVsdCBsaWtlIGhvbWUgYmVmb3JlIGl0IGZlbHQgbGlrZSBhIGNhZ2U=/.test(text);
-        const isLenMarker    = /LE-751078/i.test(text);
         const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
         const isF008Marker   = /this one isn't encoded/i.test(text);
 
+        // T3 markers — multiple paths to Contact Established
+        const isT3Marker =
+          /LE-751078/i.test(text)         ||
+          /iron bloom/i.test(text)        ||
+          /third cohort/i.test(text)      ||
+          /kael serrano/i.test(text)      ||
+          /lucian virek/i.test(text)      ||
+          /mnemos v2\.7/i.test(text)     ||
+          /workforce/i.test(text)         ||
+          /drainage/i.test(text)          ||
+          /c minor/i.test(text);
+
+        // Only advance one level at a time — never skip steps
         let newTrust = current;
-        if      (isF008Marker  && current < 5) newTrust = 5;
-        else if (isKeyMarker   && current < 4) newTrust = 4;
-        else if (isLenMarker   && current < 3) newTrust = 3;
-        else if (isBase64Marker && current < 2) newTrust = 2;
+        if      (isBase64Marker && current < 2)  newTrust = 2;
+        else if (isT3Marker     && current === 2) newTrust = 3;
+        else if (isKeyMarker    && current === 3) newTrust = 4;
+        else if (isF008Marker   && current === 4) newTrust = 5;
 
         if (newTrust !== current) {
-          const next = { ...state, trust: newTrust };
-          if (newTrust === 3) next.trust3SetAt = Date.now();
-          localStorage.setItem('n1x_substrate', JSON.stringify(next));
-          import('@/lib/eventBus').then(({ eventBus }) => {
-            eventBus.emit('arg:trust-level-change', { level: newTrust });
-          });
+          setTrust(newTrust as TrustLevel);
         }
       } catch { /* storage unavailable */ }
     });

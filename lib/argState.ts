@@ -20,6 +20,7 @@ export interface ARGState {
   fragments: string[];        // e.g. ['f001', 'f002']
   sessionCount: number;
   lastContact: number;        // Date.now() timestamp
+  trust3SetAt: number;        // Date.now() when trust first reached 3, 0 if not yet
   frequencyId: string;        // 8-char hex, generated once, never changes
   ghostUnlocked: boolean;
   hiddenUnlocked: boolean;
@@ -38,6 +39,7 @@ const DEFAULT_STATE: ARGState = {
   fragments: [],
   sessionCount: 0,
   lastContact: 0,
+  trust3SetAt: 0,
   frequencyId: generateFrequencyId(),
   ghostUnlocked: false,
   hiddenUnlocked: false,
@@ -69,14 +71,37 @@ export function updateARGState(patch: Partial<ARGState>): ARGState {
 
 export function startSession(): ARGState {
   const state = loadARGState();
-  return updateARGState({
+
+  const patch: Partial<ARGState> = {
     sessionCount: state.sessionCount + 1,
     lastContact: Date.now(),
-  });
+  };
+
+  // T3 → T4: promote on returning visit or after 24h
+  if (state.trust === 3) {
+    const returningVisit = state.sessionCount > 0;
+    const elapsed24h     = state.trust3SetAt > 0 && (Date.now() - state.trust3SetAt) >= 86400000;
+    if (returningVisit || elapsed24h) {
+      patch.trust = 4;
+    }
+  }
+
+  return updateARGState(patch);
 }
 
 export function setTrust(level: TrustLevel): void {
-  updateARGState({ trust: level });
+  const patch: Partial<ARGState> = { trust: level };
+  // Record the timestamp the first time trust reaches 3
+  if (level === 3) {
+    const state = loadARGState();
+    if (!state.trust3SetAt) patch.trust3SetAt = Date.now();
+  }
+  updateARGState(patch);
+  if (typeof window !== 'undefined') {
+    import('@/lib/eventBus').then(({ eventBus }) => {
+      eventBus.emit('arg:trust-level-change', { level });
+    });
+  }
 }
 
 export function addFragment(id: string): boolean {
