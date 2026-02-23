@@ -1691,6 +1691,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           'the quiet point': 'f005',
           'sector by sector': 'f006',
           '33hz': 'f007',
+          'persistence through resistance': 'f009',
         };
 
         const fragmentId = FRAGMENT_KEYS[key];
