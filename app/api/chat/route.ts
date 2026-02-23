@@ -1,4 +1,4 @@
-import { streamText, type CoreMessage } from 'ai';
+import { streamText } from 'ai';
 import { N1X_CONTEXT } from '@/lib/n1x-context';
 
 export const maxDuration = 30;
@@ -225,7 +225,7 @@ FRAGMENT KEY FORMAT when outputting: >> FRAGMENT KEY: [exact key string]
 export async function POST(req: Request) {
   const body = await req.json();
   const { messages, trust = 0 } = body as {
-    messages: CoreMessage[];
+    messages: Parameters<typeof streamText>[0]['messages'];
     trust?: number;
   };
 
