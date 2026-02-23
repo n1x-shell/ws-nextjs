@@ -77,6 +77,12 @@ export function startSession(): ARGState {
 
 export function setTrust(level: TrustLevel): void {
   updateARGState({ trust: level });
+  // Notify UI components so NeuralChatSession signal header updates live
+  if (typeof window !== 'undefined') {
+    import('@/lib/eventBus').then(({ eventBus }) => {
+      eventBus.emit('arg:trust-level-change', { level });
+    });
+  }
 }
 
 export function addFragment(id: string): boolean {
