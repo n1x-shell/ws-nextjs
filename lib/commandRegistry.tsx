@@ -6,7 +6,7 @@ import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
-import { createSystemCommands, setRequestPrompt, getCurrentUser, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
+import { createSystemCommands, setRequestPrompt, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
 import {
   NeuralLinkStream,
   NeuralChatSession,
@@ -22,12 +22,19 @@ const fs = new FileSystemNavigator();
 let isRoot   = false;
 let _requestPrompt: ((label: string, onSubmit: (pw: string) => void) => void) = () => {};
 
+// ── Root mode flag — module-level, like isChatMode in NeuralLink ─────────────
+export function isRootMode(): boolean { return isRoot; }
+export function setRootMode(active: boolean): void {
+  isRoot = active;
+  eventBus.emit('shell:root-mode-change', { active });
+}
+
 const PASSWORDS = {
   root: 'tunnelcore',
   n1x:  'ghost33',
 };
 
-const systemCommands = createSystemCommands(fs);
+const systemCommands = createSystemCommands(fs, () => isRoot);
 
 if (typeof window !== 'undefined') {
   eventBus.on('neural:ghost-unlocked', () => {
@@ -515,7 +522,7 @@ export const commands: Record<string, Command> = {
 
       // ── /ghost context: substrated.sh → start substrated service ───────
       if (result.name === 'substrated.sh' && result.directory.startsWith('/ghost')) {
-        if (getCurrentUser() !== 'root') {
+        if (!isRoot) {
           return {
             output: (
               <span style={{ color: '#f87171', fontSize: 'var(--text-base)' }}>
@@ -825,15 +832,14 @@ export const commands: Record<string, Command> = {
 
       _requestPrompt('Password:', (pw) => {
         if (pw === PASSWORDS.root) {
-          isRoot = true;
-          eventBus.emit('shell:set-user', { user: 'root' });
+          setRootMode(true);
           // Reset displayed directory to / to reflect root's home context
           eventBus.emit('shell:set-directory', { directory: '/' });
           eventBus.emit('shell:push-output', {
             command: '',
             output: (
               <div style={{ fontSize: S.base }}>
-                <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
+                <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem', color: '#f87171' }}>
                   &gt; AUTH_ACCEPTED
                 </div>
                 <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
@@ -1013,8 +1019,7 @@ export const commands: Record<string, Command> = {
       if (!isRoot) {
         return { output: 'exit: not in an elevated session' };
       }
-      isRoot = false;
-      eventBus.emit('shell:set-user', { user: 'ghost' });
+      setRootMode(false);
       // Resync displayed directory to wherever ghost's fs cursor actually is
       eventBus.emit('shell:set-directory', { directory: fs.getDisplayDirectory() });
       return { output: 'logout' };
@@ -1215,7 +1220,7 @@ export function executeCommand(
     // ── /ghost context: substrated.sh → start substrated service ─────────
     if (resolvedName === 'substrated.sh' && resolvedDir.startsWith('/ghost')) {
       // Must be root
-      if (getCurrentUser() !== 'root') {
+      if (!isRoot) {
         return {
           output: (
             <span style={{ color: '#f87171', fontSize: 'var(--text-base)' }}>

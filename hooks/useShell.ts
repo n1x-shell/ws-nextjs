@@ -34,21 +34,16 @@ export function useShell() {
     requestPromptRef.current = fn;
   }, []);
 
-  // ── User tracking via shell:set-user event (authoritative source) ────────
+  // ── User tracking via shell:root-mode-change (set by setRootMode in commandRegistry) ──
   const currentUserRef = useRef<string>('ghost');
   const [currentUser, setCurrentUser] = useState<string>('ghost');
 
   const userListenerAttached = useRef(false);
   if (!userListenerAttached.current) {
-    eventBus.on('shell:set-user', (event) => {
-      const user = event.payload?.user;
-      if (user === 'root') {
-        currentUserRef.current = 'root';
-        setCurrentUser('root');
-      } else {
-        currentUserRef.current = 'ghost';
-        setCurrentUser('ghost');
-      }
+    eventBus.on('shell:root-mode-change', (event) => {
+      const isRoot = !!event.payload?.active;
+      currentUserRef.current = isRoot ? 'root' : 'ghost';
+      setCurrentUser(isRoot ? 'root' : 'ghost');
     });
     userListenerAttached.current = true;
   }
