@@ -528,7 +528,11 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   const [mode, setMode]           = useState<Mode>('waiting');
   const [showBoot, setShowBoot]   = useState(true);
   const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
-  const [localMsgs, setLocalMsgs] = useState<React.ReactNode[]>([]);
+
+  // Local messages are timestamped so they merge into the main list
+  // chronologically rather than pinning to the bottom.
+  interface LocalEntry { id: string; ts: number; node: React.ReactNode; }
+  const [localMsgs, setLocalMsgs] = useState<LocalEntry[]>([]);
 
   const isMountedRef  = useRef(true);
   const bootFiredRef  = useRef(false);
@@ -537,7 +541,12 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
   const addLocalMsg = useCallback((node: React.ReactNode) => {
     if (!isMountedRef.current) return;
-    setLocalMsgs(prev => [...prev, node]);
+    const entry: LocalEntry = {
+      id:   `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      ts:   Date.now(),
+      node,
+    };
+    setLocalMsgs(prev => [...prev, entry]);
     eventBus.emit('shell:request-scroll');
   }, []);
 
@@ -689,21 +698,23 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             </div>
           )}
 
-          {/* Room messages */}
+          {/* Merged display list — real messages and local slash-cmd output
+              interleaved by timestamp so /who and errors scroll up naturally */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-            {messages.map((msg: RoomMsg) => {
-              if (msg.isSystem) return <SystemMsg   key={msg.id} msg={msg} />;
-              if (msg.isN1X)    return <N1XMessage  key={msg.id} msg={msg} />;
-              return <UserMessage key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
-            })}
+            {[
+              ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
+              ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
+            ]
+              .sort((a, b) => a.ts - b.ts)
+              .map(item => {
+                if (item.kind === 'local') return <React.Fragment key={item.id}>{item.node}</React.Fragment>;
+                const msg = item.msg;
+                if (msg.isSystem) return <SystemMsg  key={msg.id} msg={msg} />;
+                if (msg.isN1X)   return <N1XMessage  key={msg.id} msg={msg} />;
+                return <UserMessage key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
+              })
+            }
           </div>
-
-          {/* Local-only messages (slash command output) */}
-          {localMsgs.length > 0 && (
-            <div style={{ marginTop: '0.25rem' }}>
-              {localMsgs}
-            </div>
-          )}
 
           <div style={{ opacity: 0.2, fontSize: '0.65rem', marginTop: '0.75rem', fontFamily: 'monospace' }}>
             type <span className={S.glow}>exit</span> to disconnect
