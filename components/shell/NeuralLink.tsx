@@ -27,6 +27,36 @@ export function setChatMode(active: boolean) {
   chatModeActive = active;
 }
 
+// ── Trust level reader — reads from localStorage ARG state ──────────────────
+// Safe to call client-side only. Returns 0 if unavailable.
+
+function getCurrentTrust(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem('n1x_substrate');
+    if (!raw) return 0;
+    const state = JSON.parse(raw);
+    return typeof state.trust === 'number' ? state.trust : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// ── Trust signal labels (ARG design doc spec) ───────────────────────────────
+
+const TRUST_SIGNAL: Record<number, string> = {
+  0: 'WEAK',
+  1: 'NOMINAL',
+  2: 'NOMINAL',
+  3: 'NOMINAL',
+  4: 'STRONG',
+  5: 'STRONG',
+};
+
+function getTrustSignal(trust: number): string {
+  return TRUST_SIGNAL[Math.max(0, Math.min(5, trust))] ?? 'WEAK';
+}
+
 // ── Blinking cursor during streaming ────────────────────────────────────────
 
 const StreamCursor: React.FC = () => {
@@ -64,7 +94,6 @@ function isCopyableLine(line: string): boolean {
 function extractCopyText(line: string): string {
   const trimmed = line.trim();
   if (FRAGMENT_KEY_RE.test(trimmed)) {
-    // User needs just the bare key to paste into `decrypt <key>`
     return trimmed.replace(/^>>\s*FRAGMENT KEY:\s*/i, '').trim();
   }
   return trimmed;
@@ -125,8 +154,6 @@ const CopyableLine: React.FC<{ line: string }> = ({ line }) => {
   );
 };
 
-
-
 // ── Prefixed response line ───────────────────────────────────────────────────
 
 const PrefixedLine: React.FC<{ children: React.ReactNode; glow?: boolean }> = ({ children, glow }) => (
@@ -148,6 +175,8 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
   const [errorMsg, setErrorMsg] = useState('');
   const hasStarted = useRef(false);
   const isFirstMessage = useRef(false);
+  // Capture trust at render time so it doesn't change mid-stream
+  const trustRef = useRef(getCurrentTrust());
 
   useEffect(() => {
     if (hasStarted.current) return;
@@ -165,7 +194,11 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: conversationHistory }),
+          // ── Trust injected here ──────────────────────────────────────────
+          body: JSON.stringify({
+            messages: conversationHistory,
+            trust: trustRef.current,
+          }),
           signal: abortController.signal,
         });
 
@@ -208,7 +241,6 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
     };
   }, [prompt]);
 
-  // Split response into lines for << prefixing
   const responseLines = tokens ? tokens.split('\n') : [];
 
   return (
@@ -269,10 +301,43 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
 };
 
 // ── NeuralChatSession: banner rendered when entering interactive chat mode ──
+// Shows live trust signal level per ARG design doc spec.
 
 export const NeuralChatSession: React.FC = () => {
+  const [trust, setTrust] = useState(0);
+
+  useEffect(() => {
+    // Read initial trust
+    setTrust(getCurrentTrust());
+
+    // Update if ARG state changes during session
+    const handler = () => setTrust(getCurrentTrust());
+    eventBus.on('arg:trust-level-change', handler);
+    return () => eventBus.off('arg:trust-level-change', handler);
+  }, []);
+
+  const signal = getTrustSignal(trust);
+
   return (
     <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8, paddingBottom: '1.5rem' }}>
+      {/* Header block per ARG design doc */}
+      <div style={{ marginBottom: '0.75rem', opacity: 0.6, fontFamily: 'inherit' }}>
+        <div>[TUNNELCORE // SUBSTRATE LINK]</div>
+        <div>[GHOST_FREQ // 33hz]</div>
+        <div>
+          [SIGNAL:{' '}
+          <span
+            className={signal === 'STRONG' ? 'text-glow' : ''}
+            style={{
+              opacity: signal === 'WEAK' ? 0.5 : signal === 'STRONG' ? 1 : 0.8,
+            }}
+          >
+            {signal}
+          </span>
+          ]
+        </div>
+      </div>
+
       <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.5rem' }}>
         &gt; NEURAL_LINK_ESTABLISHED
       </div>
