@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { eventBus } from '@/lib/eventBus';
+import { loadARGState, setTrust as writeTrust } from '@/lib/argState';
 
 // ── Conversation memory (module-level, persists across command invocations) ─
 
@@ -191,7 +192,6 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
     // Fires before the request so the correct trust level reaches the API.
     // Only advances, never regresses. T1 is now persistent in localStorage.
     if (typeof window !== 'undefined') {
-      const { loadARGState, setTrust: writeTrust } = await import('@/lib/argState');
       const currentTrust = loadARGState().trust;
       if (currentTrust === 0) {
         const lower = prompt.toLowerCase();
@@ -269,7 +269,6 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
         // is operating at a trust level higher than currently stored.
         // Only ever advance, never regress.
         if (typeof window !== 'undefined') {
-          const { loadARGState, setTrust } = await import('@/lib/argState');
           const current = loadARGState().trust;
 
           const isBase64Marker = /dGhlIG1lc2ggZmVsdCBsaWtlIGhvbWUgYmVmb3JlIGl0IGZlbHQgbGlrZSBhIGNhZ2U=/.test(fullResponse);
@@ -278,13 +277,13 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
           const isF008Marker   = /this one isn't encoded/i.test(fullResponse);
 
           if (isF008Marker && current < 5) {
-            setTrust(5);
+            writeTrust(5);
           } else if (isKeyMarker && current < 4) {
-            setTrust(4);
+            writeTrust(4);
           } else if (isLenMarker && current < 3) {
-            setTrust(3);
+            writeTrust(3);
           } else if (isBase64Marker && current < 2) {
-            setTrust(2);
+            writeTrust(2);
           }
         }
 
