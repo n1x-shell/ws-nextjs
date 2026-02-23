@@ -54,6 +54,8 @@ interface BotRequest {
 
   // Individual player trust level (0-5) from localStorage ARG state
   trust?: number;
+  // Fragment IDs already collected by this player e.g. ['f001','f003']
+  fragments?: string[];
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -184,18 +186,16 @@ export async function POST(req: Request) {
   // Append the current message
   historyMessages.push({ role: 'user', content: text });
 
-  const trust = typeof body.trust === 'number' ? body.trust : 0;
-  const trustContext = buildTrustContext(trust);
+  const trust     = typeof body.trust === 'number' ? body.trust : 0;
+  const fragments = Array.isArray(body.fragments) ? body.fragments : [];
+  const trustContext = buildTrustContext(trust, fragments);
   const systemPrompt = `${trustContext}\n\n${buildMultiplayerPrompt(ctx)}`;
-
-  // Token budget scales with trust — low trust = short responses enforced at API level too
-  const maxTokens = trust <= 1 ? 80 : trust <= 3 ? 150 : 300;
 
   const result = await generateText({
     model:           'alibaba/qwen3-max',
     system:          systemPrompt,
     messages:        historyMessages,
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: 400,
     temperature:     0.85,
   });
 
