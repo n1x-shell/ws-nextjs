@@ -340,14 +340,26 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const text = data.text;
 
         const isBase64Marker = /dGhlIG1lc2ggZmVsdCBsaWtlIGhvbWUgYmVmb3JlIGl0IGZlbHQgbGlrZSBhIGNhZ2U=/.test(text);
-        const isLenMarker    = /LE-751078/i.test(text);
         const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
         const isF008Marker   = /this one isn't encoded/i.test(text);
+
+        // T3 markers — multiple paths to Contact Established
+        // Any one of these while at T2 advances trust
+        const isT3Marker =
+          /LE-751078/i.test(text)          ||  // Len's subject ID
+          /iron bloom/i.test(text)         ||  // Iron Bloom Collective named
+          /third cohort/i.test(text)       ||  // Serrano's secret
+          /kael serrano/i.test(text)       ||  // Lead engineer named
+          /lucian virek/i.test(text)       ||  // Helixion CEO named
+          /mnemos v2\.7/i.test(text)      ||  // Current Helixion product
+          /workforce/i.test(text)          ||  // MNEMOS workforce deployment
+          /drainage/i.test(text)           ||  // The descent location
+          /c minor/i.test(text);               // The decommissioning chime detail
 
         // Only advance one level at a time — never skip steps
         let newTrust = current;
         if      (isBase64Marker && current < 2)  newTrust = 2;
-        else if (isLenMarker    && current === 2) newTrust = 3;
+        else if (isT3Marker     && current === 2) newTrust = 3;
         else if (isKeyMarker    && current === 3) newTrust = 4;
         else if (isF008Marker   && current === 4) newTrust = 5;
 
