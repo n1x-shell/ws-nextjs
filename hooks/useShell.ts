@@ -4,8 +4,6 @@ import { executeCommand, getCurrentDirectory } from '@/lib/commandRegistry';
 import { eventBus } from '@/lib/eventBus';
 import { isChatMode } from '@/components/shell/NeuralLink';
 
-export type RequestPromptFn = (label: string, onSubmit: (value: string) => void, type?: string) => void;
-
 // ── History buffer cap ───────────────────────────────────────────────────────
 // iOS Safari layout engine chokes past ~500 DOM nodes in a scrollable container.
 // Each history entry renders multiple nodes (prompt, output, wrapper divs).
@@ -34,21 +32,16 @@ export function useShell() {
     requestPromptRef.current = fn;
   }, []);
 
-  // ── User tracking via shell:set-user event (authoritative source) ────────
+  // ── User tracking via shell:root-mode-change (set by setRootMode in commandRegistry) ──
   const currentUserRef = useRef<string>('ghost');
   const [currentUser, setCurrentUser] = useState<string>('ghost');
 
   const userListenerAttached = useRef(false);
   if (!userListenerAttached.current) {
-    eventBus.on('shell:set-user', (event) => {
-      const user = event.payload?.user;
-      if (user === 'root') {
-        currentUserRef.current = 'root';
-        setCurrentUser('root');
-      } else {
-        currentUserRef.current = 'ghost';
-        setCurrentUser('ghost');
-      }
+    eventBus.on('shell:root-mode-change', (event) => {
+      const isRoot = !!event.payload?.active;
+      currentUserRef.current = isRoot ? 'root' : 'ghost';
+      setCurrentUser(isRoot ? 'root' : 'ghost');
     });
     userListenerAttached.current = true;
   }
