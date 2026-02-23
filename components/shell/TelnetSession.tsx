@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
-import { useAblyRoom, type RoomMsg, type ConnectionStatus } from '@/lib/ablyClient';
+import { useAblyRoom, type RoomMsg, type MessageMetadata, type ConnectionStatus } from '@/lib/ablyClient';
 import {
   setChatMode,
 } from '@/components/shell/NeuralLink';
@@ -18,6 +18,27 @@ const S = {
   base:   'var(--text-base)',
   header: 'var(--text-header)',
   glow:   'text-glow',
+};
+
+// ── Color palette ─────────────────────────────────────────────────────────────
+
+const C = {
+  bracket:     'var(--phosphor-green)',
+  selfUser:    'var(--phosphor-green)',
+  otherUser:   '#b0b0b0',
+  n1xName:     '#ff4444',
+  selfMsg:     '#ffffff',
+  otherMsg:    '#b0b0b0',
+  n1xMsg:      'var(--phosphor-green)',
+  timestamp:   'rgba(51,255,51,0.3)',
+  system:      '#ff8c00',
+  thinking:    'rgba(51,255,51,0.45)',
+  // slash command styling
+  whoSelf:     '#ffffff',
+  whoOther:    '#888888',
+  whoN1X:      '#ff4444',
+  action:      '#ff69b4',   // hot pink
+  cmdError:    '#ff6b6b',
 };
 
 // ── Blinking cursor ───────────────────────────────────────────────────────────
@@ -41,7 +62,6 @@ const Cursor: React.FC = () => {
 
 interface ConnectLine { delay: number; text: string; bright?: boolean; }
 
-// Ably unreachable — offline fallback
 const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
   [0,    <span key="o0" style={{ fontSize: S.base, opacity: 0.7 }}>Trying n1x.sh...</span>],
   [400,  <span key="o1" style={{ fontSize: S.base, opacity: 0.8 }}>Connected to n1x.sh.</span>],
@@ -64,7 +84,6 @@ const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
   )],
 ];
 
-// ghost channel boot sequence
 function getMultiSequence(host: string, count: number): ConnectLine[] {
   return [
     { delay: 0,    text: `Trying ${host}...` },
@@ -81,7 +100,7 @@ function getMultiSequence(host: string, count: number): ConnectLine[] {
   ];
 }
 
-// ── Message renderers ─────────────────────────────────────────────────────────
+// ── Copy helpers ──────────────────────────────────────────────────────────────
 
 const FRAGMENT_KEY_RE = /^>>\s*FRAGMENT KEY:/i;
 const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
@@ -147,29 +166,91 @@ const CopyLine: React.FC<{ line: string }> = ({ line }) => {
   );
 };
 
-// ── Colors ────────────────────────────────────────────────────────────────────
+// ── /who — styled name list ───────────────────────────────────────────────────
+//
+// Renders:  Online (N): [N1X], [Caller], [OtherA], [OtherB]
+// Colors:   N1X=red  Caller=white  Others=grey
+// All names bold.
 
-const C = {
-  bracket:     'var(--phosphor-green)',       // [ ] always green
-  selfUser:    'var(--phosphor-green)',       // my own handle
-  otherUser:   '#b0b0b0',                    // other users — light grey
-  n1xName:     '#ff4444',                    // N1X name — red
-  selfMsg:     '#ffffff',                    // my messages — white
-  otherMsg:    '#b0b0b0',                    // others — light grey
-  n1xMsg:      'var(--phosphor-green)',      // N1X responses — green
-  timestamp:   'rgba(51,255,51,0.3)',        // faded green
-  system:      '#ff8c00',                    // system — orange
-  thinking:    'rgba(51,255,51,0.45)',
+interface WhoOutputProps {
+  names:  string[];  // full presence list, may or may not include N1X
+  caller: string;    // the local user's handle
+}
+
+const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
+  // Build final list: N1X first (deduplicated), then caller, then others sorted
+  const withoutN1X    = names.filter(n => n !== 'N1X');
+  const othersNoSelf  = withoutN1X.filter(n => n !== caller);
+  const callerInList  = withoutN1X.includes(caller);
+
+  const ordered: string[] = [
+    'N1X',
+    ...(callerInList ? [caller] : []),
+    ...othersNoSelf.sort(),
+  ];
+
+  const total = ordered.length;
+
+  function nameColor(n: string): string {
+    if (n === 'N1X')    return C.whoN1X;
+    if (n === caller)   return C.whoSelf;
+    return C.whoOther;
+  }
+
+  return (
+    <div style={{
+      fontFamily: 'monospace',
+      fontSize:   S.base,
+      lineHeight: 1.8,
+      color:      'rgba(51,255,51,0.55)',
+      marginBottom: '0.25rem',
+    }}>
+      <span>Online ({total}):&nbsp;</span>
+      {ordered.map((name, i) => (
+        <React.Fragment key={name}>
+          <span style={{
+            color:      nameColor(name),
+            fontWeight: 'bold',
+          }}>
+            {name}
+          </span>
+          {i < ordered.length - 1 && (
+            <span style={{ color: 'rgba(51,255,51,0.4)' }}>, </span>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
 };
+
+// ── Local system error / notice ───────────────────────────────────────────────
+
+const LocalNotice: React.FC<{ children: React.ReactNode; error?: boolean }> = ({ children, error }) => (
+  <div style={{
+    fontFamily:  'monospace',
+    fontSize:    S.base,
+    lineHeight:  1.8,
+    color:       error ? C.cmdError : C.system,
+    fontStyle:   'italic',
+    opacity:     0.85,
+    marginBottom: '0.25rem',
+  }}>
+    {children}
+  </div>
+);
+
+// ── Timestamp ─────────────────────────────────────────────────────────────────
 
 function formatTs(ts: number): string {
   if (!ts) return '';
-  const d = new Date(ts);
+  const d  = new Date(ts);
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
   const ss = String(d.getSeconds()).padStart(2, '0');
   return `${hh}:${mm}:${ss}`;
 }
+
+// ── ThinkingDots ──────────────────────────────────────────────────────────────
 
 const ThinkingDots: React.FC = () => {
   const [dots, setDots] = useState('');
@@ -180,27 +261,22 @@ const ThinkingDots: React.FC = () => {
   return <span>{dots}</span>;
 };
 
-// Layout per message:
-//   HH:MM:SS
-//   [handle] > text text text
+// ── MsgRow ────────────────────────────────────────────────────────────────────
 
 interface MsgRowProps {
-  ts:         number;
-  bracket:    string;  // color of [ ]
-  nameColor:  string;
-  name:       string;
-  arrow?:     React.ReactNode;
-  msgColor:   string;
-  children:   React.ReactNode;
+  ts:        number;
+  bracket:   string;
+  nameColor: string;
+  name:      string;
+  msgColor:  string;
+  children:  React.ReactNode;
 }
 
 const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, children }) => (
   <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
-    {/* Timestamp line */}
     <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
       {formatTs(ts)}
     </div>
-    {/* Handle + message line */}
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
       <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
         <span style={{ color: bracket }}>[</span>
@@ -212,6 +288,31 @@ const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor,
     </div>
   </div>
 );
+
+// ── ActionMessage: /me rendering ──────────────────────────────────────────────
+//
+// Format:  * UserName action text
+// Style:   entire line bold + hot pink
+
+const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
+  <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+    <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+      {formatTs(msg.ts)}
+    </div>
+    <div style={{
+      color:      C.action,
+      fontWeight: 'bold',
+      lineHeight: 1.7,
+      wordBreak:  'break-word',
+    }}>
+      <span style={{ opacity: 0.7 }}>* </span>
+      <span>{msg.handle}</span>
+      <span> {msg.text}</span>
+    </div>
+  </div>
+);
+
+// ── N1XMessage ────────────────────────────────────────────────────────────────
 
 const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
   if (msg.isThinking) {
@@ -257,47 +358,58 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
   );
 };
 
-const UserMessage: React.FC<{ msg: RoomMsg; isSelf: boolean }> = ({ msg, isSelf }) => (
-  <MsgRow
-    ts={msg.ts}
-    bracket={C.bracket}
-    nameColor={isSelf ? C.selfUser : C.otherUser}
-    name={msg.handle}
-    msgColor={isSelf ? C.selfMsg : C.otherMsg}
-  >
-    {msg.text}
-  </MsgRow>
-);
+// ── UserMessage ───────────────────────────────────────────────────────────────
+
+const UserMessage: React.FC<{ msg: RoomMsg; isSelf: boolean }> = ({ msg, isSelf }) => {
+  // Action messages rendered separately
+  if (msg.metadata?.kind === 'action') {
+    return <ActionMessage msg={msg} />;
+  }
+
+  return (
+    <MsgRow
+      ts={msg.ts}
+      bracket={C.bracket}
+      nameColor={isSelf ? C.selfUser : C.otherUser}
+      name={msg.handle}
+      msgColor={isSelf ? C.selfMsg : C.otherMsg}
+    >
+      {msg.text}
+    </MsgRow>
+  );
+};
+
+// ── SystemMsg ─────────────────────────────────────────────────────────────────
 
 const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
   <div style={{
-    color:       C.system,
-    fontStyle:   'italic',
-    fontSize:    '0.8em',
-    lineHeight:  1.7,
+    color:        C.system,
+    fontStyle:    'italic',
+    fontSize:     '0.8em',
+    lineHeight:   1.7,
     marginBottom: '0.35rem',
-    fontFamily:  'monospace',
-    opacity:     0.9,
+    fontFamily:   'monospace',
+    opacity:      0.9,
   }}>
     <span style={{ color: C.timestamp, marginRight: '0.6ch' }}>{formatTs(msg.ts)}</span>
     {msg.text}
   </div>
 );
 
-// ── Channel stats bar ─────────────────────────────────────────────────────────
+// ── ChannelStats bar ──────────────────────────────────────────────────────────
 
 const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occupantCount, handle }) => (
   <div style={{
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '0 1.5rem',
-    fontSize: '0.7rem',
-    fontFamily: 'monospace',
-    opacity: 0.45,
-    borderBottom: '1px solid rgba(51,255,51,0.1)',
+    display:       'flex',
+    flexWrap:      'wrap',
+    gap:           '0 1.5rem',
+    fontSize:      '0.7rem',
+    fontFamily:    'monospace',
+    opacity:       0.45,
+    borderBottom:  '1px solid rgba(51,255,51,0.1)',
     paddingBottom: '0.5rem',
-    marginBottom: '0.75rem',
-    lineHeight: 1.6,
+    marginBottom:  '0.75rem',
+    lineHeight:    1.6,
   }}>
     <span>ghost channel</span>
     <span><span className={S.glow} style={{ opacity: 1 }}>{occupantCount}</span> node{occupantCount !== 1 ? 's' : ''} connected</span>
@@ -307,10 +419,10 @@ const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occ
   </div>
 );
 
-// ── Mesh connection status ────────────────────────────────────────────────────
+// ── MeshStatus ────────────────────────────────────────────────────────────────
 
 const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
-  const [dots, setDots] = useState('');
+  const [dots, setDots]         = useState('');
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
@@ -342,39 +454,103 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
   );
 };
 
+// ── Slash command handler ─────────────────────────────────────────────────────
+//
+// Intercepts input that starts with "/". Returns true if handled (caller
+// must NOT send to Ably). Returns false if not a slash command.
+//
+// Emits local-only output via the returned JSX pushed with addLocalMsg.
+
+type LocalMsgFn = (node: React.ReactNode) => void;
+
+function handleSlashCommand(
+  raw:          string,
+  handle:       string,
+  presenceNames: string[],
+  send:         (text: string, meta?: MessageMetadata) => void,
+  addLocalMsg:  LocalMsgFn,
+): boolean {
+  if (!raw.startsWith('/')) return false;
+
+  const [cmdRaw, ...argParts] = raw.slice(1).split(/\s+/);
+  const cmd  = cmdRaw.toLowerCase();
+  const args = argParts.join(' ').trim();
+
+  // ── /who / /nodes ─────────────────────────────────────────────────────────
+  if (cmd === 'who' || cmd === 'nodes') {
+    addLocalMsg(
+      <WhoOutput
+        key={`who-${Date.now()}`}
+        names={presenceNames}
+        caller={handle}
+      />
+    );
+    return true;
+  }
+
+  // ── /me ───────────────────────────────────────────────────────────────────
+  if (cmd === 'me') {
+    if (!args) {
+      addLocalMsg(
+        <LocalNotice key={`me-err-${Date.now()}`} error>
+          Usage: /me &lt;action&gt;
+        </LocalNotice>
+      );
+      return true;
+    }
+    // Publish structured action message — metadata.kind = 'action'
+    send(args, { kind: 'action' });
+    return true;
+  }
+
+  // ── unknown command ───────────────────────────────────────────────────────
+  addLocalMsg(
+    <LocalNotice key={`unk-${Date.now()}`} error>
+      Unknown command: /{cmd}
+    </LocalNotice>
+  );
+  return true;
+}
+
 // ── TelnetConnected ───────────────────────────────────────────────────────────
-//
-// Three modes:
-//   offline — Ably unreachable. Pure NeuralLink solo. Last resort.
-// Two modes:
-//   offline — Ably completely unreachable
-//   multi   — connected to Ably ghost channel, mesh broadcast
-//             Bottom bar: [handle]>> → NeuralLink (solo AI)
-//             When someone joins → upgrades to multi live.
-//   multi   — 2+ nodes. Mesh broadcast. Bottom bar: [handle]>> → Ably.
-//             telnetBridge active so commandRegistry routes input to Ably.
-//
-// There is ONE input: the bottom shell bar (NeuralBusPrompt).
-// No duplicate inline input in this component.
 
 type Mode = 'waiting' | 'offline' | 'multi';
 
 interface TelnetConnectedProps {
-  host: string;
+  host:   string;
   handle: string;
 }
 
 const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
-  const { messages, occupantCount, isConnected, connectionStatus, ablyDebug, send } =
+  const { messages, occupantCount, presenceNames, isConnected, connectionStatus, ablyDebug, send } =
     useAblyRoom(handle);
 
   const [mode, setMode]           = useState<Mode>('waiting');
   const [showBoot, setShowBoot]   = useState(true);
   const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
+  const [localMsgs, setLocalMsgs] = useState<React.ReactNode[]>([]);
+
   const isMountedRef  = useRef(true);
   const bootFiredRef  = useRef(false);
 
-  // ── Disconnect handler (called by commandRegistry via telnetBridge) ───────
+  // ── Local message injector (slash cmd output, etc.) ───────────────────────
+
+  const addLocalMsg = useCallback((node: React.ReactNode) => {
+    if (!isMountedRef.current) return;
+    setLocalMsgs(prev => [...prev, node]);
+    eventBus.emit('shell:request-scroll');
+  }, []);
+
+  // ── Wrapped send: intercepts slash commands before Ably ──────────────────
+
+  const sendWithSlash = useCallback((text: string) => {
+    const handled = handleSlashCommand(text, handle, presenceNames, send, addLocalMsg);
+    if (!handled) {
+      send(text);
+    }
+  }, [handle, presenceNames, send, addLocalMsg]);
+
+  // ── Disconnect ────────────────────────────────────────────────────────────
 
   const handleDisconnect = useCallback(() => {
     deactivateTelnet();
@@ -419,8 +595,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     [pushLine]
   );
 
-  // ── Boot: offline ─────────────────────────────────────────────────────────
-
   const runOfflineBoot = useCallback(() => {
     OFFLINE_SEQUENCE.forEach(([delay, content]) => {
       setTimeout(() => pushLine(content), delay as number);
@@ -432,26 +606,22 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     }, 3600);
   }, [pushLine]);
 
-  // ── Boot: multi (mesh mode) — always used when Ably is reachable ─────────
-
   const runMultiBoot = useCallback((count: number) => {
     runSequence(getMultiSequence(host, count), () => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
-      activateTelnet(handle, send, handleDisconnect);
+      activateTelnet(handle, sendWithSlash, handleDisconnect);
       setChatMode(true);
       setMode('multi');
-      // Scroll to bottom so chat loads clean — history is above viewport, not gone
       setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
     });
-  }, [host, handle, send, handleDisconnect, runSequence]);
+  }, [host, handle, sendWithSlash, handleDisconnect, runSequence]);
 
   // ── Initial boot decision ─────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isConnected || bootFiredRef.current) return;
     bootFiredRef.current = true;
-
     if (connectionStatus === 'failed') {
       runOfflineBoot();
     } else {
@@ -459,9 +629,15 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     }
   }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runMultiBoot]);
 
-  // ── Live occupancy updates (multi only) ──────────────────────────────────
-  // No mode switching needed — multi is the only connected state.
-  // Occupant count updates automatically via ChannelStats re-render.
+  // ── Re-register send when presenceNames changes ───────────────────────────
+  // activateTelnet stores the sendFn reference. We need to keep it fresh so
+  // /who always sees the current member list.
+
+  useEffect(() => {
+    if (mode === 'multi') {
+      activateTelnet(handle, sendWithSlash, handleDisconnect);
+    }
+  }, [mode, handle, sendWithSlash, handleDisconnect]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
@@ -507,23 +683,34 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
         <div>
           <ChannelStats occupantCount={occupantCount} handle={handle} />
 
-          {messages.length === 0 && (
+          {messages.length === 0 && localMsgs.length === 0 && (
             <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
               channel open. transmit to begin.
             </div>
           )}
 
+          {/* Room messages */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
             {messages.map((msg: RoomMsg) => {
-              if (msg.isSystem) return <SystemMsg key={msg.id} msg={msg} />;
-              if (msg.isN1X)    return <N1XMessage key={msg.id} msg={msg} />;
+              if (msg.isSystem) return <SystemMsg   key={msg.id} msg={msg} />;
+              if (msg.isN1X)    return <N1XMessage  key={msg.id} msg={msg} />;
               return <UserMessage key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
             })}
           </div>
 
-          {/* No inline input — bottom shell bar handles input via telnetBridge */}
+          {/* Local-only messages (slash command output) */}
+          {localMsgs.length > 0 && (
+            <div style={{ marginTop: '0.25rem' }}>
+              {localMsgs}
+            </div>
+          )}
+
           <div style={{ opacity: 0.2, fontSize: '0.65rem', marginTop: '0.75rem', fontFamily: 'monospace' }}>
             type <span className={S.glow}>exit</span> to disconnect
+            &nbsp;&middot;&nbsp;
+            <span className={S.glow}>/who</span> list nodes
+            &nbsp;&middot;&nbsp;
+            <span className={S.glow}>/me</span> action
           </div>
         </div>
       )}
