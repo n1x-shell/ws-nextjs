@@ -616,114 +616,11 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
   return {
 
     // ── Authentication & privilege ───────────────────────
+    // su, sudo, exit are defined in commandRegistry.tsx and own the
+    // isRootMode flag + shell:root-mode-change event.
+    // Do NOT redefine them here — the spread would override the correct handlers.
 
-    su: {
-      name: 'su',
-      description: 'Switch user',
-      usage: 'su [username]',
-      handler: (args) => {
-        const target = (args[0] || 'root').toLowerCase();
-
-        if (target !== 'root' && target !== 'n1x') {
-          return { output: `su: user '${target}' does not exist`, error: true };
-        }
-        if (target === currentUser) {
-          return {
-            output: (
-              <span style={{ fontSize: S.base, opacity: 0.6 }}>
-                already logged in as {currentUser}
-              </span>
-            ),
-          };
-        }
-
-        if (!_requestPrompt) {
-          return { output: 'su: no tty present and no password callback', error: true };
-        }
-
-        _requestPrompt(`Password for ${target}:`, (pw: string) => {
-          const correct = target === 'root' ? 'tunnelcore' : 'ghost33';
-          if (pw === correct) {
-            currentUser = target as 'n1x' | 'root';
-            eventBus.emit('shell:set-prompt', { user: currentUser });
-            pushLine(
-              <div style={{ fontSize: S.base }}>
-                <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
-                  &gt; IDENTITY_SHIFTED
-                </div>
-                <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-                  <div>authenticated as <span className={S.glow}>{target}</span></div>
-                  <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
-                    {target === 'root'
-                      ? 'root privileges active. try: mount /hidden'
-                      : 'returned to n1x shell.'}
-                  </div>
-                </div>
-              </div>
-            );
-          } else {
-            pushLine(
-              <span style={{ fontSize: S.base, color: '#f87171' }}>
-                su: authentication failure
-              </span>
-            );
-          }
-        });
-
-        return { output: null };
-      },
-    },
-
-    sudo: {
-      name: 'sudo',
-      description: 'Execute as superuser',
-      usage: 'sudo <command>',
-      handler: (args) => {
-        if (args.length === 0) {
-          return { output: 'usage: sudo <command>', error: true };
-        }
-
-        if (currentUser === 'root') {
-          // Already root — just emit the sub-command for re-execution
-          setTimeout(() => {
-            eventBus.emit('shell:execute-command', { command: args.join(' ') });
-          }, 50);
-          return { output: null };
-        }
-
-        if (!_requestPrompt) {
-          return { output: 'sudo: no tty present and no password callback', error: true };
-        }
-
-        const subCommand = args.join(' ');
-
-        _requestPrompt('[sudo] password for n1x:', (pw: string) => {
-          if (pw !== 'ghost33') {
-            pushLine(
-              <span style={{ fontSize: S.base, color: '#f87171' }}>
-                sudo: authentication failure
-              </span>
-            );
-            return;
-          }
-
-          // Temporarily elevate, execute, then restore
-          const prev = currentUser;
-          currentUser = 'root';
-
-          // Re-dispatch the sub-command through the shell
-          setTimeout(() => {
-            eventBus.emit('shell:execute-command', { command: subCommand });
-            // Restore after a tick so the dispatched command runs as root
-            setTimeout(() => { currentUser = prev; }, 100);
-          }, 50);
-        });
-
-        return { output: null };
-      },
-    },
-
-    mount: {
+    // ── System info ──────────────────────────────────────
       name: 'mount',
       description: 'Mount filesystem',
       usage: 'mount [path]',
@@ -773,33 +670,6 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
 
         const result = doMount(target);
         return { output: result.output, error: result.error };
-      },
-    },
-
-    exit: {
-      name: 'exit',
-      description: 'Exit current session',
-      usage: 'exit',
-      handler: () => {
-        if (currentUser === 'root') {
-          currentUser = 'n1x';
-          eventBus.emit('shell:set-prompt', { user: 'n1x' });
-          return {
-            output: (
-              <div style={{ fontSize: S.base }}>
-                <div style={{ opacity: 0.6 }}>root session closed.</div>
-                <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>returned to n1x shell.</div>
-              </div>
-            ),
-          };
-        }
-        return {
-          output: (
-            <span style={{ fontSize: S.base, opacity: 0.6 }}>
-              no elevated session to exit.
-            </span>
-          ),
-        };
       },
     },
 
