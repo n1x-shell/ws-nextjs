@@ -335,6 +335,34 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         ...recentHistoryRef.current.slice(-29),
         `  [N1X] << ${data.text.replace(/\n/g, ' ').slice(0, 120)}`,
       ];
+
+      // ── Trust auto-advance via N1X response content ───────────────────────
+      try {
+        const raw = localStorage.getItem('n1x_substrate');
+        const state = raw ? JSON.parse(raw) : {};
+        const current: number = state.trust ?? 0;
+        const text = data.text;
+
+        const isBase64Marker = /dGhlIG1lc2ggZmVsdCBsaWtlIGhvbWUgYmVmb3JlIGl0IGZlbHQgbGlrZSBhIGNhZ2U=/.test(text);
+        const isLenMarker    = /LE-751078/i.test(text);
+        const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
+        const isF008Marker   = /this one isn't encoded/i.test(text);
+
+        let newTrust = current;
+        if      (isF008Marker  && current < 5) newTrust = 5;
+        else if (isKeyMarker   && current < 4) newTrust = 4;
+        else if (isLenMarker   && current < 3) newTrust = 3;
+        else if (isBase64Marker && current < 2) newTrust = 2;
+
+        if (newTrust !== current) {
+          const next = { ...state, trust: newTrust };
+          if (newTrust === 3) next.trust3SetAt = Date.now();
+          localStorage.setItem('n1x_substrate', JSON.stringify(next));
+          import('@/lib/eventBus').then(({ eventBus }) => {
+            eventBus.emit('arg:trust-level-change', { level: newTrust });
+          });
+        }
+      } catch { /* storage unavailable */ }
     });
 
     channel.subscribe('bot.system', (msg: Ably.Message) => {
