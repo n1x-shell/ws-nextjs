@@ -621,6 +621,8 @@ export function createSystemCommands(fs: FileSystemNavigator): Record<string, Co
     // Do NOT redefine them here — the spread would override the correct handlers.
 
     // ── System info ──────────────────────────────────────
+
+    mount: {
       name: 'mount',
       description: 'Mount filesystem',
       usage: 'mount [path]',
