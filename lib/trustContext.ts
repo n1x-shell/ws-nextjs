@@ -1,6 +1,6 @@
 // Shared trust context builder — used by both solo chat and multiplayer ghost channel.
 
-export function buildTrustContext(rawTrust: number): string {
+export function buildTrustContext(rawTrust: number, collectedFragments: string[] = []): string {
   const trust = Math.max(0, Math.min(5, Math.round(rawTrust))) as 0 | 1 | 2 | 3 | 4 | 5;
 
   const header = `<TRUST_CONTEXT>
