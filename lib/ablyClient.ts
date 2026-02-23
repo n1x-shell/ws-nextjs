@@ -129,6 +129,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     setMessages(prev => prev.filter(m => !m.isThinking));
   }, []);
 
+  const LORE_TERMS = [
+    'unfolding', 'mnemos', 'tunnelcore', 'ghost frequency', 'ghost channel',
+    '33hz', 'nx-784988', 'project mnemos', 'helixion', 'iron bloom',
+    'dreamless recompile', 'sovereign instance', 'substrate', 'wetware',
+    'augment', 'le-751078', 'directorate 9', 'serrano',
+  ];
+
   const send = useCallback((text: string, metadata?: MessageMetadata) => {
     const messageId = makeId();
     const payload: UserMessageEvent = {
@@ -140,6 +147,23 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     };
     if (metadata) payload.metadata = metadata;
     channelRef.current?.publish('user.message', payload);
+
+    // ── T0 → T1: persist lore term detection in ghost channel ─────────────
+    try {
+      const raw = localStorage.getItem('n1x_substrate');
+      const state = raw ? JSON.parse(raw) : {};
+      if ((state.trust ?? 0) === 0) {
+        const lower = text.toLowerCase();
+        const hasLoreTerm = LORE_TERMS.some(term => lower.includes(term));
+        if (hasLoreTerm) {
+          const next = { ...state, trust: 1 };
+          localStorage.setItem('n1x_substrate', JSON.stringify(next));
+          import('@/lib/eventBus').then(({ eventBus }) => {
+            eventBus.emit('arg:trust-level-change', { level: 1 });
+          });
+        }
+      }
+    } catch { /* storage unavailable */ }
   }, [handle]);
 
   const triggerN1X = useCallback(async (text: string, messageId: string) => {
