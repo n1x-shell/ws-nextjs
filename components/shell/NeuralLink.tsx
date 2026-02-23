@@ -276,14 +276,15 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
           const isKeyMarker    = /FRAGMENT KEY:/i.test(fullResponse);
           const isF008Marker   = /this one isn't encoded/i.test(fullResponse);
 
-          if (isF008Marker && current < 5) {
-            writeTrust(5);
-          } else if (isKeyMarker && current < 4) {
-            writeTrust(4);
-          } else if (isLenMarker && current < 3) {
-            writeTrust(3);
-          } else if (isBase64Marker && current < 2) {
+          // Only advance one level at a time — never skip steps
+          if (isBase64Marker && current < 2) {
             writeTrust(2);
+          } else if (isLenMarker && current === 2) {
+            writeTrust(3);
+          } else if (isKeyMarker && current === 3) {
+            writeTrust(4);
+          } else if (isF008Marker && current === 4) {
+            writeTrust(5);
           }
         }
 
