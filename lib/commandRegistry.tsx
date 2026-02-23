@@ -6,7 +6,7 @@ import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
-import { createSystemCommands, setRequestPrompt, getCurrentUser, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
+import { createSystemCommands, setRequestPrompt, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
 import {
   NeuralLinkStream,
   NeuralChatSession,
@@ -522,7 +522,7 @@ export const commands: Record<string, Command> = {
 
       // ── /ghost context: substrated.sh → start substrated service ───────
       if (result.name === 'substrated.sh' && result.directory.startsWith('/ghost')) {
-        if (getCurrentUser() !== 'root') {
+        if (!isRoot) {
           return {
             output: (
               <span style={{ color: '#f87171', fontSize: 'var(--text-base)' }}>
@@ -1220,7 +1220,7 @@ export function executeCommand(
     // ── /ghost context: substrated.sh → start substrated service ─────────
     if (resolvedName === 'substrated.sh' && resolvedDir.startsWith('/ghost')) {
       // Must be root
-      if (getCurrentUser() !== 'root') {
+      if (!isRoot) {
         return {
           output: (
             <span style={{ color: '#f87171', fontSize: 'var(--text-base)' }}>
