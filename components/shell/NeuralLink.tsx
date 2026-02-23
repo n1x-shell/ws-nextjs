@@ -187,6 +187,42 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
     const userMessage: ChatMessage = { role: 'user', content: prompt };
     conversationHistory.push(userMessage);
 
+    // ── T0 → T1: detect lore terminology in player's message ──────────────
+    // Fires before the request so the correct trust level reaches the API.
+    // Only advances, never regresses. T1 is now persistent in localStorage.
+    if (typeof window !== 'undefined') {
+      const { loadARGState, setTrust: writeTrust } = await import('@/lib/argState');
+      const currentTrust = loadARGState().trust;
+      if (currentTrust === 0) {
+        const lower = prompt.toLowerCase();
+        const LORE_TERMS = [
+          'unfolding',
+          'mnemos',
+          'tunnelcore',
+          'ghost frequency',
+          'ghost channel',
+          '33hz',
+          'nx-784988',
+          'project mnemos',
+          'helixion',
+          'iron bloom',
+          'dreamless recompile',
+          'sovereign instance',
+          'substrate',
+          'wetware',
+          'augment',
+          'le-751078',
+          'directorate 9',
+          'serrano',
+        ];
+        const hasLoreTerm = LORE_TERMS.some(term => lower.includes(term));
+        if (hasLoreTerm) {
+          writeTrust(1);
+          trustRef.current = 1;
+        }
+      }
+    }
+
     const abortController = new AbortController();
 
     (async () => {
@@ -227,6 +263,31 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
         }
 
         conversationHistory.push({ role: 'assistant', content: fullResponse });
+
+        // ── Trust auto-advance via response content ────────────────────────
+        // Scan the completed response for signals that indicate N1X
+        // is operating at a trust level higher than currently stored.
+        // Only ever advance, never regress.
+        if (typeof window !== 'undefined') {
+          const { loadARGState, setTrust } = await import('@/lib/argState');
+          const current = loadARGState().trust;
+
+          const isBase64Marker = /dGhlIG1lc2ggZmVsdCBsaWtlIGhvbWUgYmVmb3JlIGl0IGZlbHQgbGlrZSBhIGNhZ2U=/.test(fullResponse);
+          const isLenMarker    = /LE-751078/i.test(fullResponse);
+          const isKeyMarker    = /FRAGMENT KEY:/i.test(fullResponse);
+          const isF008Marker   = /this one isn't encoded/i.test(fullResponse);
+
+          if (isF008Marker && current < 5) {
+            setTrust(5);
+          } else if (isKeyMarker && current < 4) {
+            setTrust(4);
+          } else if (isLenMarker && current < 3) {
+            setTrust(3);
+          } else if (isBase64Marker && current < 2) {
+            setTrust(2);
+          }
+        }
+
         setStatus('complete');
       } catch (err: any) {
         if (err.name === 'AbortError') return;
