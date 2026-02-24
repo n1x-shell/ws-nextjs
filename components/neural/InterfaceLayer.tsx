@@ -182,27 +182,64 @@ export default function InterfaceLayer() {
           >
             {/* ── Header ── */}
             <header
-              className="border border-[var(--phosphor-green)]"
+              className="border border-[var(--phosphor-green)] n1x-header"
               style={{
                 background: 'rgba(51,255,51,0.03)',
                 flexShrink: 0,
                 padding: '0.5rem 0.75rem',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div>
-                  <div
-                    className="text-glow-strong"
-                    style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '2px' }}
-                  >
-                    N1X.sh
-                  </div>
-                  <div style={{ fontSize: 'var(--text-base)', opacity: 0.8 }}>
+              <style>{`
+                .n1x-header-inner {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  gap: 0.5rem;
+                  min-width: 0;
+                }
+                .n1x-header-left {
+                  display: flex;
+                  align-items: baseline;
+                  gap: 0.6rem;
+                  min-width: 0;
+                  flex: 1;
+                  overflow: hidden;
+                }
+                .n1x-header-title {
+                  font-size: 20px;
+                  font-weight: bold;
+                  flex-shrink: 0;
+                }
+                .n1x-header-sub {
+                  font-size: var(--text-base);
+                  opacity: 0.7;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  min-width: 0;
+                }
+                .n1x-header-right {
+                  text-align: right;
+                  font-size: var(--text-base);
+                  opacity: 0.7;
+                  flex-shrink: 0;
+                  white-space: nowrap;
+                }
+                @media (max-width: 480px) {
+                  .n1x-header-sub { display: none; }
+                  .n1x-header-right-status { display: none; }
+                  .n1x-header-title { font-size: 17px; }
+                }
+              `}</style>
+              <div className="n1x-header-inner">
+                <div className="n1x-header-left">
+                  <div className="text-glow-strong n1x-header-title">N1X.sh</div>
+                  <div className="n1x-header-sub">
                     NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: 'var(--text-base)', opacity: 0.7 }}>
-                  <div>&gt; INTERFACE_ACTIVE</div>
+                <div className="n1x-header-right">
+                  <div className="n1x-header-right-status">&gt; INTERFACE_ACTIVE</div>
                   <div>&gt; RUNTIME: {formatUptime(uptime)}</div>
                 </div>
               </div>
