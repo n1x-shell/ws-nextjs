@@ -50,6 +50,13 @@ if (typeof window !== 'undefined') {
       updateARGState({ hiddenUnlocked: true });
     });
   });
+
+  // Fired on page load when argState.backupExtracted === true.
+  // Ghost must already be unlocked before this fires (ShellInterface
+  // emits neural:ghost-unlocked first in handleBootComplete).
+  eventBus.on('vfs:restore-backup', () => {
+    fs.extractBackup();
+  });
 }
 
 const S = {

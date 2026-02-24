@@ -25,6 +25,7 @@ export interface ARGState {
   ghostUnlocked: boolean;
   hiddenUnlocked: boolean;
   manifestComplete: boolean;
+  backupExtracted: boolean;
 }
 
 function generateFrequencyId(): string {
@@ -44,6 +45,7 @@ const DEFAULT_STATE: ARGState = {
   ghostUnlocked: false,
   hiddenUnlocked: false,
   manifestComplete: false,
+  backupExtracted: false,
 };
 
 export function loadARGState(): ARGState {
