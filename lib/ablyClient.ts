@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Ably from 'ably';
 import { exportForRoom, mergeFromRoom, setTrust, addFragment, type TrustLevel } from '@/lib/argState';
 import { eventBus } from '@/lib/eventBus';
+import type { AmbientBotMessage, BotId } from '@/lib/ambientBotConfig';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,10 @@ export interface RoomMsg {
   isSystem:     boolean;
   isUnprompted: boolean;
   isThinking?:  boolean;
+  isAmbientBot?: boolean;
+  botColor?:    string;
+  botSigil?:    string;
+  botId?:       BotId;
   metadata?:    MessageMetadata;
 }
 
@@ -67,11 +72,10 @@ function makeId(): string {
 }
 
 // ── Presence data contract ────────────────────────────────────────────────────
-// Each user enters presence with { displayName: string }
 
 interface PresenceData {
   displayName?: string;
-  handle?:      string; // legacy fallback
+  handle?:      string;
   trust?:       number;
 }
 
@@ -166,10 +170,53 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     } catch { /* storage unavailable */ }
   }, [handle]);
 
+  // ── Ambient bot trigger — called by message sender only ───────────────────
+
+  const triggerAmbientBots = useCallback(async (
+    text:      string,
+    messageId: string,
+    isAction:  boolean,
+  ) => {
+    const recentHistory = recentHistoryRef.current.slice(-20);
+    try {
+      await fetch('/api/ambient-bots', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger:       'message',
+          handle,
+          text,
+          isAction,
+          recentHistory,
+          presenceNames: handlesRef.current,
+          messageId:     `ambient-msg-${messageId}`,
+        }),
+      });
+    } catch { /* fail silently — ambient bots are enhancement, not core */ }
+  }, [handle]);
+
+  // ── Ambient bot join trigger — called once after entering presence ─────────
+
+  const triggerAmbientBotJoin = useCallback(async () => {
+    const recentHistory = recentHistoryRef.current.slice(-20);
+    try {
+      await fetch('/api/ambient-bots', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger:       'join',
+          handle,
+          recentHistory,
+          presenceNames: handlesRef.current,
+          messageId:     `ambient-join-${handle}-${Date.now()}`,
+        }),
+      });
+    } catch { /* fail silently */ }
+  }, [handle]);
+
   const triggerN1X = useCallback(async (text: string, messageId: string) => {
     const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
-      // Read individual trust from localStorage ARG state
       let playerTrust = 0;
       try {
         const raw = localStorage.getItem('n1x_substrate');
@@ -265,6 +312,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
     channel.presence.subscribe(updatePresence);
 
+    // ── User messages ─────────────────────────────────────────────────────
+
     channel.subscribe('user.message', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
       const data = msg.data as UserMessageEvent;
@@ -279,21 +328,33 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         metadata:     data.metadata,
       });
 
+      const isAction = data.metadata?.kind === 'action';
+
       recentHistoryRef.current = [
         ...recentHistoryRef.current.slice(-29),
-        `  [${data.userId}] >> ${data.text}`,
+        isAction
+          ? `[${data.userId}] * ${data.text}`
+          : `[${data.userId}]: ${data.text}`,
       ];
 
       if (data.userId === handle) {
         messageCountRef.current += 1;
+
+        // N1X trigger
         if (data.text.toLowerCase().includes('@n1x')) {
           n1xPingCountRef.current += 1;
           triggerN1X(data.text, data.messageId);
         }
+
+        // Ambient bots trigger (only sender fires this to avoid duplicates)
+        triggerAmbientBots(data.text, data.messageId, isAction);
+
         checkF010();
         maybeUnprompted();
       }
     });
+
+    // ── N1X thinking indicator ────────────────────────────────────────────
 
     channel.subscribe('bot.thinking', (_msg: Ably.Message) => {
       if (!isMountedRef.current) return;
@@ -315,6 +376,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       thinkingTimerRef.current = setTimeout(clearThinking, THINKING_CLEAR_MS);
     });
 
+    // ── N1X response ──────────────────────────────────────────────────────
+
     channel.subscribe('bot.message', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
       const data = msg.data as BotMessageEvent;
@@ -333,7 +396,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       });
       recentHistoryRef.current = [
         ...recentHistoryRef.current.slice(-29),
-        `  [N1X] << ${data.text.replace(/\n/g, ' ').slice(0, 120)}`,
+        `[N1X]: ${data.text.replace(/\n/g, ' ').slice(0, 120)}`,
       ];
 
       // ── Trust auto-advance via N1X response content ───────────────────────
@@ -347,7 +410,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
         const isF008Marker   = /this one isn't encoded/i.test(text);
 
-        // T3 markers — multiple paths to Contact Established
         const isT3Marker =
           /LE-751078/i.test(text)         ||
           /iron bloom/i.test(text)        ||
@@ -359,7 +421,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           /drainage/i.test(text)          ||
           /c minor/i.test(text);
 
-        // Only advance one level at a time — never skip steps
         let newTrust = current;
         if      (isBase64Marker && current < 2)  newTrust = 2;
         else if (isT3Marker     && current === 2) newTrust = 3;
@@ -368,11 +429,41 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
         if (newTrust !== current) {
           setTrust(newTrust as TrustLevel);
-          // f008 is delivered as plain text — mark it collected when it fires
           if (isF008Marker) addFragment('f008');
         }
       } catch { /* storage unavailable */ }
     });
+
+    // ── Ambient bot messages ──────────────────────────────────────────────
+
+    channel.subscribe('bot.ambient.message', (msg: Ably.Message) => {
+      if (!isMountedRef.current) return;
+      const data = msg.data as AmbientBotMessage;
+
+      addMessage({
+        handle:       data.name,
+        text:         data.text,
+        ts:           data.ts,
+        isN1X:        false,
+        isSystem:     false,
+        isUnprompted: false,
+        isAmbientBot: true,
+        botColor:     data.color,
+        botSigil:     data.sigil,
+        botId:        data.botId,
+        metadata:     data.isAction ? { kind: 'action' } : undefined,
+      });
+
+      // Add to history so future bot responses are aware
+      recentHistoryRef.current = [
+        ...recentHistoryRef.current.slice(-29),
+        data.isAction
+          ? `[BOT:${data.name}]: *${data.text}*`
+          : `[BOT:${data.name}]: ${data.text}`,
+      ];
+    });
+
+    // ── System messages ───────────────────────────────────────────────────
 
     channel.subscribe('bot.system', (msg: Ably.Message) => {
       if (!isMountedRef.current) return;
@@ -386,6 +477,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         isUnprompted: false,
       });
     });
+
+    // ── Connection lifecycle ──────────────────────────────────────────────
 
     const connectionTimeout = setTimeout(() => {
       if (!isMountedRef.current) return;
@@ -405,12 +498,15 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setConnectionStatus('connected');
       joinedAtRef.current = Date.now();
 
-      // Enter presence with displayName contract
       channel.presence
         .enter({ displayName: handle, trust: exportForRoom().trust })
         .then(() => new Promise<void>(resolve => setTimeout(resolve, PRESENCE_SETTLE_MS)))
         .then(() => updatePresence())
-        .then(() => { if (isMountedRef.current) setIsConnected(true); })
+        .then(() => {
+          if (isMountedRef.current) setIsConnected(true);
+          // Fire ambient bot join greeting after presence settles
+          triggerAmbientBotJoin();
+        })
         .catch(() => { if (isMountedRef.current) setIsConnected(true); });
     });
 
@@ -453,7 +549,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       channel.presence.leave();
       client.close();
     };
-  }, [handle, addMessage, clearThinking, triggerN1X, maybeUnprompted, checkF010]);
+  }, [handle, addMessage, clearThinking, triggerN1X, triggerAmbientBots, triggerAmbientBotJoin, maybeUnprompted, checkF010]);
 
   return { messages, occupantCount, presenceNames, daemonState, isConnected, connectionStatus, ablyDebug, send };
 }
