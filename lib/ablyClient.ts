@@ -149,6 +149,12 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const f010IssuedRef    = useRef(false);
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── N1X chime counter ─────────────────────────────────────────────────────
+  // Counts messages from others (not self) and ambient bots.
+  // At ~5 messages, 50% chance N1X chimes in contextually.
+  const chimeCounterRef  = useRef(0);
+  const CHIME_THRESHOLD  = 5;
+
   // Mute state: 0 = not muted, Infinity = indefinite, future ts = timed mute
   const mutedUntilRef = useRef<number>(0);
   const mutedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -358,6 +364,25 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     } catch { /* ghost channel unreliable by design */ }
   }, [handle]);
 
+  // ── N1X chime: probabilistic reaction to ambient conversation ─────────────
+  // Called after CHIME_THRESHOLD messages from others/bots. 50% chance fires.
+  const triggerN1XChime = useCallback(async () => {
+    const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
+    try {
+      await fetch('/api/bot', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chime:         true,
+          handles:       handlesRef.current,
+          daemonState:   f010IssuedRef.current ? 'exposed' : 'active',
+          occupantCount: handlesRef.current.length,
+          recentHistory,
+        }),
+      });
+    } catch { /* ghost channel unreliable by design */ }
+  }, [handle]);
+
   const checkF010 = useCallback(async () => {
     if (f010IssuedRef.current) return;
     if (handlesRef.current.length < 2) return;
@@ -500,6 +525,15 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         }
 
         checkF010();
+      } else {
+        // Message from another human — count toward N1X chime threshold
+        chimeCounterRef.current += 1;
+        if (chimeCounterRef.current >= CHIME_THRESHOLD) {
+          chimeCounterRef.current = 0;
+          if (Math.random() < 0.5) {
+            triggerN1XChime();
+          }
+        }
       }
     });
 
@@ -533,6 +567,8 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         thinkingTimerRef.current = null;
       }
       clearThinking();
+      // N1X just spoke — reset chime counter so it doesn't pile on immediately
+      chimeCounterRef.current = 0;
       addMessage({
         handle:       'N1X',
         text:         data.text,
@@ -606,6 +642,15 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           ? `[BOT:${data.name}]: *${data.text}*`
           : `[BOT:${data.name}]: ${data.text}`,
       ];
+
+      // Ambient bot messages count toward N1X chime threshold
+      chimeCounterRef.current += 1;
+      if (chimeCounterRef.current >= CHIME_THRESHOLD) {
+        chimeCounterRef.current = 0;
+        if (Math.random() < 0.5) {
+          triggerN1XChime();
+        }
+      }
     });
 
     channel.subscribe('bot.system', (msg: Ably.Message) => {
@@ -746,7 +791,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       channel.presence.leave();
       client.close();
     };
-  }, [handle, addMessage, clearThinking, triggerN1X, triggerAmbientBots, triggerAmbientBotPing, triggerAmbientBotJoin, checkF010, applyMute, clearMute]);
+  }, [handle, addMessage, clearThinking, triggerN1X, triggerN1XChime, triggerAmbientBots, triggerAmbientBotPing, triggerAmbientBotJoin, checkF010, applyMute, clearMute]);
 
   // Broadcast presence count to InterfaceLayer footer whenever it changes.
   // +4 for ambient bots. Fires from here so it works whether or not TelnetSession is mounted.
