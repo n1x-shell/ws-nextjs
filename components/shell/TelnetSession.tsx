@@ -11,6 +11,7 @@ import {
   deactivateTelnet,
   clearHandle,
 } from '@/lib/telnetBridge';
+import { incrementSession, loadARGState, getPlayerSigil } from '@/lib/argState';
 
 // ── Style constants ───────────────────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ const C = {
   bracket:     'var(--phosphor-green)',
   selfUser:    'var(--phosphor-green)',
   otherUser:   '#b0b0b0',
-  n1xName:     '#ff4444',
+  n1xName:     '#bf00ff',
   selfMsg:     '#ffffff',
   otherMsg:    '#b0b0b0',
   n1xMsg:      'var(--phosphor-green)',
@@ -34,8 +35,8 @@ const C = {
   system:      '#ff8c00',
   thinking:    'rgba(51,255,51,0.45)',
   whoSelf:     '#ffffff',
-  whoOther:    '#888888',
-  whoN1X:      '#ff4444',
+  whoOther:    '#555555',
+  whoN1X:      '#bf00ff',
   action:      '#ff69b4',
   cmdError:    '#ff6b6b',
   helpKey:     'var(--phosphor-green)',
@@ -43,7 +44,12 @@ const C = {
   trustLevel:  '#fcd34d',
   fragId:      'var(--phosphor-green)',
   fragLocked:  'rgba(51,255,51,0.2)',
+  tier0:       '#555555',
 };
+
+// N1X fixed sigil
+const N1X_SIGIL       = '⟁';
+const N1X_SIGIL_COLOR = '#bf00ff';
 
 // ── Ambient bot config (hardcoded — mirrors ambientBotConfig.ts) ──────────────
 
@@ -64,7 +70,6 @@ function ambientBotSigil(name: string): string {
 }
 
 // ── Fragment content registry ─────────────────────────────────────────────────
-// Content copied verbatim from systemCommands.tsx to keep in sync.
 
 const FRAGMENT_LABELS: Record<string, string> = {
   f001: 'post-install log — day 001',
@@ -433,17 +438,20 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
     ...othersNoSelf.sort(),
   ];
 
-  function nameColor(n: string): string {
-    if (n === 'N1X')                        return C.whoN1X;
-    if (n === 'Vestige')                    return '#a5f3fc';
-    if (n === 'Lumen')                      return '#fcd34d';
-    if (n === 'Cascade')                    return '#a78bfa';
-    if (n === caller)                        return C.whoSelf;
-    return C.whoOther;
-  }
+  // Read caller's own sigil from localStorage
+  let callerSigil: string | null = null;
+  let callerSigilColor: string = C.whoSelf;
+  try {
+    const argState = loadARGState();
+    const tier = getPlayerSigil(argState.sessionCount);
+    if (tier) {
+      callerSigil      = tier.sigil;
+      callerSigilColor = tier.color;
+    }
+  } catch { /* ignore */ }
 
   const totalHumans = (callerInList ? 1 : 0) + othersNoSelf.length;
-  const totalNodes  = 1 + AMBIENT_BOTS_STATIC.length + totalHumans; // N1X + 3 bots + humans
+  const totalNodes  = 1 + AMBIENT_BOTS_STATIC.length + totalHumans;
 
   return (
     <div style={{
@@ -456,29 +464,42 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
       <div style={{ marginBottom: '0.15rem' }}>Online ({totalNodes}):</div>
 
       {/* N1X */}
-      <div style={{ paddingLeft: '2ch' }}>
+      <div style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+        <span style={{ color: N1X_SIGIL_COLOR, flexShrink: 0 }}>{N1X_SIGIL}</span>
         <span style={{ color: C.whoN1X, fontWeight: 'bold' }}>N1X</span>
-        <span style={{ opacity: 0.35, fontSize: '0.8em', marginLeft: '1ch' }}>[daemon]</span>
       </div>
 
       {/* Ambient bots */}
       {AMBIENT_BOTS_STATIC.map(bot => (
-        <div key={bot.name} style={{ paddingLeft: '2ch' }}>
-          <span style={{ color: bot.color, opacity: 0.7, marginRight: '0.5ch' }}>{bot.sigil}</span>
+        <div key={bot.name} style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+          <span style={{ color: bot.color, opacity: 0.7, flexShrink: 0 }}>{bot.sigil}</span>
           <span style={{ color: bot.color, fontWeight: 'bold' }}>{bot.name}</span>
-          <span style={{ opacity: 0.35, fontSize: '0.8em', marginLeft: '1ch' }}>[entity]</span>
         </div>
       ))}
 
       {/* Human users */}
-      {humanOrdered.map(name => (
-        <div key={name} style={{ paddingLeft: '2ch' }}>
-          <span style={{ color: nameColor(name), fontWeight: 'bold' }}>{name}</span>
-          {name === caller && (
-            <span style={{ opacity: 0.35, fontSize: '0.8em', marginLeft: '1ch' }}>[you]</span>
-          )}
-        </div>
-      ))}
+      {humanOrdered.map(name => {
+        const isSelf = name === caller;
+        if (isSelf) {
+          return (
+            <div key={name} style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+              {callerSigil ? (
+                <span style={{ color: callerSigilColor, flexShrink: 0 }}>{callerSigil}</span>
+              ) : (
+                <span style={{ display: 'inline-block', width: '1ch', flexShrink: 0 }} />
+              )}
+              <span style={{ color: callerSigil ? callerSigilColor : C.whoSelf, fontWeight: 'bold' }}>{name}</span>
+            </div>
+          );
+        }
+        // Other users — no local sigil data, show dimmed
+        return (
+          <div key={name} style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+            <span style={{ display: 'inline-block', width: '1ch', flexShrink: 0 }} />
+            <span style={{ color: C.whoOther }}>{name}</span>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -598,7 +619,6 @@ const FragmentReadOutput: React.FC<{ fragmentId: string }> = ({ fragmentId }) =>
   const id = fragmentId.toLowerCase().trim();
   const { trust, fragments } = readARGState();
 
-  // Check fragment exists
   if (!ALL_FRAGMENT_IDS.includes(id)) {
     return (
       <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
@@ -608,7 +628,6 @@ const FragmentReadOutput: React.FC<{ fragmentId: string }> = ({ fragmentId }) =>
     );
   }
 
-  // f009 is gated on trust ≥ 3, not fragment collection
   if (id === 'f009') {
     if (trust < 3) {
       return (
@@ -629,7 +648,6 @@ const FragmentReadOutput: React.FC<{ fragmentId: string }> = ({ fragmentId }) =>
     );
   }
 
-  // All other fragments require collection
   if (!fragments.includes(id)) {
     return (
       <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
@@ -696,22 +714,31 @@ const ThinkingDots: React.FC = () => {
 };
 
 // ── MsgRow ────────────────────────────────────────────────────────────────────
+// Format: sigil [handle] > message
+// sigil is optional; if absent, no leading space is rendered for tier-0 users
 
 interface MsgRowProps {
-  ts:        number;
-  bracket:   string;
-  nameColor: string;
-  name:      string;
-  msgColor:  string;
-  children:  React.ReactNode;
+  ts:         number;
+  bracket:    string;
+  nameColor:  string;
+  name:       string;
+  msgColor:   string;
+  sigil?:     string;
+  sigilColor?: string;
+  children:   React.ReactNode;
 }
 
-const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, children }) => (
+const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, sigil, sigilColor, children }) => (
   <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
     <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
       {formatTs(ts)}
     </div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+      {/* Sigil slot */}
+      {sigil ? (
+        <span style={{ color: sigilColor ?? nameColor, flexShrink: 0 }}>{sigil}</span>
+      ) : null}
+      {/* [handle] */}
       <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
         <span style={{ color: bracket }}>[</span>
         <span style={{ color: nameColor }}>{name}</span>
@@ -724,18 +751,37 @@ const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor,
 );
 
 // ── ActionMessage ─────────────────────────────────────────────────────────────
+// Format: * sigil name action-text
 
 const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
-  const color = msg.isAmbientBot && msg.botColor ? msg.botColor : C.action;
+  // Determine sigil and color for action sender
+  let sigil: string | undefined;
+  let sigilColor: string | undefined;
+
+  if (msg.isAmbientBot) {
+    sigil      = msg.botSigil ?? undefined;
+    sigilColor = msg.botColor ?? undefined;
+  } else if (msg.isN1X) {
+    sigil      = N1X_SIGIL;
+    sigilColor = N1X_SIGIL_COLOR;
+  } else {
+    sigil      = msg.sigil;
+    sigilColor = msg.sigilColor;
+  }
+
+  const nameColor = msg.isAmbientBot && msg.botColor
+    ? msg.botColor
+    : (sigilColor ?? C.action);
+
   return (
     <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
       <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
         {formatTs(msg.ts)}
       </div>
-      <div style={{ color, fontWeight: 'bold', lineHeight: 1.7, wordBreak: 'break-word' }}>
+      <div style={{ color: nameColor, fontWeight: 'bold', lineHeight: 1.7, wordBreak: 'break-word' }}>
         <span style={{ opacity: 0.7 }}>* </span>
-        {msg.isAmbientBot && msg.botSigil && (
-          <span style={{ opacity: 0.6, marginRight: '0.3ch' }}>{msg.botSigil}</span>
+        {sigil && (
+          <span style={{ color: sigilColor ?? nameColor, marginRight: '0.3ch' }}>{sigil}</span>
         )}
         <span>{msg.handle}</span>
         <span> {msg.text}</span>
@@ -745,6 +791,7 @@ const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
 };
 
 // ── N1XMessage ────────────────────────────────────────────────────────────────
+// Format: ⟁ [N1X] > message (sigil and name both #bf00ff)
 
 const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
   if (msg.isThinking) {
@@ -755,6 +802,8 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
         nameColor={C.n1xName}
         name="N1X"
         msgColor={C.thinking}
+        sigil={N1X_SIGIL}
+        sigilColor={N1X_SIGIL_COLOR}
       >
         <span style={{ fontStyle: 'italic' }}>signal processing<ThinkingDots /></span>
       </MsgRow>
@@ -772,6 +821,9 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+        {/* N1X sigil */}
+        <span style={{ color: N1X_SIGIL_COLOR, flexShrink: 0 }}>{N1X_SIGIL}</span>
+        {/* [N1X] */}
         <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
           <span style={{ color: C.bracket }}>[</span>
           <span style={{ color: C.n1xName }}>N1X</span>
@@ -791,14 +843,15 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
 };
 
 // ── AmbientBotMessage ─────────────────────────────────────────────────────────
+// Format: sigil [BotName] > message
 
 const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
   if (msg.metadata?.kind === 'action') {
     return <ActionMessage msg={msg} />;
   }
 
-  const color  = msg.botColor ?? '#888888';
-  const sigil  = msg.botSigil ?? '';
+  const color = msg.botColor ?? '#888888';
+  const sigil = msg.botSigil ?? '';
 
   return (
     <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
@@ -806,11 +859,13 @@ const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
         {formatTs(msg.ts)}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+        {/* Bot sigil */}
+        {sigil && (
+          <span style={{ color, opacity: 0.85, flexShrink: 0 }}>{sigil}</span>
+        )}
+        {/* [BotName] */}
         <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
           <span style={{ color: C.bracket }}>[</span>
-          {sigil && (
-            <span style={{ color, opacity: 0.7, marginRight: '0.2ch' }}>{sigil}</span>
-          )}
           <span style={{ color, fontStyle: 'italic' }}>{msg.handle}</span>
           <span style={{ color: C.bracket }}>]</span>
         </span>
@@ -822,18 +877,43 @@ const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
 };
 
 // ── UserMessage ───────────────────────────────────────────────────────────────
+// Format: sigil [handle] > message  (or just [handle] > message for tier 0)
 
 const UserMessage: React.FC<{ msg: RoomMsg; isSelf: boolean }> = ({ msg, isSelf }) => {
   if (msg.metadata?.kind === 'action') {
     return <ActionMessage msg={msg} />;
   }
+
+  // For self: prefer locally-computed sigil over presence data
+  // (presence data may lag one session; localStorage is always current)
+  let sigil      = msg.sigil;
+  let sigilColor = msg.sigilColor;
+
+  if (isSelf) {
+    try {
+      const argState = loadARGState();
+      const tier = getPlayerSigil(argState.sessionCount);
+      if (tier) {
+        sigil      = tier.sigil;
+        sigilColor = tier.color;
+      } else {
+        sigil      = undefined;
+        sigilColor = undefined;
+      }
+    } catch { /* ignore */ }
+  }
+
+  const nameColor = sigilColor ?? (isSelf ? C.selfUser : C.otherUser);
+
   return (
     <MsgRow
       ts={msg.ts}
       bracket={C.bracket}
-      nameColor={isSelf ? C.selfUser : C.otherUser}
+      nameColor={nameColor}
       name={msg.handle}
       msgColor={isSelf ? C.selfMsg : C.otherMsg}
+      sigil={sigil}
+      sigilColor={sigilColor}
     >
       {msg.text}
     </MsgRow>
@@ -974,14 +1054,11 @@ function handleSlashCommand(
 
   // ── /fragments /frags ─────────────────────────────────────────────────────
   if (cmd === 'fragments' || cmd === 'frags') {
-    // /fragments read <id>
     if (arg1 === 'read' && parts[2]) {
       const fragId = parts[2].toLowerCase();
       addLocalMsg(<FragmentReadOutput key={`frag-read-${Date.now()}`} fragmentId={fragId} />);
       return true;
     }
-
-    // /fragments with no subcommand → list
     addLocalMsg(<FragmentsOutput key={`frags-${Date.now()}`} />);
     return true;
   }
@@ -1015,8 +1092,16 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   interface LocalEntry { id: string; ts: number; node: React.ReactNode; }
   const [localMsgs, setLocalMsgs] = useState<LocalEntry[]>([]);
 
-  const isMountedRef = useRef(true);
-  const bootFiredRef = useRef(false);
+  const isMountedRef   = useRef(true);
+  const bootFiredRef   = useRef(false);
+  const sessionBumpRef = useRef(false);
+
+  // ── Increment session once on mount ──────────────────────────────────────
+  useEffect(() => {
+    if (sessionBumpRef.current) return;
+    sessionBumpRef.current = true;
+    incrementSession();
+  }, []);
 
   // ── Local message injector ────────────────────────────────────────────────
 
