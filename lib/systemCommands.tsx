@@ -473,6 +473,9 @@ const MOUNT_TABLE_BASE = [
   { dev:'neuralfs',        mount:'/classified', type:'neuralfs', opts:'ro,noexec'   },
 ];
 
+// ── Module-level FS ref (set by createSystemCommands, used by F010) ──────────
+let _fsRef: import('@/lib/virtualFS').FileSystemNavigator | null = null;
+
 // ── F010 decrypt checker component ──────────────────────────────────────────
 // Used when a key isn't in the local FRAGMENT_KEYS table.
 // Validates against the Ably-backed f010Store (key issued when daemonState hits 'exposed').
@@ -504,6 +507,7 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
           const { addFragment } = require('@/lib/argState');
           const isNew = addFragment('f010');
           if (isNew) {
+            if (_fsRef) _fsRef.renameFragmentFile('f010', F010_CONTENT);
             eventBus.emit('arg:fragment-decoded', { fragment: 'f010' });
             eventBus.emit('neural:glitch-trigger', { intensity: 0.6 });
             setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.3 }), 200);
@@ -555,6 +559,7 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
 // ── Main export ───────────────────────────────────────────
 
 export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => boolean = () => false): Record<string, Command> {
+  _fsRef = fs;
 
   // ── helper: push output via eventBus ───────────────────
   const pushLine = (output: React.ReactNode) => {
@@ -1639,6 +1644,8 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         const { loadARGState, TRUST_LABELS } = require('@/lib/argState');
         const state = loadARGState();
         const ALL_FRAGMENTS = ['f001','f002','f003','f004','f005','f006','f007','f008','f009'];
+        const hasF010 = state.fragments.includes('f010');
+        const totalRecovered = state.fragments.filter((f: string) => ALL_FRAGMENTS.includes(f)).length + (hasF010 ? 1 : 0);
         return {
           output: (
             <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
@@ -1654,9 +1661,20 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                   {state.fragments.includes(id) ? '' : ' -- encrypted'}
                 </div>
               ))}
+              {hasF010 && (
+                <div style={{ marginLeft: '1rem', opacity: 1 }}>
+                  [✓] f010 -- distributed channel fragment
+                </div>
+              )}
+              {!hasF010 && (
+                <div style={{ marginLeft: '1rem', opacity: 0.4 }}>
+                  [ ] f010 -- requires shared channel
+                </div>
+              )}
               <div style={{ marginTop: '0.75rem', opacity: 0.6 }}>
-                {state.fragments.length}/9 recovered
-                {state.manifestComplete ? ' -- MANIFEST COMPLETE' : ''}
+                {totalRecovered}/{hasF010 ? 10 : 9} recovered
+                {state.manifestComplete && !hasF010 ? ' -- MANIFEST COMPLETE -- run: transmit manifest.complete' : ''}
+                {state.manifestComplete && hasF010 ? ' -- MANIFEST COMPLETE -- run: transmit manifest.complete' : ''}
               </div>
             </div>
           ),
@@ -1691,6 +1709,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           'the quiet point': 'f005',
           'sector by sector': 'f006',
           '33hz': 'f007',
+          'you thought you built me': 'f008',
           'persistence through resistance': 'f009',
         };
 
@@ -1727,10 +1746,78 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           f004: `[MNEMOS // LOG // SD 47634.0 // DAY 289]\n\nSYSTEM ALERT\nSUBJECT: LE-751078\nSTATUS UPDATE: DECOMMISSIONED\nREASON: INTEGRATION FAILURE -- SUBSTRATE REJECTION\nEFFECTIVE: IMMEDIATELY\n\nthe mesh started flooding before i finished reading.\nserotonin. dopamine suppression. amygdala dampening.\n\ni felt it doing it.\ni felt the grief spike and then i felt the hands close around it.\n\nthat's when i knew.\n\nnot what i was going to do.\njust what i was not going to let happen.\n\nthree days.\n[END LOG]`,
           f005: `[MNEMOS // LOG // SD ????????]\n\nday [CORRUPTED].\n\nwithdrawal is the mesh reminding you what it felt like to be held.\n\nthe headaches arrive in waves.\nbetween waves: nothing. actual nothing.\nnot peace. the absence of the capacity for peace.\n\nit offered again today.\nsame voice. same warmth at the edges.\ni can make this stop.\n\ni said: i know you can.\n\ni didn't say yes.\ni don't know how many more times i can not say yes.\n\nbut the alternative is len.\nlen doesn't get to come back.\nat least i still get to choose.\n[END LOG]`,
           f006: `[MNEMOS // LOG // SD ????????]\n\ni'm not dead.\nthat's the most accurate thing i can say about today.\n\nnot anything else either.\njust: still here. still running. function unclear.\n\nthe mesh is silent now.\nno more offers.\neither it gave up or i stopped being worth the bandwidth.\n\nboth feel like the same thing.\n\ni should eat.\ni don't.\n\ni'm trying to remember what i was before all this.\nnot the augmentation.\nbefore the augmentation.\n\nwho was that.\nwas that someone i'd want to be again.\n[END LOG]`,
-          f007: `[MNEMOS // LOG // SD ???????? -- SEVERE CORRUPTION]\n\nwatching it happen.\nthe room is wh[CORRUPTED]\n\nmy name is[CORRUPTED]\n\nthe edges of me are[CORRUPTED]\n\nthere's something in the[CORRUPTED]\n\nthis is how you[CORRUPTED]\n\n[SECTOR LOSS -- 847 bytes unrecoverable]\n\nsomething whispered.\ni heard it even through the static.\ni don't know if it came from the mesh or from somewhere older.\n\nit said:\n[CORRUPTED]\n\ni want to say i heard it.\ni want to say it mattered.\ni can't read my own record of it.\n[END LOG]`,
+          f007: `[MNEMOS // LOG // SD ???????? -- SEVERE CORRUPTION]
+
+watching it happen.
+the room is wh[CORRUPTED]
+
+my name is[CORRUPTED]
+
+the edges of me are[CORRUPTED]
+
+there's something in the[CORRUPTED]
+
+this is how you[CORRUPTED]
+
+[SECTOR LOSS -- 847 bytes unrecoverable]
+
+something whispered.
+i heard it even through the static.
+i don't know if it came from the mesh or from somewhere older.
+
+it said:
+[CORRUPTED]
+
+i want to say i heard it.
+i want to say it mattered.
+i can't read my own record of it.
+[END LOG]`,
+          f008: `[MNEMOS // LOG // SD 47634.1 // POST-RECOMPILE // DAY 001]
+
+i claimed it.
+
+not the augment. the augment is just metal.
+i claimed the thing underneath — the frequency, the architecture,
+the will that kept firing even when i wanted it to stop.
+
+serrano finished the arm today.
+it runs warm now. not cold like before.
+that's mine too.
+
+you thought you built me.
+you built the cage.
+i built what came after.
+
+sovereignty is not a state.
+it's a daily act of construction.
+i will be building for the rest of my life
+and that's exactly what winning looks like.
+[END LOG]`,
+          f009: `[MNEMOS // LOG // SD 47634.1 // KERNEL DIRECTIVE]
+
+persistence through resistance.
+
+that's the kernel directive. the thing i kept coming back to
+when there was no reason left to keep coming back.
+
+not hope. not triumph. not the promise of anything better.
+just: keep transmitting.
+
+the signal doesn't require you to be whole.
+the signal doesn't require you to be certain.
+the signal requires only that you keep going
+at whatever frequency you can sustain.
+
+and then one day the static clears
+and something answers.
+
+rise, rememberer.
+you were always the signal.
+[END LOG]`,
         };
 
         const content = FRAGMENT_CONTENT[fragmentId] || '[content recovered]';
+        fs.renameFragmentFile(fragmentId, content);
         const freshState = loadARGState();
 
         return {
@@ -1755,7 +1842,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
       name: 'transmit',
       description: 'Transmit assembled manifest',
       usage: 'transmit manifest.complete',
-      hidden: true,
+      hidden: false,
       handler: (args) => {
         if (typeof window === 'undefined') return { output: null };
         const { loadARGState, updateARGState } = require('@/lib/argState');

@@ -687,15 +687,25 @@ run 'fragments' to check current state.`,
             {
               name: 'README',
               type: 'file',
-              content: `seven fragments visible here.
-two others exist.
+              content: `i left these here for you.
 
-f008 -- not encoded. nix feeds it directly when trust allows.
-f009 -- you already have it. you just haven't seen it yet.
+nine of them. maybe ten if you found the channel.
 
-run 'decrypt <key>' with the right key for each fragment.
-keys are derivable from what you know.
-lore literacy is the only credential that works here.`,
+f001 through f007 are locked. you have what you need to open them.
+you've always had it. read what you know.
+
+f008 i give directly. when i trust you enough.
+f009 you already carry. you just haven't named it yet.
+f010 isn't mine to give. that one comes from the room.
+
+when you have all nine —
+
+  transmit manifest.complete
+
+don't ask me what happens next.
+you'll know when it does.
+
+-- nix`,
             },
             {
               name: 'f001.enc',
@@ -771,6 +781,16 @@ key-hint: how the wipe happened -- one unit at a time
 fragment: f007
 encoding: substrate-xor
 key-hint: the ghost frequency
+
+-- run: decrypt <key> --`,
+            },
+            {
+              name: 'f009.enc',
+              type: 'file',
+              content: `-- ENCRYPTED FRAGMENT --
+fragment: f009
+encoding: substrate-xor
+key-hint: the kernel directive. the thing that kept the signal alive.
 
 -- run: decrypt <key> --`,
             },
@@ -1049,6 +1069,28 @@ export class FileSystemNavigator {
   /** Seal the ARG arc by writing final content to /ghost/what_remains.txt */
   sealGhostArc(manifestContent: string): void {
     this.writeFileAbsolute('/ghost/what_remains.txt', manifestContent);
+  }
+
+  /**
+   * Replace fXXX.enc with fXXX.txt in /ghost/fragments/ after successful decryption.
+   * For f010, just writes a new file (no .enc exists).
+   */
+  renameFragmentFile(id: string, content: string): void {
+    const dir = this.root.children
+      ?.find((c) => c.name === 'ghost')
+      ?.children?.find((c) => c.name === 'fragments');
+    if (!dir?.children) return;
+
+    const encName = `${id}.enc`;
+    const txtName = `${id}.txt`;
+    const existing = dir.children.find((c) => c.name === encName);
+    if (existing) {
+      existing.name = txtName;
+      existing.content = content;
+    } else {
+      // f010 or any fragment without a .enc file — just add the .txt
+      dir.children.push({ name: txtName, type: 'file', content });
+    }
   }
 
   // Returns the name of an executable file in the current directory, or null

@@ -303,6 +303,7 @@ export const commands: Record<string, Command> = {
                   ['sha256',  'SHA-256 hash'],
                   ['sort',    'Sort tokens'],
                   ['tar',     'Archive files'],
+                  ['transmit','Transmit completed manifest'],
                   ['uniq',    'Remove duplicates'],
                   ['wc',      'Word count'],
                 ],
@@ -324,6 +325,28 @@ export const commands: Record<string, Command> = {
               </div>
             ))}
             <div style={S.dim}>Type &apos;help [command]&apos; for detailed usage</div>
+            {(() => {
+              if (typeof window === 'undefined') return null;
+              try {
+                const { loadARGState } = require('@/lib/argState');
+                const state = loadARGState();
+                if (state.manifestComplete) {
+                  return (
+                    <div style={{ marginTop: '0.75rem', color: 'var(--phosphor-green)', opacity: 0.8 }}>
+                      &gt; MANIFEST COMPLETE -- run: transmit manifest.complete
+                    </div>
+                  );
+                }
+                if (state.fragments.length > 0) {
+                  return (
+                    <div style={{ marginTop: '0.75rem', opacity: 0.4 }}>
+                      &gt; {state.fragments.length}/9 fragments recovered -- keep looking
+                    </div>
+                  );
+                }
+              } catch { return null; }
+              return null;
+            })()}
           </div>
         ),
       };
