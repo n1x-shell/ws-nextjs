@@ -59,8 +59,9 @@ export default function InterfaceLayer() {
 
   // NODES: occupantCount + 4 bots, broadcast by TelnetSession
   const [nodeCount, setNodeCount] = useState(4); // default = just the bots
-  useEventBus('mesh:node-count', (data: { count: number }) => {
-    setNodeCount(data.count);
+  useEventBus('mesh:node-count', (event) => {
+    const count = (event as any)?.payload?.count ?? (event as any)?.count;
+    if (typeof count === 'number') setNodeCount(count);
   });
 
   useEffect(() => {
