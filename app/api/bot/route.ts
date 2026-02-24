@@ -55,6 +55,9 @@ interface BotRequest {
 
   // Chime: N1X reacts to recent conversation without being addressed
   chime?: boolean;
+
+  // Individual player trust level (0-5) from localStorage ARG state
+  trust?: number;
   // Fragment IDs already collected by this player e.g. ['f001','f003']
   fragments?: string[];
   // True when player message contains Len/Helixion/TUNNELCORE at T4
@@ -219,7 +222,7 @@ export async function POST(req: Request) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       if (trimmed.startsWith('[N1X]')) {
-        const content = trimmed.replace(/^\[N1X\]\s*<<?\s*/, '').trim();
+        const content = trimmed.replace(/^\[N1X\]\s*[:>]+\s*/, '').trim();
         if (content) historyMessages.push({ role: 'assistant', content });
       } else {
         const content = trimmed.replace(/^\[.*?\]\s*>>?\s*/, '').trim();
@@ -250,11 +253,14 @@ export async function POST(req: Request) {
     temperature:     0.85,
   });
 
+  // Strip any [N1X]: prefix the model may have added despite instructions
+  const cleanText = result.text.replace(/^\[N1X\]\s*[:>]+\s*/i, '').trim();
+
   await ch.publish('bot.message', {
     roomId,
     messageId: makeId(),
     replyTo:   messageId ?? null,
-    text:      result.text,
+    text:      cleanText,
     ts:        Date.now(),
   });
 
