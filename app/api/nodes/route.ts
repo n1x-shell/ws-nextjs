@@ -15,9 +15,9 @@ export async function GET() {
   try {
     const rest = new Ably.Rest(apiKey);
     const channel = rest.channels.get('ghost');
-    const members = await channel.presence.get();
+    const result = await channel.presence.get();
     // +4 for ambient bots (Vestige, Lumen, Cascade + ghost-daemon)
-    return Response.json({ count: members.length + 4 });
+    return Response.json({ count: result.items.length + 4 });
   } catch {
     return Response.json({ count: 4 });
   }
