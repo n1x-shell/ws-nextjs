@@ -14,10 +14,14 @@ export async function GET() {
   }
   try {
     const rest = new Ably.Rest(apiKey);
-    const channel = rest.channels.get('ghost');
-    const result = await channel.presence.get();
+    // n1x:shell = all visitors (shell + chat users)
+    // ghost = chat users only (subset of shell)
+    const shellChannel = rest.channels.get('n1x:shell');
+    const shellResult  = await shellChannel.presence.get();
+    const shellCount   = shellResult.items.length;
+
     // +4 for ambient bots (Vestige, Lumen, Cascade + ghost-daemon)
-    return Response.json({ count: result.items.length + 4 });
+    return Response.json({ count: shellCount + 4 });
   } catch {
     return Response.json({ count: 4 });
   }
