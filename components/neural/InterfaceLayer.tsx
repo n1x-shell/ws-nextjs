@@ -16,23 +16,22 @@ function seedLoad(raw: number | string): number {
   return Math.max(10, Math.min(90, n));
 }
 
-// Self-animating proc bar — owns its own state, random-walks ±5% every 1.5s
-// with gentle mean-reversion toward the context seed so it stays realistic.
+// Self-animating proc bar — 600ms tick, narrow 12-char bar
 function ProcBar({ seed }: { seed: number | string }) {
-  const BAR_WIDTH = 20;
+  const BAR_WIDTH = 12;
   const [load, setLoad] = useState<number>(() => seedLoad(seed));
 
   useEffect(() => {
     const tick = () => {
       setLoad(prev => {
         const base  = seedLoad(seed);
-        const drift = (Math.random() - 0.5) * 10;   // ±5
-        const pull  = (base - prev) * 0.15;          // gentle mean-reversion
+        const drift = (Math.random() - 0.5) * 12;   // ±6
+        const pull  = (base - prev) * 0.2;           // mean-reversion
         const next  = prev + drift + pull;
         return Math.round(Math.max(10, Math.min(90, next)));
       });
     };
-    const id = setInterval(tick, 1500);
+    const id = setInterval(tick, 600);
     return () => clearInterval(id);
   }, [seed]);
 
@@ -51,6 +50,18 @@ function ProcBar({ seed }: { seed: number | string }) {
 export default function InterfaceLayer() {
   const { uptime, processorLoad, triggerGlitch } = useNeuralState();
   const screenContentRef = useRef<HTMLDivElement>(null);
+
+  // SESSION: count of commands run this session
+  const [sessionCount, setSessionCount] = useState(0);
+  useEventBus('shell:execute-command', () => {
+    setSessionCount(prev => prev + 1);
+  });
+
+  // NODES: occupantCount + 4 bots, broadcast by TelnetSession
+  const [nodeCount, setNodeCount] = useState(4); // default = just the bots
+  useEventBus('mesh:node-count', (data: { count: number }) => {
+    setNodeCount(data.count);
+  });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -141,6 +152,25 @@ export default function InterfaceLayer() {
       }}
       onClick={handleClick}
     >
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0; }
+        }
+        .status-dot-blink {
+          display: inline-block;
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: var(--phosphor-green);
+          margin-right: 6px;
+          animation: blink 1.2s step-start infinite;
+          vertical-align: middle;
+          position: relative;
+          top: -1px;
+        }
+      `}</style>
+
       <div
         style={{
           position: 'relative',
@@ -264,10 +294,13 @@ export default function InterfaceLayer() {
                   flex-shrink: 0;
                   white-space: nowrap;
                 }
-                @media (max-width: 480px) {
-                  .n1x-header-sub { display: none; }
-                  .n1x-header-right-status { display: none; }
-                  .n1x-header-title { font-size: 17px; }
+                @media (max-width: 600px) {
+                  .n1x-header-sub          { display: none; }
+                  .n1x-header-nodes        { display: none; }
+                  .n1x-header-title        { font-size: 17px; }
+                }
+                @media (max-width: 400px) {
+                  .n1x-header-session      { display: none; }
                 }
               `}</style>
               <div className="n1x-header-inner">
@@ -278,8 +311,13 @@ export default function InterfaceLayer() {
                   </div>
                 </div>
                 <div className="n1x-header-right">
-                  <div className="n1x-header-right-status">&gt; INTERFACE_ACTIVE</div>
-                  <div>&gt; RUNTIME: {formatUptime(uptime)}</div>
+                  &gt; RUNTIME: {formatUptime(uptime)}
+                  <span className="n1x-header-session">
+                    {'\u00A0'}|{'\u00A0'}SESSION: {sessionCount}
+                  </span>
+                  <span className="n1x-header-nodes">
+                    {'\u00A0'}|{'\u00A0'}NODES: {nodeCount}
+                  </span>
                 </div>
               </div>
             </header>
@@ -373,11 +411,15 @@ export default function InterfaceLayer() {
                 background: 'rgba(51,255,51,0.03)',
                 display: 'flex',
                 justifyContent: 'space-between',
+                alignItems: 'center',
                 fontSize: 'var(--text-base)',
                 flexShrink: 0,
                 padding: '0.3rem 0.75rem',
               }}
             >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="status-dot-blink" />
+              </div>
               <div>N1X.sh v2.0</div>
               <div>
                 <ProcBar seed={processorLoad} />
