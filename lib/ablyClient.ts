@@ -1,9 +1,11 @@
+// lib/ablyClient.ts
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Ably from 'ably';
 import { exportForRoom, mergeFromRoom, setTrust, addFragment, type TrustLevel } from '@/lib/argState';
 import { eventBus } from '@/lib/eventBus';
+import type { AmbientBotMessage, BotId } from '@/lib/ambientBotConfig';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,10 +24,14 @@ export interface RoomMsg {
   isSystem:     boolean;
   isUnprompted: boolean;
   isThinking?:  boolean;
+  isAmbientBot?: boolean;
+  botColor?:    string;
+  botSigil?:    string;
+  botId?:       BotId;
   metadata?:    MessageMetadata;
 }
 
-// ── Event shapes (must match /api/bot) ───────────────────────────────────────
+// ── Event shapes ──────────────────────────────────────────────────────────────
 
 interface UserMessageEvent {
   roomId:    string;
@@ -51,6 +57,22 @@ interface BotThinkingEvent {
   ts:     number;
 }
 
+// ── Ambient bot ping detection ────────────────────────────────────────────────
+// Maps lowercase @handle to BotId
+
+const AMBIENT_PING_MAP: Record<string, BotId> = {
+  '@vestige': 'vestige',
+  '@lumen':   'lumen',
+  '@cascade': 'cascade',
+};
+
+function detectAmbientPings(text: string): BotId[] {
+  const lower = text.toLowerCase();
+  return (Object.entries(AMBIENT_PING_MAP) as [string, BotId][])
+    .filter(([handle]) => lower.includes(handle))
+    .map(([, botId]) => botId);
+}
+
 // ── f010 thresholds ───────────────────────────────────────────────────────────
 
 const F010_MIN_TIME_MS   = 10 * 60 * 1000;
@@ -67,11 +89,10 @@ function makeId(): string {
 }
 
 // ── Presence data contract ────────────────────────────────────────────────────
-// Each user enters presence with { displayName: string }
 
 interface PresenceData {
   displayName?: string;
-  handle?:      string; // legacy fallback
+  handle?:      string;
   trust?:       number;
 }
 
@@ -108,12 +129,11 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const channelRef   = useRef<Ably.RealtimeChannel | null>(null);
   const isMountedRef = useRef(true);
 
-  const joinedAtRef       = useRef<number>(0);
-  const messageCountRef   = useRef(0);
-  const n1xPingCountRef   = useRef(0);
-  const f010IssuedRef     = useRef(false);
-  const lastUnpromptedRef = useRef(0);
-  const thinkingTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const joinedAtRef      = useRef<number>(0);
+  const messageCountRef  = useRef(0);
+  const n1xPingCountRef  = useRef(0);
+  const f010IssuedRef    = useRef(false);
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlesRef       = useRef<string[]>([]);
   const recentHistoryRef = useRef<string[]>([]);
@@ -148,7 +168,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     if (metadata) payload.metadata = metadata;
     channelRef.current?.publish('user.message', payload);
 
-    // ── T0 → T1: persist lore term detection in ghost channel ─────────────
     try {
       const raw = localStorage.getItem('n1x_substrate');
       const state = raw ? JSON.parse(raw) : {};
@@ -166,10 +185,81 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     } catch { /* storage unavailable */ }
   }, [handle]);
 
+  // ── Ambient bot trigger — probabilistic, called on every message ──────────
+
+  const triggerAmbientBots = useCallback(async (
+    text:      string,
+    messageId: string,
+    isAction:  boolean,
+  ) => {
+    const recentHistory = recentHistoryRef.current.slice(-20);
+    try {
+      await fetch('/api/ambient-bots', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger:       'message',
+          handle,
+          text,
+          isAction,
+          recentHistory,
+          presenceNames: handlesRef.current,
+          messageId:     `ambient-msg-${messageId}`,
+        }),
+      });
+    } catch { /* fail silently */ }
+  }, [handle]);
+
+  // ── Ambient bot ping — direct @name, one call per pinged bot ─────────────
+
+  const triggerAmbientBotPing = useCallback(async (
+    text:      string,
+    messageId: string,
+    botId:     BotId,
+  ) => {
+    const recentHistory = recentHistoryRef.current.slice(-20);
+    try {
+      await fetch('/api/ambient-bots', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger:       'ping',
+          handle,
+          text,
+          isAction:      false,
+          recentHistory,
+          presenceNames: handlesRef.current,
+          messageId:     `ambient-ping-${botId}-${messageId}`,
+          forceBotId:    botId,
+        }),
+      });
+    } catch { /* fail silently */ }
+  }, [handle]);
+
+  // ── Ambient bot join trigger ──────────────────────────────────────────────
+
+  const triggerAmbientBotJoin = useCallback(async () => {
+    const recentHistory = recentHistoryRef.current.slice(-20);
+    try {
+      await fetch('/api/ambient-bots', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger:       'join',
+          handle,
+          recentHistory,
+          presenceNames: handlesRef.current,
+          messageId:     `ambient-join-${handle}-${Date.now()}`,
+        }),
+      });
+    } catch { /* fail silently */ }
+  }, [handle]);
+
+  // ── N1X trigger ───────────────────────────────────────────────────────────
+
   const triggerN1X = useCallback(async (text: string, messageId: string) => {
     const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
-      // Read individual trust from localStorage ARG state
       let playerTrust = 0;
       try {
         const raw = localStorage.getItem('n1x_substrate');
@@ -192,25 +282,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       });
     } catch { /* ghost channel unreliable by design */ }
   }, [handle]);
-
-  const maybeUnprompted = useCallback(async () => {
-    const count    = handlesRef.current.length;
-    const cooldown = Date.now() - lastUnpromptedRef.current >= 8 * 60 * 1000;
-    if (count < 2 || !cooldown) return;
-    lastUnpromptedRef.current = Date.now();
-    try {
-      await fetch('/api/bot', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          unprompted:    true,
-          handles:       handlesRef.current,
-          daemonState:   f010IssuedRef.current ? 'exposed' : 'active',
-          occupantCount: count,
-        }),
-      });
-    } catch { /* fail silently */ }
-  }, []);
 
   const checkF010 = useCallback(async () => {
     if (f010IssuedRef.current) return;
@@ -279,19 +350,37 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         metadata:     data.metadata,
       });
 
+      const isAction = data.metadata?.kind === 'action';
+
       recentHistoryRef.current = [
         ...recentHistoryRef.current.slice(-29),
-        `  [${data.userId}] >> ${data.text}`,
+        isAction
+          ? `[${data.userId}] * ${data.text}`
+          : `[${data.userId}]: ${data.text}`,
       ];
 
       if (data.userId === handle) {
         messageCountRef.current += 1;
+
+        // ── N1X ping ──────────────────────────────────────────────────────
         if (data.text.toLowerCase().includes('@n1x')) {
           n1xPingCountRef.current += 1;
           triggerN1X(data.text, data.messageId);
         }
+
+        // ── Ambient bot direct pings — one call per pinged bot ────────────
+        const pinnedBots = detectAmbientPings(data.text);
+        for (const botId of pinnedBots) {
+          triggerAmbientBotPing(data.text, data.messageId, botId);
+        }
+
+        // ── Probabilistic ambient response (only if no direct pings) ──────
+        // Avoids a bot responding twice when both pinged and randomly selected
+        if (pinnedBots.length === 0) {
+          triggerAmbientBots(data.text, data.messageId, isAction);
+        }
+
         checkF010();
-        maybeUnprompted();
       }
     });
 
@@ -333,10 +422,9 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       });
       recentHistoryRef.current = [
         ...recentHistoryRef.current.slice(-29),
-        `  [N1X] << ${data.text.replace(/\n/g, ' ').slice(0, 120)}`,
+        `[N1X]: ${data.text.replace(/\n/g, ' ').slice(0, 120)}`,
       ];
 
-      // ── Trust auto-advance via N1X response content ───────────────────────
       try {
         const raw = localStorage.getItem('n1x_substrate');
         const state = raw ? JSON.parse(raw) : {};
@@ -347,7 +435,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
         const isF008Marker   = /this one isn't encoded/i.test(text);
 
-        // T3 markers — multiple paths to Contact Established
         const isT3Marker =
           /LE-751078/i.test(text)         ||
           /iron bloom/i.test(text)        ||
@@ -359,7 +446,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           /drainage/i.test(text)          ||
           /c minor/i.test(text);
 
-        // Only advance one level at a time — never skip steps
         let newTrust = current;
         if      (isBase64Marker && current < 2)  newTrust = 2;
         else if (isT3Marker     && current === 2) newTrust = 3;
@@ -368,10 +454,35 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
         if (newTrust !== current) {
           setTrust(newTrust as TrustLevel);
-          // f008 is delivered as plain text — mark it collected when it fires
           if (isF008Marker) addFragment('f008');
         }
       } catch { /* storage unavailable */ }
+    });
+
+    channel.subscribe('bot.ambient.message', (msg: Ably.Message) => {
+      if (!isMountedRef.current) return;
+      const data = msg.data as AmbientBotMessage;
+
+      addMessage({
+        handle:       data.name,
+        text:         data.text,
+        ts:           data.ts,
+        isN1X:        false,
+        isSystem:     false,
+        isUnprompted: false,
+        isAmbientBot: true,
+        botColor:     data.color,
+        botSigil:     data.sigil,
+        botId:        data.botId,
+        metadata:     data.isAction ? { kind: 'action' } : undefined,
+      });
+
+      recentHistoryRef.current = [
+        ...recentHistoryRef.current.slice(-29),
+        data.isAction
+          ? `[BOT:${data.name}]: *${data.text}*`
+          : `[BOT:${data.name}]: ${data.text}`,
+      ];
     });
 
     channel.subscribe('bot.system', (msg: Ably.Message) => {
@@ -405,12 +516,14 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setConnectionStatus('connected');
       joinedAtRef.current = Date.now();
 
-      // Enter presence with displayName contract
       channel.presence
         .enter({ displayName: handle, trust: exportForRoom().trust })
         .then(() => new Promise<void>(resolve => setTimeout(resolve, PRESENCE_SETTLE_MS)))
         .then(() => updatePresence())
-        .then(() => { if (isMountedRef.current) setIsConnected(true); })
+        .then(() => {
+          if (isMountedRef.current) setIsConnected(true);
+          triggerAmbientBotJoin();
+        })
         .catch(() => { if (isMountedRef.current) setIsConnected(true); });
     });
 
@@ -438,12 +551,9 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setAblyDebug(`disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`);
     });
 
-    const unpromptedInterval = setInterval(maybeUnprompted, 10 * 60 * 1000);
-
     return () => {
       isMountedRef.current = false;
       clearTimeout(connectionTimeout);
-      clearInterval(unpromptedInterval);
       if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
       mergeFromRoom({
         trust:         exportForRoom().trust as TrustLevel,
@@ -453,7 +563,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       channel.presence.leave();
       client.close();
     };
-  }, [handle, addMessage, clearThinking, triggerN1X, maybeUnprompted, checkF010]);
+  }, [handle, addMessage, clearThinking, triggerN1X, triggerAmbientBots, triggerAmbientBotPing, triggerAmbientBotJoin, checkF010]);
 
   return { messages, occupantCount, presenceNames, daemonState, isConnected, connectionStatus, ablyDebug, send };
 }
