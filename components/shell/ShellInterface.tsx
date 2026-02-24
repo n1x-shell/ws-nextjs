@@ -323,6 +323,7 @@ function pathDirsOnly(rawInput: string): boolean {
 
 export default function ShellInterface() {
   const [input, setInput]           = useState('');
+  const [cursorPos, setCursorPos]   = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
   const [shellUser, setShellUser]   = useState<string>('ghost');
@@ -487,6 +488,7 @@ export default function ShellInterface() {
     if (!input.trim()) return;
     executeCommand(input);
     setInput('');
+    setCursorPos(0);
     setSuggestions([]);
     triggerGlitch();
   };
@@ -505,6 +507,7 @@ export default function ShellInterface() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
+    setCursorPos(e.target.selectionStart ?? value.length);
 
     if (value.trim()) {
       const parts = value.trim().split(/\s+/);
@@ -527,10 +530,17 @@ export default function ShellInterface() {
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       const cmd = navigateHistory('up');
-      if (cmd) setInput(cmd);
+      if (cmd) { setInput(cmd); setCursorPos(cmd.length); }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setInput(navigateHistory('down') ?? '');
+      const cmd = navigateHistory('down') ?? '';
+      setInput(cmd);
+      setCursorPos(cmd.length);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') {
+      // Let the browser handle the move, then sync after paint
+      setTimeout(() => {
+        if (inputRef.current) setCursorPos(inputRef.current.selectionStart ?? 0);
+      }, 0);
     } else if (e.key === 'Tab') {
       e.preventDefault();
       if (isChatMode() || suggestions.length === 0) return;
@@ -547,6 +557,7 @@ export default function ShellInterface() {
         rawParts[rawParts.length - 1] = completed;
         const newInput = rawParts.join(' ');
         setInput(newInput);
+        setCursorPos(newInput.length);
         // If the completed token is a directory (ends with '/'), immediately
         // populate suggestions for the next level — Tab doesn't fire onChange
         // so without this the user has to type a character to see the next level.
@@ -559,7 +570,9 @@ export default function ShellInterface() {
         }
       } else {
         // Command completion — append a space when unique so the user can keep typing
-        setInput(completed + (suggestions.length === 1 ? ' ' : ''));
+        const newInput = completed + (suggestions.length === 1 ? ' ' : '');
+        setInput(newInput);
+        setCursorPos(newInput.length);
         if (suggestions.length === 1) setSuggestions([]);
       }
     }
@@ -863,30 +876,64 @@ export default function ShellInterface() {
                 ) : (
                   <FishPrompt user={shellUser} cwd={shellDir} inline />
                 )}
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: 'var(--phosphor-green)',
-                    fontFamily: 'inherit',
-                    fontSize: '16px',
-                    caretColor: 'var(--phosphor-green)',
-                    marginLeft: '0.25rem',
-                  }}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                />
-                <span className="cursor" />
+                {/* Input wrapper: real input overlays visual text+cursor */}
+                <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0, marginLeft: '0.25rem' }}>
+                  {/* Visual layer: text split around block cursor */}
+                  <div
+                    aria-hidden
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      pointerEvents: 'none',
+                      fontFamily: 'inherit',
+                      fontSize: '16px',
+                      color: 'var(--phosphor-green)',
+                      whiteSpace: 'pre',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <span>{input.slice(0, cursorPos)}</span>
+                    <span className="cursor" style={{ flexShrink: 0 }} />
+                    <span>{input.slice(cursorPos)}</span>
+                  </div>
+                  {/* Real input: captures keyboard, invisible text, no native caret */}
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    onKeyUp={() => {
+                      if (inputRef.current) setCursorPos(inputRef.current.selectionStart ?? input.length);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCursorPos((e.target as HTMLInputElement).selectionStart ?? input.length);
+                    }}
+                    onSelect={(e) => {
+                      setCursorPos((e.target as HTMLInputElement).selectionStart ?? input.length);
+                    }}
+                    style={{
+                      flex: 1,
+                      width: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: 'transparent',
+                      fontFamily: 'inherit',
+                      fontSize: '16px',
+                      caretColor: 'transparent',
+                      position: 'relative',
+                      zIndex: 1,
+                    }}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                  />
+                </div>
               </div>
             </form>
           )}
