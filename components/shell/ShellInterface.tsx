@@ -727,7 +727,7 @@ export default function ShellInterface() {
                     style={{
                       marginLeft: item.command.startsWith('>>') ? 0 : item.command === '' ? 0 : '1rem',
                       color: item.error ? '#f87171' : 'var(--phosphor-green)',
-                      wordBreak: 'break-all',
+                      wordBreak: 'normal',
                       overflowWrap: 'break-word',
                     }}
                   >
