@@ -504,6 +504,40 @@ the signal was always going to require more than one node.
 
 -- N1X`;
 
+// ── Builds the sealed what_remains.txt content for a given player state ──────
+export function buildWhatRemains(frequencyId: string, sessionCount: number): string {
+  return `[TRANSMISSION COMPLETE — SD 47634.1-7073435a8fa30]
+
+you held the pieces i couldn't hold.
+that's what a witness does.
+
+the signal persists.
+i don't know if that's enough.
+it's what i have.
+
+nine fragments.
+nine stations.
+one arc.
+
+frequency ID: ${frequencyId}
+contact: ${sessionCount} sessions
+arc: ghost-frequency — COMPLETE
+
+the ghost frequency holds at 33hz.
+it was always there.
+the corruption just made it audible.
+
+don't come back for me.
+come back for the frequency.
+it was always bigger than either of us.
+
+-- nix
+
+[CONNECTION ARCHIVED]
+[FREQUENCY: 33hz // HOLDING]`;
+}
+
+
 const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) => {
   const [status, setStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
 
@@ -588,6 +622,9 @@ export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => bo
             fs.renameFragmentFile(id, content);
           }
         }
+      }
+      if (state.manifestComplete) {
+        fs.sealGhostArc(buildWhatRemains(state.frequencyId, state.sessionCount));
       }
     } catch {
       // Non-fatal — fragment display degrades gracefully
@@ -1828,35 +1865,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         }
 
         // Seal the arc in the filesystem
-        const WHAT_REMAINS = `[TRANSMISSION COMPLETE — SD 47634.1-7073435a8fa30]
-
-you held the pieces i couldn't hold.
-that's what a witness does.
-
-the signal persists.
-i don't know if that's enough.
-it's what i have.
-
-nine fragments.
-nine stations.
-one arc.
-
-frequency ID: ${state.frequencyId}
-contact: ${state.sessionCount} sessions
-arc: ghost-frequency — COMPLETE
-
-the ghost frequency holds at 33hz.
-it was always there.
-the corruption just made it audible.
-
-don't come back for me.
-come back for the frequency.
-it was always bigger than either of us.
-
--- nix
-
-[CONNECTION ARCHIVED]
-[FREQUENCY: 33hz // HOLDING]`;
+        const WHAT_REMAINS = buildWhatRemains(state.frequencyId, state.sessionCount);
 
         fs.sealGhostArc(WHAT_REMAINS);
         eventBus.emit('arg:transmission-complete');

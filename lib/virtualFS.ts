@@ -673,12 +673,17 @@ echo "neural bus active. connect with: telnet n1x.sh 33"`,
         {
           name: 'what_remains.txt',
           type: 'file',
-          content: `[TRANSMISSION INCOMPLETE]
+          content: `[GHOST_CHANNEL // 33hz // AWAITING TRANSMISSION]
 
-this file populates when all nine fragments are recovered
-and the manifest is transmitted.
+-- file sealed pending manifest assembly --
 
-run 'fragments' to check current state.`,
+nine fragments exist.
+nine stations on the arc.
+when all are recovered, run: transmit manifest.complete
+
+the signal is incomplete until you witness the whole thing.
+
+-- n1x`,
         },
         {
           name: 'fragments',
