@@ -691,5 +691,11 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     };
   }, [handle, addMessage, clearThinking, triggerN1X, triggerAmbientBots, triggerAmbientBotPing, triggerAmbientBotJoin, checkF010, applyMute, clearMute]);
 
+  // Broadcast presence count to InterfaceLayer footer whenever it changes.
+  // +4 for ambient bots. Fires from here so it works whether or not TelnetSession is mounted.
+  useEffect(() => {
+    eventBus.emit('mesh:node-count', { count: occupantCount + 4 });
+  }, [occupantCount]);
+
   return { messages, occupantCount, presenceNames, daemonState, isConnected, connectionStatus, ablyDebug, isMuted, send };
 }
