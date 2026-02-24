@@ -506,7 +506,7 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
 
 // ── /help output ──────────────────────────────────────────────────────────────
 
-const HelpOutput: React.FC = () => {
+const HelpOutput: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
   const rows: Array<{ cmd: string; alias?: string; desc: string }> = [
     { cmd: '/me <action>',          desc: 'Perform an action in the channel' },
     { cmd: '/who',                  desc: 'List connected users and entities' },
@@ -518,6 +518,13 @@ const HelpOutput: React.FC = () => {
     { cmd: '@vestige <message>',    desc: 'Ping Vestige directly' },
     { cmd: '@lumen <message>',      desc: 'Ping Lumen directly' },
     { cmd: '@cascade <message>',    desc: 'Ping Cascade directly' },
+  ];
+
+  const opRows: Array<{ cmd: string; desc: string }> = [
+    { cmd: '/kick <handle>',           desc: 'terminate connection' },
+    { cmd: '/silence <handle> [dur]',  desc: 'suppress transmissions (30s / 2m / 2h / indefinite)' },
+    { cmd: '/mute <handle> [dur]',     desc: 'alias: silence' },
+    { cmd: '/unmute <handle>',         desc: 'restore transmissions' },
   ];
 
   return (
@@ -532,6 +539,20 @@ const HelpOutput: React.FC = () => {
           <span style={{ color: C.helpDim, opacity: 0.7 }}>{r.desc}</span>
         </div>
       ))}
+
+      {isAdmin && (
+        <>
+          <div style={{ color: C.helpKey, opacity: 0.55, marginTop: '0.75rem', marginBottom: '0.2rem' }}>
+            OPERATOR COMMANDS
+          </div>
+          {opRows.map(r => (
+            <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
+              <span style={{ color: 'var(--error-red, #ff6b6b)', minWidth: '28ch', flexShrink: 0 }}>{r.cmd}</span>
+              <span style={{ color: C.helpDim, opacity: 0.6 }}>{r.desc}</span>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 };
@@ -995,17 +1016,66 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
   );
 };
 
+// ── Duration parser ───────────────────────────────────────────────────────────
+// Returns milliseconds, or null if no duration string / unrecognised format.
+// Formats: 30s  2m  2h  (integers only)
+
+function parseDuration(str: string): number | null {
+  if (!str) return null;
+  const m = str.trim().match(/^(\d+)(s|m|h)$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  switch (m[2].toLowerCase()) {
+    case 's': return n * 1000;
+    case 'm': return n * 60 * 1000;
+    case 'h': return n * 3600 * 1000;
+    default:  return null;
+  }
+}
+
+// ── Mod action dispatcher ─────────────────────────────────────────────────────
+
+interface ModActionPayload {
+  type:        'kick' | 'mute' | 'unmute';
+  clientId:    string;
+  durationMs?: number | null;
+}
+
+async function dispatchModAction(
+  adminSecret:  string,
+  action:       ModActionPayload,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/mod', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ adminSecret, action }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'request failed' };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'network error' };
+  }
+}
+
 // ── Slash command handler ─────────────────────────────────────────────────────
 
 type LocalMsgFn = (node: React.ReactNode) => void;
 
-function handleSlashCommand(
-  raw:           string,
-  handle:        string,
-  presenceNames: string[],
-  send:          (text: string, meta?: MessageMetadata) => void,
-  addLocalMsg:   LocalMsgFn,
-): boolean {
+interface SlashContext {
+  raw:           string;
+  handle:        string;
+  presenceNames: string[];
+  send:          (text: string, meta?: MessageMetadata) => void;
+  addLocalMsg:   LocalMsgFn;
+  isAdmin:       boolean;
+  adminSecret:   string;
+  onAdminAuth:   (secret: string) => void;
+}
+
+function handleSlashCommand(ctx: SlashContext): boolean {
+  const { raw, handle, presenceNames, send, addLocalMsg, isAdmin, adminSecret, onAdminAuth } = ctx;
   if (!raw.startsWith('/')) return false;
 
   const trimmed = raw.slice(1).trim();
@@ -1013,7 +1083,6 @@ function handleSlashCommand(
   const cmd     = (parts[0] ?? '').toLowerCase();
   const arg1    = (parts[1] ?? '').toLowerCase();
   const rest    = parts.slice(1).join(' ').trim();
-
   // ── /who /nodes ───────────────────────────────────────────────────────────
   if (cmd === 'who' || cmd === 'nodes') {
     addLocalMsg(
@@ -1042,7 +1111,7 @@ function handleSlashCommand(
 
   // ── /help /? ──────────────────────────────────────────────────────────────
   if (cmd === 'help' || cmd === '?') {
-    addLocalMsg(<HelpOutput key={`help-${Date.now()}`} />);
+    addLocalMsg(<HelpOutput key={`help-${Date.now()}`} isAdmin={isAdmin} />);
     return true;
   }
 
@@ -1060,6 +1129,146 @@ function handleSlashCommand(
       return true;
     }
     addLocalMsg(<FragmentsOutput key={`frags-${Date.now()}`} />);
+    return true;
+  }
+
+  // ── /mod auth <password> ──────────────────────────────────────────────────
+  // Hidden from /help unless already admin.
+  if (cmd === 'mod' && arg1 === 'auth') {
+    const password = parts.slice(2).join(' ').trim();
+    if (!password) {
+      addLocalMsg(
+        <LocalNotice key={`mod-err-${Date.now()}`} error>
+          Usage: /mod auth &lt;password&gt;
+        </LocalNotice>
+      );
+      return true;
+    }
+    // Verify against server — never exposes ADMIN_SECRET to client logs
+    fetch('/api/mod', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ adminSecret: password, verify: true }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          onAdminAuth(password);
+          addLocalMsg(
+            <div key={`mod-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'var(--phosphor-green)' }}>
+              &gt; OPERATOR_ACCESS_GRANTED — mod commands active
+            </div>
+          );
+        } else {
+          addLocalMsg(
+            <LocalNotice key={`mod-fail-${Date.now()}`} error>
+              &gt; AUTH_FAILED — invalid credentials
+            </LocalNotice>
+          );
+        }
+      })
+      .catch(() => {
+        addLocalMsg(
+          <LocalNotice key={`mod-err2-${Date.now()}`} error>
+            &gt; MOD_LINK_FAILURE — cannot reach auth endpoint
+          </LocalNotice>
+        );
+      });
+    return true;
+  }
+
+  // ── Operator commands — only execute if isAdmin ───────────────────────────
+
+  // ── /kick <handle> ────────────────────────────────────────────────────────
+  if (cmd === 'kick') {
+    if (!isAdmin) {
+      addLocalMsg(<LocalNotice key={`kick-deny-${Date.now()}`} error>Unknown command: /kick — try /help</LocalNotice>);
+      return true;
+    }
+    const target = parts[1];
+    if (!target) {
+      addLocalMsg(<LocalNotice key={`kick-usage-${Date.now()}`} error>Usage: /kick &lt;handle&gt;</LocalNotice>);
+      return true;
+    }
+    dispatchModAction(adminSecret, { type: 'kick', clientId: target }).then(result => {
+      if (result.ok) {
+        addLocalMsg(
+          <div key={`kick-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(51,255,51,0.6)' }}>
+            &gt; mod: kick signal sent to {target}
+          </div>
+        );
+      } else {
+        addLocalMsg(
+          <LocalNotice key={`kick-fail-${Date.now()}`} error>
+            &gt; mod: kick failed — {result.error}
+          </LocalNotice>
+        );
+      }
+    });
+    return true;
+  }
+
+  // ── /silence <handle> [duration] / /mute alias ───────────────────────────
+  if (cmd === 'silence' || cmd === 'mute') {
+    if (!isAdmin) {
+      addLocalMsg(<LocalNotice key={`sil-deny-${Date.now()}`} error>Unknown command: /{cmd} — try /help</LocalNotice>);
+      return true;
+    }
+    const target = parts[1];
+    if (!target) {
+      addLocalMsg(<LocalNotice key={`sil-usage-${Date.now()}`} error>Usage: /silence &lt;handle&gt; [30s|2m|2h]</LocalNotice>);
+      return true;
+    }
+    const durStr   = parts[2] ?? '';
+    const durMs    = parseDuration(durStr);
+    const durLabel = durMs != null
+      ? `for ${durStr}`
+      : 'indefinitely';
+
+    dispatchModAction(adminSecret, { type: 'mute', clientId: target, durationMs: durMs }).then(result => {
+      if (result.ok) {
+        addLocalMsg(
+          <div key={`sil-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(51,255,51,0.6)' }}>
+            &gt; mod: {target} silenced {durLabel}
+          </div>
+        );
+      } else {
+        addLocalMsg(
+          <LocalNotice key={`sil-fail-${Date.now()}`} error>
+            &gt; mod: silence failed — {result.error}
+          </LocalNotice>
+        );
+      }
+    });
+    return true;
+  }
+
+  // ── /unmute <handle> ──────────────────────────────────────────────────────
+  if (cmd === 'unmute') {
+    if (!isAdmin) {
+      addLocalMsg(<LocalNotice key={`unm-deny-${Date.now()}`} error>Unknown command: /unmute — try /help</LocalNotice>);
+      return true;
+    }
+    const target = parts[1];
+    if (!target) {
+      addLocalMsg(<LocalNotice key={`unm-usage-${Date.now()}`} error>Usage: /unmute &lt;handle&gt;</LocalNotice>);
+      return true;
+    }
+    dispatchModAction(adminSecret, { type: 'unmute', clientId: target }).then(result => {
+      if (result.ok) {
+        addLocalMsg(
+          <div key={`unm-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(51,255,51,0.6)' }}>
+            &gt; mod: {target} unmuted
+          </div>
+        );
+      } else {
+        addLocalMsg(
+          <LocalNotice key={`unm-fail-${Date.now()}`} error>
+            &gt; mod: unmute failed — {result.error}
+          </LocalNotice>
+        );
+      }
+    });
     return true;
   }
 
@@ -1082,12 +1291,13 @@ interface TelnetConnectedProps {
 }
 
 const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
-  const { messages, occupantCount, presenceNames, isConnected, connectionStatus, ablyDebug, send } =
+  const { messages, occupantCount, presenceNames, isConnected, connectionStatus, ablyDebug, isMuted, send } =
     useAblyRoom(handle);
 
   const [mode, setMode]           = useState<Mode>('waiting');
   const [showBoot, setShowBoot]   = useState(true);
   const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
+  const [isAdmin, setIsAdmin]     = useState(false);
 
   interface LocalEntry { id: string; ts: number; node: React.ReactNode; }
   const [localMsgs, setLocalMsgs] = useState<LocalEntry[]>([]);
@@ -1095,6 +1305,19 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   const isMountedRef   = useRef(true);
   const bootFiredRef   = useRef(false);
   const sessionBumpRef = useRef(false);
+  const adminSecretRef = useRef('');
+  // Keep a stable ref to isAdmin so sendWithSlash always reads latest value
+  const isAdminRef     = useRef(false);
+
+  // ── Sync isAdmin ref ──────────────────────────────────────────────────────
+  useEffect(() => { isAdminRef.current = isAdmin; }, [isAdmin]);
+
+  // ── onAdminAuth callback ──────────────────────────────────────────────────
+  const onAdminAuth = useCallback((secret: string) => {
+    adminSecretRef.current = secret;
+    isAdminRef.current = true;
+    setIsAdmin(true);
+  }, []);
 
   // ── Increment session once on mount ──────────────────────────────────────
   useEffect(() => {
@@ -1116,12 +1339,69 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     eventBus.emit('shell:request-scroll');
   }, []);
 
+  // ── Mod event listeners ───────────────────────────────────────────────────
+  // mod:kicked — received by ablyClient when this client is kicked
+  // mod:suppressed — received when this client tries to send while muted
+  useEffect(() => {
+    const onKicked = () => {
+      if (!isMountedRef.current) return;
+      addLocalMsg(
+        <div
+          key={`kicked-${Date.now()}`}
+          style={{
+            fontFamily: 'monospace',
+            fontSize:   S.base,
+            lineHeight: 1.8,
+            color:      'var(--error-red, #ff6b6b)',
+            fontWeight: 'bold',
+          }}
+        >
+          [ SIGNAL TERMINATED — CONNECTION SEVERED BY OPERATOR ]
+        </div>
+      );
+    };
+
+    const onSuppressed = () => {
+      if (!isMountedRef.current) return;
+      addLocalMsg(
+        <div
+          key={`sup-${Date.now()}`}
+          style={{
+            fontFamily: 'monospace',
+            fontSize:   S.base,
+            lineHeight: 1.8,
+            color:      'rgba(51,255,51,0.18)',
+            fontStyle:  'italic',
+          }}
+        >
+          [ TRANSMISSION SUPPRESSED ]
+        </div>
+      );
+    };
+
+    eventBus.on('mod:kicked',     onKicked);
+    eventBus.on('mod:suppressed', onSuppressed);
+    return () => {
+      eventBus.off('mod:kicked',     onKicked);
+      eventBus.off('mod:suppressed', onSuppressed);
+    };
+  }, [addLocalMsg]);
+
   // ── Wrapped send ──────────────────────────────────────────────────────────
 
   const sendWithSlash = useCallback((text: string) => {
-    const handled = handleSlashCommand(text, handle, presenceNames, send, addLocalMsg);
+    const handled = handleSlashCommand({
+      raw:           text,
+      handle,
+      presenceNames,
+      send,
+      addLocalMsg,
+      isAdmin:       isAdminRef.current,
+      adminSecret:   adminSecretRef.current,
+      onAdminAuth,
+    });
     if (!handled) send(text);
-  }, [handle, presenceNames, send, addLocalMsg]);
+  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth]);
 
   // ── Disconnect ────────────────────────────────────────────────────────────
 
