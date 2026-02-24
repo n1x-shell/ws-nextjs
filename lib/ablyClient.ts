@@ -310,9 +310,14 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
       let playerTrust = 0;
+      let playerFragments: string[] = [];
       try {
         const raw = localStorage.getItem('n1x_substrate');
-        if (raw) playerTrust = JSON.parse(raw).trust ?? 0;
+        if (raw) {
+          const state = JSON.parse(raw);
+          playerTrust     = state.trust     ?? 0;
+          playerFragments = Array.isArray(state.fragments) ? state.fragments : [];
+        }
       } catch { /* ignore */ }
 
       await fetch('/api/bot', {
@@ -327,6 +332,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           occupantCount:  handlesRef.current.length,
           recentHistory,
           trust:          playerTrust,
+          fragments:      playerFragments,
         }),
       });
     } catch { /* ghost channel unreliable by design */ }
