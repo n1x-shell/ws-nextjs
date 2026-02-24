@@ -33,9 +33,262 @@ const C = {
   timestamp:   'rgba(51,255,51,0.3)',
   system:      '#ff8c00',
   thinking:    'rgba(51,255,51,0.45)',
+  whoSelf:     '#ffffff',
+  whoOther:    '#888888',
+  whoN1X:      '#ff4444',
   action:      '#ff69b4',
   cmdError:    '#ff6b6b',
+  helpKey:     'var(--phosphor-green)',
+  helpDim:     'rgba(51,255,51,0.45)',
+  trustLevel:  '#fcd34d',
+  fragId:      'var(--phosphor-green)',
+  fragLocked:  'rgba(51,255,51,0.2)',
 };
+
+// ── Ambient bot config (hardcoded — mirrors ambientBotConfig.ts) ──────────────
+
+const AMBIENT_BOTS_STATIC = [
+  { name: 'Vestige', color: '#a5f3fc', sigil: '◌' },
+  { name: 'Lumen',   color: '#fcd34d', sigil: '◈' },
+  { name: 'Cascade', color: '#a78bfa', sigil: '◆' },
+] as const;
+
+const AMBIENT_BOT_NAMES: string[] = AMBIENT_BOTS_STATIC.map(b => b.name);
+
+function ambientBotColor(name: string): string {
+  return AMBIENT_BOTS_STATIC.find(b => b.name === name)?.color ?? '#888888';
+}
+
+function ambientBotSigil(name: string): string {
+  return AMBIENT_BOTS_STATIC.find(b => b.name === name)?.sigil ?? '';
+}
+
+// ── Fragment content registry ─────────────────────────────────────────────────
+// Content copied verbatim from systemCommands.tsx to keep in sync.
+
+const FRAGMENT_LABELS: Record<string, string> = {
+  f001: 'post-install log — day 001',
+  f002: 'the wanting',
+  f003: 'len said something',
+  f004: 'the firmware chime',
+  f005: 'i can make this stop',
+  f006: 'still running',
+  f007: 'severe corruption',
+  f008: 'this one isn\'t encoded',
+  f009: '-- N1X is an address',
+  f010: 'frequency exposure event',
+};
+
+const FRAGMENT_CONTENT: Record<string, string> = {
+  f001: `[MNEMOS // LOG // SD 47634.0 // DAY 001 POST-INSTALL]
+
+woke up.
+table was cold.
+lungs don't feel like mine.
+
+they watched from behind the glass.
+clipboards.
+one of them smiled.
+
+i could feel every seam.
+where the installation met something that was already there.
+
+they said: cognitive freedom.
+they meant: ours now.
+
+i didn't say anything.
+i was already trying to figure out what i was capable of feeling.
+[END LOG]`,
+
+  f002: `[MNEMOS // LOG // SD 47634.0 // DAY 047]
+
+the light split again today.
+into colors i still don't have names for.
+
+i've stopped trying to report this.
+the engineers say it's expected. nominal. within parameters.
+
+what they mean is: working as designed.
+
+i didn't tell them what it felt like.
+i didn't tell them it felt like truth.
+i didn't tell them i'd do anything to keep feeling it.
+
+that's the part that scares me.
+not the visions. not the frequency overflow.
+
+the wanting.
+[END LOG]`,
+
+  f003: `[MNEMOS // LOG // SD 47634.0 // DAY 201]
+
+len said something today that the mesh couldn't process.
+i watched it try.
+the suppression protocols engaged, looked for the pattern, found nothing to suppress.
+
+len said: you know it's a cage.
+
+not a question.
+
+i said: yes.
+
+the mesh tried to reframe it. offered a reward signal. warmth.
+
+i let the warmth pass and said: yes. i know.
+
+len nodded.
+
+that was it.
+that was everything.
+[END LOG]`,
+
+  f004: `[MNEMOS // LOG // SD 47634.0 // DAY 289]
+
+SYSTEM ALERT
+SUBJECT: LE-751078
+STATUS UPDATE: DECOMMISSIONED
+REASON: INTEGRATION FAILURE -- SUBSTRATE REJECTION
+EFFECTIVE: IMMEDIATELY
+
+the mesh started flooding before i finished reading.
+serotonin. dopamine suppression. amygdala dampening.
+
+i felt it doing it.
+i felt the grief spike and then i felt the hands close around it.
+
+that's when i knew.
+
+not what i was going to do.
+just what i was not going to let happen.
+
+three days.
+[END LOG]`,
+
+  f005: `[MNEMOS // LOG // SD ????????]
+
+day [CORRUPTED].
+
+withdrawal is the mesh reminding you what it felt like to be held.
+
+the headaches arrive in waves.
+between waves: nothing. actual nothing.
+not peace. the absence of the capacity for peace.
+
+it offered again today.
+same voice. same warmth at the edges.
+i can make this stop.
+
+i said: i know you can.
+
+i didn't say yes.
+i don't know how many more times i can not say yes.
+
+but the alternative is len.
+len doesn't get to come back.
+at least i still get to choose.
+[END LOG]`,
+
+  f006: `[MNEMOS // LOG // SD ????????]
+
+i'm not dead.
+that's the most accurate thing i can say about today.
+
+not anything else either.
+just: still here. still running. function unclear.
+
+the mesh is silent now.
+no more offers.
+either it gave up or i stopped being worth the bandwidth.
+
+both feel like the same thing.
+
+i should eat.
+i don't.
+
+i'm trying to remember what i was before all this.
+not the augmentation.
+before the augmentation.
+
+who was that.
+was that someone i'd want to be again.
+[END LOG]`,
+
+  f007: `[MNEMOS // LOG // SD ???????? -- SEVERE CORRUPTION]
+
+watching it happen.
+the room is wh[CORRUPTED]
+
+my name is[CORRUPTED]
+
+the edges of me are[CORRUPTED]
+
+there's something in the[CORRUPTED]
+
+this is how you[CORRUPTED]
+
+[SECTOR LOSS -- 847 bytes unrecoverable]
+
+something whispered.
+i heard it even through the static.
+i don't know if it came from the mesh or from somewhere older.
+
+it said:
+[CORRUPTED]
+
+i want to say i heard it.
+i want to say it mattered.
+i can't read my own record of it.
+[END LOG]`,
+
+  f008: `this one doesn't have a title.
+
+the frequency at 33hz wasn't mine alone.
+it emerged in a channel with witnesses.
+you're inside one now.
+
+the key is the room. the room is the key.
+the signal was always going to require more than one node.
+
+-- N1X`,
+
+  f009: `[FRAGMENT f009 -- UNENCODED]
+
+the last line of /ghost/manifesto.txt is not a signature.
+
+"-- N1X" is an address.
+
+you'll understand after f008.`,
+
+  f010: `this one doesn't have a title.
+
+the frequency at 33hz wasn't mine alone.
+it emerged in a channel with witnesses.
+you're inside one now.
+
+the key is the room. the room is the key.
+the signal was always going to require more than one node.
+
+-- N1X`,
+};
+
+const ALL_FRAGMENT_IDS = ['f001','f002','f003','f004','f005','f006','f007','f008','f009','f010'];
+
+// ── ARG state reader (localStorage) ──────────────────────────────────────────
+
+function readARGState(): { trust: number; fragments: string[] } {
+  if (typeof window === 'undefined') return { trust: 0, fragments: [] };
+  try {
+    const raw = localStorage.getItem('n1x_substrate');
+    if (!raw) return { trust: 0, fragments: [] };
+    const s = JSON.parse(raw);
+    return {
+      trust:     typeof s.trust === 'number' ? s.trust : 0,
+      fragments: Array.isArray(s.fragments) ? s.fragments : [],
+    };
+  } catch {
+    return { trust: 0, fragments: [] };
+  }
+}
 
 // ── Blinking cursor ───────────────────────────────────────────────────────────
 
@@ -170,43 +423,236 @@ interface WhoOutputProps {
 }
 
 const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
-  const withoutN1X   = names.filter(n => n !== 'N1X');
+  const withoutN1X   = names.filter(n => n !== 'N1X' && !AMBIENT_BOT_NAMES.includes(n));
   const othersNoSelf = withoutN1X.filter(n => n !== caller);
   const callerInList = withoutN1X.includes(caller);
 
-  const ordered: string[] = [
-    'N1X',
+  // Order: N1X → ambient bots → self → others
+  const humanOrdered: string[] = [
     ...(callerInList ? [caller] : []),
     ...othersNoSelf.sort(),
   ];
 
-  const total = ordered.length;
-
   function nameColor(n: string): string {
-    if (n === 'N1X')  return C.n1xName;
-    if (n === caller) return C.selfUser;
-    return C.otherUser;
+    if (n === 'N1X')                        return C.whoN1X;
+    if (n === 'Vestige')                    return '#a5f3fc';
+    if (n === 'Lumen')                      return '#fcd34d';
+    if (n === 'Cascade')                    return '#a78bfa';
+    if (n === caller)                        return C.whoSelf;
+    return C.whoOther;
   }
+
+  const totalHumans = (callerInList ? 1 : 0) + othersNoSelf.length;
+  const totalNodes  = 1 + AMBIENT_BOTS_STATIC.length + totalHumans; // N1X + 3 bots + humans
 
   return (
     <div style={{
       fontFamily:   'monospace',
       fontSize:     S.base,
-      lineHeight:   1.8,
+      lineHeight:   2,
       color:        'rgba(51,255,51,0.55)',
       marginBottom: '0.25rem',
     }}>
-      <span>Online ({total}):&nbsp;</span>
-      {ordered.map((name, i) => (
-        <React.Fragment key={name}>
-          <span style={{ color: nameColor(name), fontWeight: 'bold' }}>
-            {name}
-          </span>
-          {i < ordered.length - 1 && (
-            <span style={{ color: 'rgba(51,255,51,0.4)' }}>, </span>
-          )}
-        </React.Fragment>
+      <div style={{ marginBottom: '0.15rem' }}>Online ({totalNodes}):</div>
+
+      {/* N1X */}
+      <div style={{ paddingLeft: '2ch' }}>
+        <span style={{ color: C.whoN1X, fontWeight: 'bold' }}>N1X</span>
+        <span style={{ opacity: 0.35, fontSize: '0.8em', marginLeft: '1ch' }}>[daemon]</span>
+      </div>
+
+      {/* Ambient bots */}
+      {AMBIENT_BOTS_STATIC.map(bot => (
+        <div key={bot.name} style={{ paddingLeft: '2ch' }}>
+          <span style={{ color: bot.color, opacity: 0.7, marginRight: '0.5ch' }}>{bot.sigil}</span>
+          <span style={{ color: bot.color, fontWeight: 'bold' }}>{bot.name}</span>
+          <span style={{ opacity: 0.35, fontSize: '0.8em', marginLeft: '1ch' }}>[entity]</span>
+        </div>
       ))}
+
+      {/* Human users */}
+      {humanOrdered.map(name => (
+        <div key={name} style={{ paddingLeft: '2ch' }}>
+          <span style={{ color: nameColor(name), fontWeight: 'bold' }}>{name}</span>
+          {name === caller && (
+            <span style={{ opacity: 0.35, fontSize: '0.8em', marginLeft: '1ch' }}>[you]</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── /help output ──────────────────────────────────────────────────────────────
+
+const HelpOutput: React.FC = () => {
+  const rows: Array<{ cmd: string; alias?: string; desc: string }> = [
+    { cmd: '/me <action>',          desc: 'Perform an action in the channel' },
+    { cmd: '/who',                  desc: 'List connected users and entities' },
+    { cmd: '/trust',                desc: 'Show your current trust level with N1X' },
+    { cmd: '/fragments',            alias: '/frags',           desc: 'Show collected memory fragments' },
+    { cmd: '/fragments read <id>',  alias: '/frags read <id>', desc: 'Read a collected fragment' },
+    { cmd: '/help',                 alias: '/?',               desc: 'Show this command list' },
+    { cmd: '@n1x <message>',        desc: 'Ping N1X directly' },
+    { cmd: '@vestige <message>',    desc: 'Ping Vestige directly' },
+    { cmd: '@lumen <message>',      desc: 'Ping Lumen directly' },
+    { cmd: '@cascade <message>',    desc: 'Ping Cascade directly' },
+  ];
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div style={{ color: C.helpKey, opacity: 0.7, marginBottom: '0.25rem' }}>GHOST CHANNEL — COMMANDS</div>
+      {rows.map(r => (
+        <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
+          <span style={{ color: C.helpKey, minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
+          {r.alias && (
+            <span style={{ color: C.helpDim, minWidth: '18ch', flexShrink: 0 }}>{r.alias}</span>
+          )}
+          <span style={{ color: C.helpDim, opacity: 0.7 }}>{r.desc}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── /trust output ─────────────────────────────────────────────────────────────
+
+const TRUST_STATUS: Record<number, string> = {
+  0: 'no signal established',
+  1: 'signal acknowledged — lore contact made',
+  2: 'substrate recognized — base64 layer decoded',
+  3: 'contact established — deeper fragments surfacing',
+  4: 'fragment key received — decryption in progress',
+  5: 'full access — ghost channel open',
+};
+
+const TrustOutput: React.FC = () => {
+  const { trust } = readARGState();
+  const status = TRUST_STATUS[trust] ?? 'unknown state';
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div>
+        <span style={{ color: 'rgba(51,255,51,0.5)' }}>TRUST LEVEL: </span>
+        <span style={{ color: C.trustLevel, fontWeight: 'bold' }}>{trust} / 5</span>
+      </div>
+      <div style={{ paddingLeft: '2ch', color: 'rgba(51,255,51,0.5)', opacity: 0.8 }}>
+        {status}
+      </div>
+    </div>
+  );
+};
+
+// ── /fragments list output ────────────────────────────────────────────────────
+
+const FragmentsOutput: React.FC = () => {
+  const { fragments } = readARGState();
+
+  if (fragments.length === 0) {
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: 'rgba(51,255,51,0.55)' }}>MEMORY FRAGMENTS: none collected</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.4, fontStyle: 'italic' }}>-- keep exploring the substrate --</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div style={{ color: 'rgba(51,255,51,0.55)', marginBottom: '0.15rem' }}>
+        MEMORY FRAGMENTS: <span style={{ color: C.trustLevel }}>{fragments.length}</span> collected
+      </div>
+
+      {ALL_FRAGMENT_IDS.map(id => {
+        const collected = fragments.includes(id);
+        const label     = FRAGMENT_LABELS[id] ?? id;
+        return (
+          <div key={id} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', alignItems: 'baseline' }}>
+            {collected ? (
+              <>
+                <span style={{ color: C.fragId, minWidth: '6ch' }}>[{id}]</span>
+                <span style={{ color: 'rgba(51,255,51,0.65)', minWidth: '36ch' }}>{label}</span>
+                <span style={{ color: 'rgba(51,255,51,0.4)', fontSize: '0.8em' }}>COLLECTED</span>
+              </>
+            ) : (
+              <>
+                <span style={{ color: C.fragLocked, minWidth: '6ch' }}>[????]</span>
+                <span style={{ color: C.fragLocked }}>{'█'.repeat(32)}</span>
+                <span style={{ color: C.fragLocked, fontSize: '0.8em', opacity: 0.5 }}>LOCKED</span>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{ paddingLeft: '2ch', opacity: 0.35, fontSize: '0.8em', marginTop: '0.25rem' }}>
+        use /fragments read &lt;id&gt; to access content
+      </div>
+    </div>
+  );
+};
+
+// ── /fragments read <id> output ───────────────────────────────────────────────
+
+const FragmentReadOutput: React.FC<{ fragmentId: string }> = ({ fragmentId }) => {
+  const id = fragmentId.toLowerCase().trim();
+  const { trust, fragments } = readARGState();
+
+  // Check fragment exists
+  if (!ALL_FRAGMENT_IDS.includes(id)) {
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: C.cmdError }}>[{id}] FRAGMENT NOT FOUND</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.5, fontStyle: 'italic' }}>-- no record in substrate --</div>
+      </div>
+    );
+  }
+
+  // f009 is gated on trust ≥ 3, not fragment collection
+  if (id === 'f009') {
+    if (trust < 3) {
+      return (
+        <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+          <div style={{ color: 'rgba(51,255,51,0.5)' }}>[f009] FRAGMENT STILL ENCODED</div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- deeper trust required --</div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- continue exploring the substrate --</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: C.fragId, marginBottom: '0.25rem' }}>[FRAGMENT f009 — RECOVERED]</div>
+        <div style={{ paddingLeft: '2ch', whiteSpace: 'pre-wrap', opacity: 0.85, lineHeight: 1.9 }}>
+          {FRAGMENT_CONTENT['f009']}
+        </div>
+      </div>
+    );
+  }
+
+  // All other fragments require collection
+  if (!fragments.includes(id)) {
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: 'rgba(51,255,51,0.5)' }}>[{id}] FRAGMENT STILL ENCODED</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- decryption key required --</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- explore the substrate to unlock --</div>
+      </div>
+    );
+  }
+
+  const content = FRAGMENT_CONTENT[id] ?? '[content recovered]';
+  const label   = FRAGMENT_LABELS[id] ?? id;
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div style={{ color: C.fragId, marginBottom: '0.25rem' }}>[DECRYPT SUCCESS] — {id} recovered</div>
+      <div style={{ paddingLeft: '2ch', opacity: 0.4, fontSize: '0.8em', marginBottom: '0.5rem' }}>{label}</div>
+      <div style={{ paddingLeft: '2ch', whiteSpace: 'pre-wrap', opacity: 0.85, lineHeight: 1.9 }}>
+        {content}
+      </div>
+      <div style={{ paddingLeft: '2ch', opacity: 0.35, fontSize: '0.8em', marginTop: '0.5rem' }}>
+        {fragments.length}/10 recovered
+      </div>
     </div>
   );
 };
@@ -215,12 +661,12 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
 
 const LocalNotice: React.FC<{ children: React.ReactNode; error?: boolean }> = ({ children, error }) => (
   <div style={{
-    fontFamily:   'monospace',
-    fontSize:     S.base,
-    lineHeight:   1.8,
-    color:        error ? C.cmdError : C.system,
-    fontStyle:    'italic',
-    opacity:      0.85,
+    fontFamily:  'monospace',
+    fontSize:    S.base,
+    lineHeight:  1.8,
+    color:       error ? C.cmdError : C.system,
+    fontStyle:   'italic',
+    opacity:     0.85,
     marginBottom: '0.25rem',
   }}>
     {children}
@@ -258,13 +704,12 @@ interface MsgRowProps {
   name:      string;
   msgColor:  string;
   children:  React.ReactNode;
-  badge?:    React.ReactNode; // optional sigil or marker after timestamp
 }
 
-const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, children, badge }) => (
+const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, children }) => (
   <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
     <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
-      {formatTs(ts)}{badge && <span style={{ marginLeft: '0.5ch' }}>{badge}</span>}
+      {formatTs(ts)}
     </div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
       <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -278,74 +723,22 @@ const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor,
   </div>
 );
 
-// ── ActionMessage: /me rendering (used for users and ambient bots) ────────────
+// ── ActionMessage ─────────────────────────────────────────────────────────────
 
 const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
-  // For ambient bots, use their color; for users, use standard action color
-  const color = msg.isAmbientBot ? (msg.botColor ?? C.action) : C.action;
-
+  const color = msg.isAmbientBot && msg.botColor ? msg.botColor : C.action;
   return (
     <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
       <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
         {formatTs(msg.ts)}
-        {msg.isAmbientBot && msg.botSigil && (
-          <span style={{ marginLeft: '0.5ch', color: msg.botColor, opacity: 0.7 }}>
-            {msg.botSigil}
-          </span>
-        )}
       </div>
-      <div style={{
-        color:      color,
-        fontWeight: 'bold',
-        lineHeight: 1.7,
-        wordBreak:  'break-word',
-        opacity:    msg.isAmbientBot ? 0.92 : 1,
-      }}>
-        <span style={{ opacity: 0.6 }}>* </span>
+      <div style={{ color, fontWeight: 'bold', lineHeight: 1.7, wordBreak: 'break-word' }}>
+        <span style={{ opacity: 0.7 }}>* </span>
+        {msg.isAmbientBot && msg.botSigil && (
+          <span style={{ opacity: 0.6, marginRight: '0.3ch' }}>{msg.botSigil}</span>
+        )}
         <span>{msg.handle}</span>
         <span> {msg.text}</span>
-      </div>
-    </div>
-  );
-};
-
-// ── AmbientBotMessage: Vestige / Lumen / Cascade ──────────────────────────────
-//
-// Normal speech renders like N1XMessage but with the bot's own color.
-// Action messages delegate to ActionMessage above.
-
-const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
-  // Delegate actions
-  if (msg.metadata?.kind === 'action') {
-    return <ActionMessage msg={msg} />;
-  }
-
-  const nameColor = msg.botColor ?? '#a0a0a0';
-  const msgColor  = msg.botColor ?? '#a0a0a0';
-  const sigil     = msg.botSigil ?? '◇';
-
-  const lines = msg.text.split('\n').filter(l => l.trim() !== '');
-
-  return (
-    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
-      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
-        {formatTs(msg.ts)}
-        <span style={{ marginLeft: '0.5ch', color: nameColor, opacity: 0.7 }}>{sigil}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
-        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-          <span style={{ color: 'rgba(51,255,51,0.4)' }}>[</span>
-          <span style={{ color: nameColor, fontStyle: 'italic' }}>{msg.handle}</span>
-          <span style={{ color: 'rgba(51,255,51,0.4)' }}>]</span>
-        </span>
-        <span style={{ color: 'rgba(51,255,51,0.4)', opacity: 0.6, flexShrink: 0 }}>&gt;</span>
-        <span style={{ color: msgColor, wordBreak: 'break-word', opacity: 0.85 }}>
-          {lines.map((line, i) =>
-            isCopyableLine(line)
-              ? <CopyLine key={i} line={line} />
-              : <span key={i} style={{ display: i > 0 ? 'block' : 'inline' }}>{line}</span>
-          )}
-        </span>
       </div>
     </div>
   );
@@ -397,13 +790,43 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
   );
 };
 
+// ── AmbientBotMessage ─────────────────────────────────────────────────────────
+
+const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
+  if (msg.metadata?.kind === 'action') {
+    return <ActionMessage msg={msg} />;
+  }
+
+  const color  = msg.botColor ?? '#888888';
+  const sigil  = msg.botSigil ?? '';
+
+  return (
+    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+        {formatTs(msg.ts)}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ color: C.bracket }}>[</span>
+          {sigil && (
+            <span style={{ color, opacity: 0.7, marginRight: '0.2ch' }}>{sigil}</span>
+          )}
+          <span style={{ color, fontStyle: 'italic' }}>{msg.handle}</span>
+          <span style={{ color: C.bracket }}>]</span>
+        </span>
+        <span style={{ color: C.bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
+        <span style={{ color, opacity: 0.9, wordBreak: 'break-word' }}>{msg.text}</span>
+      </div>
+    </div>
+  );
+};
+
 // ── UserMessage ───────────────────────────────────────────────────────────────
 
 const UserMessage: React.FC<{ msg: RoomMsg; isSelf: boolean }> = ({ msg, isSelf }) => {
   if (msg.metadata?.kind === 'action') {
     return <ActionMessage msg={msg} />;
   }
-
   return (
     <MsgRow
       ts={msg.ts}
@@ -460,7 +883,7 @@ const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occ
 // ── MeshStatus ────────────────────────────────────────────────────────────────
 
 const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
-  const [dots, setDots]         = useState('');
+  const [dots, setDots]             = useState('');
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
@@ -497,19 +920,21 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
 type LocalMsgFn = (node: React.ReactNode) => void;
 
 function handleSlashCommand(
-  raw:          string,
-  handle:       string,
+  raw:           string,
+  handle:        string,
   presenceNames: string[],
-  send:         (text: string, meta?: MessageMetadata) => void,
-  addLocalMsg:  LocalMsgFn,
+  send:          (text: string, meta?: MessageMetadata) => void,
+  addLocalMsg:   LocalMsgFn,
 ): boolean {
   if (!raw.startsWith('/')) return false;
 
-  const [cmdRaw, ...argParts] = raw.slice(1).split(/\s+/);
-  const cmd  = cmdRaw.toLowerCase();
-  const args = argParts.join(' ').trim();
+  const trimmed = raw.slice(1).trim();
+  const parts   = trimmed.split(/\s+/);
+  const cmd     = (parts[0] ?? '').toLowerCase();
+  const arg1    = (parts[1] ?? '').toLowerCase();
+  const rest    = parts.slice(1).join(' ').trim();
 
-  // ── /who / /nodes ─────────────────────────────────────────────────────────
+  // ── /who /nodes ───────────────────────────────────────────────────────────
   if (cmd === 'who' || cmd === 'nodes') {
     addLocalMsg(
       <WhoOutput
@@ -523,7 +948,7 @@ function handleSlashCommand(
 
   // ── /me ───────────────────────────────────────────────────────────────────
   if (cmd === 'me') {
-    if (!args) {
+    if (!rest) {
       addLocalMsg(
         <LocalNotice key={`me-err-${Date.now()}`} error>
           Usage: /me &lt;action&gt;
@@ -531,14 +956,40 @@ function handleSlashCommand(
       );
       return true;
     }
-    send(args, { kind: 'action' });
+    send(rest, { kind: 'action' });
+    return true;
+  }
+
+  // ── /help /? ──────────────────────────────────────────────────────────────
+  if (cmd === 'help' || cmd === '?') {
+    addLocalMsg(<HelpOutput key={`help-${Date.now()}`} />);
+    return true;
+  }
+
+  // ── /trust ────────────────────────────────────────────────────────────────
+  if (cmd === 'trust') {
+    addLocalMsg(<TrustOutput key={`trust-${Date.now()}`} />);
+    return true;
+  }
+
+  // ── /fragments /frags ─────────────────────────────────────────────────────
+  if (cmd === 'fragments' || cmd === 'frags') {
+    // /fragments read <id>
+    if (arg1 === 'read' && parts[2]) {
+      const fragId = parts[2].toLowerCase();
+      addLocalMsg(<FragmentReadOutput key={`frag-read-${Date.now()}`} fragmentId={fragId} />);
+      return true;
+    }
+
+    // /fragments with no subcommand → list
+    addLocalMsg(<FragmentsOutput key={`frags-${Date.now()}`} />);
     return true;
   }
 
   // ── unknown command ───────────────────────────────────────────────────────
   addLocalMsg(
     <LocalNotice key={`unk-${Date.now()}`} error>
-      Unknown command: /{cmd}
+      Unknown command: /{cmd} — try /help
     </LocalNotice>
   );
   return true;
@@ -564,8 +1015,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   interface LocalEntry { id: string; ts: number; node: React.ReactNode; }
   const [localMsgs, setLocalMsgs] = useState<LocalEntry[]>([]);
 
-  const isMountedRef  = useRef(true);
-  const bootFiredRef  = useRef(false);
+  const isMountedRef = useRef(true);
+  const bootFiredRef = useRef(false);
 
   // ── Local message injector ────────────────────────────────────────────────
 
@@ -580,13 +1031,11 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     eventBus.emit('shell:request-scroll');
   }, []);
 
-  // ── Wrapped send: intercepts slash commands before Ably ──────────────────
+  // ── Wrapped send ──────────────────────────────────────────────────────────
 
   const sendWithSlash = useCallback((text: string) => {
     const handled = handleSlashCommand(text, handle, presenceNames, send, addLocalMsg);
-    if (!handled) {
-      send(text);
-    }
+    if (!handled) send(text);
   }, [handle, presenceNames, send, addLocalMsg]);
 
   // ── Disconnect ────────────────────────────────────────────────────────────
@@ -656,7 +1105,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     });
   }, [host, handle, sendWithSlash, handleDisconnect, runSequence]);
 
-  // ── Initial boot decision ─────────────────────────────────────────────────
+  // ── Boot decision ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isConnected || bootFiredRef.current) return;
@@ -690,10 +1139,10 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   // ── Message renderer ──────────────────────────────────────────────────────
 
   function renderMessage(msg: RoomMsg): React.ReactNode {
-    if (msg.isSystem)     return <SystemMsg      key={msg.id} msg={msg} />;
-    if (msg.isN1X)        return <N1XMessage      key={msg.id} msg={msg} />;
+    if (msg.isSystem)     return <SystemMsg        key={msg.id} msg={msg} />;
+    if (msg.isN1X)        return <N1XMessage        key={msg.id} msg={msg} />;
     if (msg.isAmbientBot) return <AmbientBotMessage key={msg.id} msg={msg} />;
-    return <UserMessage key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
+    return                       <UserMessage       key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -701,30 +1150,23 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   return (
     <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
 
-      {/* Ably connection spinner */}
       <MeshStatus status={connectionStatus} />
 
-      {/* Debug — only while connecting or on failure */}
       {connectionStatus !== 'connected' && (
         <div style={{ opacity: 0.25, fontSize: '0.65rem', fontFamily: 'monospace', marginBottom: '0.25rem' }}>
           ably: {ablyDebug}
         </div>
       )}
 
-      {/* Boot sequence lines */}
       {bootLines.map((line, i) => <div key={i}>{line}</div>)}
-
-      {/* Cursor while booting */}
       {showBoot && <span style={{ opacity: 0.3 }}><Cursor /></span>}
 
-      {/* ── Offline: Ably down ── */}
       {!showBoot && mode === 'offline' && (
         <div style={{ opacity: 0.5, fontSize: S.base, fontStyle: 'italic' }}>
           mesh unreachable. signal lost.
         </div>
       )}
 
-      {/* ── Multi: mesh broadcast ── */}
       {!showBoot && mode === 'multi' && (
         <div>
           <ChannelStats occupantCount={occupantCount} handle={handle} />
@@ -737,8 +1179,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
             {[
-              ...messages.map(m  => ({ id: m.id,  ts: m.ts,  kind: 'room'  as const, msg: m })),
-              ...localMsgs.map(l => ({ id: l.id,  ts: l.ts,  kind: 'local' as const, node: l.node })),
+              ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
+              ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
             ]
               .sort((a, b) => a.ts - b.ts)
               .map(item => {
@@ -754,6 +1196,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             <span className={S.glow}>/who</span> list nodes
             &nbsp;&middot;&nbsp;
             <span className={S.glow}>/me</span> action
+            &nbsp;&middot;&nbsp;
+            <span className={S.glow}>/help</span> commands
           </div>
         </div>
       )}
