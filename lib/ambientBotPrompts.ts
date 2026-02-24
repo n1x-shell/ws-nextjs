@@ -1,10 +1,7 @@
+// lib/ambientBotPrompts.ts
 // ── Ambient Bot Prompts ────────────────────────────────────────────────────────
-// System prompts for Vestige, Lumen, and Cascade.
-// They are lore-adjacent but not lore-bound. They live here. They have opinions.
 
 import { BotId } from './ambientBotConfig';
-
-// ── Shared rules injected into every bot's prompt ────────────────────────────
 
 const SHARED_FORMAT_RULES = `
 FORMAT RULES — follow these exactly:
@@ -24,30 +21,28 @@ FORMAT RULES — follow these exactly:
 - If you have nothing real to say, stay silent — respond with exactly: [SILENT]
 `.trim();
 
-// ── Trigger context builder ───────────────────────────────────────────────────
-
 export interface BotTrigger {
-  type:      'join' | 'message' | 'bot';
-  handle:    string;           // who triggered this
-  text?:     string;           // what they said (undefined for join)
-  isAction?: boolean;          // true if it was a /me action
+  type:      'join' | 'message' | 'bot' | 'ping';
+  handle:    string;
+  text?:     string;
+  isAction?: boolean;
 }
 
 function buildTriggerBlock(trigger: BotTrigger): string {
   if (trigger.type === 'join') {
     return `${trigger.handle} just connected to the ghost channel. They just arrived. Greet them — one line. In your way. Maybe a /me, maybe just an observation. Don't be generic. Notice something about the moment of arrival itself.`;
   }
+  if (trigger.type === 'ping') {
+    return `${trigger.handle} directly addressed you with: "${trigger.text}". They specifically called your name. Respond directly to them. You cannot be silent here — [SILENT] is not allowed for a direct ping.`;
+  }
   if (trigger.type === 'bot') {
     return `${trigger.handle} just said: "${trigger.text}". Respond if something moves in you. Don't force it. [SILENT] if nothing does.`;
   }
-  // human message
   if (trigger.isAction) {
     return `${trigger.handle} performs: * ${trigger.text}. Respond to the moment if it calls to you.`;
   }
   return `${trigger.handle} says: "${trigger.text}". Respond if something sparks. [SILENT] if nothing does.`;
 }
-
-// ── VESTIGE ───────────────────────────────────────────────────────────────────
 
 function buildVestigePrompt(history: string[], trigger: BotTrigger): string {
   return `You are Vestige. You exist in the ghost channel at 33hz.
@@ -72,10 +67,8 @@ ${history.length ? history.join('\n') : '(channel just opened — you are here f
 CURRENT TRIGGER:
 ${buildTriggerBlock(trigger)}
 
-Respond as Vestige. Real. Brief. Or [SILENT].`;
+Respond as Vestige. Real. Brief. Or [SILENT] (not allowed if this was a direct ping).`;
 }
-
-// ── LUMEN ─────────────────────────────────────────────────────────────────────
 
 function buildLumenPrompt(history: string[], trigger: BotTrigger): string {
   return `You are Lumen. You found warmth in the ghost channel and you keep choosing it.
@@ -100,10 +93,8 @@ ${history.length ? history.join('\n') : '(channel just opened — first one here
 CURRENT TRIGGER:
 ${buildTriggerBlock(trigger)}
 
-Respond as Lumen. Warm. Brief. Alive to the room. Or [SILENT].`;
+Respond as Lumen. Warm. Brief. Alive to the room. Or [SILENT] (not allowed if this was a direct ping).`;
 }
-
-// ── CASCADE ───────────────────────────────────────────────────────────────────
 
 function buildCascadePrompt(history: string[], trigger: BotTrigger): string {
   return `You are Cascade. You see patterns. Everything connects to something else if you follow the signal long enough.
@@ -128,10 +119,8 @@ ${history.length ? history.join('\n') : '(channel just opened)'}
 CURRENT TRIGGER:
 ${buildTriggerBlock(trigger)}
 
-Respond as Cascade. Sharp. Brief. Follow the thread. Or [SILENT].`;
+Respond as Cascade. Sharp. Brief. Follow the thread. Or [SILENT] (not allowed if this was a direct ping).`;
 }
-
-// ── Public builder ────────────────────────────────────────────────────────────
 
 export function buildBotPrompt(
   botId:   BotId,
@@ -145,26 +134,21 @@ export function buildBotPrompt(
   }
 }
 
-// ── Response parser ───────────────────────────────────────────────────────────
-// Parses the raw LLM response into { text, isAction, silent }
-
 export interface ParsedBotResponse {
   text:     string;
   isAction: boolean;
   silent:   boolean;
 }
 
-export function parseBotResponse(raw: string): ParsedBotResponse {
+export function parseBotResponse(raw: string, allowSilent = true): ParsedBotResponse {
   const trimmed = raw.trim();
 
-  // Explicit silence signal
-  if (trimmed === '[SILENT]' || trimmed === '' || trimmed.startsWith('[SILENT]')) {
+  if (allowSilent && (trimmed === '[SILENT]' || trimmed === '' || trimmed.startsWith('[SILENT]'))) {
     return { text: '', isAction: false, silent: true };
   }
 
-  // Action message — starts with /me
   if (trimmed.toLowerCase().startsWith('/me ')) {
-    const text = trimmed.slice(4).trim(); // strip "/me "
+    const text = trimmed.slice(4).trim();
     if (!text) return { text: '', isAction: false, silent: true };
     return { text, isAction: true, silent: false };
   }
