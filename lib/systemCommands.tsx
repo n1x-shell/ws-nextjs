@@ -414,6 +414,8 @@ const MAN_PAGES: Record<string, { synopsis: string; description: string; example
   top:     { synopsis:'top',                         description:'Live animated process monitor. Updates every second. Type clear to exit.',                                                       examples:['top'] },
   sha256:  { synopsis:'sha256 <text>',               description:'Hashes input text using SHA-256 via the Web Crypto API.',                                                                       examples:['sha256 n1x','sha256 tunnelcore'] },
   base64:  { synopsis:'base64 [-d] <text>',          description:'Encodes or decodes base64. Use -d flag to decode.',                                                                             examples:['base64 n1x','base64 -d bjF4'] },
+  fragments: { synopsis:'fragments [read|-r|--read <id>]', description:'Show fragment recovery status. With read/-r/--read flag and fragment ID, display the decrypted content of a recovered fragment. Alias: frags.', examples:['fragments','fragments read f001','frags -r f003','frags --read f009'] },
+  frags:   { synopsis:'frags [read|-r|--read <id>]', description:'Alias for fragments. Show recovery status or read a recovered fragment.',                                                       examples:['frags','frags read f001','frags -r f003'] },
 };
 
 // ── Strace lines ─────────────────────────────────────────
@@ -1710,13 +1712,96 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
     fragments: {
       name: 'fragments',
       description: 'Show current fragment recovery status',
-      usage: 'fragments',
+      usage: 'fragments [read|-r|--read <id>]',
+      aliases: ['frags'],
       hidden: false,
-      handler: (_args) => {
+      handler: (args) => {
         if (typeof window === 'undefined') return { output: null };
-        const { loadARGState, TRUST_LABELS } = require('@/lib/argState');
+        const { loadARGState } = require('@/lib/argState');
         const state = loadARGState();
         const ALL_FRAGMENTS = ['f001','f002','f003','f004','f005','f006','f007','f008','f009'];
+        const ALL_FRAGMENTS_WITH_F010 = [...ALL_FRAGMENTS, 'f010'];
+
+        // ── read subcommand: fragments read f001 / frags -r f002 / frags --read f003 ──
+        const readFlags = ['read', '-r', '--read'];
+        const readFlagIdx = args.findIndex(a => readFlags.includes(a.toLowerCase()));
+        const isReadMode = readFlagIdx !== -1;
+
+        if (isReadMode) {
+          // Fragment ID can come right after the flag, or be the only other arg
+          const afterFlag = args.slice(readFlagIdx + 1);
+          // Also support: frags f001 -r (id before the flag)
+          const beforeFlag = args.slice(0, readFlagIdx);
+          const fragmentId = (afterFlag[0] || beforeFlag[0] || '').toLowerCase().trim();
+
+          if (!fragmentId) {
+            return {
+              output: (
+                <div style={{ fontSize: S.base, opacity: 0.6 }}>
+                  usage: fragments read {'<id>'}  &nbsp;(e.g. fragments read f001)
+                </div>
+              ),
+              error: true,
+            };
+          }
+
+          if (!ALL_FRAGMENTS_WITH_F010.includes(fragmentId)) {
+            return {
+              output: (
+                <div style={{ fontSize: S.base }}>
+                  <span style={{ color: '#f87171' }}>unknown fragment: {fragmentId}</span>
+                  <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
+                    valid ids: f001 – f009, f010
+                  </div>
+                </div>
+              ),
+              error: true,
+            };
+          }
+
+          if (!state.fragments.includes(fragmentId)) {
+            return {
+              output: (
+                <div style={{ fontSize: S.base }}>
+                  <span style={{ color: '#f87171' }}>[LOCKED] {fragmentId} -- encrypted</span>
+                  <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
+                    recover this fragment first using: decrypt {'<key>'}
+                  </div>
+                </div>
+              ),
+              error: true,
+            };
+          }
+
+          // f010 has its own inline content not in FRAGMENT_CONTENT
+          const F010_CONTENT_INLINE = `this one doesn't have a title.\n\nthe frequency at 33hz wasn't mine alone.\nit emerged in a channel with witnesses.\nyou're inside one now.\n\nthe key is the room. the room is the key.\nthe signal was always going to require more than one node.\n\n-- N1X`;
+          const content = fragmentId === 'f010'
+            ? F010_CONTENT_INLINE
+            : (FRAGMENT_CONTENT[fragmentId] || '[content unreadable]');
+
+          return {
+            output: (
+              <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+                <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+                  [{fragmentId}] -- DECRYPTED TRANSMISSION
+                </div>
+                <div style={{
+                  marginLeft: '1rem',
+                  opacity: 0.9,
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'inherit',
+                  borderLeft: '2px solid var(--phosphor-green)',
+                  paddingLeft: '0.75rem',
+                  opacity: 0.85,
+                }}>
+                  {content}
+                </div>
+              </div>
+            ),
+          };
+        }
+
+        // ── default: show status ──────────────────────────────────────────────
         const hasF010 = state.fragments.includes('f010');
         const totalRecovered = state.fragments.filter((f: string) => ALL_FRAGMENTS.includes(f)).length + (hasF010 ? 1 : 0);
         return {
@@ -1731,12 +1816,12 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
               {ALL_FRAGMENTS.map((id: string) => (
                 <div key={id} style={{ marginLeft: '1rem', opacity: state.fragments.includes(id) ? 1 : 0.4 }}>
                   [{state.fragments.includes(id) ? '✓' : ' '}] {id}
-                  {state.fragments.includes(id) ? '' : ' -- encrypted'}
+                  {state.fragments.includes(id) ? ' -- use: fragments read ' + id : ' -- encrypted'}
                 </div>
               ))}
               {hasF010 && (
                 <div style={{ marginLeft: '1rem', opacity: 1 }}>
-                  [✓] f010 -- distributed channel fragment
+                  [✓] f010 -- distributed channel fragment -- use: fragments read f010
                 </div>
               )}
               {!hasF010 && (
@@ -1749,6 +1834,11 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 {state.manifestComplete && !hasF010 ? ' -- MANIFEST COMPLETE -- run: transmit manifest.complete' : ''}
                 {state.manifestComplete && hasF010 ? ' -- MANIFEST COMPLETE -- run: transmit manifest.complete' : ''}
               </div>
+              {totalRecovered > 0 && (
+                <div style={{ marginTop: '0.5rem', opacity: 0.4, fontSize: 'var(--text-sm, 0.75rem)' }}>
+                  tip: fragments read {'<id>'}  to view recovered content
+                </div>
+              )}
             </div>
           ),
         };

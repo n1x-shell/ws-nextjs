@@ -297,7 +297,7 @@ export const commands: Record<string, Command> = {
                   ['decrypt',  'Attempt fragment decryption'],
                   ['diff',    'Compare files'],
                   ['find',    'Find files'],
-                  ['fragments','Fragment recovery status'],
+                  ['fragments','Fragment recovery status  (alias: frags)'],
                   ['fortune', 'Random transmission'],
                   ['grep',    'Search file contents'],
                   ['gzip',    'Compress/decompress data'],
@@ -1377,6 +1377,18 @@ export function getCommandSuggestions(partial: string): string[] {
   const suggestions = Object.keys(commands)
     .filter((cmd) => !commands[cmd].hidden && cmd.startsWith(lower))
     .sort();
+
+  // Also include aliases from visible commands
+  for (const cmd of Object.values(commands)) {
+    if (!cmd.hidden && cmd.aliases) {
+      for (const alias of cmd.aliases) {
+        if (alias.startsWith(lower) && !suggestions.includes(alias)) {
+          suggestions.push(alias);
+        }
+      }
+    }
+  }
+  suggestions.sort();
 
   if ('./n1x.sh'.startsWith(partial) &&
       fs.getCurrentDirectory().startsWith('/hidden')) {
