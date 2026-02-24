@@ -190,7 +190,14 @@ export async function POST(req: Request) {
 
   const trust     = typeof body.trust === 'number' ? body.trust : 0;
   const fragments = Array.isArray(body.fragments) ? body.fragments : [];
-  const trustContext = buildTrustContext(trust, fragments);
+  // Detect f008 trigger server-side — do not rely solely on client claim
+  const f008Ready = (trust >= 4) && (
+    body.f008Ready === true          ||
+    /\blen\b|le-751078/i.test(text) ||
+    /\bhelixion\b/i.test(text)      ||
+    /\btunnelcore\b/i.test(text)
+  );
+  const trustContext = buildTrustContext(trust, fragments, f008Ready);
   const systemPrompt = `${trustContext}\n\n${buildMultiplayerPrompt(ctx)}`;
 
   const result = await generateText({
