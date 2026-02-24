@@ -51,11 +51,30 @@ export default function InterfaceLayer() {
   const { uptime, processorLoad, triggerGlitch } = useNeuralState();
   const screenContentRef = useRef<HTMLDivElement>(null);
 
-  // SESSION: count of commands run this session
-  const [sessionCount, setSessionCount] = useState(0);
-  useEventBus('shell:execute-command', () => {
-    setSessionCount(prev => prev + 1);
+  // SESSION: visit count from localStorage (incremented by TelnetSession on mount)
+  const [sessionCount, setSessionCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const raw = localStorage.getItem('n1x-arg-state');
+      if (!raw) return 0;
+      return JSON.parse(raw)?.sessionCount ?? 0;
+    } catch { return 0; }
   });
+  // Keep in sync if another tab or TelnetSession increments it
+  useEffect(() => {
+    const onStorage = () => {
+      try {
+        const raw = localStorage.getItem('n1x-arg-state');
+        if (!raw) return;
+        const val = JSON.parse(raw)?.sessionCount ?? 0;
+        setSessionCount(val);
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('storage', onStorage);
+    // Also poll once a second to catch same-tab updates from TelnetSession
+    const id = setInterval(onStorage, 1000);
+    return () => { window.removeEventListener('storage', onStorage); clearInterval(id); };
+  }, []);
 
   // NODES: occupantCount + 4 bots, broadcast by TelnetSession
   const [nodeCount, setNodeCount] = useState(4); // default = just the bots
