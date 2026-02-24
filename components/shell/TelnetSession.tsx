@@ -1482,13 +1482,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     }
   }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runMultiBoot]);
 
-  // ── Broadcast node count to InterfaceLayer footer ────────────────────────
-
-  useEffect(() => {
-    // +4 for the ambient bots (Vestige, Lumen, Cascade + ghost-daemon)
-    eventBus.emit('mesh:node-count', { count: occupantCount + 4 });
-  }, [occupantCount]);
-
   // ── Re-register send when presenceNames changes ───────────────────────────
 
   useEffect(() => {
