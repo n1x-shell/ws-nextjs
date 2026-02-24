@@ -1047,6 +1047,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             return { output: 'tar: backup/: already exists -- nothing to do' };
           }
           fs.extractBackup();
+          import('@/lib/argState').then(({ updateARGState }) => {
+            updateARGState({ backupExtracted: true });
+          });
           return {
             output: (
               <pre style={{ whiteSpace:'pre-wrap', fontFamily:'inherit', fontSize: S.base, lineHeight:1.7 }}>
