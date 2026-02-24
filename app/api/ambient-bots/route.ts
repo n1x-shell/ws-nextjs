@@ -1,10 +1,4 @@
-// /api/ambient-bots
-// Handles ambient bot (Vestige, Lumen, Cascade) responses.
-//
-// Events published to Ably 'ghost' channel:
-//   bot.ambient.message  { botId, name, text, color, sigil, isAction, ts, msgId }
-//
-// Called by the client (message sender only, never all clients) to avoid duplicate triggers.
+// app/api/ambient-bots/route.ts
 
 import Ably from 'ably';
 import { generateText } from 'ai';
@@ -30,13 +24,14 @@ const redis = Redis.fromEnv();
 // ── Request shape ─────────────────────────────────────────────────────────────
 
 interface AmbientBotsRequest {
-  trigger:      'join' | 'message';
-  handle:       string;
-  text?:        string;
-  isAction?:    boolean;
+  trigger:       'join' | 'message' | 'ping';
+  handle:        string;
+  text?:         string;
+  isAction?:     boolean;
   recentHistory: string[];
   presenceNames: string[];
-  messageId:    string;
+  messageId:     string;
+  forceBotId?:   BotId;   // set on direct @ping — bypasses probability + global cooldown
 }
 
 // ── Redis key helpers ─────────────────────────────────────────────────────────
@@ -94,7 +89,6 @@ async function selectBot(
 
 async function selectSecondaryBot(
   primary: BotId,
-  triggerType: 'join' | 'message',
 ): Promise<AmbientBot | null> {
   const candidates: AmbientBot[] = [];
 
@@ -116,9 +110,10 @@ async function selectSecondaryBot(
 // ── LLM call ──────────────────────────────────────────────────────────────────
 
 async function generateBotResponse(
-  bot:     AmbientBot,
-  history: string[],
-  trigger: BotTrigger,
+  bot:        AmbientBot,
+  history:    string[],
+  trigger:    BotTrigger,
+  allowSilent = true,
 ): Promise<{ text: string; isAction: boolean; silent: boolean }> {
   try {
     const systemPrompt = buildBotPrompt(bot.id, history, trigger);
@@ -131,7 +126,7 @@ async function generateBotResponse(
       temperature:     0.88,
     });
 
-    return parseBotResponse(result.text);
+    return parseBotResponse(result.text, allowSilent);
   } catch (err) {
     console.error(`[ambient-bots] ${bot.id} generation error:`, err);
     return { text: '', isAction: false, silent: true };
@@ -179,7 +174,7 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: 'invalid json' }, { status: 400 });
   }
 
-  const { trigger, handle, text, isAction = false, recentHistory, messageId } = body;
+  const { trigger, handle, text, isAction = false, recentHistory, messageId, forceBotId } = body;
 
   if (!handle || !messageId) {
     return Response.json({ error: 'missing handle or messageId' }, { status: 400 });
@@ -191,7 +186,40 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ ok: true, deduped: true });
   }
 
-  // ── Global cooldown (skip for join triggers) ──────────────────────────────
+  const ably = new Ably.Rest(apiKey);
+  const ch   = ably.channels.get('ghost');
+  const history = recentHistory.slice(-BOT_HISTORY_WINDOW);
+
+  // ── Direct ping — forceBotId bypasses probability and global cooldown ──────
+  if (trigger === 'ping' && forceBotId) {
+    const bot = AMBIENT_BOTS[forceBotId];
+
+    // Still respect individual bot cooldown on pings — prevents spam
+    const onCooldown = await isBotOnCooldown(forceBotId);
+    if (onCooldown) {
+      return Response.json({ ok: true, skipped: 'bot_cooldown' });
+    }
+
+    await setBotCooldown(forceBotId, bot.cooldownMs);
+
+    const pingTrigger: BotTrigger = {
+      type:   'ping',
+      handle,
+      text,
+      isAction,
+    };
+
+    // allowSilent = false — pinged bots must respond
+    const response = await generateBotResponse(bot, history, pingTrigger, false);
+
+    if (!response.silent) {
+      await publishBotMessage(ch, bot, response.text, response.isAction, Date.now());
+    }
+
+    return Response.json({ ok: true });
+  }
+
+  // ── Global cooldown (regular message/join triggers only) ──────────────────
   if (trigger === 'message') {
     const globalCooldown = await isGlobalOnCooldown();
     if (globalCooldown) {
@@ -199,13 +227,8 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  const ably = new Ably.Rest(apiKey);
-  const ch   = ably.channels.get('ghost');
-
-  const history = recentHistory.slice(-BOT_HISTORY_WINDOW);
-
-  // ── Select primary bot ────────────────────────────────────────────────────
-  const primaryBot = await selectBot(trigger);
+  // ── Select primary bot (probabilistic) ───────────────────────────────────
+  const primaryBot = await selectBot(trigger === 'join' ? 'join' : 'message');
   if (!primaryBot) {
     return Response.json({ ok: true, skipped: 'no_bot_available' });
   }
@@ -216,7 +239,7 @@ export async function POST(req: Request): Promise<Response> {
   ]);
 
   const primaryTrigger: BotTrigger = {
-    type:   trigger,
+    type:   trigger === 'join' ? 'join' : 'message',
     handle,
     text,
     isAction,
@@ -232,7 +255,7 @@ export async function POST(req: Request): Promise<Response> {
     const shouldBotRespond = trigger === 'message' && Math.random() < 0.35;
 
     if (shouldBotRespond) {
-      const secondaryBot = await selectSecondaryBot(primaryBot.id, trigger);
+      const secondaryBot = await selectSecondaryBot(primaryBot.id);
 
       if (secondaryBot) {
         await setBotCooldown(secondaryBot.id, secondaryBot.cooldownMs);
@@ -251,21 +274,10 @@ export async function POST(req: Request): Promise<Response> {
           isAction: primaryResponse.isAction,
         };
 
-        const secondaryResponse = await generateBotResponse(
-          secondaryBot,
-          updatedHistory,
-          secondaryTrigger,
-        );
+        const secondaryResponse = await generateBotResponse(secondaryBot, updatedHistory, secondaryTrigger);
 
         if (!secondaryResponse.silent) {
-          const secondaryTs = ts + 2500;
-          await publishBotMessage(
-            ch,
-            secondaryBot,
-            secondaryResponse.text,
-            secondaryResponse.isAction,
-            secondaryTs,
-          );
+          await publishBotMessage(ch, secondaryBot, secondaryResponse.text, secondaryResponse.isAction, ts + 2500);
         }
       }
     }
