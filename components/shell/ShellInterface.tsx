@@ -929,7 +929,6 @@ export default function ShellInterface() {
                       lineHeight: '1.4',
                       color: 'var(--phosphor-green)',
                       whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-all',
                       overflowWrap: 'break-word',
                     }}
                   >
