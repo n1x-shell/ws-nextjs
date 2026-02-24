@@ -32,18 +32,18 @@ const redis = Redis.fromEnv();
 interface AmbientBotsRequest {
   trigger:      'join' | 'message';
   handle:       string;
-  text?:        string;        // undefined for join triggers
-  isAction?:    boolean;       // true if user sent a /me
-  recentHistory: string[];     // last 20 messages, formatted strings
+  text?:        string;
+  isAction?:    boolean;
+  recentHistory: string[];
   presenceNames: string[];
-  messageId:    string;        // stable id for dedup
+  messageId:    string;
 }
 
 // ── Redis key helpers ─────────────────────────────────────────────────────────
 
-const dedupKey   = (id: string)    => `ambient:dedup:${id}`;
-const botKey     = (id: BotId)     => `ambient:cooldown:bot:${id}`;
-const globalKey  = ()              => `ambient:cooldown:global`;
+const dedupKey  = (id: string) => `ambient:dedup:${id}`;
+const botKey    = (id: BotId)  => `ambient:cooldown:bot:${id}`;
+const globalKey = ()           => `ambient:cooldown:global`;
 
 // ── Cooldown checks ───────────────────────────────────────────────────────────
 
@@ -71,7 +71,6 @@ async function selectBot(
   triggerType: 'join' | 'message',
   exclude?: BotId,
 ): Promise<AmbientBot | null> {
-  // Build candidate list (not on individual cooldown, not excluded)
   const candidates: AmbientBot[] = [];
 
   for (const id of BOT_IDS) {
@@ -90,8 +89,6 @@ async function selectBot(
   }
 
   if (candidates.length === 0) return null;
-
-  // Pick one randomly from candidates who passed their probability check
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
@@ -99,7 +96,6 @@ async function selectSecondaryBot(
   primary: BotId,
   triggerType: 'join' | 'message',
 ): Promise<AmbientBot | null> {
-  // Secondary bot responds to the primary — lower probability, bot-to-bot chance
   const candidates: AmbientBot[] = [];
 
   for (const id of BOT_IDS) {
@@ -148,8 +144,9 @@ function makeId(): string {
   return crypto.randomUUID();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function publishBotMessage(
-  ch:       Ably.Types.ChannelBase,
+  ch:       any,
   bot:      AmbientBot,
   text:     string,
   isAction: boolean,
@@ -188,13 +185,13 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: 'missing handle or messageId' }, { status: 400 });
   }
 
-  // ── Dedup: only process each messageId once ───────────────────────────────
+  // ── Dedup ─────────────────────────────────────────────────────────────────
   const stored = await redis.set(dedupKey(messageId), 1, { nx: true, ex: 86400 });
   if (stored === null) {
     return Response.json({ ok: true, deduped: true });
   }
 
-  // ── Global cooldown (skip for join triggers — they're special) ────────────
+  // ── Global cooldown (skip for join triggers) ──────────────────────────────
   if (trigger === 'message') {
     const globalCooldown = await isGlobalOnCooldown();
     if (globalCooldown) {
@@ -205,7 +202,6 @@ export async function POST(req: Request): Promise<Response> {
   const ably = new Ably.Rest(apiKey);
   const ch   = ably.channels.get('ghost');
 
-  // Trim history to window
   const history = recentHistory.slice(-BOT_HISTORY_WINDOW);
 
   // ── Select primary bot ────────────────────────────────────────────────────
@@ -214,13 +210,11 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ ok: true, skipped: 'no_bot_available' });
   }
 
-  // Lock this bot and global before async work
   await Promise.all([
     setBotCooldown(primaryBot.id, primaryBot.cooldownMs),
     setGlobalCooldown(GLOBAL_AMBIENT_COOLDOWN_MS),
   ]);
 
-  // ── Primary bot trigger ───────────────────────────────────────────────────
   const primaryTrigger: BotTrigger = {
     type:   trigger,
     handle,
@@ -234,8 +228,7 @@ export async function POST(req: Request): Promise<Response> {
     const ts = Date.now();
     await publishBotMessage(ch, primaryBot, primaryResponse.text, primaryResponse.isAction, ts);
 
-    // ── Bot-to-bot: maybe a second bot responds to the primary ────────────
-    // Only on message triggers, and only some of the time
+    // ── Bot-to-bot: maybe a second bot responds ───────────────────────────
     const shouldBotRespond = trigger === 'message' && Math.random() < 0.35;
 
     if (shouldBotRespond) {
@@ -244,7 +237,6 @@ export async function POST(req: Request): Promise<Response> {
       if (secondaryBot) {
         await setBotCooldown(secondaryBot.id, secondaryBot.cooldownMs);
 
-        // Build updated history including primary's response
         const actionPrefix = primaryResponse.isAction ? '*' : '';
         const actionSuffix = primaryResponse.isAction ? '*' : '';
         const updatedHistory = [
@@ -253,9 +245,9 @@ export async function POST(req: Request): Promise<Response> {
         ].slice(-BOT_HISTORY_WINDOW);
 
         const secondaryTrigger: BotTrigger = {
-          type:   'bot',
-          handle: primaryBot.name,
-          text:   primaryResponse.text,
+          type:     'bot',
+          handle:   primaryBot.name,
+          text:     primaryResponse.text,
           isAction: primaryResponse.isAction,
         };
 
@@ -266,7 +258,6 @@ export async function POST(req: Request): Promise<Response> {
         );
 
         if (!secondaryResponse.silent) {
-          // Publish secondary with a slightly later timestamp so it sorts after primary
           const secondaryTs = ts + 2500;
           await publishBotMessage(
             ch,
