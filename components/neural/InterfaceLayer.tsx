@@ -180,7 +180,7 @@ export default function InterfaceLayer() {
         inset: 0,
         overflow: 'hidden',
         background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-        padding: '3vw',
+        padding: '1.5vw',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -218,7 +218,7 @@ export default function InterfaceLayer() {
           boxShadow: `
             inset 0 0 100px rgba(0,0,0,0.9),
             inset 0 0 20px rgba(51,255,51,0.1),
-            0 0 20px rgba(51,255,51,0.2)
+            0 0 8px rgba(51,255,51,0.15)
           `,
           transform: 'perspective(1000px)',
         }}
