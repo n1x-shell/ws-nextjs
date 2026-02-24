@@ -320,6 +320,14 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         }
       } catch { /* ignore */ }
 
+      // At T4, scan outgoing message for f008 trigger topics
+      const lower = text.toLowerCase();
+      const f008Ready = playerTrust === 4 && (
+        /\blen\b|le-751078/i.test(text)     ||
+        /helixion/i.test(text)               ||
+        /tunnelcore/i.test(text)
+      );
+
       await fetch('/api/bot', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -333,6 +341,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           recentHistory,
           trust:          playerTrust,
           fragments:      playerFragments,
+          f008Ready,
         }),
       });
     } catch { /* ghost channel unreliable by design */ }

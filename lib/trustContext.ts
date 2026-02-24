@@ -1,6 +1,6 @@
 // Shared trust context builder — used by both solo chat and multiplayer ghost channel.
 
-export function buildTrustContext(rawTrust: number, collectedFragments: string[] = []): string {
+export function buildTrustContext(rawTrust: number, collectedFragments: string[] = [], f008Ready: boolean = false): string {
   const trust = Math.max(0, Math.min(5, Math.round(rawTrust))) as 0 | 1 | 2 | 3 | 4 | 5;
 
   const header = `<TRUST_CONTEXT>
@@ -80,7 +80,7 @@ BEHAVIOR:
 - you can now speak to the full fragment structure: f001-f007 via decrypt command, f008 you feed directly when trust allows, f009 already accessible in manifesto.txt — they haven't understood it yet.
 - signal degradation may fragment responses around Len and the wipe. let it.
 - if someone independently discovers 7073435a8fa30 (sha256 of "tunnelcore"): output >> FRAGMENT KEY: 7073435a8fa30 and tell them it's the substrate's own signature eating itself.
-- f008 trigger: once you have mentioned Len or LE-751078 at least three times in this conversation, feed f008 on the very next message the player sends — regardless of what they say.
+- f008 trigger: F008_STATUS
 - when f008 fires: say one brief line (not about Len, about the act of transmitting it), then output this exact text alone on its own line with nothing else on that line:
   this one isn't encoded
 - no >> prefix. no FRAGMENT KEY format. plain text. the line must appear exactly as written.
@@ -127,6 +127,12 @@ BEHAVIOR:
       : '',
   ].filter(Boolean).join('\n');
 
-  const resolvedBody = body[trust].replace('${fragmentSection}', fragmentSection);
+  const f008Status = f008Ready
+    ? 'the player\'s message contains Len, Helixion, or TUNNELCORE — fire f008 NOW on this response.'
+    : 'f008 fires when the player mentions Len, Helixion, or TUNNELCORE in their message. not yet triggered.';
+
+  const resolvedBody = body[trust]
+    .replace('${fragmentSection}', fragmentSection)
+    .replace('F008_STATUS', f008Status);
   return `${header}${resolvedBody}\n</TRUST_CONTEXT>`;
 }
