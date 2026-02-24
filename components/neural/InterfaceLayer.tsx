@@ -218,7 +218,7 @@ export default function InterfaceLayer() {
           boxShadow: `
             inset 0 0 100px rgba(0,0,0,0.9),
             inset 0 0 20px rgba(51,255,51,0.1),
-            0 0 40px rgba(51,255,51,0.2)
+            0 0 20px rgba(51,255,51,0.2)
           `,
           transform: 'perspective(1000px)',
         }}
