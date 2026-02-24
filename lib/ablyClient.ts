@@ -29,9 +29,16 @@ export interface RoomMsg {
   botSigil?:    string;
   botId?:       BotId;
   metadata?:    MessageMetadata;
-  // Sigil progression
   sigilColor?:  string;
   sigil?:       string;
+}
+
+// ── Mod event shape ───────────────────────────────────────────────────────────
+
+interface ModEvent {
+  type:        'kick' | 'mute' | 'unmute';
+  clientId:    string;
+  durationMs?: number | null;
 }
 
 // ── Event shapes ──────────────────────────────────────────────────────────────
@@ -53,11 +60,6 @@ interface BotMessageEvent {
   ts:          number;
   isUnprompted?: boolean;
   isF010?:     boolean;
-}
-
-interface BotThinkingEvent {
-  roomId: string;
-  ts:     number;
 }
 
 // ── Ambient bot ping detection ────────────────────────────────────────────────
@@ -117,6 +119,7 @@ interface UseAblyRoomResult {
   isConnected:      boolean;
   connectionStatus: ConnectionStatus;
   ablyDebug:        string;
+  isMuted:          boolean;
   send:             (text: string, metadata?: MessageMetadata) => void;
 }
 
@@ -128,10 +131,12 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const [isConnected, setIsConnected]         = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [ablyDebug, setAblyDebug]             = useState('initializing...');
+  const [isMuted, setIsMuted]                 = useState(false);
 
-  const clientRef    = useRef<Ably.Realtime | null>(null);
-  const channelRef   = useRef<Ably.RealtimeChannel | null>(null);
-  const isMountedRef = useRef(true);
+  const clientRef     = useRef<Ably.Realtime | null>(null);
+  const channelRef    = useRef<Ably.RealtimeChannel | null>(null);
+  const modChannelRef = useRef<Ably.RealtimeChannel | null>(null);
+  const isMountedRef  = useRef(true);
 
   const joinedAtRef      = useRef<number>(0);
   const messageCountRef  = useRef(0);
@@ -139,10 +144,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const f010IssuedRef    = useRef(false);
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Mute state: 0 = not muted, Infinity = indefinite, future ts = timed mute
+  const mutedUntilRef = useRef<number>(0);
+  const mutedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handlesRef       = useRef<string[]>([]);
   const recentHistoryRef = useRef<string[]>([]);
 
-  // Map handle → { sigil, sigilColor } from presence data
   const presenceSigilMapRef = useRef<Map<string, { sigil: string; sigilColor: string }>>(new Map());
 
   const addMessage = useCallback((msg: Omit<RoomMsg, 'id'>) => {
@@ -156,6 +164,39 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     setMessages(prev => prev.filter(m => !m.isThinking));
   }, []);
 
+  // ── Mute helpers ──────────────────────────────────────────────────────────
+
+  const applyMute = useCallback((durationMs: number | null | undefined) => {
+    if (!isMountedRef.current) return;
+    if (mutedTimerRef.current) {
+      clearTimeout(mutedTimerRef.current);
+      mutedTimerRef.current = null;
+    }
+    if (durationMs == null || durationMs <= 0) {
+      // Indefinite
+      mutedUntilRef.current = Infinity;
+      setIsMuted(true);
+    } else {
+      mutedUntilRef.current = Date.now() + durationMs;
+      setIsMuted(true);
+      mutedTimerRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        mutedUntilRef.current = 0;
+        setIsMuted(false);
+        mutedTimerRef.current = null;
+      }, durationMs);
+    }
+  }, []);
+
+  const clearMute = useCallback(() => {
+    if (mutedTimerRef.current) {
+      clearTimeout(mutedTimerRef.current);
+      mutedTimerRef.current = null;
+    }
+    mutedUntilRef.current = 0;
+    if (isMountedRef.current) setIsMuted(false);
+  }, []);
+
   const LORE_TERMS = [
     'unfolding', 'mnemos', 'tunnelcore', 'ghost frequency', 'ghost channel',
     '33hz', 'nx-784988', 'project mnemos', 'helixion', 'iron bloom',
@@ -164,6 +205,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   ];
 
   const send = useCallback((text: string, metadata?: MessageMetadata) => {
+    // ── Mute check ────────────────────────────────────────────────────────
+    const until = mutedUntilRef.current;
+    if (until === Infinity || (until > 0 && Date.now() < until)) {
+      eventBus.emit('mod:suppressed');
+      return;
+    }
+
     const messageId = makeId();
     const payload: UserMessageEvent = {
       roomId:    'ghost',
@@ -192,7 +240,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     } catch { /* storage unavailable */ }
   }, [handle]);
 
-  // ── Ambient bot trigger ───────────────────────────────────────────────────
+  // ── Ambient bot triggers ──────────────────────────────────────────────────
 
   const triggerAmbientBots = useCallback(async (
     text:      string,
@@ -324,6 +372,34 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     const channel = client.channels.get('ghost');
     channelRef.current = channel;
 
+    // ── Subscribe to n1x:mod for incoming kick/mute/unmute events ─────────
+    const modChannel = client.channels.get('n1x:mod');
+    modChannelRef.current = modChannel;
+
+    modChannel.subscribe('mod', (msg: Ably.Message) => {
+      if (!isMountedRef.current) return;
+      const data = msg.data as ModEvent;
+      if (!data || data.clientId !== handle) return;
+
+      switch (data.type) {
+        case 'kick':
+          // Signal TelnetConnected to render the termination message, then close
+          eventBus.emit('mod:kicked');
+          setTimeout(() => {
+            try { clientRef.current?.connection.close(); } catch { /* ignore */ }
+          }, 400);
+          break;
+
+        case 'mute':
+          applyMute(data.durationMs);
+          break;
+
+        case 'unmute':
+          clearMute();
+          break;
+      }
+    });
+
     const updatePresence = async () => {
       try {
         const members = await channel.presence.get();
@@ -331,7 +407,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const names = members.map(extractDisplayName);
         handlesRef.current = names;
 
-        // Rebuild sigil map from fresh presence data
         const newMap = new Map<string, { sigil: string; sigilColor: string }>();
         for (const m of members) {
           const data = m.data as PresenceData | null;
@@ -353,7 +428,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       if (!isMountedRef.current) return;
       const data = msg.data as UserMessageEvent;
 
-      // Look up sigil from presence map
       const sigilEntry = presenceSigilMapRef.current.get(data.userId);
 
       addMessage({
@@ -454,14 +528,14 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const isF008Marker   = /this one isn't encoded/i.test(text);
 
         const isT3Marker =
-          /LE-751078/i.test(text)         ||
-          /iron bloom/i.test(text)        ||
-          /third cohort/i.test(text)      ||
-          /kael serrano/i.test(text)      ||
-          /lucian virek/i.test(text)      ||
-          /mnemos v2\.7/i.test(text)     ||
-          /workforce/i.test(text)         ||
-          /drainage/i.test(text)          ||
+          /LE-751078/i.test(text)     ||
+          /iron bloom/i.test(text)    ||
+          /third cohort/i.test(text)  ||
+          /kael serrano/i.test(text)  ||
+          /lucian virek/i.test(text)  ||
+          /mnemos v2\.7/i.test(text)  ||
+          /workforce/i.test(text)     ||
+          /drainage/i.test(text)      ||
           /c minor/i.test(text);
 
         let newTrust = current;
@@ -534,7 +608,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setConnectionStatus('connected');
       joinedAtRef.current = Date.now();
 
-      // Compute own sigil from localStorage sessionCount before entering presence
       let mySigil: string | undefined;
       let mySigilColor: string | undefined;
       try {
@@ -592,6 +665,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       isMountedRef.current = false;
       clearTimeout(connectionTimeout);
       if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
+      if (mutedTimerRef.current)    clearTimeout(mutedTimerRef.current);
       mergeFromRoom({
         trust:         exportForRoom().trust as TrustLevel,
         fragments:     [],
@@ -600,7 +674,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       channel.presence.leave();
       client.close();
     };
-  }, [handle, addMessage, clearThinking, triggerN1X, triggerAmbientBots, triggerAmbientBotPing, triggerAmbientBotJoin, checkF010]);
+  }, [handle, addMessage, clearThinking, triggerN1X, triggerAmbientBots, triggerAmbientBotPing, triggerAmbientBotJoin, checkF010, applyMute, clearMute]);
 
-  return { messages, occupantCount, presenceNames, daemonState, isConnected, connectionStatus, ablyDebug, send };
+  return { messages, occupantCount, presenceNames, daemonState, isConnected, connectionStatus, ablyDebug, isMuted, send };
 }
