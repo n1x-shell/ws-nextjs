@@ -25,7 +25,6 @@ export interface ARGState {
   ghostUnlocked: boolean;
   hiddenUnlocked: boolean;
   manifestComplete: boolean;
-  trust3SetAt: number;        // timestamp when trust first reached 3, 0 if never
 }
 
 function generateFrequencyId(): string {
@@ -45,7 +44,6 @@ const DEFAULT_STATE: ARGState = {
   ghostUnlocked: false,
   hiddenUnlocked: false,
   manifestComplete: false,
-  trust3SetAt: 0,
 };
 
 export function loadARGState(): ARGState {
@@ -73,47 +71,39 @@ export function updateARGState(patch: Partial<ARGState>): ARGState {
 
 export function startSession(): ARGState {
   const state = loadARGState();
-  const now = Date.now();
 
-  // ── T3 → T4 auto-advance ────────────────────────────────────────────────
-  // Conditions (either triggers):
-  //   A) They are returning — sessionCount > 0 means they've loaded before at T3
-  //   B) 24 hours have elapsed since trust3SetAt was recorded
+  const patch: Partial<ARGState> = {
+    sessionCount: state.sessionCount + 1,
+    lastContact: Date.now(),
+  };
+
   if (state.trust === 3) {
     const returningVisit = state.sessionCount > 0;
-    const over24h = state.trust3SetAt > 0 && (now - state.trust3SetAt) > 86400000;
-
-    if (returningVisit || over24h) {
-      // Advance to 4 first, then fall through to increment session
-      const advanced = updateARGState({
-        trust: 4,
-        sessionCount: state.sessionCount + 1,
-        lastContact: now,
-      });
-      // Emit event for live UI update
-      if (typeof window !== 'undefined') {
-        import('@/lib/eventBus').then(({ eventBus }) => {
-          eventBus.emit('arg:trust-level-change', { level: 4 });
-        });
-      }
-      return advanced;
+    const elapsed24h     = state.trust3SetAt > 0 && (Date.now() - state.trust3SetAt) >= 86400000;
+    if (returningVisit || elapsed24h) {
+      patch.trust = 4;
     }
   }
 
-  return updateARGState({
-    sessionCount: state.sessionCount + 1,
-    lastContact: now,
-  });
+  return updateARGState(patch);
+}
+
+/**
+ * Increment session count on ghost channel connect.
+ * Call once per TelnetConnected mount.
+ */
+export function incrementSession(): ARGState {
+  const state = loadARGState();
+  return updateARGState({ sessionCount: state.sessionCount + 1 });
 }
 
 export function setTrust(level: TrustLevel): void {
   const patch: Partial<ARGState> = { trust: level };
-  // Record timestamp the moment trust reaches 3 — used for 24h check in startSession
   if (level === 3) {
-    patch.trust3SetAt = Date.now();
+    const state = loadARGState();
+    if (!state.trust3SetAt) patch.trust3SetAt = Date.now();
   }
   updateARGState(patch);
-  // Notify UI components so NeuralChatSession signal header updates live
   if (typeof window !== 'undefined') {
     import('@/lib/eventBus').then(({ eventBus }) => {
       eventBus.emit('arg:trust-level-change', { level });
