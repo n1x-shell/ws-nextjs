@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
@@ -9,16 +9,37 @@ import { eventBus } from '@/lib/eventBus';
 import { deactivateTelnet } from '@/lib/telnetBridge';
 import { isChatMode, setChatMode, resetConversation } from '@/components/shell/NeuralLink';
 
-// Renders [████████████░░░░░░░░] 78%
-// Bar is always 20 chars; filled + empty = 20; percentage derived from same value.
-function ProcBar({ load }: { load: number | string }) {
+// Parse processorLoad from context (may be "42", "42%", or a number) into 0–100
+function seedLoad(raw: number | string): number {
+  const parsed = typeof raw === 'string' ? parseFloat(raw) : raw;
+  const n = isNaN(parsed) ? 42 : parsed;
+  return Math.max(10, Math.min(90, n));
+}
+
+// Self-animating proc bar — owns its own state, random-walks ±5% every 1.5s
+// with gentle mean-reversion toward the context seed so it stays realistic.
+function ProcBar({ seed }: { seed: number | string }) {
   const BAR_WIDTH = 20;
-  const parsed   = typeof load === 'string' ? parseFloat(load) : load;
-  const clamped  = Math.max(0, Math.min(100, isNaN(parsed) ? 0 : parsed));
-  const filled   = Math.round((clamped / 100) * BAR_WIDTH);
-  const empty    = BAR_WIDTH - filled;
-  const bar      = '█'.repeat(filled) + '░'.repeat(empty);
-  const pct      = clamped.toString().padStart(3, '\u00A0') + '%'; // right-align pct in 4 chars
+  const [load, setLoad] = useState<number>(() => seedLoad(seed));
+
+  useEffect(() => {
+    const tick = () => {
+      setLoad(prev => {
+        const base  = seedLoad(seed);
+        const drift = (Math.random() - 0.5) * 10;   // ±5
+        const pull  = (base - prev) * 0.15;          // gentle mean-reversion
+        const next  = prev + drift + pull;
+        return Math.round(Math.max(10, Math.min(90, next)));
+      });
+    };
+    const id = setInterval(tick, 1500);
+    return () => clearInterval(id);
+  }, [seed]);
+
+  const filled = Math.round((load / 100) * BAR_WIDTH);
+  const empty  = BAR_WIDTH - filled;
+  const bar    = '█'.repeat(filled) + '░'.repeat(empty);
+  const pct    = load.toString().padStart(3, '\u00A0') + '%';
 
   return (
     <span style={{ fontFamily: 'inherit', letterSpacing: 0 }}>
@@ -357,13 +378,9 @@ export default function InterfaceLayer() {
                 padding: '0.3rem 0.75rem',
               }}
             >
-              <div>
-                <span className="status-dot" />
-                <span>INTERFACE_STABLE</span>
-              </div>
               <div>N1X.sh v2.0</div>
               <div>
-                <ProcBar load={processorLoad} />
+                <ProcBar seed={processorLoad} />
               </div>
             </footer>
           </div>
