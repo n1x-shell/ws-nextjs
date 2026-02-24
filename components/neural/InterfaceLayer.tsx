@@ -76,8 +76,24 @@ export default function InterfaceLayer() {
     return () => { window.removeEventListener('storage', onStorage); clearInterval(id); };
   }, []);
 
-  // NODES: occupantCount + 4 bots, broadcast by TelnetSession
-  const [nodeCount, setNodeCount] = useState(4); // default = just the bots
+  // NODES: poll /api/nodes every 5s for presence count.
+  // Also listens to mesh:node-count for instant updates when this client is in chat.
+  const [nodeCount, setNodeCount] = useState(4);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/nodes');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data.count === 'number') setNodeCount(data.count);
+      } catch { /* ignore */ }
+    };
+    poll(); // immediate on mount
+    const id = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+  // Instant update when this client is connected to the room
   useEventBus('mesh:node-count', (event) => {
     const count = (event as any)?.payload?.count ?? (event as any)?.count;
     if (typeof count === 'number') setNodeCount(count);
