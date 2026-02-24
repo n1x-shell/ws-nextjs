@@ -33,11 +33,7 @@ const C = {
   timestamp:   'rgba(51,255,51,0.3)',
   system:      '#ff8c00',
   thinking:    'rgba(51,255,51,0.45)',
-  // slash command styling
-  whoSelf:     '#ffffff',
-  whoOther:    '#888888',
-  whoN1X:      '#ff4444',
-  action:      '#ff69b4',   // hot pink
+  action:      '#ff69b4',
   cmdError:    '#ff6b6b',
 };
 
@@ -167,21 +163,16 @@ const CopyLine: React.FC<{ line: string }> = ({ line }) => {
 };
 
 // ── /who — styled name list ───────────────────────────────────────────────────
-//
-// Renders:  Online (N): [N1X], [Caller], [OtherA], [OtherB]
-// Colors:   N1X=red  Caller=white  Others=grey
-// All names bold.
 
 interface WhoOutputProps {
-  names:  string[];  // full presence list, may or may not include N1X
-  caller: string;    // the local user's handle
+  names:  string[];
+  caller: string;
 }
 
 const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
-  // Build final list: N1X first (deduplicated), then caller, then others sorted
-  const withoutN1X    = names.filter(n => n !== 'N1X');
-  const othersNoSelf  = withoutN1X.filter(n => n !== caller);
-  const callerInList  = withoutN1X.includes(caller);
+  const withoutN1X   = names.filter(n => n !== 'N1X');
+  const othersNoSelf = withoutN1X.filter(n => n !== caller);
+  const callerInList = withoutN1X.includes(caller);
 
   const ordered: string[] = [
     'N1X',
@@ -192,26 +183,23 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
   const total = ordered.length;
 
   function nameColor(n: string): string {
-    if (n === 'N1X')    return C.whoN1X;
-    if (n === caller)   return C.whoSelf;
-    return C.whoOther;
+    if (n === 'N1X')  return C.n1xName;
+    if (n === caller) return C.selfUser;
+    return C.otherUser;
   }
 
   return (
     <div style={{
-      fontFamily: 'monospace',
-      fontSize:   S.base,
-      lineHeight: 1.8,
-      color:      'rgba(51,255,51,0.55)',
+      fontFamily:   'monospace',
+      fontSize:     S.base,
+      lineHeight:   1.8,
+      color:        'rgba(51,255,51,0.55)',
       marginBottom: '0.25rem',
     }}>
       <span>Online ({total}):&nbsp;</span>
       {ordered.map((name, i) => (
         <React.Fragment key={name}>
-          <span style={{
-            color:      nameColor(name),
-            fontWeight: 'bold',
-          }}>
+          <span style={{ color: nameColor(name), fontWeight: 'bold' }}>
             {name}
           </span>
           {i < ordered.length - 1 && (
@@ -227,12 +215,12 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
 
 const LocalNotice: React.FC<{ children: React.ReactNode; error?: boolean }> = ({ children, error }) => (
   <div style={{
-    fontFamily:  'monospace',
-    fontSize:    S.base,
-    lineHeight:  1.8,
-    color:       error ? C.cmdError : C.system,
-    fontStyle:   'italic',
-    opacity:     0.85,
+    fontFamily:   'monospace',
+    fontSize:     S.base,
+    lineHeight:   1.8,
+    color:        error ? C.cmdError : C.system,
+    fontStyle:    'italic',
+    opacity:      0.85,
     marginBottom: '0.25rem',
   }}>
     {children}
@@ -270,12 +258,13 @@ interface MsgRowProps {
   name:      string;
   msgColor:  string;
   children:  React.ReactNode;
+  badge?:    React.ReactNode; // optional sigil or marker after timestamp
 }
 
-const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, children }) => (
+const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, children, badge }) => (
   <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
     <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
-      {formatTs(ts)}
+      {formatTs(ts)}{badge && <span style={{ marginLeft: '0.5ch' }}>{badge}</span>}
     </div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
       <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -289,28 +278,78 @@ const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor,
   </div>
 );
 
-// ── ActionMessage: /me rendering ──────────────────────────────────────────────
-//
-// Format:  * UserName action text
-// Style:   entire line bold + hot pink
+// ── ActionMessage: /me rendering (used for users and ambient bots) ────────────
 
-const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
-  <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
-    <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
-      {formatTs(msg.ts)}
+const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
+  // For ambient bots, use their color; for users, use standard action color
+  const color = msg.isAmbientBot ? (msg.botColor ?? C.action) : C.action;
+
+  return (
+    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+        {formatTs(msg.ts)}
+        {msg.isAmbientBot && msg.botSigil && (
+          <span style={{ marginLeft: '0.5ch', color: msg.botColor, opacity: 0.7 }}>
+            {msg.botSigil}
+          </span>
+        )}
+      </div>
+      <div style={{
+        color:      color,
+        fontWeight: 'bold',
+        lineHeight: 1.7,
+        wordBreak:  'break-word',
+        opacity:    msg.isAmbientBot ? 0.92 : 1,
+      }}>
+        <span style={{ opacity: 0.6 }}>* </span>
+        <span>{msg.handle}</span>
+        <span> {msg.text}</span>
+      </div>
     </div>
-    <div style={{
-      color:      C.action,
-      fontWeight: 'bold',
-      lineHeight: 1.7,
-      wordBreak:  'break-word',
-    }}>
-      <span style={{ opacity: 0.7 }}>* </span>
-      <span>{msg.handle}</span>
-      <span> {msg.text}</span>
+  );
+};
+
+// ── AmbientBotMessage: Vestige / Lumen / Cascade ──────────────────────────────
+//
+// Normal speech renders like N1XMessage but with the bot's own color.
+// Action messages delegate to ActionMessage above.
+
+const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
+  // Delegate actions
+  if (msg.metadata?.kind === 'action') {
+    return <ActionMessage msg={msg} />;
+  }
+
+  const nameColor = msg.botColor ?? '#a0a0a0';
+  const msgColor  = msg.botColor ?? '#a0a0a0';
+  const sigil     = msg.botSigil ?? '◇';
+
+  const lines = msg.text.split('\n').filter(l => l.trim() !== '');
+
+  return (
+    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+        {formatTs(msg.ts)}
+        <span style={{ marginLeft: '0.5ch', color: nameColor, opacity: 0.7 }}>{sigil}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ color: 'rgba(51,255,51,0.4)' }}>[</span>
+          <span style={{ color: nameColor, fontStyle: 'italic' }}>{msg.handle}</span>
+          <span style={{ color: 'rgba(51,255,51,0.4)' }}>]</span>
+        </span>
+        <span style={{ color: 'rgba(51,255,51,0.4)', opacity: 0.6, flexShrink: 0 }}>&gt;</span>
+        <span style={{ color: msgColor, wordBreak: 'break-word', opacity: 0.85 }}>
+          {lines.map((line, i) =>
+            isCopyableLine(line)
+              ? <CopyLine key={i} line={line} />
+              : <span key={i} style={{ display: i > 0 ? 'block' : 'inline' }}>{line}</span>
+          )}
+        </span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ── N1XMessage ────────────────────────────────────────────────────────────────
 
@@ -361,7 +400,6 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
 // ── UserMessage ───────────────────────────────────────────────────────────────
 
 const UserMessage: React.FC<{ msg: RoomMsg; isSelf: boolean }> = ({ msg, isSelf }) => {
-  // Action messages rendered separately
   if (msg.metadata?.kind === 'action') {
     return <ActionMessage msg={msg} />;
   }
@@ -455,11 +493,6 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
 };
 
 // ── Slash command handler ─────────────────────────────────────────────────────
-//
-// Intercepts input that starts with "/". Returns true if handled (caller
-// must NOT send to Ably). Returns false if not a slash command.
-//
-// Emits local-only output via the returned JSX pushed with addLocalMsg.
 
 type LocalMsgFn = (node: React.ReactNode) => void;
 
@@ -498,7 +531,6 @@ function handleSlashCommand(
       );
       return true;
     }
-    // Publish structured action message — metadata.kind = 'action'
     send(args, { kind: 'action' });
     return true;
   }
@@ -529,15 +561,13 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   const [showBoot, setShowBoot]   = useState(true);
   const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
 
-  // Local messages are timestamped so they merge into the main list
-  // chronologically rather than pinning to the bottom.
   interface LocalEntry { id: string; ts: number; node: React.ReactNode; }
   const [localMsgs, setLocalMsgs] = useState<LocalEntry[]>([]);
 
   const isMountedRef  = useRef(true);
   const bootFiredRef  = useRef(false);
 
-  // ── Local message injector (slash cmd output, etc.) ───────────────────────
+  // ── Local message injector ────────────────────────────────────────────────
 
   const addLocalMsg = useCallback((node: React.ReactNode) => {
     if (!isMountedRef.current) return;
@@ -639,8 +669,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
   }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runMultiBoot]);
 
   // ── Re-register send when presenceNames changes ───────────────────────────
-  // activateTelnet stores the sendFn reference. We need to keep it fresh so
-  // /who always sees the current member list.
 
   useEffect(() => {
     if (mode === 'multi') {
@@ -658,6 +686,15 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       setChatMode(false);
     };
   }, []);
+
+  // ── Message renderer ──────────────────────────────────────────────────────
+
+  function renderMessage(msg: RoomMsg): React.ReactNode {
+    if (msg.isSystem)     return <SystemMsg      key={msg.id} msg={msg} />;
+    if (msg.isN1X)        return <N1XMessage      key={msg.id} msg={msg} />;
+    if (msg.isAmbientBot) return <AmbientBotMessage key={msg.id} msg={msg} />;
+    return <UserMessage key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -698,20 +735,15 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             </div>
           )}
 
-          {/* Merged display list — real messages and local slash-cmd output
-              interleaved by timestamp so /who and errors scroll up naturally */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
             {[
-              ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
-              ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
+              ...messages.map(m  => ({ id: m.id,  ts: m.ts,  kind: 'room'  as const, msg: m })),
+              ...localMsgs.map(l => ({ id: l.id,  ts: l.ts,  kind: 'local' as const, node: l.node })),
             ]
               .sort((a, b) => a.ts - b.ts)
               .map(item => {
                 if (item.kind === 'local') return <React.Fragment key={item.id}>{item.node}</React.Fragment>;
-                const msg = item.msg;
-                if (msg.isSystem) return <SystemMsg  key={msg.id} msg={msg} />;
-                if (msg.isN1X)   return <N1XMessage  key={msg.id} msg={msg} />;
-                return <UserMessage key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
+                return renderMessage(item.msg);
               })
             }
           </div>
