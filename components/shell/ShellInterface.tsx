@@ -330,7 +330,7 @@ export default function ShellInterface() {
   const [shellUser, setShellUser]   = useState<string>('ghost');
   const [shellDir, setShellDir]     = useState<string>('~');
   const [rootMode, setRootMode]     = useState(false);
-  const inputRef                    = useRef<HTMLInputElement>(null);
+  const inputRef                    = useRef<HTMLTextAreaElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
   const { history, executeCommand, navigateHistory, historyEndRef, setRequestPrompt, currentUser } = useShell();
@@ -492,6 +492,9 @@ export default function ShellInterface() {
     setCursorPos(0);
     setSuggestions([]);
     triggerGlitch();
+    setTimeout(() => {
+      if (inputRef.current) { inputRef.current.style.height = 'auto'; }
+    }, 0);
   };
 
   const handlePromptSubmit = (e: React.FormEvent) => {
@@ -505,10 +508,18 @@ export default function ShellInterface() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const resizeTextarea = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
     setCursorPos(e.target.selectionStart ?? value.length);
+    setTimeout(resizeTextarea, 0);
 
     if (value.trim()) {
       const parts = value.trim().split(/\s+/);
@@ -527,7 +538,21 @@ export default function ShellInterface() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim()) {
+        executeCommand(input);
+        setInput('');
+        setCursorPos(0);
+        setSuggestions([]);
+        triggerGlitch();
+        setTimeout(() => {
+          if (inputRef.current) { inputRef.current.style.height = 'auto'; }
+        }, 0);
+      }
+      return;
+    }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       const cmd = navigateHistory('up');
@@ -878,42 +903,44 @@ export default function ShellInterface() {
                 touchAction: 'none',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit' }}>
-                {isChatMode() ? (
-                  <NeuralBusPrompt inline />
-                ) : isMailMode() ? (
-                  <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>
-                ) : rootMode ? (
-                  <RootPrompt cwd={shellDir} inline />
-                ) : (
-                  <FishPrompt user={shellUser} cwd={shellDir} inline />
-                )}
-                {/* Input wrapper: real input overlays visual text+cursor */}
-                <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0, marginLeft: '0.25rem' }}>
-                  {/* Visual layer: text split around block cursor */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontFamily: 'inherit' }}>
+                <div style={{ paddingTop: '1px', flexShrink: 0 }}>
+                  {isChatMode() ? (
+                    <NeuralBusPrompt inline />
+                  ) : isMailMode() ? (
+                    <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>
+                  ) : rootMode ? (
+                    <RootPrompt cwd={shellDir} inline />
+                  ) : (
+                    <FishPrompt user={shellUser} cwd={shellDir} inline />
+                  )}
+                </div>
+                {/* Input wrapper: textarea overlays visual text+cursor */}
+                <div style={{ flex: 1, position: 'relative', minWidth: 0, marginLeft: '0.25rem' }}>
+                  {/* Visual layer: text split around block cursor, mirrors textarea wrapping */}
                   <div
                     aria-hidden
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      display: 'flex',
-                      alignItems: 'center',
                       pointerEvents: 'none',
                       fontFamily: 'inherit',
                       fontSize: '16px',
+                      lineHeight: '1.4',
                       color: 'var(--phosphor-green)',
-                      whiteSpace: 'pre',
-                      overflow: 'hidden',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all',
+                      overflowWrap: 'break-word',
                     }}
                   >
                     <span>{input.slice(0, cursorPos)}</span>
                     <span className="cursor" style={{ flexShrink: 0, visibility: cursorHidden ? 'hidden' : 'visible' }} />
                     <span>{input.slice(cursorPos)}</span>
                   </div>
-                  {/* Real input: captures keyboard, invisible text, no native caret */}
-                  <input
+                  {/* Real textarea: captures keyboard, invisible text, no native caret, auto-grows */}
+                  <textarea
                     ref={inputRef}
-                    type="text"
+                    rows={1}
                     value={input}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
@@ -922,13 +949,13 @@ export default function ShellInterface() {
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setCursorPos((e.target as HTMLInputElement).selectionStart ?? input.length);
+                      setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? input.length);
                     }}
                     onSelect={(e) => {
-                      setCursorPos((e.target as HTMLInputElement).selectionStart ?? input.length);
+                      setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? input.length);
                     }}
                     style={{
-                      flex: 1,
+                      display: 'block',
                       width: '100%',
                       background: 'transparent',
                       border: 'none',
@@ -936,9 +963,15 @@ export default function ShellInterface() {
                       color: 'transparent',
                       fontFamily: 'inherit',
                       fontSize: '16px',
+                      lineHeight: '1.4',
                       caretColor: 'transparent',
+                      resize: 'none',
+                      overflow: 'hidden',
+                      padding: 0,
+                      margin: 0,
                       position: 'relative',
                       zIndex: 1,
+                      minHeight: '1.4em',
                     }}
                     autoComplete="off"
                     autoCorrect="off"
