@@ -53,7 +53,7 @@ const AMBIENT_BOTS_STATIC = [
   { name: 'Cascade', color: '#a78bfa', sigil: '◆' },
 ] as const;
 
-const AMBIENT_BOT_NAMES = AMBIENT_BOTS_STATIC.map(b => b.name);
+const AMBIENT_BOT_NAMES: string[] = AMBIENT_BOTS_STATIC.map(b => b.name);
 
 function ambientBotColor(name: string): string {
   return AMBIENT_BOTS_STATIC.find(b => b.name === name)?.color ?? '#888888';
