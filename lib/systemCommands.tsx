@@ -1787,12 +1787,11 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 </div>
                 <div style={{
                   marginLeft: '1rem',
-                  opacity: 0.9,
+                  opacity: 0.85,
                   whiteSpace: 'pre-wrap',
                   fontFamily: 'inherit',
                   borderLeft: '2px solid var(--phosphor-green)',
                   paddingLeft: '0.75rem',
-                  opacity: 0.85,
                 }}>
                   {content}
                 </div>
