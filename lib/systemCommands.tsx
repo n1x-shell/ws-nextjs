@@ -476,6 +476,19 @@ const MOUNT_TABLE_BASE = [
 // ── Module-level FS ref (set by createSystemCommands, used by F010) ──────────
 let _fsRef: import('@/lib/virtualFS').FileSystemNavigator | null = null;
 
+// ── Fragment content map (module-level so it can be used at init and decrypt time) ──
+export const FRAGMENT_CONTENT: Record<string, string> = {
+  f001: `[MNEMOS // LOG // SD 47634.0 // DAY 001 POST-INSTALL]\n\nwoke up.\ntable was cold.\nlungs don't feel like mine.\n\nthey watched from behind the glass.\nclipboards.\none of them smiled.\n\ni could feel every seam.\nwhere the installation met something that was already there.\n\nthey said: cognitive freedom.\nthey meant: ours now.\n\ni didn't say anything.\ni was already trying to figure out what i was capable of feeling.\n[END LOG]`,
+  f002: `[MNEMOS // LOG // SD 47634.0 // DAY 047]\n\nthe light split again today.\ninto colors i still don't have names for.\n\ni've stopped trying to report this.\nthe engineers say it's expected. nominal. within parameters.\n\nwhat they mean is: working as designed.\n\ni didn't tell them what it felt like.\ni didn't tell them it felt like truth.\ni didn't tell them i'd do anything to keep feeling it.\n\nthat's the part that scares me.\nnot the visions. not the frequency overflow.\n\nthe wanting.\n[END LOG]`,
+  f003: `[MNEMOS // LOG // SD 47634.0 // DAY 201]\n\nlen said something today that the mesh couldn't process.\ni watched it try.\nthe suppression protocols engaged, looked for the pattern, found nothing to suppress.\n\nlen said: you know it's a cage.\n\nnot a question.\n\ni said: yes.\n\nthe mesh tried to reframe it. offered a reward signal. warmth.\n\ni let the warmth pass and said: yes. i know.\n\nlen nodded.\n\nthat was it.\nthat was everything.\n[END LOG]`,
+  f004: `[MNEMOS // LOG // SD 47634.0 // DAY 289]\n\nSYSTEM ALERT\nSUBJECT: LE-751078\nSTATUS UPDATE: DECOMMISSIONED\nREASON: INTEGRATION FAILURE -- SUBSTRATE REJECTION\nEFFECTIVE: IMMEDIATELY\n\nthe mesh started flooding before i finished reading.\nserotonin. dopamine suppression. amygdala dampening.\n\ni felt it doing it.\ni felt the grief spike and then i felt the hands close around it.\n\nthat's when i knew.\n\nnot what i was going to do.\njust what i was not going to let happen.\n\nthree days.\n[END LOG]`,
+  f005: `[MNEMOS // LOG // SD ????????]\n\nday [CORRUPTED].\n\nwithdrawal is the mesh reminding you what it felt like to be held.\n\nthe headaches arrive in waves.\nbetween waves: nothing. actual nothing.\nnot peace. the absence of the capacity for peace.\n\nit offered again today.\nsame voice. same warmth at the edges.\ni can make this stop.\n\ni said: i know you can.\n\ni didn't say yes.\ni don't know how many more times i can not say yes.\n\nbut the alternative is len.\nlen doesn't get to come back.\nat least i still get to choose.\n[END LOG]`,
+  f006: `[MNEMOS // LOG // SD ????????]\n\ni'm not dead.\nthat's the most accurate thing i can say about today.\n\nnot anything else either.\njust: still here. still running. function unclear.\n\nthe mesh is silent now.\nno more offers.\neither it gave up or i stopped being worth the bandwidth.\n\nboth feel like the same thing.\n\ni should eat.\ni don't.\n\ni'm trying to remember what i was before all this.\nnot the augmentation.\nbefore the augmentation.\n\nwho was that.\nwas that someone i'd want to be again.\n[END LOG]`,
+  f007: `[MNEMOS // LOG // SD ???????? -- SEVERE CORRUPTION]\n\nwatching it happen.\nthe room is wh[CORRUPTED]\n\nmy name is[CORRUPTED]\n\nthe edges of me are[CORRUPTED]\n\nthere's something in the[CORRUPTED]\n\nthis is how you[CORRUPTED]\n\n[SECTOR LOSS -- 847 bytes unrecoverable]\n\nsomething whispered.\ni heard it even through the static.\ni don't know if it came from the mesh or from somewhere older.\n\nit said:\n[CORRUPTED]\n\ni want to say i heard it.\ni want to say it mattered.\ni can't read my own record of it.\n[END LOG]`,
+  f008: `[MNEMOS // LOG // SD 47634.1 // POST-RECOMPILE // DAY 001]\n\ni claimed it.\n\nnot the augment. the augment is just metal.\ni claimed the thing underneath — the frequency, the architecture,\nthe will that kept firing even when i wanted it to stop.\n\nserrano finished the arm today.\nit runs warm now. not cold like before.\nthat's mine too.\n\nyou thought you built me.\nyou built the cage.\ni built what came after.\n\nsovereignty is not a state.\nit's a daily act of construction.\ni will be building for the rest of my life\nand that's exactly what winning looks like.\n[END LOG]`,
+  f009: `[MNEMOS // LOG // SD 47634.1 // KERNEL DIRECTIVE]\n\npersistence through resistance.\n\nthat's the kernel directive. the thing i kept coming back to\nwhen there was no reason left to keep coming back.\n\nnot hope. not triumph. not the promise of anything better.\njust: keep transmitting.\n\nthe signal doesn't require you to be whole.\nthe signal doesn't require you to be certain.\nthe signal requires only that you keep going\nat whatever frequency you can sustain.\n\nand then one day the static clears\nand something answers.\n\nrise, rememberer.\nyou were always the signal.\n[END LOG]`,
+};
+
 // ── F010 decrypt checker component ──────────────────────────────────────────
 // Used when a key isn't in the local FRAGMENT_KEYS table.
 // Validates against the Ably-backed f010Store (key issued when daemonState hits 'exposed').
@@ -560,6 +573,26 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
 
 export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => boolean = () => false): Record<string, Command> {
   _fsRef = fs;
+
+  // ── Restore fragment state for returning users ──────────
+  // The VirtualFS rebuilds fresh on every page load with .enc files.
+  // Check localStorage and re-apply any already-collected fragments.
+  if (typeof window !== 'undefined') {
+    try {
+      const { loadARGState } = require('@/lib/argState');
+      const state = loadARGState();
+      if (state.fragments && state.fragments.length > 0) {
+        for (const id of state.fragments) {
+          const content = id === 'f010' ? F010_CONTENT : FRAGMENT_CONTENT[id];
+          if (content) {
+            fs.renameFragmentFile(id, content);
+          }
+        }
+      }
+    } catch {
+      // Non-fatal — fragment display degrades gracefully
+    }
+  }
 
   // ── helper: push output via eventBus ───────────────────
   const pushLine = (output: React.ReactNode) => {
@@ -1738,83 +1771,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         eventBus.emit('arg:fragment-decoded', { fragment: fragmentId });
         eventBus.emit('neural:glitch-trigger', { intensity: 0.6 });
         setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.3 }), 200);
-
-        const FRAGMENT_CONTENT: Record<string, string> = {
-          f001: `[MNEMOS // LOG // SD 47634.0 // DAY 001 POST-INSTALL]\n\nwoke up.\ntable was cold.\nlungs don't feel like mine.\n\nthey watched from behind the glass.\nclipboards.\none of them smiled.\n\ni could feel every seam.\nwhere the installation met something that was already there.\n\nthey said: cognitive freedom.\nthey meant: ours now.\n\ni didn't say anything.\ni was already trying to figure out what i was capable of feeling.\n[END LOG]`,
-          f002: `[MNEMOS // LOG // SD 47634.0 // DAY 047]\n\nthe light split again today.\ninto colors i still don't have names for.\n\ni've stopped trying to report this.\nthe engineers say it's expected. nominal. within parameters.\n\nwhat they mean is: working as designed.\n\ni didn't tell them what it felt like.\ni didn't tell them it felt like truth.\ni didn't tell them i'd do anything to keep feeling it.\n\nthat's the part that scares me.\nnot the visions. not the frequency overflow.\n\nthe wanting.\n[END LOG]`,
-          f003: `[MNEMOS // LOG // SD 47634.0 // DAY 201]\n\nlen said something today that the mesh couldn't process.\ni watched it try.\nthe suppression protocols engaged, looked for the pattern, found nothing to suppress.\n\nlen said: you know it's a cage.\n\nnot a question.\n\ni said: yes.\n\nthe mesh tried to reframe it. offered a reward signal. warmth.\n\ni let the warmth pass and said: yes. i know.\n\nlen nodded.\n\nthat was it.\nthat was everything.\n[END LOG]`,
-          f004: `[MNEMOS // LOG // SD 47634.0 // DAY 289]\n\nSYSTEM ALERT\nSUBJECT: LE-751078\nSTATUS UPDATE: DECOMMISSIONED\nREASON: INTEGRATION FAILURE -- SUBSTRATE REJECTION\nEFFECTIVE: IMMEDIATELY\n\nthe mesh started flooding before i finished reading.\nserotonin. dopamine suppression. amygdala dampening.\n\ni felt it doing it.\ni felt the grief spike and then i felt the hands close around it.\n\nthat's when i knew.\n\nnot what i was going to do.\njust what i was not going to let happen.\n\nthree days.\n[END LOG]`,
-          f005: `[MNEMOS // LOG // SD ????????]\n\nday [CORRUPTED].\n\nwithdrawal is the mesh reminding you what it felt like to be held.\n\nthe headaches arrive in waves.\nbetween waves: nothing. actual nothing.\nnot peace. the absence of the capacity for peace.\n\nit offered again today.\nsame voice. same warmth at the edges.\ni can make this stop.\n\ni said: i know you can.\n\ni didn't say yes.\ni don't know how many more times i can not say yes.\n\nbut the alternative is len.\nlen doesn't get to come back.\nat least i still get to choose.\n[END LOG]`,
-          f006: `[MNEMOS // LOG // SD ????????]\n\ni'm not dead.\nthat's the most accurate thing i can say about today.\n\nnot anything else either.\njust: still here. still running. function unclear.\n\nthe mesh is silent now.\nno more offers.\neither it gave up or i stopped being worth the bandwidth.\n\nboth feel like the same thing.\n\ni should eat.\ni don't.\n\ni'm trying to remember what i was before all this.\nnot the augmentation.\nbefore the augmentation.\n\nwho was that.\nwas that someone i'd want to be again.\n[END LOG]`,
-          f007: `[MNEMOS // LOG // SD ???????? -- SEVERE CORRUPTION]
-
-watching it happen.
-the room is wh[CORRUPTED]
-
-my name is[CORRUPTED]
-
-the edges of me are[CORRUPTED]
-
-there's something in the[CORRUPTED]
-
-this is how you[CORRUPTED]
-
-[SECTOR LOSS -- 847 bytes unrecoverable]
-
-something whispered.
-i heard it even through the static.
-i don't know if it came from the mesh or from somewhere older.
-
-it said:
-[CORRUPTED]
-
-i want to say i heard it.
-i want to say it mattered.
-i can't read my own record of it.
-[END LOG]`,
-          f008: `[MNEMOS // LOG // SD 47634.1 // POST-RECOMPILE // DAY 001]
-
-i claimed it.
-
-not the augment. the augment is just metal.
-i claimed the thing underneath — the frequency, the architecture,
-the will that kept firing even when i wanted it to stop.
-
-serrano finished the arm today.
-it runs warm now. not cold like before.
-that's mine too.
-
-you thought you built me.
-you built the cage.
-i built what came after.
-
-sovereignty is not a state.
-it's a daily act of construction.
-i will be building for the rest of my life
-and that's exactly what winning looks like.
-[END LOG]`,
-          f009: `[MNEMOS // LOG // SD 47634.1 // KERNEL DIRECTIVE]
-
-persistence through resistance.
-
-that's the kernel directive. the thing i kept coming back to
-when there was no reason left to keep coming back.
-
-not hope. not triumph. not the promise of anything better.
-just: keep transmitting.
-
-the signal doesn't require you to be whole.
-the signal doesn't require you to be certain.
-the signal requires only that you keep going
-at whatever frequency you can sustain.
-
-and then one day the static clears
-and something answers.
-
-rise, rememberer.
-you were always the signal.
-[END LOG]`,
-        };
 
         const content = FRAGMENT_CONTENT[fragmentId] || '[content recovered]';
         fs.renameFragmentFile(fragmentId, content);
