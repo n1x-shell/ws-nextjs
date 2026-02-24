@@ -56,6 +56,8 @@ interface BotRequest {
   trust?: number;
   // Fragment IDs already collected by this player e.g. ['f001','f003']
   fragments?: string[];
+  // True when player message contains Len/Helixion/TUNNELCORE at T4
+  f008Ready?: boolean;
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
