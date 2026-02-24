@@ -387,6 +387,11 @@ export default function ShellInterface() {
     if (argState.hiddenUnlocked) {
       eventBus.emit('neural:hidden-unlocked');
     }
+    // Restore backup extraction — emit after ghost-unlocked so the VFS
+    // singleton is already unlocked when vfs:restore-backup fires.
+    if (argState.backupExtracted && argState.ghostUnlocked) {
+      eventBus.emit('vfs:restore-backup');
+    }
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [argState]);
 
