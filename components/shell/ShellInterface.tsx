@@ -324,6 +324,7 @@ function pathDirsOnly(rawInput: string): boolean {
 export default function ShellInterface() {
   const [input, setInput]           = useState('');
   const [cursorPos, setCursorPos]   = useState(0);
+  const [cursorHidden, setCursorHidden] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
   const [shellUser, setShellUser]   = useState<string>('ghost');
@@ -550,6 +551,9 @@ export default function ShellInterface() {
       const parts = input.trimEnd().split(/\s+/);
       const isPathCompletion = parts.length > 1;
 
+      // Hide cursor during completion to avoid it flashing mid-word
+      setCursorHidden(true);
+
       if (isPathCompletion) {
         // Replace only the last token with the completed path fragment.
         // Re-split the raw input so a trailing space registers as an empty last token.
@@ -575,6 +579,9 @@ export default function ShellInterface() {
         setCursorPos(newInput.length);
         if (suggestions.length === 1) setSuggestions([]);
       }
+
+      // Re-show cursor after paint settles
+      requestAnimationFrame(() => requestAnimationFrame(() => setCursorHidden(false)));
     }
   };
 
@@ -772,6 +779,7 @@ export default function ShellInterface() {
                     key={cmd}
                     onClick={(e) => {
                       e.stopPropagation();
+                      setCursorHidden(true);
                       const parts = input.trimEnd().split(/\s+/);
                       if (parts.length > 1) {
                         // Path completion — replace only the last token
@@ -779,6 +787,7 @@ export default function ShellInterface() {
                         rawParts[rawParts.length - 1] = cmd;
                         const newInput = rawParts.join(' ');
                         setInput(newInput);
+                        setCursorPos(newInput.length);
                         // If the selected entry is a directory, immediately show
                         // its contents so the user can keep drilling down without
                         // having to type or tap anything extra.
@@ -789,9 +798,12 @@ export default function ShellInterface() {
                           setSuggestions([]);
                         }
                       } else {
-                        setInput(cmd + ' ');
+                        const newInput = cmd + ' ';
+                        setInput(newInput);
+                        setCursorPos(newInput.length);
                         setSuggestions([]);
                       }
+                      requestAnimationFrame(() => requestAnimationFrame(() => setCursorHidden(false)));
                       inputRef.current?.focus();
                     }}
                     style={{
@@ -895,7 +907,7 @@ export default function ShellInterface() {
                     }}
                   >
                     <span>{input.slice(0, cursorPos)}</span>
-                    <span className="cursor" style={{ flexShrink: 0 }} />
+                    <span className="cursor" style={{ flexShrink: 0, visibility: cursorHidden ? 'hidden' : 'visible' }} />
                     <span>{input.slice(cursorPos)}</span>
                   </div>
                   {/* Real input: captures keyboard, invisible text, no native caret */}
