@@ -55,7 +55,7 @@ export default function InterfaceLayer() {
   const [sessionCount, setSessionCount] = useState<number>(() => {
     if (typeof window === 'undefined') return 0;
     try {
-      const raw = localStorage.getItem('n1x-arg-state');
+      const raw = localStorage.getItem('n1x_substrate');
       if (!raw) return 0;
       return JSON.parse(raw)?.sessionCount ?? 0;
     } catch { return 0; }
@@ -64,7 +64,7 @@ export default function InterfaceLayer() {
   useEffect(() => {
     const onStorage = () => {
       try {
-        const raw = localStorage.getItem('n1x-arg-state');
+        const raw = localStorage.getItem('n1x_substrate');
         if (!raw) return;
         const val = JSON.parse(raw)?.sessionCount ?? 0;
         setSessionCount(val);
