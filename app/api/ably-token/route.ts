@@ -2,6 +2,9 @@
 // Issues Ably token requests to clients. API key never leaves the server.
 // clientId '*' = wildcard; clients set their own (the player handle).
 // Without a clientId, presence.enter() throws 40012 silently.
+//
+// All tokens include n1x:mod [subscribe] so every client can receive
+// mod actions (kicks, mutes, unmutes) published by admins via /api/mod.
 
 import Ably from 'ably';
 
@@ -15,7 +18,10 @@ export async function GET() {
   try {
     const rest = new Ably.Rest(apiKey);
     const tokenRequest = await rest.auth.createTokenRequest({
-      capability: { ghost: ['publish', 'subscribe', 'presence', 'history'] },
+      capability: {
+        ghost:     ['publish', 'subscribe', 'presence', 'history'],
+        'n1x:mod': ['subscribe'],
+      },
       clientId: '*',
       ttl: 3600 * 1000,
     });
