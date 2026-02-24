@@ -9,6 +9,23 @@ import { eventBus } from '@/lib/eventBus';
 import { deactivateTelnet } from '@/lib/telnetBridge';
 import { isChatMode, setChatMode, resetConversation } from '@/components/shell/NeuralLink';
 
+// Renders [████████████░░░░░░░░] 78%
+// Bar is always 20 chars; filled + empty = 20; percentage derived from same value.
+function ProcBar({ load }: { load: number }) {
+  const BAR_WIDTH = 20;
+  const clamped  = Math.max(0, Math.min(100, load));
+  const filled   = Math.round((clamped / 100) * BAR_WIDTH);
+  const empty    = BAR_WIDTH - filled;
+  const bar      = '█'.repeat(filled) + '░'.repeat(empty);
+  const pct      = clamped.toString().padStart(3, '\u00A0') + '%'; // right-align pct in 4 chars
+
+  return (
+    <span style={{ fontFamily: 'inherit', letterSpacing: 0 }}>
+      PROC: [{bar}]{'\u00A0'}{pct}
+    </span>
+  );
+}
+
 export default function InterfaceLayer() {
   const { uptime, processorLoad, triggerGlitch } = useNeuralState();
   const screenContentRef = useRef<HTMLDivElement>(null);
@@ -279,7 +296,7 @@ export default function InterfaceLayer() {
                     className="tab-btn"
                     style={{
                       padding: '0.2rem 0.6rem',
-                      fontSize: 'var(--text-header)',  /* ← matches section headers */
+                      fontSize: 'var(--text-header)',
                       fontFamily: 'inherit',
                       background: 'transparent',
                       color: 'var(--phosphor-green)',
@@ -299,8 +316,6 @@ export default function InterfaceLayer() {
                     onTouchStart={handleHover}
                     onClick={() => {
                       if (tab.cmd) {
-                        // Always fully reset to base shell state before running tab command.
-                        // Covers both Ably mesh mode and solo NeuralLink chat mode.
                         deactivateTelnet();
                         setChatMode(false);
                         resetConversation();
@@ -346,7 +361,9 @@ export default function InterfaceLayer() {
                 <span>INTERFACE_STABLE</span>
               </div>
               <div>N1X.sh v2.0</div>
-              <div>PROC: {processorLoad}</div>
+              <div>
+                <ProcBar load={processorLoad} />
+              </div>
             </footer>
           </div>
         </div>
