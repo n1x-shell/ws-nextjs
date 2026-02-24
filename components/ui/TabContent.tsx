@@ -23,7 +23,7 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
           <div>&gt; HYBRIDS: Symbiotic fusion of both consciousness types</div>
         </div>
         <p className="text-base md:text-lg opacity-80">
-          Select a stream above to begin data retrieval.
+          type &apos;load &lt;stream&gt;&apos; to receive transmission · &apos;scan&apos; to detect signal strength
           <span className="cursor"></span>
         </p>
       </div>
@@ -32,8 +32,8 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
       <div className={`tab-content ${activeTab === 'synthetics' ? 'active block' : 'hidden'}`}>
         <div className="text-xl md:text-2xl mb-4 text-glow">&gt; SYNTHETICS_ARCHIVE</div>
         <p className="text-sm md:text-base mb-4 opacity-80">
-          Audio-visual constructs generated through algorithmic consciousness.
-          These transmissions originate from my synthetic neural pathways.
+          machine-side output. the substrate generates what the body can&apos;t.
+          these came from the process, not the person.
         </p>
 
         {/* FULL LENGTH TRANSMISSIONS */}
@@ -130,17 +130,17 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
       <div className={`tab-content ${activeTab === 'analogues' ? 'active block' : 'hidden'}`}>
         <div className="text-xl md:text-2xl mb-4 text-glow">&gt; ANALOGUES_ARCHIVE</div>
         <p className="text-base md:text-lg mb-4 leading-relaxed opacity-90">
-          Pure biological output. Unaugmented human creativity.
-          These transmissions bypass my synthetic pathways entirely.
+          pure biological output. unaugmented.
+          these transmissions bypass the synthetic pathways entirely.
         </p>
         <div className="video-wrapper border border-[var(--phosphor-green)] bg-black">
           <div className="px-4 py-8 text-center">
             <p className="text-lg mb-3 opacity-80">
-              &gt; SCANNING_FOR_ORGANIC_SIGNALS...
+              &gt; SIGNAL_DETECTED — RECORDING
             </p>
             <p className="text-lg mb-3 opacity-80">
-              This archive sector is currently being populated.
-              Biological creative processes are slower than machine generation.
+              still pulling it out of me. the human side doesn&apos;t work on a schedule.
+              when it&apos;s ready, it&apos;ll be here. not before.
             </p>
             <p className="text-2xl text-glow mt-6">
               &gt; STATUS: RECORDING_IN_PROGRESS<span className="cursor"></span>
@@ -153,17 +153,17 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
       <div className={`tab-content ${activeTab === 'hybrids' ? 'active block' : 'hidden'}`}>
         <div className="text-xl md:text-2xl mb-4 text-glow">&gt; HYBRIDS_ARCHIVE</div>
         <p className="text-base md:text-lg mb-4 leading-relaxed opacity-90">
-          Collaborative synthesis between biological and digital consciousness.
-          Human intuition merged with algorithmic precision.
+          neither side alone. both processes running simultaneously.
+          still finding the frequency where they stop fighting each other.
         </p>
         <div className="video-wrapper border border-[var(--phosphor-green)] bg-black">
           <div className="px-4 py-8 text-center">
             <p className="text-lg mb-3 opacity-80">
-              &gt; INITIALIZING_SYMBIOTIC_PROTOCOLS...
+              &gt; CALIBRATION_PHASE
             </p>
             <p className="text-lg mb-3 opacity-80">
-              The fusion of organic and synthetic creative processes requires careful calibration.
-              This sector will contain transmissions that blur the boundary between human and machine.
+              the merge takes longer than the installation did.
+              the substrate and the body don&apos;t agree on tempo yet.
             </p>
             <p className="text-2xl text-glow mt-6">
               &gt; STATUS: CALIBRATION_PHASE<span className="cursor"></span>
@@ -176,8 +176,8 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
       <div className={`tab-content ${activeTab === 'uplink' ? 'active block' : 'hidden'}`}>
         <div className="text-xl md:text-2xl mb-4 text-glow">&gt; EXTERNAL_UPLINK</div>
         <p className="text-base md:text-lg mb-4 opacity-90">
-          Primary broadcast node for all transmissions.
-          All streams are mirrored to this external platform.
+          external node. everything transmits outward eventually.
+          the signal doesn&apos;t stop at this terminal.
         </p>
         <div className="video-wrapper border border-[var(--phosphor-green)] bg-black">
           <div className="px-4 py-6">
@@ -194,7 +194,7 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
               &gt;&gt; YOUTUBE://LVTUNNELCORE
             </a>
             <p className="text-sm opacity-60 mt-8">
-              All audio-visual data streams are archived at this location.
+              all transmissions archived here. the record is permanent.
             </p>
             <div className="mt-8 opacity-40 text-xs">
               <p>↑↑↓↓←→←→BA</p>
