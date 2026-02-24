@@ -11,9 +11,10 @@ import { isChatMode, setChatMode, resetConversation } from '@/components/shell/N
 
 // Renders [████████████░░░░░░░░] 78%
 // Bar is always 20 chars; filled + empty = 20; percentage derived from same value.
-function ProcBar({ load }: { load: number }) {
+function ProcBar({ load }: { load: number | string }) {
   const BAR_WIDTH = 20;
-  const clamped  = Math.max(0, Math.min(100, load));
+  const parsed   = typeof load === 'string' ? parseFloat(load) : load;
+  const clamped  = Math.max(0, Math.min(100, isNaN(parsed) ? 0 : parsed));
   const filled   = Math.round((clamped / 100) * BAR_WIDTH);
   const empty    = BAR_WIDTH - filled;
   const bar      = '█'.repeat(filled) + '░'.repeat(empty);
