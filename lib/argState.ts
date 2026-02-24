@@ -17,11 +17,11 @@ export const TRUST_LABELS: Record<TrustLevel, string> = {
 export interface ARGState {
   arc: string;
   trust: TrustLevel;
-  fragments: string[];        // e.g. ['f001', 'f002']
+  fragments: string[];
   sessionCount: number;
-  lastContact: number;        // Date.now() timestamp
-  trust3SetAt: number;        // Date.now() when trust first reached 3, 0 if not yet
-  frequencyId: string;        // 8-char hex, generated once, never changes
+  lastContact: number;
+  trust3SetAt: number;
+  frequencyId: string;
   ghostUnlocked: boolean;
   hiddenUnlocked: boolean;
   manifestComplete: boolean;
@@ -77,7 +77,6 @@ export function startSession(): ARGState {
     lastContact: Date.now(),
   };
 
-  // T3 → T4: promote on returning visit or after 24h
   if (state.trust === 3) {
     const returningVisit = state.sessionCount > 0;
     const elapsed24h     = state.trust3SetAt > 0 && (Date.now() - state.trust3SetAt) >= 86400000;
@@ -89,9 +88,17 @@ export function startSession(): ARGState {
   return updateARGState(patch);
 }
 
+/**
+ * Increment session count on ghost channel connect.
+ * Call once per TelnetConnected mount.
+ */
+export function incrementSession(): ARGState {
+  const state = loadARGState();
+  return updateARGState({ sessionCount: state.sessionCount + 1 });
+}
+
 export function setTrust(level: TrustLevel): void {
   const patch: Partial<ARGState> = { trust: level };
-  // Record the timestamp the first time trust reaches 3
   if (level === 3) {
     const state = loadARGState();
     if (!state.trust3SetAt) patch.trust3SetAt = Date.now();
@@ -119,6 +126,40 @@ export function isFirstVisit(): boolean {
 
 export function isComplete(): boolean {
   return loadARGState().manifestComplete;
+}
+
+// ── Sigil progression ─────────────────────────────────────────────────────────
+
+export interface SigilTier {
+  sigil: string;
+  color: string;
+  name:  string;
+}
+
+interface SigilThreshold extends SigilTier {
+  threshold: number;
+}
+
+export const SIGIL_TIERS: SigilThreshold[] = [
+  { threshold: 1000, sigil: '⌬', color: '#ff4444', name: 'architect' },
+  { threshold: 500,  sigil: '☉', color: '#ffd700', name: 'solar'     },
+  { threshold: 100,  sigil: '⊛', color: '#ff00ff', name: 'deep'      },
+  { threshold: 90,   sigil: '⬢', color: '#00ffff', name: 'core'      },
+  { threshold: 80,   sigil: '✦', color: '#ffe600', name: 'star'      },
+  { threshold: 70,   sigil: '⊕', color: '#ff3366', name: 'cross'     },
+  { threshold: 60,   sigil: '◉', color: '#ff9500', name: 'pulse'     },
+  { threshold: 50,   sigil: '⬡', color: '#ff61ef', name: 'hex'       },
+  { threshold: 40,   sigil: '◈', color: '#7b61ff', name: 'lattice'   },
+  { threshold: 30,   sigil: '○', color: '#33ff33', name: 'ring'      },
+  { threshold: 20,   sigil: '◦', color: '#00e5ff', name: 'trace'     },
+  { threshold: 10,   sigil: '·', color: '#00ff99', name: 'node'      },
+];
+
+/**
+ * Returns the SigilTier for a given session count, or null for tier 0 (0–9 sessions).
+ */
+export function getPlayerSigil(sessions: number): SigilTier | null {
+  return SIGIL_TIERS.find(t => sessions >= t.threshold) ?? null;
 }
 
 // ── Room sync ─────────────────────────────────────────────────────────────────
@@ -152,7 +193,7 @@ export function mergeFromRoom(sync: RoomSync): void {
   const state = loadARGState();
   const mergedTrust = Math.max(state.trust, sync.trust) as TrustLevel;
   const mergedFragments = [...new Set([...state.fragments, ...sync.fragments])];
-  const manifestComplete = mergedFragments.length >= 10; // 9 solo + f010
+  const manifestComplete = mergedFragments.length >= 10;
   updateARGState({
     trust: mergedTrust,
     fragments: mergedFragments,
