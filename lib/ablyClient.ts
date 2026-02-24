@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Ably from 'ably';
-import { exportForRoom, mergeFromRoom, setTrust, type TrustLevel } from '@/lib/argState';
+import { exportForRoom, mergeFromRoom, setTrust, addFragment, loadARGState, getPlayerSigil, type TrustLevel } from '@/lib/argState';
 import { eventBus } from '@/lib/eventBus';
 import type { AmbientBotMessage, BotId } from '@/lib/ambientBotConfig';
 
@@ -182,7 +182,11 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const lower = text.toLowerCase();
         const hasLoreTerm = LORE_TERMS.some(term => lower.includes(term));
         if (hasLoreTerm) {
-          setTrust(1);
+          const next = { ...state, trust: 1 };
+          localStorage.setItem('n1x_substrate', JSON.stringify(next));
+          import('@/lib/eventBus').then(({ eventBus }) => {
+            eventBus.emit('arg:trust-level-change', { level: 1 });
+          });
         }
       }
     } catch { /* storage unavailable */ }
@@ -257,16 +261,10 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const triggerN1X = useCallback(async (text: string, messageId: string) => {
     const recentHistory = recentHistoryRef.current.slice(-20).join('\n');
     try {
-      // Read individual trust and fragments from localStorage ARG state
       let playerTrust = 0;
-      let playerFragments: string[] = [];
       try {
         const raw = localStorage.getItem('n1x_substrate');
-        if (raw) {
-          const state = JSON.parse(raw);
-          playerTrust     = state.trust     ?? 0;
-          playerFragments = state.fragments ?? [];
-        }
+        if (raw) playerTrust = JSON.parse(raw).trust ?? 0;
       } catch { /* ignore */ }
 
       await fetch('/api/bot', {
@@ -281,7 +279,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
           occupantCount:  handlesRef.current.length,
           recentHistory,
           trust:          playerTrust,
-          fragments:      playerFragments,
         }),
       });
     } catch { /* ghost channel unreliable by design */ }
@@ -456,20 +453,17 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         const isKeyMarker    = /FRAGMENT KEY:/i.test(text);
         const isF008Marker   = /this one isn't encoded/i.test(text);
 
-        // T3 markers — multiple paths to Contact Established
-        // Any one of these while at T2 advances trust
         const isT3Marker =
-          /LE-751078/i.test(text)          ||  // Len's subject ID
-          /iron bloom/i.test(text)         ||  // Iron Bloom Collective named
-          /third cohort/i.test(text)       ||  // Serrano's secret
-          /kael serrano/i.test(text)       ||  // Lead engineer named
-          /lucian virek/i.test(text)       ||  // Helixion CEO named
-          /mnemos v2\.7/i.test(text)      ||  // Current Helixion product
-          /workforce/i.test(text)          ||  // MNEMOS workforce deployment
-          /drainage/i.test(text)           ||  // The descent location
-          /c minor/i.test(text);               // The decommissioning chime detail
+          /LE-751078/i.test(text)         ||
+          /iron bloom/i.test(text)        ||
+          /third cohort/i.test(text)      ||
+          /kael serrano/i.test(text)      ||
+          /lucian virek/i.test(text)      ||
+          /mnemos v2\.7/i.test(text)     ||
+          /workforce/i.test(text)         ||
+          /drainage/i.test(text)          ||
+          /c minor/i.test(text);
 
-        // Only advance one level at a time — never skip steps
         let newTrust = current;
         if      (isBase64Marker && current < 2)  newTrust = 2;
         else if (isT3Marker     && current === 2) newTrust = 3;
@@ -478,6 +472,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
 
         if (newTrust !== current) {
           setTrust(newTrust as TrustLevel);
+          if (isF008Marker) addFragment('f008');
         }
       } catch { /* storage unavailable */ }
     });
