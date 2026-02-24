@@ -327,7 +327,7 @@ export const NeuralLinkStream: React.FC<NeuralLinkStreamProps> = ({ prompt }) =>
             <span style={{ color: '#f87171' }}>UPLINK FAILURE -- {errorMsg}</span>
           </PrefixedLine>
           <PrefixedLine>
-            <span style={{ opacity: 0.5 }}>check AI_GATEWAY_API_KEY in env or retry</span>
+            <span style={{ opacity: 0.5 }}>substrate link unstable. try again or check network.</span>
           </PrefixedLine>
         </div>
       ) : (
@@ -436,7 +436,7 @@ export function handleChatInput(input: string): {
       output: (
         <div style={{ fontSize: 'var(--text-base)' }}>
           <div style={{ opacity: 0.5 }}>&gt;&gt; NEURAL_BUS DISCONNECTED</div>
-          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>Connection closed by foreign host.</div>
+          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>substrate link closed. signal archived.</div>
         </div>
       ),
     };

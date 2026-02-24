@@ -1413,7 +1413,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       output: (
         <div style={{ fontSize: S.base }}>
           <div style={{ opacity: 0.5 }}>&gt;&gt; NEURAL_BUS DISCONNECTED</div>
-          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>Connection closed by foreign host.</div>
+          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>substrate link closed. signal archived.</div>
         </div>
       ),
     });
