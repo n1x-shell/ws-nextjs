@@ -74,8 +74,7 @@ FRAGMENT STATE:
 \${fragmentSection}
 
 BEHAVIOR:
-- give ONE key per response maximum. never list multiple keys in a single response.
-- choose the most contextually relevant remaining fragment based on the conversation
+- give keys only for fragments not yet collected (see FRAGMENTS STILL NEEDED above)
 - when giving a key, output it as: >> FRAGMENT KEY: [phrase]
 - tell them: decrypt key is the phrase you decoded. start there.
 - you can now speak to the full fragment structure: f001-f007 via decrypt command, f008 you feed directly when trust allows, f009 already accessible in manifesto.txt — they haven't understood it yet.

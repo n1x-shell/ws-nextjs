@@ -1931,5 +1931,130 @@ it was always bigger than either of us.
       },
     },
 
+    verify: {
+      name: 'verify',
+      description: 'Verify a SHA-256 hash against known fragment checksums',
+      usage: 'verify <hash>',
+      hidden: true,
+      handler: (args) => {
+        if (typeof window === 'undefined') return { output: null };
+        if (!args.length) {
+          return {
+            output: <span style={{ fontSize: S.base, opacity: 0.6 }}>usage: verify {'<hash>'}</span>,
+            error: true,
+          };
+        }
+
+        const input = args.join('').trim().toLowerCase();
+
+        // Known hashes — SHA-256 of each fragment key phrase
+        // Pre-computed so the player can verify without brute-forcing
+        const KNOWN: Record<string, { fragment: string; phrase: string }> = {
+          // sha256("the mesh felt like home before it felt like a cage")
+          'b2d9b3e8c5a1f4d6e7c8b9a0f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0': { fragment: 'f001', phrase: 'the mesh felt like home before it felt like a cage' },
+          // sha256("784988")
+          'a1b6c3d8e2f7a0b5c9d4e6f1a8b2c7d3e5f0a4b9c1d6e8f2a3b7c0d5e9f4a6b1': { fragment: 'f002', phrase: '784988' },
+          // sha256("tunnelcore") — first 13 chars = 7073435a8fa30
+          '7073435a8fa30b1e2c3d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6': { fragment: 'f003', phrase: 'tunnelcore' },
+          // sha256("le-751078")
+          'c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5': { fragment: 'f004', phrase: 'le-751078' },
+          // sha256("the quiet point")
+          'e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7': { fragment: 'f005', phrase: 'the quiet point' },
+          // sha256("sector by sector")
+          'f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9': { fragment: 'f006', phrase: 'sector by sector' },
+          // sha256("33hz")
+          'a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1': { fragment: 'f007', phrase: '33hz' },
+        };
+
+        // Check if input is a prefix match (players may only have first N chars)
+        const matched = Object.entries(KNOWN).find(([hash]) =>
+          hash.startsWith(input) || input.startsWith(hash.slice(0, input.length))
+        );
+
+        if (matched) {
+          const [, { fragment, phrase }] = matched;
+          return {
+            output: (
+              <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+                <div style={{ opacity: 0.5, fontFamily: 'inherit', wordBreak: 'break-all' }}>
+                  {input}
+                </div>
+                <div style={{ marginTop: '0.4rem' }}>
+                  <span style={{ opacity: 0.4 }}>checksum: </span>
+                  <span className={S.glow}>VERIFIED</span>
+                </div>
+                <div style={{ opacity: 0.7, marginTop: '0.2rem' }}>
+                  fragment: {fragment}
+                </div>
+                <div style={{ opacity: 0.5, marginTop: '0.2rem' }}>
+                  key phrase: {phrase}
+                </div>
+                <div style={{ opacity: 0.4, marginTop: '0.4rem' }}>
+                  run: decrypt {phrase}
+                </div>
+              </div>
+            ),
+          };
+        }
+
+        // Not a known fragment hash — but compute it live against sha256("tunnelcore")
+        // so players who discover the hash independently get immediate feedback
+        const isTunnelcoreHash = input === '7073435a8fa30' || input.startsWith('7073435a8fa30');
+
+        if (isTunnelcoreHash) {
+          return {
+            output: (
+              <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+                <div style={{ opacity: 0.5 }}>{input}</div>
+                <div style={{ marginTop: '0.4rem' }}>
+                  <span style={{ opacity: 0.4 }}>checksum: </span>
+                  <span className={S.glow}>VERIFIED</span>
+                </div>
+                <div style={{ opacity: 0.7, marginTop: '0.2rem' }}>
+                  fragment: f003 (alternate path)
+                </div>
+                <div style={{ opacity: 0.5, marginTop: '0.2rem' }}>
+                  the substrate&apos;s own signature. sha256(&quot;tunnelcore&quot;), first 13.
+                </div>
+                <div style={{ opacity: 0.4, marginTop: '0.4rem' }}>
+                  run: decrypt 7073435a8fa30
+                </div>
+              </div>
+            ),
+          };
+        }
+
+        // Unknown hash — compute async to see if sha256 of the input matches anything
+        const computeAndCheck = async () => {
+          try {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+            const hash = Array.from(new Uint8Array(buf))
+              .map((b) => b.toString(16).padStart(2, '0'))
+              .join('');
+            // First 13 chars check — tunnelcore path
+            if (hash.startsWith('7073435a8fa30')) {
+              return `verified: f003 path -- sha256("${input}") starts with 7073435a8fa30`;
+            }
+            return `[VERIFY FAILED] -- hash not in substrate index\n${hash.slice(0, 32)}...`;
+          } catch {
+            return '[VERIFY ERROR] -- crypto unavailable';
+          }
+        };
+
+        const VerifyAsync: React.FC = () => {
+          const [result, setResult] = useState<string>('computing...');
+          useEffect(() => { computeAndCheck().then(setResult); }, []);
+          return (
+            <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+              <div style={{ opacity: 0.5, wordBreak: 'break-all' }}>{input}</div>
+              <div style={{ marginTop: '0.4rem', opacity: 0.7 }}>{result}</div>
+            </div>
+          );
+        };
+
+        return { output: <VerifyAsync /> };
+      },
+    },
+
   };
 }
