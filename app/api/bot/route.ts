@@ -13,6 +13,7 @@ import { Redis } from '@upstash/redis';
 import {
   buildMultiplayerPrompt,
   buildUnpromptedPrompt,
+  buildChimePrompt,
   type RoomContext,
 } from '@/lib/ghostDaemonPrompt';
 import { buildTrustContext } from '@/lib/trustContext';
@@ -52,8 +53,8 @@ interface BotRequest {
   // f010 key generation (threshold hit, no dedup needed)
   checkExposed?: boolean;
 
-  // Individual player trust level (0-5) from localStorage ARG state
-  trust?: number;
+  // Chime: N1X reacts to recent conversation without being addressed
+  chime?: boolean;
   // Fragment IDs already collected by this player e.g. ['f001','f003']
   fragments?: string[];
   // True when player message contains Len/Helixion/TUNNELCORE at T4
@@ -132,6 +133,47 @@ export async function POST(req: Request) {
       text:        result.text,
       ts:          Date.now(),
       isUnprompted: true,
+    });
+    return Response.json({ ok: true });
+  }
+
+  // ── Chime — N1X reacts to conversation without being addressed ───────────
+  // No dedup, no thinking indicator. Lightweight. Client enforces ~5-msg gap.
+  if (body.chime) {
+    const ctx: RoomContext = {
+      nodes:         body.handles ?? [],
+      occupancy:     body.occupantCount ?? 0,
+      daemonState:   body.daemonState ?? 'active',
+      activityScore: 0,
+      roomTrust:     0,
+      eligibleNodes: [],
+      recentHistory: body.recentHistory ?? '',
+      triggerHandle: null,
+      userText:      null,
+    };
+
+    const result = await generateText({
+      model:           'alibaba/qwen3-max',
+      system:          buildChimePrompt(ctx),
+      messages:        [{ role: 'user', content: '[chime if you have something real to say]' }],
+      maxOutputTokens: 80,
+      temperature:     0.9,
+    });
+
+    const text = result.text.trim();
+
+    // Respect the [SILENT] signal — N1X chose not to chime
+    if (!text || text === '[SILENT]' || text.includes('[SILENT]')) {
+      return Response.json({ ok: true, silent: true });
+    }
+
+    await ch.publish('bot.message', {
+      roomId,
+      messageId: makeId(),
+      replyTo:   null,
+      text,
+      ts:        Date.now(),
+      isChime:   true,
     });
     return Response.json({ ok: true });
   }
