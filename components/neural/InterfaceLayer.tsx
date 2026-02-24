@@ -295,13 +295,9 @@ export default function InterfaceLayer() {
                   flex-shrink: 0;
                   white-space: nowrap;
                 }
-                @media (max-width: 600px) {
-                  .n1x-header-sub          { display: none; }
-                  .n1x-header-nodes        { display: none; }
-                  .n1x-header-title        { font-size: 17px; }
-                }
-                @media (max-width: 400px) {
-                  .n1x-header-session      { display: none; }
+                @media (max-width: 480px) {
+                  .n1x-header-sub   { display: none; }
+                  .n1x-header-title { font-size: 17px; }
                 }
               `}</style>
               <div className="n1x-header-inner">
@@ -312,13 +308,7 @@ export default function InterfaceLayer() {
                   </div>
                 </div>
                 <div className="n1x-header-right">
-                  &gt; RUNTIME: {formatUptime(uptime)}
-                  <span className="n1x-header-session">
-                    {'\u00A0'}|{'\u00A0'}SESSION: {sessionCount}
-                  </span>
-                  <span className="n1x-header-nodes">
-                    {'\u00A0'}|{'\u00A0'}NODES: {nodeCount}
-                  </span>
+                  <div>&gt; RUNTIME: {formatUptime(uptime)}&nbsp;|&nbsp;SESSION: {sessionCount}&nbsp;|&nbsp;NODES: {nodeCount}</div>
                 </div>
               </div>
             </header>
@@ -418,10 +408,10 @@ export default function InterfaceLayer() {
                 padding: '0.3rem 0.75rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span className="status-dot-blink" />
+                <span>N1X.sh v2.0</span>
               </div>
-              <div>N1X.sh v2.0</div>
               <div>
                 <ProcBar seed={processorLoad} />
               </div>
