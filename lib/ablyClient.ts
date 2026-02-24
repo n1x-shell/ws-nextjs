@@ -86,6 +86,11 @@ const F010_MIN_N1X_PINGS = 2;
 const PRESENCE_SETTLE_MS = 1200;
 const THINKING_CLEAR_MS  = 8000;
 
+// ── Reconnect grace period ────────────────────────────────────────────────────
+// If you reconnect within this window, suppress the bot welcome message
+// so tabbing in/out doesn't spam you with greetings.
+const REJOIN_GRACE_MS = 60 * 60 * 1000; // 1 hour
+
 function makeId(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
@@ -152,6 +157,13 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
   const recentHistoryRef = useRef<string[]>([]);
 
   const presenceSigilMapRef = useRef<Map<string, { sigil: string; sigilColor: string }>>(new Map());
+
+  // ── Reconnect tracking ────────────────────────────────────────────────────
+  // firstJoinTimeRef: timestamp of the very first successful join this session.
+  // Used to suppress bot welcome messages on reconnects within the grace period.
+  const firstJoinTimeRef = useRef<number>(0);
+  // isReconnectRef: true when connected event fires after an initial join already happened
+  const isReconnectRef   = useRef<boolean>(false);
 
   const addMessage = useCallback((msg: Omit<RoomMsg, 'id'>) => {
     if (!isMountedRef.current) return;
@@ -321,7 +333,6 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       } catch { /* ignore */ }
 
       // At T4, scan outgoing message for f008 trigger topics
-      const lower = text.toLowerCase();
       const f008Ready = playerTrust === 4 && (
         /\blen\b|le-751078/i.test(text)     ||
         /helixion/i.test(text)               ||
@@ -376,6 +387,11 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         authUrl:    `${window.location.origin}/api/ably-token`,
         authMethod: 'GET',
         clientId:   handle,
+        // Keep trying to reconnect for much longer before giving up.
+        // Default disconnectedRetryTimeout is 15s, suspendedRetryTimeout is 30s.
+        // We leave reconnect cadence fast but extend how long Ably stays patient.
+        disconnectedRetryTimeout: 15000,
+        suspendedRetryTimeout:    30000,
       });
     } catch {
       setConnectionStatus('failed');
@@ -621,7 +637,19 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       clearTimeout(connectionTimeout);
       setAblyDebug('connected');
       setConnectionStatus('connected');
-      joinedAtRef.current = Date.now();
+
+      // ── Determine if this is a fresh join or a reconnect ──────────────
+      const now = Date.now();
+      const isFirstJoin = firstJoinTimeRef.current === 0;
+      const withinGrace = !isFirstJoin && (now - firstJoinTimeRef.current) < REJOIN_GRACE_MS;
+      const suppressWelcome = !isFirstJoin && withinGrace;
+
+      if (isFirstJoin) {
+        firstJoinTimeRef.current = now;
+        joinedAtRef.current      = now;
+      }
+
+      isReconnectRef.current = !isFirstJoin;
 
       let mySigil: string | undefined;
       let mySigilColor: string | undefined;
@@ -647,7 +675,10 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         .then(() => updatePresence())
         .then(() => {
           if (isMountedRef.current) setIsConnected(true);
-          triggerAmbientBotJoin();
+          // Only trigger the bot welcome on fresh joins, not reconnects within grace period.
+          if (!suppressWelcome) {
+            triggerAmbientBotJoin();
+          }
         })
         .catch(() => { if (isMountedRef.current) setIsConnected(true); });
     });
@@ -676,11 +707,37 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       setAblyDebug(`disconnected [${err?.code ?? '?'}]: ${err?.message ?? ''} | status: ${err?.statusCode ?? '?'}`);
     });
 
+    // ── Visibility / focus listeners ──────────────────────────────────────
+    // When the browser tabs back in or regains focus, immediately attempt to
+    // reconnect if Ably dropped the WebSocket while the tab was hidden.
+    // This prevents the long reconnect delay you'd otherwise wait through.
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const state = clientRef.current?.connection.state;
+        if (state === 'disconnected' || state === 'suspended') {
+          clientRef.current?.connection.connect();
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      const state = clientRef.current?.connection.state;
+      if (state === 'disconnected' || state === 'suspended') {
+        clientRef.current?.connection.connect();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       isMountedRef.current = false;
       clearTimeout(connectionTimeout);
       if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
       if (mutedTimerRef.current)    clearTimeout(mutedTimerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       mergeFromRoom({
         trust:         exportForRoom().trust as TrustLevel,
         fragments:     [],
