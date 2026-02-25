@@ -176,7 +176,7 @@ const MatrixOverlay: React.FC = () => {
     const draw = () => {
       ctx.fillStyle = 'rgba(0,0,0,0.05)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#33ff33';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--phosphor-green').trim() || '#33ff33';
       ctx.font = `${fontSize}px monospace`;
       for (let i = 0; i < drops.length; i++) {
         ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * fontSize, drops[i] * fontSize);
@@ -197,7 +197,7 @@ const MatrixOverlay: React.FC = () => {
       onClick={() => setVisible(false)}
     >
       <canvas ref={canvasRef} style={{ display:'block', width:'100%', height:'100%' }} />
-      <div style={{ position:'absolute', bottom:'2rem', left:'50%', transform:'translateX(-50%)', color:'#33ff33', fontFamily:'monospace', fontSize:'11px', opacity:0.5 }}>
+      <div style={{ position:'absolute', bottom:'2rem', left:'50%', transform:'translateX(-50%)', color:'var(--phosphor-green)', fontFamily:'monospace', fontSize:'11px', opacity:0.5 }}>
         tap to exit
       </div>
     </div>,
@@ -654,7 +654,7 @@ export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => bo
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
               <div>/dev/hidden on /hidden type neuralfs (rw,nosuid)</div>
-              <div style={{ color: '#33ff33', marginTop: '0.25rem' }}>[OK] /hidden mounted</div>
+              <div style={{ color: 'var(--phosphor-green)', marginTop: '0.25rem' }}>[OK] /hidden mounted</div>
               <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /hidden to proceed</div>
             </div>
           </div>
@@ -679,7 +679,7 @@ export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => bo
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
               <div>/dev/ghost on /ghost type ghostfs (rw,classified)</div>
-              <div style={{ color: '#33ff33', marginTop: '0.25rem' }}>[OK] /ghost mounted</div>
+              <div style={{ color: 'var(--phosphor-green)', marginTop: '0.25rem' }}>[OK] /ghost mounted</div>
               <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /ghost to proceed</div>
             </div>
           </div>
@@ -980,7 +980,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                   <span style={{ opacity:0.6 }}>{c.proto}</span>
                   <span style={{ opacity:0.7 }}>{c.local}</span>
                   <span className={c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? S.glow : ''} style={{ opacity:0.8 }}>{c.foreign}</span>
-                  <span style={{ color: c.state==='ESTABLISHED' ? '#33ff33' : c.state==='LISTEN' ? '#ffaa00' : 'inherit', opacity:0.8 }}>{c.state}</span>
+                  <span style={{ color: c.state==='ESTABLISHED' ? 'var(--phosphor-green)' : c.state==='LISTEN' ? '#ffaa00' : 'inherit', opacity:0.8 }}>{c.state}</span>
                 </div>
               ))}
             </div>
@@ -1128,7 +1128,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
               {weeks.map((week,wi) => (
                 <div key={wi} style={{ display:'grid', gridTemplateColumns:'repeat(7, 3ch)', gap:'0 0.2rem' }}>
                   {week.map((day,di) => (
-                    <span key={di} style={{ textAlign:'center', lineHeight:1.8, background: day===today ? 'rgba(51,255,51,0.15)' : 'transparent', opacity: day===null ? 0 : day===today ? 1 : 0.7 }}>
+                    <span key={di} style={{ textAlign:'center', lineHeight:1.8, background: day===today ? 'rgba(var(--phosphor-rgb),0.15)' : 'transparent', opacity: day===null ? 0 : day===today ? 1 : 0.7 }}>
                       {day ?? ''}
                     </span>
                   ))}
@@ -1371,7 +1371,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
               <div style={{ opacity:0.5, marginBottom:'0.2rem' }}>--- {args[0]}</div>
               <div style={{ opacity:0.5, marginBottom:'0.5rem' }}>+++ {args[1]}</div>
               {changed.map((d,i) => (
-                <div key={i} style={{ color: d.type==='+' ? '#33ff33' : '#f87171', lineHeight:1.6 }}>
+                <div key={i} style={{ color: d.type==='+' ? 'var(--phosphor-green)' : '#f87171', lineHeight:1.6 }}>
                   {d.type} {d.line}
                 </div>
               ))}

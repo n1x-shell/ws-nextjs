@@ -7,6 +7,7 @@ import { eventBus } from './eventBus';
 import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
 import { createSystemCommands, setRequestPrompt, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
+import { handlePhosphor } from './phosphorCommand';
 import {
   NeuralLinkStream,
   NeuralChatSession,
@@ -154,7 +155,7 @@ function renderMailMessage(n: number): React.ReactNode {
   const msg = msgs[n - 1];
   return (
     <div style={{ fontSize: S.base }}>
-      <div style={{ borderBottom: '1px solid rgba(51,255,51,0.3)', paddingBottom: '0.4rem', marginBottom: '0.5rem' }}>
+      <div style={{ borderBottom: '1px solid rgba(var(--phosphor-rgb),0.3)', paddingBottom: '0.4rem', marginBottom: '0.5rem' }}>
         <div><span style={{ opacity: 0.5 }}>From:</span> <span style={{ color: '#ffaa00' }}>{msg.from}</span></div>
         <div><span style={{ opacity: 0.5 }}>Date:</span> {msg.date}</div>
         <div><span style={{ opacity: 0.5 }}>Subject:</span> {msg.subject}</div>
@@ -162,7 +163,7 @@ function renderMailMessage(n: number): React.ReactNode {
       <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: S.base, opacity: 0.9, lineHeight: 1.6 }}>
         {msg.body}
       </pre>
-      <div style={{ ...S.dim, marginTop: '0.5rem', borderTop: '1px solid rgba(51,255,51,0.2)', paddingTop: '0.3rem' }}>
+      <div style={{ ...S.dim, marginTop: '0.5rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.2)', paddingTop: '0.3rem' }}>
         message {n}/{msgs.length} · type a number for another · <span className={S.glow}>q</span> quit
       </div>
     </div>
@@ -437,7 +438,7 @@ export const commands: Record<string, Command> = {
                 <span
                   className={row.isDir ? S.glow : ''}
                   style={
-                    row.isSh  ? { color: '#33ff33', fontWeight: 'bold' } :
+                    row.isSh  ? { color: 'var(--phosphor-green)', fontWeight: 'bold' } :
                     row.isTgz ? { color: '#ffaa00' } :
                     !row.isDir ? { opacity: 0.9 } : {}
                   }
@@ -875,10 +876,10 @@ export const commands: Record<string, Command> = {
             &gt; SCANNING_NEURAL_STREAMS...
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div style={{ color: '#33ff33' }}>[OK] SYNTHETICS  --  9 transmissions detected</div>
+            <div style={{ color: 'var(--phosphor-green)' }}>[OK] SYNTHETICS  --  9 transmissions detected</div>
             <div style={{ color: '#ffaa00' }}>[!!] ANALOGUES   --  1 transmission detected</div>
             <div style={{ color: '#ffaa00' }}>[!!] HYBRIDS     --  Calibration phase</div>
-            <div style={{ color: '#33ff33' }}>[OK] UPLINK      --  External node active</div>
+            <div style={{ color: 'var(--phosphor-green)' }}>[OK] UPLINK      --  External node active</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>
             &apos;tracks&apos; | &apos;streams&apos; | &apos;load [stream]&apos; | &apos;next&apos; | &apos;prev&apos;
@@ -1210,6 +1211,14 @@ export const commands: Record<string, Command> = {
         ),
       };
     },
+  },
+
+  phosphor: {
+    name: 'phosphor',
+    description: 'Adjust phosphor display spectrum',
+    usage: 'phosphor [-g|-a|-o|-p|-v] [--green|--amber|--orange|--purple|--violet]',
+    hidden: true,
+    handler: (args: string[]) => handlePhosphor(args),
   },
 
   ...systemCommands,

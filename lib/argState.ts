@@ -152,7 +152,7 @@ export const SIGIL_TIERS: SigilThreshold[] = [
   { threshold: 60,   sigil: '◉', color: '#ff9500', name: 'pulse'     },
   { threshold: 50,   sigil: '⬡', color: '#ff61ef', name: 'hex'       },
   { threshold: 40,   sigil: '◈', color: '#7b61ff', name: 'lattice'   },
-  { threshold: 30,   sigil: '○', color: '#33ff33', name: 'ring'      },
+  { threshold: 30,   sigil: '○', color: 'var(--phosphor-green)', name: 'ring'      },
   { threshold: 20,   sigil: '◦', color: '#00e5ff', name: 'trace'     },
   { threshold: 10,   sigil: '·', color: '#00ff99', name: 'node'      },
 ];

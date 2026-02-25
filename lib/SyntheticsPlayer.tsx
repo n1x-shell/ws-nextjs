@@ -403,7 +403,7 @@ export default function SyntheticsPlayer() {
             background: 'rgba(0,0,0,0.78)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
-            borderTop: '1px solid rgba(51,255,51,0.35)',
+            borderTop: '1px solid rgba(var(--phosphor-rgb),0.35)',
           }}
           onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, 'panel'); }}
           onTouchEnd={(e)   => { e.stopPropagation(); handleTouchEnd(e); }}
