@@ -138,12 +138,14 @@ export default function SyntheticsPlayer() {
     return unsub;
   }, []);
 
-  // Auto-play on mount if already unlocked (returning to this stream).
+  // NOTE: We intentionally do NOT auto-play on mount even if audio was previously unlocked.
+  // Every tab visit requires an explicit tap on the PlayOverlay — no silent autoplay.
   useEffect(() => {
     if (!isAudioUnlocked()) return;
+    // Audio was unlocked in a prior session or tab — update mute state so the
+    // engine is ready, but leave playback gated behind the overlay tap.
     setMuted(false);
     audioEngine.setMuted(false);
-    setTimeout(() => playWhenReady(0), 200);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Connect AudioEngine to active <video> ─────────────────────────────────

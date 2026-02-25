@@ -115,12 +115,12 @@ export default function HybridsPlayer() {
     return unsub;
   }, []);
 
-  // ── Auto-play on mount if already unlocked ────────────────────────────────
-
+  // NOTE: We intentionally do NOT auto-play on mount even if audio was previously unlocked.
+  // Every tab visit requires an explicit tap on the PlayOverlay — no silent autoplay.
   useEffect(() => {
     if (!isAudioUnlocked()) return;
-    setMuted(false); audioEngine.setMuted(false);
-    setTimeout(() => playWhenReady(0), 200);
+    setMuted(false);
+    audioEngine.setMuted(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── AudioEngine connection ────────────────────────────────────────────────

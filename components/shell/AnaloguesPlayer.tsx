@@ -119,11 +119,12 @@ export default function AnaloguesPlayer() {
     return unsub;
   }, []);
 
+  // NOTE: We intentionally do NOT auto-play on mount even if audio was previously unlocked.
+  // Every tab visit requires an explicit tap on the PlayOverlay — no silent autoplay.
   useEffect(() => {
     if (!isAudioUnlocked()) return;
     setMuted(false);
     audioEngine.setMuted(false);
-    setTimeout(() => playWhenReady(0), 200);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
