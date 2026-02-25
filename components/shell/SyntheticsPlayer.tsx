@@ -6,101 +6,64 @@ import { TRACKS, getTrack } from '@/lib/tracks';
 import { audioEngine } from '@/lib/audioEngine';
 import { eventBus } from '@/lib/eventBus';
 
-// ── AudioGate ─────────────────────────────────────────────────────────────────
+// ── PlayOverlay ───────────────────────────────────────────────────────────────
 
-function AudioGate({ onUnlock }: { onUnlock: () => void }) {
-  const [fading,  setFading]  = useState(false);
-  const [gone,    setGone]    = useState(false);
-  const [blink,   setBlink]   = useState(true);
-
-  useEffect(() => {
-    const id = setInterval(() => setBlink(b => !b), 600);
-    return () => clearInterval(id);
-  }, []);
+function PlayOverlay({ onPlay }: { onPlay: () => void }) {
+  const [fading, setFading] = useState(false);
+  const [gone,   setGone]   = useState(false);
 
   const handle = useCallback(() => {
     if (fading || gone) return;
     setFading(true);
-    onUnlock();
-    setTimeout(() => setGone(true), 500);
-  }, [fading, gone, onUnlock]);
+    onPlay();
+    setTimeout(() => setGone(true), 400);
+  }, [fading, gone, onPlay]);
 
   if (gone) return null;
 
   return (
     <div
-      onClick={(e) => { e.stopPropagation(); handle(); }}
-      onTouchStart={(e) => { e.stopPropagation(); handle(); }}
+      onClick={(e) => { e.stopPropagation(); e.preventDefault(); handle(); }}
+      onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); handle(); }}
       style={{
         position:        'absolute',
         inset:           0,
         zIndex:          100,
-        background:      'rgba(0,0,0,0.6)',
+        background:      'rgba(0,0,0,0.45)',
         display:         'flex',
-        flexDirection:   'column',
         alignItems:      'center',
         justifyContent:  'center',
         cursor:          'pointer',
         opacity:         fading ? 0 : 1,
-        transition:      'opacity 0.5s ease',
+        transition:      'opacity 0.4s ease',
         userSelect:      'none',
         WebkitUserSelect: 'none',
       }}
     >
-      <div style={{ textAlign: 'center', padding: '2rem', maxWidth: '28ch' }}>
-        <div
-          className="text-glow-strong"
-          style={{
-            fontSize:      'clamp(1.1rem, 5vw, 1.6rem)',
-            fontFamily:    'inherit',
-            letterSpacing: '0.12em',
-            marginBottom:  '1.5rem',
-          }}
-        >
-          N1X.sh
-        </div>
-
-        <div
-          style={{
-            fontSize:      'clamp(0.55rem, 2vw, 0.72rem)',
-            fontFamily:    'inherit',
-            color:         'var(--phosphor-green)',
-            opacity:       0.5,
-            letterSpacing: '0.08em',
-            marginBottom:  '2.5rem',
-            lineHeight:    1.8,
-          }}
-        >
-          NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
-        </div>
-
+      {/* Play button */}
+      <div
+        style={{
+          width:        '5rem',
+          height:       '5rem',
+          borderRadius: '50%',
+          border:       '2px solid var(--phosphor-green)',
+          display:      'flex',
+          alignItems:   'center',
+          justifyContent: 'center',
+          boxShadow:    '0 0 24px rgba(0,255,65,0.3)',
+        }}
+      >
+        {/* Triangle */}
         <div
           style={{
-            fontSize:      'clamp(0.65rem, 2.5vw, 0.9rem)',
-            fontFamily:    'inherit',
-            color:         'var(--phosphor-green)',
-            letterSpacing: '0.1em',
-            opacity:       blink ? 1 : 0.15,
-            transition:    'opacity 0.1s',
+            width:       0,
+            height:      0,
+            borderTop:   '1rem solid transparent',
+            borderBottom:'1rem solid transparent',
+            borderLeft:  '1.6rem solid var(--phosphor-green)',
+            marginLeft:  '0.3rem',
           }}
-        >
-          &gt; TAP TO INITIALIZE AUDIO
-        </div>
-
-        <div
-          style={{
-            marginTop:     '2.5rem',
-            fontSize:      'clamp(0.5rem, 1.8vw, 0.65rem)',
-            fontFamily:    'inherit',
-            opacity:       0.25,
-            letterSpacing: '0.06em',
-            lineHeight:    1.9,
-          }}
-        >
-          <div>SUBSTRATE: tunnelcore</div>
-          <div>FREQ: 33hz</div>
-          <div>uid=784988(n1x)</div>
-        </div>
+        />
       </div>
     </div>
   );
@@ -152,6 +115,7 @@ export default function SyntheticsPlayer() {
 
   const handleGateUnlock = useCallback(() => {
     _audioUnlocked = true;
+    lastMuteToggle.current = Date.now();
     setAudioUnlocked(true);
     setMuted(false);
     audioEngine.setMuted(false);
@@ -284,13 +248,17 @@ export default function SyntheticsPlayer() {
     }
   }, [nextTrack, prevTrack]);
 
+  const lastMuteToggle = useRef(0);
+
   // ── Toggle mute on video tap (not panel) ─────────────────────────────────
 
   const handleVideoTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastMuteToggle.current < 1000) return;
+    lastMuteToggle.current = now;
     const newMuted = !muted;
     setMuted(newMuted);
     audioEngine.setMuted(newMuted);
-    // Resume AudioContext on first user gesture
     audioEngine.resume();
   }, [muted]);
 
@@ -313,7 +281,7 @@ export default function SyntheticsPlayer() {
       }}
     >
       {/* ── Audio gate — shown until first tap ───────────────────────────── */}
-      {!audioUnlocked && <AudioGate onUnlock={handleGateUnlock} />}
+      {!audioUnlocked && <PlayOverlay onPlay={handleGateUnlock} />}
 
       {/* ── Video area ───────────────────────────────────────────────────── */}
       <div
@@ -334,8 +302,7 @@ export default function SyntheticsPlayer() {
         <MuxPlayer
           ref={playerRef}
           playbackId={track.playbackId}
-          autoPlay="muted"
-          muted={muted}
+          preload="auto"
           loop={false}
           playsInline
           style={{
