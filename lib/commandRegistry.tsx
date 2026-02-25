@@ -785,15 +785,28 @@ export const commands: Record<string, Command> = {
   // ── DEAD STUB — play removed, kept to show helpful error ─────────────────
   play: {
     name: 'play',
-    description: 'Play a specific track',
-    usage: 'play <augmented|split-brain|hell-bent|gigercore>',
+    description: 'Play a specific track by number or name',
+    usage: 'play <1-9|track-name>',
     handler: (args) => {
-      if (args.length === 0) return { output: 'Usage: play <track-name>', error: true };
-      // Legacy command — redirect to synthetics player
-      const { eventBus } = require('@/lib/eventBus');
+      if (args.length === 0) {
+        eventBus.emit('shell:synthetics-open');
+        return { output: '> loading synthetics — use play <1-9> to jump to a track' };
+      }
+      const { TRACKS } = require('@/lib/tracks');
+      const raw = args[0].toLowerCase().replace(/^0+/, '');
+      const num = parseInt(raw, 10);
+      let idx = -1;
+      if (!isNaN(num) && num >= 1 && num <= TRACKS.length) {
+        idx = num - 1;
+      } else {
+        idx = TRACKS.findIndex((t: any) =>
+          t.key.includes(raw) || t.displayTitle.toLowerCase().includes(raw)
+        );
+      }
+      if (idx === -1) return { output: `Track not found: ${args[0]}`, error: true };
       eventBus.emit('shell:synthetics-open');
-      return { output: '> load synthetics — use next/prev to navigate tracks' };
-
+      setTimeout(() => eventBus.emit('audio:command', { action: 'goto', value: idx }), 50);
+      return { output: `> loading ${TRACKS[idx].displayTitle}` };
     },
   },
 
