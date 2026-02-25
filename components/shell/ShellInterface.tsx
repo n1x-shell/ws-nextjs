@@ -10,6 +10,8 @@ import { isChatMode } from '@/components/shell/NeuralLink';
 import { getTelnetHandle, onHandleChange } from '@/lib/telnetBridge';
 import { loadARGState, startSession, getTimeAway, TRUST_LABELS, ARGState } from '@/lib/argState';
 import SyntheticsPlayer from '@/components/shell/SyntheticsPlayer';
+import AnaloguesPlayer from '@/components/shell/AnaloguesPlayer';
+import HybridsPlayer from '@/components/shell/HybridsPlayer';
 
 // ── Fish prompt renderer ──────────────────────────────────────────────────────
 
@@ -332,6 +334,8 @@ export default function ShellInterface() {
   const [shellDir, setShellDir]     = useState<string>('~');
   const [rootMode, setRootMode]     = useState(false);
   const [syntheticsActive, setSyntheticsActive] = useState(false);
+  const [analoguesActive,  setAnaloguesActive]  = useState(false);
+  const [hybridActive,     setHybridActive]     = useState(false);
   const inputRef                    = useRef<HTMLTextAreaElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
@@ -377,8 +381,16 @@ export default function ShellInterface() {
   });
 
   // ── Synthetics player open/close ─────────────────────────────────────────
-  useEventBus('shell:synthetics-open',  () => setSyntheticsActive(true));
+  useEventBus('shell:synthetics-open',  () => { setSyntheticsActive(true);  setAnaloguesActive(false); setHybridActive(false); });
   useEventBus('shell:synthetics-close', () => setSyntheticsActive(false));
+
+  // ── Analogues player open/close ───────────────────────────────────────────
+  useEventBus('shell:analogues-open',  () => { setAnaloguesActive(true);  setSyntheticsActive(false); setHybridActive(false); });
+  useEventBus('shell:analogues-close', () => setAnaloguesActive(false));
+
+  // ── Hybrids player open/close ─────────────────────────────────────────────
+  useEventBus('shell:hybrids-open',  () => { setHybridActive(true);  setSyntheticsActive(false); setAnaloguesActive(false); });
+  useEventBus('shell:hybrids-close', () => setHybridActive(false));
 
   // Sync user display — dir is handled by shell:set-directory eventBus above
   useEffect(() => {
@@ -617,7 +629,7 @@ export default function ShellInterface() {
   };
 
   const handleShellClick = useCallback(() => {
-    if (!booting && !syntheticsActive) {
+    if (!booting && !syntheticsActive && !analoguesActive && !hybridActive) {
       // Don't steal focus if the user has selected text (mobile long-press)
       const selection = window.getSelection();
       if (selection && selection.toString().length > 0) return;
@@ -627,7 +639,7 @@ export default function ShellInterface() {
         inputRef.current?.focus();
       }
     }
-  }, [booting, promptState, syntheticsActive]);
+  }, [booting, promptState, syntheticsActive, analoguesActive, hybridActive]);
 
   const isPrompting = promptState !== null;
 
@@ -647,9 +659,13 @@ export default function ShellInterface() {
         <BootSequence onComplete={handleBootComplete} bootLines={bootLines} />
       ) : (
         <>
-          {/* Output pane — or synthetics player */}
+          {/* Output pane — or stream player */}
           {syntheticsActive ? (
             <SyntheticsPlayer />
+          ) : analoguesActive ? (
+            <AnaloguesPlayer />
+          ) : hybridActive ? (
+            <HybridsPlayer />
           ) : (
           <div
             ref={outputRef}
@@ -792,7 +808,7 @@ export default function ShellInterface() {
 
             <div ref={historyEndRef} />
           </div>
-          )} {/* end syntheticsActive ternary */}
+          )} {/* end stream player ternary */}
           {suggestions.length > 0 && !isPrompting && !isChatMode() && (
             <div
               style={{
