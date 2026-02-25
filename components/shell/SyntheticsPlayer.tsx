@@ -5,6 +5,7 @@ import MuxPlayer from '@mux/mux-player-react';
 import { TRACKS, getTrack } from '@/lib/tracks';
 import { audioEngine } from '@/lib/audioEngine';
 import { eventBus } from '@/lib/eventBus';
+import { isAudioUnlocked, setAudioUnlocked } from '@/lib/audioUnlock';
 
 // ── PlayOverlay ───────────────────────────────────────────────────────────────
 
@@ -78,8 +79,7 @@ interface TouchOrigin {
   zone: 'video' | 'panel';
 }
 
-// ── Module-level unlock state — persists across remounts this session ─────────
-let _audioUnlocked = false;
+// ── Module-level unlock state — now lives in lib/audioUnlock.ts ──────────────
 
 // ── SyntheticsPlayer ──────────────────────────────────────────────────────────
 
@@ -88,13 +88,35 @@ export default function SyntheticsPlayer() {
   const [lyricsOpen, setLyricsOpen]         = useState(false);
   const [muted, setMuted]                   = useState(true);
   const [transitioning, setTransitioning]   = useState(false);
-  const [audioUnlocked, setAudioUnlocked]   = useState(_audioUnlocked);
+  const [audioUnlocked, setAudioUnlockedState] = useState(isAudioUnlocked);
 
   const playerRef   = useRef<any>(null);
   const touchOrigin = useRef<TouchOrigin | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const track = getTrack(currentIndex);
+
+  // ── Poll until mux-player has loaded the new stream, then play ───────────────
+  const playWhenReady = useCallback(() => {
+    const attempt = (tries = 0) => {
+      const muxEl = document.querySelector('mux-player') as any;
+      if (!muxEl) {
+        if (tries < 20) setTimeout(() => attempt(tries + 1), 100);
+        return;
+      }
+      muxEl.muted = false;
+      // readyState >= 3 (HAVE_FUTURE_DATA) means the new stream is buffered enough
+      if (muxEl.readyState >= 3) {
+        muxEl.play?.().catch(() => {});
+      } else if (tries < 30) {
+        setTimeout(() => attempt(tries + 1), 100);
+      } else {
+        // Fallback: force play regardless
+        muxEl.play?.().catch(() => {});
+      }
+    };
+    attempt();
+  }, []);
 
   // ── Navigate tracks ────────────────────────────────────────────────────────
 
@@ -107,9 +129,8 @@ export default function SyntheticsPlayer() {
       setCurrentIndex(normalised);
       audioEngine.notifyTrackChange(normalised + 1, TRACKS[normalised].displayTitle);
       setTransitioning(false);
-      if (_audioUnlocked) {
-        const muxEl = document.querySelector('mux-player') as any;
-        if (muxEl) { muxEl.muted = false; muxEl.play?.().catch(() => {}); }
+      if (isAudioUnlocked()) {
+        playWhenReady();
       }
     }, 200);
   }, [currentIndex]);
@@ -118,9 +139,9 @@ export default function SyntheticsPlayer() {
   const prevTrack = useCallback(() => goToTrack(currentIndex - 1), [goToTrack, currentIndex]);
 
   const handleGateUnlock = useCallback(() => {
-    _audioUnlocked = true;
+    setAudioUnlocked();
     lastMuteToggle.current = Date.now();
-    setAudioUnlocked(true);
+    setAudioUnlockedState(true);
     setMuted(false);
     audioEngine.setMuted(false);
     eventBus.emit('audio:user-gesture');
@@ -142,14 +163,22 @@ export default function SyntheticsPlayer() {
 
   useEffect(() => {
     const unsub = eventBus.on('audio:user-gesture', () => {
-      _audioUnlocked = true;
-      setAudioUnlocked(true);
+      setAudioUnlocked();
+      setAudioUnlockedState(true);
       setMuted(false);
       audioEngine.setMuted(false);
       audioEngine.resume();
     });
     return unsub;
   }, []);
+
+  // ── Auto-play on mount if audio was already unlocked this session ──────────
+  useEffect(() => {
+    if (!isAudioUnlocked()) return;
+    setMuted(false);
+    audioEngine.setMuted(false);
+    setTimeout(() => playWhenReady(), 150);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── EventBus: shell commands ───────────────────────────────────────────────
 

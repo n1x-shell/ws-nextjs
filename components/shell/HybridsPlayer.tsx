@@ -5,6 +5,7 @@ import MuxPlayer from '@mux/mux-player-react';
 import { HYBRIDS_TRACKS, getHybridsTrack as getTrack } from '@/lib/tracks';
 import { audioEngine } from '@/lib/audioEngine';
 import { eventBus } from '@/lib/eventBus';
+import { isAudioUnlocked, setAudioUnlocked } from '@/lib/audioUnlock';
 
 // ── PlayOverlay ───────────────────────────────────────────────────────────────
 
@@ -77,7 +78,7 @@ interface TouchOrigin {
 }
 
 // ── Module-level unlock state — persists across remounts this session ─────────
-let _hybridsAudioUnlocked = false;
+// audio unlock state is shared via lib/audioUnlock
 
 // ── HybridsPlayer ─────────────────────────────────────────────────────────────
 
@@ -86,13 +87,33 @@ export default function HybridsPlayer() {
   const [lyricsOpen, setLyricsOpen]         = useState(false);
   const [muted, setMuted]                   = useState(true);
   const [transitioning, setTransitioning]   = useState(false);
-  const [audioUnlocked, setAudioUnlocked]   = useState(_hybridsAudioUnlocked);
+  const [audioUnlocked, setAudioUnlockedState]   = useState(isAudioUnlocked);
 
   const playerRef   = useRef<any>(null);
   const touchOrigin = useRef<TouchOrigin | null>(null);
   const lastMuteToggle = useRef(0);
 
   const track = getTrack(currentIndex);
+
+  // ── Poll until mux-player has loaded the new stream, then play ───────────────
+  const playWhenReady = useCallback(() => {
+    const attempt = (tries = 0) => {
+      const muxEl = document.querySelector('mux-player') as any;
+      if (!muxEl) {
+        if (tries < 20) setTimeout(() => attempt(tries + 1), 100);
+        return;
+      }
+      muxEl.muted = false;
+      if (muxEl.readyState >= 3) {
+        muxEl.play?.().catch(() => {});
+      } else if (tries < 30) {
+        setTimeout(() => attempt(tries + 1), 100);
+      } else {
+        muxEl.play?.().catch(() => {});
+      }
+    };
+    attempt();
+  }, []);
 
   // ── Navigate tracks ────────────────────────────────────────────────────────
 
@@ -105,9 +126,8 @@ export default function HybridsPlayer() {
       setCurrentIndex(normalised);
       audioEngine.notifyTrackChange(normalised + 1, HYBRIDS_TRACKS[normalised].displayTitle);
       setTransitioning(false);
-      if (_hybridsAudioUnlocked) {
-        const muxEl = document.querySelector('mux-player') as any;
-        if (muxEl) { muxEl.muted = false; muxEl.play?.().catch(() => {}); }
+      if (isAudioUnlocked()) {
+        playWhenReady();
       }
     }, 200);
   }, [currentIndex]);
@@ -116,9 +136,9 @@ export default function HybridsPlayer() {
   const prevTrack = useCallback(() => goToTrack(currentIndex - 1), [goToTrack, currentIndex]);
 
   const handleGateUnlock = useCallback(() => {
-    _hybridsAudioUnlocked = true;
+    setAudioUnlocked();
     lastMuteToggle.current = Date.now();
-    setAudioUnlocked(true);
+    setAudioUnlockedState(true);
     setMuted(false);
     audioEngine.setMuted(false);
     eventBus.emit('audio:user-gesture');
@@ -137,14 +157,22 @@ export default function HybridsPlayer() {
 
   useEffect(() => {
     const unsub = eventBus.on('audio:user-gesture', () => {
-      _hybridsAudioUnlocked = true;
-      setAudioUnlocked(true);
+      setAudioUnlocked();
+      setAudioUnlockedState(true);
       setMuted(false);
       audioEngine.setMuted(false);
       audioEngine.resume();
     });
     return unsub;
   }, []);
+
+  // ── Auto-play on mount if audio was already unlocked this session ──────────
+  useEffect(() => {
+    if (!isAudioUnlocked()) return;
+    setMuted(false);
+    audioEngine.setMuted(false);
+    setTimeout(() => playWhenReady(), 150);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── EventBus: shell commands ───────────────────────────────────────────────
 
