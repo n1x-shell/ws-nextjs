@@ -4,15 +4,33 @@
 
 :root {
   --phosphor-green: #33ff33;
+  --phosphor-rgb:   51, 255, 51;       
   --terminal-bg: #0a0a0a;
   --glow: #33ff33;
   --monitor-bezel: #1a1a1a;
 
-  --text-base:   10px;   /* ~10pt — body / terminal output */
-  --text-header: 12px;   /* ~12pt — section headings       */
+  --text-base:   10px;   /* ~10pt -- body / terminal output */
+  --text-header: 12px;   /* ~12pt -- section headings       */
 }
 
-/* ── CRITICAL: lock the page itself from ever scrolling ── */
+/* Phosphor spectrum shifts */
+/* Managed by useFrequencyShift + phosphor command                             */
+
+/* Amber / Orange -- P3 phosphor */
+.amber-shift {
+  --phosphor-green: #FFB000;
+  --phosphor-rgb:   255, 176, 0;
+  --glow:           #FFB000;
+}
+
+/* Violet / Purple -- synthetic spectrum */
+.violet-shift {
+  --phosphor-green: #B44FFF;
+  --phosphor-rgb:   180, 79, 255;
+  --glow:           #B44FFF;
+}
+
+/* CRITICAL: lock the page itself from ever scrolling */
 *,
 *::before,
 *::after {
@@ -47,7 +65,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Scanlines ── */
+/* Scanlines */
 @keyframes scanlines-move {
   from { transform: translateY(-50%) translateZ(0); }
   to   { transform: translateY(0%)   translateZ(0); }
@@ -82,7 +100,7 @@ body {
   backface-visibility: hidden;
 }
 
-/* ── Screen flicker ── */
+/* Screen flicker */
 @keyframes screen-flicker {
   0%,  100% { opacity: 1;    transform: translate(0,     0)     scale(1)     translateZ(0); }
   10%       { opacity: 0.93; transform: translate(-2px,  2px)   scale(1.002) translateZ(0); }
@@ -104,7 +122,7 @@ body {
   -webkit-animation: screen-flicker 0.2s ease !important;
 }
 
-/* ── RGB split glitch ── */
+/* RGB split glitch */
 @keyframes rgb-split {
   0%,  100% { text-shadow: 0 0 2px var(--phosphor-green); }
   25%       { text-shadow: -3px 0 0 #ff0051,  3px 0 0 #00d4ff, 0 0 5px var(--phosphor-green); }
@@ -124,7 +142,7 @@ body {
   -webkit-animation: rgb-split 0.3s ease !important;
 }
 
-/* ── Status dot pulse ── */
+/* Status dot pulse */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.3; }
@@ -147,7 +165,7 @@ body {
   -webkit-animation: pulse 2s ease-in-out infinite;
 }
 
-/* ── Cursor blink ── */
+/* Cursor blink */
 @keyframes blink {
   0%,  49% { opacity: 1; }
   50%, 100% { opacity: 0; }
@@ -169,12 +187,12 @@ body {
   vertical-align: text-bottom;
 }
 
-/* ── Scrollbar (only inside terminal pane) ── */
+/* Scrollbar (only inside terminal pane) */
 .shell-output::-webkit-scrollbar       { width: 4px; }
 .shell-output::-webkit-scrollbar-track { background: transparent; }
 .shell-output::-webkit-scrollbar-thumb { background: var(--phosphor-green); border-radius: 2px; }
 
-/* ── Text glow ── */
+/* Text glow */
 .text-glow {
   text-shadow: 0 0 3px var(--phosphor-green);
 }
@@ -184,45 +202,8 @@ body {
     0 0 4px var(--phosphor-green),
     0 0 8px var(--phosphor-green);
 }
-============================================================
-   PHOSPHOR SPECTRUM SHIFTS
-   Paste into app/globals.css after existing variable definitions.
-   Managed by useFrequencyShift + phosphorCommand.
-   ============================================================ */
 
-/* ── Amber / Orange ── P3 phosphor, classic oscilloscope amber ── */
-.amber-shift {
-  --phosphor-green:       #FFB000;
-  --phosphor-green-dim:   #CC8C00;
-  --phosphor-green-glow:  rgba(255, 176, 0, 0.15);
-  --text-base:            #FFB000;
-  --text-header:          #FFD966;
-  --text-dim:             #CC8C00;
-  --text-muted:           #997A00;
-  --border-color:         rgba(255, 176, 0, 0.3);
-  --border-dim:           rgba(255, 176, 0, 0.15);
-  --scanline-color:       rgba(255, 176, 0, 0.03);
-  --cursor-color:         #FFB000;
-  --selection-bg:         rgba(255, 176, 0, 0.2);
-}
-
-/* ── Violet / Purple ── synthetic spectrum, ghost frequency visible ── */
-.violet-shift {
-  --phosphor-green:       #B44FFF;
-  --phosphor-green-dim:   #8C2ECC;
-  --phosphor-green-glow:  rgba(180, 79, 255, 0.15);
-  --text-base:            #B44FFF;
-  --text-header:          #D699FF;
-  --text-dim:             #8C2ECC;
-  --text-muted:           #5C1E99;
-  --border-color:         rgba(180, 79, 255, 0.3);
-  --border-dim:           rgba(180, 79, 255, 0.15);
-  --scanline-color:       rgba(180, 79, 255, 0.03);
-  --cursor-color:         #B44FFF;
-  --selection-bg:         rgba(180, 79, 255, 0.2);
-}
-
-/* ── iOS: force GPU layers on animated elements ── */
+/* iOS: force GPU layers on animated elements */
 @supports (-webkit-touch-callout: none) {
   .scanlines,
   .screen-content {
