@@ -365,7 +365,10 @@ export const commands: Record<string, Command> = {
     description: 'Clear terminal screen',
     usage: 'clear',
     aliases: ['core'],
-    handler: () => ({ output: '', clearScreen: true }),
+    handler: () => {
+      eventBus.emit('shell:synthetics-close');
+      return { output: '', clearScreen: true };
+    },
   },
 
   ls: {
@@ -679,7 +682,12 @@ export const commands: Record<string, Command> = {
 
       const stream = streamMap[args[0].toLowerCase()];
       if (stream) {
+        // Close the synthetics player when navigating away
+        if (stream !== 'synthetics') {
+          eventBus.emit('shell:synthetics-close');
+        }
         const content = renderStreamContent(stream);
+        if (stream === 'synthetics') return { output: null };
         if (content) return { output: content };
         return { output: 'Stream content not available', error: true };
       }
@@ -688,57 +696,104 @@ export const commands: Record<string, Command> = {
     },
   },
 
+  nowplaying: {
+    name: 'nowplaying',
+    description: 'Show currently playing track',
+    usage: 'nowplaying',
+    handler: () => {
+      const { audioEngine } = require('@/lib/audioEngine');
+      const { TRACKS }      = require('@/lib/tracks');
+      const idx   = audioEngine.trackIndex;
+      const track = TRACKS[idx] ?? TRACKS[0];
+      return {
+        output: (
+          <div style={{ fontSize: S.base }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.25rem' }}>
+              &gt; NOW_PLAYING
+            </div>
+            <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
+              <div>{String(track.index).padStart(2,'0')} / {TRACKS.length}  —  {track.displayTitle}</div>
+              <div style={{ ...S.dim }}>
+                state: {audioEngine.state}  |  vol: {Math.round(audioEngine.volume * 100)}%
+                {audioEngine.muted ? '  |  MUTED' : ''}
+              </div>
+            </div>
+          </div>
+        ),
+      };
+    },
+  },
+
+  pause: {
+    name: 'pause',
+    description: 'Pause playback',
+    usage: 'pause',
+    handler: () => {
+      const { eventBus } = require('@/lib/eventBus');
+      eventBus.emit('audio:command', { action: 'pause' });
+      return { output: '> playback paused' };
+    },
+  },
+
+  resume: {
+    name: 'resume',
+    description: 'Resume playback',
+    usage: 'resume',
+    handler: () => {
+      const { eventBus } = require('@/lib/eventBus');
+      eventBus.emit('audio:command', { action: 'resume' });
+      return { output: '> playback resumed' };
+    },
+  },
+
+  volume: {
+    name: 'volume',
+    description: 'Set playback volume 0–100',
+    usage: 'volume <0-100>',
+    handler: (args) => {
+      const n = parseInt(args[0], 10);
+      if (isNaN(n) || n < 0 || n > 100) return { output: 'Usage: volume <0-100>', error: true };
+      const { eventBus } = require('@/lib/eventBus');
+      eventBus.emit('audio:command', { action: 'volume', value: n });
+      return { output: `> volume set to ${n}%` };
+    },
+  },
+
+  next: {
+    name: 'next',
+    description: 'Skip to next track',
+    usage: 'next',
+    handler: () => {
+      const { eventBus } = require('@/lib/eventBus');
+      eventBus.emit('audio:command', { action: 'next' });
+      return { output: '> loading next transmission' };
+    },
+  },
+
+  prev: {
+    name: 'prev',
+    description: 'Go to previous track',
+    usage: 'prev',
+    aliases: ['previous'],
+    handler: () => {
+      const { eventBus } = require('@/lib/eventBus');
+      eventBus.emit('audio:command', { action: 'prev' });
+      return { output: '> loading previous transmission' };
+    },
+  },
+
+  // ── DEAD STUB — play removed, kept to show helpful error ─────────────────
   play: {
     name: 'play',
     description: 'Play a specific track',
     usage: 'play <augmented|split-brain|hell-bent|gigercore>',
     handler: (args) => {
       if (args.length === 0) return { output: 'Usage: play <track-name>', error: true };
+      // Legacy command — redirect to synthetics player
+      const { eventBus } = require('@/lib/eventBus');
+      eventBus.emit('shell:synthetics-open');
+      return { output: '> load synthetics — use next/prev to navigate tracks' };
 
-      const tracks: Record<string, { title: string; id: string; description?: string }> = {
-        augmented:     { title: '[AUGMENTED] - Complete Stream',   id: 'RNcBFuhp1pY', description: 'Industrial trap metal odyssey: awakening protocol -> sovereignty achieved' },
-        'split-brain': { title: 'Split Brain (Cinematic Score)',   id: 'HQnENsnGfME' },
-        'hell-bent':   { title: 'Get Hell Bent (Cinematic Score)', id: '6Ch2n75lFok' },
-        gigercore:     { title: 'GIGERCORE',                       id: 'ocSBtaKbGIc' },
-      };
-
-      const track = tracks[args[0].toLowerCase()];
-      if (track) {
-        return {
-          output: (
-            <div style={{ marginTop: '0.5rem' }}>
-              <div className="border border-[var(--phosphor-green)] bg-black">
-                <div
-                  className={S.glow}
-                  style={{
-                    padding:      '0.4rem 0.6rem',
-                    fontSize:     S.base,
-                    background:   'rgba(51,255,51,0.05)',
-                    borderBottom: '1px solid var(--phosphor-green)',
-                  }}
-                >
-                  {track.title}
-                </div>
-                <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
-                  <iframe
-                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
-                    src={`https://www.youtube.com/embed/${track.id}`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-                {track.description && (
-                  <div style={{ padding: '0.3rem 0.6rem', fontSize: S.base, opacity: 0.7 }}>
-                    {track.description}
-                  </div>
-                )}
-              </div>
-            </div>
-          ),
-        };
-      }
-
-      return { output: `Track not found: ${args[0]}`, error: true };
     },
   },
 
@@ -747,22 +802,30 @@ export const commands: Record<string, Command> = {
     description: 'List available tracks',
     usage: 'tracks',
     aliases: ['list'],
-    handler: () => ({
-      output: (
-        <div style={{ fontSize: S.base }}>
-          <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
-            &gt; AVAILABLE_TRACKS
+    handler: () => {
+      const { TRACKS } = require('@/lib/tracks');
+      return {
+        output: (
+          <div style={{ fontSize: S.base }}>
+            <div className={S.glow} style={{ fontSize: S.header, marginBottom: '0.5rem' }}>
+              &gt; AUGMENTED — 9 TRANSMISSIONS
+            </div>
+            <div style={{ marginLeft: '1rem', lineHeight: 1.9 }}>
+              {TRACKS.map((t: any) => (
+                <div key={t.key}>
+                  <span className={S.glow}>{String(t.index).padStart(2,'0')}</span>
+                  {'  —  '}
+                  {t.displayTitle}
+                </div>
+              ))}
+            </div>
+            <div style={{ ...S.dim, marginTop: '0.5rem' }}>
+              &apos;load synthetics&apos; to open player · &apos;next&apos; · &apos;prev&apos; · &apos;nowplaying&apos;
+            </div>
           </div>
-          <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div><span className={S.glow}>augmented</span>    --  [AUGMENTED] Complete Stream</div>
-            <div><span className={S.glow}>split-brain</span>  --  Split Brain (Cinematic Score)</div>
-            <div><span className={S.glow}>hell-bent</span>    --  Get Hell Bent (Cinematic Score)</div>
-            <div><span className={S.glow}>gigercore</span>    --  GIGERCORE</div>
-          </div>
-          <div style={{ ...S.dim, marginTop: '0.5rem' }}>Use &apos;play [track-name]&apos; to load</div>
-        </div>
-      ),
-    }),
+        ),
+      };
+    },
   },
 
   streams: {
@@ -776,7 +839,7 @@ export const commands: Record<string, Command> = {
             &gt; AVAILABLE_STREAMS
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div><span className={S.glow}>synthetics</span>  --  Machine-generated compositions (4 tracks)</div>
+            <div><span className={S.glow}>synthetics</span>  --  [AUGMENTED] — 9 transmissions</div>
             <div><span className={S.glow}>analogues</span>   --  Organic creations (recording in progress)</div>
             <div><span className={S.glow}>hybrids</span>     --  Symbiotic fusion (calibration phase)</div>
             <div><span className={S.glow}>uplink</span>      --  External broadcast node</div>
@@ -798,13 +861,13 @@ export const commands: Record<string, Command> = {
             &gt; SCANNING_NEURAL_STREAMS...
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-            <div style={{ color: '#33ff33' }}>[OK] SYNTHETICS  --  4 transmissions detected</div>
+            <div style={{ color: '#33ff33' }}>[OK] SYNTHETICS  --  9 transmissions detected</div>
             <div style={{ color: '#ffaa00' }}>[!!] ANALOGUES   --  Recording in progress</div>
             <div style={{ color: '#ffaa00' }}>[!!] HYBRIDS     --  Calibration phase</div>
             <div style={{ color: '#33ff33' }}>[OK] UPLINK      --  External node active</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>
-            &apos;tracks&apos; | &apos;streams&apos; | &apos;load [stream]&apos; | &apos;play [track]&apos;
+            &apos;tracks&apos; | &apos;streams&apos; | &apos;load [stream]&apos; | &apos;next&apos; | &apos;prev&apos;
           </div>
         </div>
       ),
