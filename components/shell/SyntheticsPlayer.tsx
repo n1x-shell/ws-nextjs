@@ -107,26 +107,15 @@ export default function SyntheticsPlayer() {
       setCurrentIndex(normalised);
       audioEngine.notifyTrackChange(normalised + 1, TRACKS[normalised].displayTitle);
       setTransitioning(false);
+      if (_audioUnlocked) {
+        const muxEl = document.querySelector('mux-player') as any;
+        if (muxEl) { muxEl.muted = false; muxEl.play?.().catch(() => {}); }
+      }
     }, 200);
   }, [currentIndex]);
 
   const nextTrack = useCallback(() => goToTrack(currentIndex + 1), [goToTrack, currentIndex]);
   const prevTrack = useCallback(() => goToTrack(currentIndex - 1), [goToTrack, currentIndex]);
-
-  // ── Autoplay on track change (after gesture given) ────────────────────────
-
-  useEffect(() => {
-    if (!_audioUnlocked) return;
-    // Wait for transition + MuxPlayer hydration
-    const t = setTimeout(() => {
-      const muxEl = document.querySelector('mux-player') as any;
-      if (muxEl) {
-        muxEl.muted = false;
-        muxEl.play?.().catch(() => {});
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [currentIndex]);
 
   const handleGateUnlock = useCallback(() => {
     _audioUnlocked = true;

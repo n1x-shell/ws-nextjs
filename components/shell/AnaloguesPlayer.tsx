@@ -107,25 +107,15 @@ export default function AnaloguesPlayer() {
       setCurrentIndex(normalised);
       audioEngine.notifyTrackChange(normalised + 1, ANALOGUES_TRACKS[normalised].displayTitle);
       setTransitioning(false);
+      if (_analoguesAudioUnlocked) {
+        const muxEl = document.querySelector('mux-player') as any;
+        if (muxEl) { muxEl.muted = false; muxEl.play?.().catch(() => {}); }
+      }
     }, 200);
   }, [currentIndex]);
 
   const nextTrack = useCallback(() => goToTrack(currentIndex + 1), [goToTrack, currentIndex]);
   const prevTrack = useCallback(() => goToTrack(currentIndex - 1), [goToTrack, currentIndex]);
-
-  // ── Autoplay on track change (after gesture given) ────────────────────────
-
-  useEffect(() => {
-    if (!_analoguesAudioUnlocked) return;
-    const t = setTimeout(() => {
-      const muxEl = document.querySelector('mux-player') as any;
-      if (muxEl) {
-        muxEl.muted = false;
-        muxEl.play?.().catch(() => {});
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [currentIndex]);
 
   const handleGateUnlock = useCallback(() => {
     _analoguesAudioUnlocked = true;
