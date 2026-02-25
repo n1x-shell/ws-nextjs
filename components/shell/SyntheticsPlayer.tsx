@@ -105,6 +105,7 @@ export default function SyntheticsPlayer() {
   const currentIndexRef = useRef(currentIndex);
   // One ref per track — lets us scope querySelector to the right player element.
   const wrapperRefs     = useRef<(HTMLDivElement | null)[]>(TRACKS.map(() => null));
+  const lyricsScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
@@ -133,7 +134,7 @@ export default function SyntheticsPlayer() {
 
   // ── Navigate ──────────────────────────────────────────────────────────────
 
-  const goToTrack = useCallback((newIndex: number) => {
+  const goToTrack = useCallback((newIndex: number, keepLyrics = false) => {
     const n = ((newIndex % TRACKS.length) + TRACKS.length) % TRACKS.length;
     if (n === currentIndexRef.current) return;
 
@@ -141,10 +142,11 @@ export default function SyntheticsPlayer() {
     getMuxEl(wrapperRefs.current[currentIndexRef.current])?.pause?.();
 
     setTransitioning(true);
-    setLyricsOpen(false);
+    if (!keepLyrics) setLyricsOpen(false);
 
     setTimeout(() => {
       setCurrentIndex(n);
+      if (lyricsScrollRef.current) lyricsScrollRef.current.scrollTop = 0;
       audioEngine.notifyTrackChange(n + 1, TRACKS[n].displayTitle);
       setTransitioning(false);
 
@@ -298,7 +300,7 @@ export default function SyntheticsPlayer() {
             playbackId={t.playbackId}
             loop={false}
             playsInline
-            onEnded={() => { if (i === currentIndexRef.current) nextTrack(); }}
+            onEnded={() => { if (i === currentIndexRef.current) goToTrack(currentIndexRef.current + 1, true); }}
             style={{
               width: '100%', height: '100%',
               '--controls': 'none',

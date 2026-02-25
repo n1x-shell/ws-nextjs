@@ -89,6 +89,7 @@ export default function HybridsPlayer() {
   const lastMuteToggle  = useRef(0);
   const currentIndexRef = useRef(currentIndex);
   const wrapperRefs     = useRef<(HTMLDivElement | null)[]>(TRACKS.map(() => null));
+  const lyricsScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
@@ -110,13 +111,15 @@ export default function HybridsPlayer() {
 
   // ── Navigate tracks ────────────────────────────────────────────────────────
 
-  const goToTrack = useCallback((newIndex: number) => {
+  const goToTrack = useCallback((newIndex: number, keepLyrics = false) => {
     const n = ((newIndex % TRACKS.length) + TRACKS.length) % TRACKS.length;
     if (n === currentIndexRef.current) return;
     getMuxEl(wrapperRefs.current[currentIndexRef.current])?.pause?.();
-    setTransitioning(true); setLyricsOpen(false);
+    setTransitioning(true);
+    if (!keepLyrics) setLyricsOpen(false);
     setTimeout(() => {
       setCurrentIndex(n);
+      if (lyricsScrollRef.current) lyricsScrollRef.current.scrollTop = 0;
       audioEngine.notifyTrackChange(n + 1, TRACKS[n].displayTitle);
       setTransitioning(false);
       // Mute all non-active players imperatively so React prop changes don't interfere
@@ -256,7 +259,7 @@ export default function HybridsPlayer() {
             playbackId={t.playbackId}
             loop={false}
             playsInline
-            onEnded={() => { if (i === currentIndexRef.current) nextTrack(); }}
+            onEnded={() => { if (i === currentIndexRef.current) goToTrack(currentIndexRef.current + 1, true); }}
             style={{
               width: '100%', height: '100%',
               '--controls': 'none',
@@ -372,6 +375,7 @@ export default function HybridsPlayer() {
               flex: '1 1 0%', overflowY: 'auto', overflowX: 'hidden',
               padding: '0.5rem 1rem 2rem', WebkitOverflowScrolling: 'touch',
             }}
+            ref={lyricsScrollRef}
             onClick={(e) => e.stopPropagation()}
           >
             {track.lyrics ? (
