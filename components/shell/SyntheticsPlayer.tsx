@@ -54,6 +54,8 @@ export default function SyntheticsPlayer() {
       switch (action) {
         case 'next':    nextTrack();                       break;
         case 'prev':    prevTrack();                       break;
+        case 'goto':
+          if (typeof value === 'number') goToTrack(value); break;
         case 'pause':   audioEngine.pause();               break;
         case 'resume':  audioEngine.resume();              break;
         case 'mute':    audioEngine.setMuted(true);  setMuted(true);  break;
