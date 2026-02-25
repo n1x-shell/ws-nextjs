@@ -31,15 +31,15 @@ interface CRTPreset {
 }
 
 const CRT_PRESETS: Record<string, CRTPreset> = {
-  default: { barrelStrength: 0.22, vignetteStrength: 0.55, noiseStrength: 0.035, scanlineHard: 1, scanlineSoft: 1, phosphorOn: 1, glitchTierFloor: 0 },
-  raw:     { barrelStrength: 0.0,  vignetteStrength: 0.0,  noiseStrength: 0.0,   scanlineHard: 0, scanlineSoft: 0, phosphorOn: 0, glitchTierFloor: 0 },
-  overdrive: { barrelStrength: 0.35, vignetteStrength: 0.7, noiseStrength: 0.07, scanlineHard: 1, scanlineSoft: 1, phosphorOn: 1, glitchTierFloor: 2 },
-  ghost:   { barrelStrength: 0.45, vignetteStrength: 0.8,  noiseStrength: 0.1,   scanlineHard: 1, scanlineSoft: 1, phosphorOn: 1, glitchTierFloor: 3 },
+  default:   { barrelStrength: 0.0,  vignetteStrength: 0.30, noiseStrength: 0.018, scanlineHard: 1, scanlineSoft: 1, phosphorOn: 1, glitchTierFloor: 0 },
+  raw:       { barrelStrength: 0.0,  vignetteStrength: 0.0,  noiseStrength: 0.0,   scanlineHard: 0, scanlineSoft: 0, phosphorOn: 0, glitchTierFloor: 0 },
+  overdrive: { barrelStrength: 0.0,  vignetteStrength: 0.45, noiseStrength: 0.04,  scanlineHard: 1, scanlineSoft: 1, phosphorOn: 1, glitchTierFloor: 2 },
+  ghost:     { barrelStrength: 0.0,  vignetteStrength: 0.55, noiseStrength: 0.06,  scanlineHard: 1, scanlineSoft: 1, phosphorOn: 1, glitchTierFloor: 3 },
 };
 
 // ─── Tier decay durations (ms) ────────────────────────────────────────────────
 
-const TIER_DECAY: Record<number, number> = { 1: 500, 2: 1000, 3: 2200 };
+const TIER_DECAY: Record<number, number> = { 1: 500, 2: 1000, 3: 200 };
 
 // ─── Vertex shader ────────────────────────────────────────────────────────────
 
@@ -52,8 +52,8 @@ void main() {
 `;
 
 // ─── Fragment shader ─────────────────────────────────────────────────────────
-// Renders as a transparent overlay — alpha 0 = DOM shows through.
-// All CRT effects are semi-transparent composites on top of the terminal.
+// Transparent overlay — everything is additive or subtractive at low alpha.
+// At idle: nearly invisible. Glitch tiers escalate noticeably when triggered.
 
 const FRAG = /* glsl */`
 precision highp float;
@@ -62,7 +62,6 @@ uniform float uTime;
 uniform float uGlitchIntensity;
 uniform float uGlitchTier;
 uniform vec2  uResolution;
-uniform float uBarrelStrength;
 uniform float uVignetteStrength;
 uniform float uNoiseStrength;
 uniform float uScanlineHard;
@@ -73,7 +72,7 @@ uniform vec3  uPhosphorTint;
 
 varying vec2 vUv;
 
-// ── Noise / hash ───────────────────────────────────────────────────────────────
+// ── Hash / noise ──────────────────────────────────────────────────────────────
 float hash11(float n) { return fract(sin(n) * 43758.5453); }
 float hash21(vec2 p)  { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -87,207 +86,176 @@ float noise21(vec2 p) {
   );
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-vec4 blendOver(vec4 dst, vec4 src) {
-  float a = src.a + dst.a * (1.0 - src.a);
-  if (a < 0.0001) return vec4(0.0);
-  return vec4((src.rgb * src.a + dst.rgb * dst.a * (1.0 - src.a)) / a, a);
-}
-
 void main() {
-  vec2 uv  = vUv;
+  vec2  uv = vUv;
   float px = uv.x * uResolution.x;
-  float py = (1.0 - uv.y) * uResolution.y; // flip y for scanlines
+  float py = (1.0 - uv.y) * uResolution.y;
 
-  vec4 result = vec4(0.0);
+  // Accumulate: rgb = additive tint colour, a = darkness (black multiply)
+  // Final output: transparent where nothing happens, dark where vignette/scanlines hit.
+  vec3  tint  = vec3(0.0);
+  float dark  = 0.0;    // how much to darken (black overlay)
+  float tintA = 0.0;    // tint alpha
 
   // ── Hard scanlines ──────────────────────────────────────────────────────────
-  // 3-pixel cycle: 1.2px dark, 1.8px light. Dark band alpha varies by position.
+  // Subtle dark bands every 3px — barely there at idle
   if (uScanlineHard > 0.5) {
-    float scanPhase = mod(py, 3.0);
-    // dark band: scanPhase in [0, 1.2)
-    float hardDark = step(scanPhase, 1.2) * 0.60;
-    result = blendOver(result, vec4(0.0, 0.0, 0.0, hardDark * uScanlineHard));
+    float phase = mod(py, 3.0);
+    dark += step(phase, 1.0) * 0.18 * uScanlineHard;
   }
 
-  // ── Soft scanlines (slow-rolling luminance modulation) ──────────────────────
+  // ── Soft scanlines (very slow roll) ─────────────────────────────────────────
+  // One gentle luminance wave drifting downward
   if (uScanlineSoft > 0.5) {
-    float soft = sin(py * 0.9 - uTime * 1.5) * 0.5 + 0.5;
-    soft = pow(soft, 6.0) * 0.12;
-    result = blendOver(result, vec4(0.0, 0.0, 0.0, soft * uScanlineSoft));
+    float wave = sin(py * 0.5 - uTime * 0.4) * 0.5 + 0.5;
+    wave = pow(wave, 8.0) * 0.06;
+    dark += wave * uScanlineSoft;
   }
 
   // ── Vignette ────────────────────────────────────────────────────────────────
+  // Soft corner darkening only
   {
-    vec2 vigUv = uv * (1.0 - uv);
-    float vig  = vigUv.x * vigUv.y * 12.0;
-    vig        = pow(clamp(vig, 0.0, 1.0), 0.3);
-    float dark = (1.0 - vig) * uVignetteStrength;
-    result = blendOver(result, vec4(0.0, 0.0, 0.0, clamp(dark, 0.0, 0.88)));
+    vec2  v   = uv * (1.0 - uv);
+    float vig = pow(clamp(v.x * v.y * 16.0, 0.0, 1.0), 0.35);
+    dark += (1.0 - vig) * uVignetteStrength;
   }
 
-  // ── Corner bleed (CRT edge glow) ────────────────────────────────────────────
-  {
-    float ex  = smoothstep(0.0, 0.06, uv.x) * smoothstep(0.0, 0.06, 1.0 - uv.x);
-    float ey  = smoothstep(0.0, 0.06, uv.y) * smoothstep(0.0, 0.06, 1.0 - uv.y);
-    float edgeMask = 1.0 - (ex * ey);
-    edgeMask       = pow(clamp(edgeMask, 0.0, 1.0), 2.0) * 0.18;
-    result = blendOver(result, vec4(uPhosphorTint * 0.6, edgeMask));
-  }
-
-  // ── Phosphor subpixel mask ───────────────────────────────────────────────────
+  // ── Phosphor subpixel shimmer ────────────────────────────────────────────────
+  // RGB triad tint — extremely faint, just adds texture to the glow
   if (uPhosphorOn > 0.5) {
-    float col = mod(px, 3.0);
-    vec3 mask = col < 1.0 ? vec3(0.18, 0.0, 0.0)
-              : col < 2.0 ? vec3(0.0, 0.08, 0.0)
-              :              vec3(0.0, 0.0,  0.14);
-    result = blendOver(result, vec4(mask * uPhosphorTint, 0.018));
-  }
-
-  // ── Interference bands (slow rolling) ───────────────────────────────────────
-  {
-    float bandY = uv.y + uTime * 0.007;
-    float band  = sin(bandY * 6.2832 * 4.0) * 0.5 + 0.5;
-    band        = pow(band, 10.0) * 0.07;
-    result = blendOver(result, vec4(uPhosphorTint, band * 0.5));
+    float col  = mod(px, 3.0);
+    float r    = col < 1.0 ? 0.06 : 0.0;
+    float g    = col < 2.0 && col >= 1.0 ? 0.04 : 0.0;
+    float b    = col >= 2.0 ? 0.05 : 0.0;
+    tint  += vec3(r, g, b) * uPhosphorTint;
+    tintA  = 0.012;
   }
 
   // ── Film grain ──────────────────────────────────────────────────────────────
+  // Very fine, updates at 15fps to feel analog not digital
   {
-    vec2  grainUv   = uv * uResolution / 2.0;
-    float timeSeed  = floor(uTime * 24.0);  // 24fps grain update
-    float g         = noise21(grainUv + timeSeed * 17.0) * 2.0 - 1.0;
-    float grainSign = step(0.0, g);
-    float grainMag  = abs(g);
-    // Bright grain: green tinted. Dark grain: black.
-    vec3  grainCol  = mix(vec3(0.0), vec3(uPhosphorTint.r * 0.3, uPhosphorTint.g, uPhosphorTint.b * 0.3), grainSign);
-    result = blendOver(result, vec4(grainCol, grainMag * uNoiseStrength));
+    float seed = floor(uTime * 15.0);
+    float g    = noise21(uv * uResolution * 0.5 + seed * 13.7) * 2.0 - 1.0;
+    // Positive grain brightens slightly green-tinted, negative darkens
+    if (g > 0.0) {
+      tint  += uPhosphorTint * g * uNoiseStrength * 0.6;
+      tintA  = max(tintA, g * uNoiseStrength * 0.8);
+    } else {
+      dark  += abs(g) * uNoiseStrength * 0.4;
+    }
   }
 
-  // ── Chromatic edge fringe (even without scene texture) ──────────────────────
-  // Slight red/cyan fringe toward screen edges — physically accurate CRT lens
-  {
-    float edgeDist = length(uv - 0.5) * 2.0;
-    float fringe   = pow(max(edgeDist - 0.5, 0.0), 2.0) * 0.25;
-    result = blendOver(result, vec4(1.0, 0.0, 0.0, fringe * 0.06));  // red outer
-    result = blendOver(result, vec4(0.0, 1.0, 1.0, fringe * 0.04));  // cyan inner
+  // ── Glitch intensity — brief chromatic edge fringe on trigger ────────────────
+  if (uGlitchIntensity > 0.1) {
+    float edgeDist   = length(uv - 0.5) * 2.0;
+    float fringeZone = pow(max(edgeDist - 0.6, 0.0), 2.0) * uGlitchIntensity;
+    tint  += vec3(0.8, 0.0, 0.2) * fringeZone * 0.12;
+    tint  += vec3(0.0, 0.6, 1.0) * fringeZone * 0.08;
+    tintA  = max(tintA, fringeZone * 0.15);
   }
 
-  // ── Glitch intensity — ambient aberration boost ──────────────────────────────
-  if (uGlitchIntensity > 0.05) {
-    float edgeDist = length(uv - 0.5) * 2.0;
-    float fringeBoost = pow(max(edgeDist - 0.3, 0.0), 1.5) * uGlitchIntensity;
-    result = blendOver(result, vec4(1.0, 0.0, 0.3, fringeBoost * 0.18));
-    result = blendOver(result, vec4(0.0, 0.8, 1.0, fringeBoost * 0.12));
-  }
-
-  // ── Tier 1: micro corruption ─────────────────────────────────────────────────
+  // ── Tier 1: occasional single-line flicker ───────────────────────────────────
+  // One or two lines per frame flash briefly — reads as CRT noise
   if (uGlitchTier >= 1.0) {
-    // Single-line flicker — rare random scan lines flash color
-    float lineIdx  = floor(py / uResolution.y * 300.0);
-    float lineRand = hash21(vec2(lineIdx, floor(uTime * 12.0)));
-    if (lineRand > 0.96) {
-      float hue  = hash11(lineIdx * 3.7 + floor(uTime * 30.0));
-      vec3  col  = hue > 0.5 ? vec3(1.0, 0.0, 0.3) : vec3(0.0, 0.8, 1.0);
-      result = blendOver(result, vec4(col, 0.18 * uGlitchTier));
+    float lineIdx  = floor(py / uResolution.y * 400.0);
+    float lineRand = hash21(vec2(lineIdx, floor(uTime * 10.0)));
+    if (lineRand > 0.982) {
+      float hue = hash11(lineIdx * 5.1 + floor(uTime * 25.0));
+      vec3  col = hue > 0.5 ? vec3(0.9, 0.1, 0.3) : vec3(0.1, 0.7, 1.0);
+      tint  += col * 0.35;
+      tintA  = max(tintA, 0.10);
     }
 
-    // Micro horizontal displacement stripe (color bleed)
-    float driftLine = floor(py / uResolution.y * 80.0);
-    float drift     = hash21(vec2(driftLine, floor(uTime * 8.0)));
-    if (drift > 0.94) {
-      float t = fract(uTime * 20.0);
-      result = blendOver(result, vec4(uPhosphorTint * 0.8, 0.06 + t * 0.04));
+    // Micro colour drift on random rows
+    float rowIdx  = floor(py / uResolution.y * 60.0);
+    float rowRand = hash21(vec2(rowIdx, floor(uTime * 6.0)));
+    if (rowRand > 0.96) {
+      tint  += uPhosphorTint * 0.12;
+      tintA  = max(tintA, 0.04);
     }
   }
 
-  // ── Tier 2: block displacement + interlace ───────────────────────────────────
+  // ── Tier 2: block artifacts + VHS tracking ───────────────────────────────────
   if (uGlitchTier >= 2.0) {
-    // Block noise regions
-    float blockY    = floor(py / uResolution.y * 16.0);
-    float blockRand = hash21(vec2(blockY, floor(uTime * 6.0)));
-    if (blockRand > 0.65) {
-      float intensity = (blockRand - 0.65) / 0.35;
-
-      // Horizontal stripe — varies by block
-      float stripeStart = hash11(blockY * 2.1 + floor(uTime * 6.0));
-      float stripeEnd   = stripeStart + 0.2 + hash11(blockY * 3.7) * 0.35;
-      if (uv.x >= stripeStart && uv.x <= stripeEnd) {
-        result = blendOver(result, vec4(1.0, 0.0, 0.0, 0.10 * intensity));
+    // Horizontal block noise — sparse, contained
+    float blockY  = floor(py / uResolution.y * 20.0);
+    float bRand   = hash21(vec2(blockY, floor(uTime * 5.0)));
+    if (bRand > 0.75) {
+      float bInt  = (bRand - 0.75) / 0.25;
+      float bStart= hash11(blockY * 2.3 + floor(uTime * 5.0));
+      float bEnd  = bStart + 0.15 + hash11(blockY * 4.1) * 0.2;
+      if (uv.x >= bStart && uv.x <= bEnd) {
+        dark  += 0.22 * bInt;
+        tint  += vec3(0.8, 0.1, 0.1) * bInt * 0.15;
+        tintA  = max(tintA, 0.10 * bInt);
       }
 
-      // Interlace: every other scan line gets darkened in glitch blocks
-      if (mod(py, 2.0) < 1.0) {
-        result = blendOver(result, vec4(0.0, 0.0, 0.0, 0.35 * intensity));
-      }
+      // Interlace inside the block
+      if (mod(py, 2.0) < 1.0) dark += 0.18 * bInt;
     }
 
-    // Cyan ghost bands — slow upward drift
-    float ghostBand = sin(uTime * 2.5 + py * 0.04) * 0.5 + 0.5;
-    ghostBand = pow(ghostBand, 14.0) * 0.28;
-    result = blendOver(result, vec4(0.0, 1.0, 0.95, ghostBand * 0.45));
-
-    // VHS tracking artifact — thin bright horizontal band
-    float trackPos  = fract(uTime * 0.35);
+    // VHS tracking line — thin, fast, white
+    float trackPos  = fract(uTime * 0.28);
     float trackDist = abs(uv.y - trackPos);
-    if (trackDist < 0.004) {
-      float trackAlpha = (1.0 - trackDist / 0.004) * 0.5;
-      result = blendOver(result, vec4(1.0, 1.0, 1.0, trackAlpha));
+    if (trackDist < 0.0025) {
+      float ta = (1.0 - trackDist / 0.0025) * 0.35;
+      tint  += vec3(1.0) * ta;
+      tintA  = max(tintA, ta * 0.6);
     }
   }
 
-  // ── Tier 3: full corruption ──────────────────────────────────────────────────
+  // ── Tier 3: sync loss + screen tear ─────────────────────────────────────────
   if (uGlitchTier >= 3.0) {
-    // Vertical sync loss — image "rolls"
-    float rollSpeed = 0.8;
-    float rollY     = fract(uv.y + uTime * rollSpeed);
-    float rollBand  = abs(rollY - 0.5);
-    if (rollBand < 0.003) {
-      result = blendOver(result, vec4(1.0, 1.0, 1.0, (1.0 - rollBand / 0.003) * 0.7));
+    // Rolling sync band
+    float rollY  = fract(uv.y + uTime * 0.7);
+    float rollD  = abs(rollY - 0.5);
+    if (rollD < 0.004) {
+      float rA = (1.0 - rollD / 0.004) * 0.5;
+      tint  += vec3(1.0) * rA;
+      tintA  = max(tintA, rA * 0.7);
     }
 
-    // Screen tear — multiple slice boundaries
-    for (int i = 0; i < 3; i++) {
-      float tearY    = hash11(float(i) * 7.3 + floor(uTime * 15.0));
-      float tearDist = abs(uv.y - tearY);
-      if (tearDist < 0.002) {
-        float ta = (1.0 - tearDist / 0.002) * 0.6;
-        result = blendOver(result, vec4(1.0, 0.9, 1.0, ta));
+    // Screen tears — 2 random horizontal seams
+    for (int i = 0; i < 2; i++) {
+      float tearY = hash11(float(i) * 9.1 + floor(uTime * 12.0));
+      float tearD = abs(uv.y - tearY);
+      if (tearD < 0.0015) {
+        float ta = (1.0 - tearD / 0.0015) * 0.55;
+        tint  += vec3(0.9, 0.8, 1.0) * ta;
+        tintA  = max(tintA, ta * 0.7);
       }
     }
 
-    // Color channel separation — R left, B right
-    float sepAmt = sin(uTime * 9.0) * 0.5 + 0.5;
-    if (sepAmt > 0.6) {
-      float sep = (sepAmt - 0.6) / 0.4;
-      if (uv.x < 0.5) {
-        result = blendOver(result, vec4(1.0, 0.0, 0.0, sep * 0.07));
-      } else {
-        result = blendOver(result, vec4(0.0, 0.0, 1.0, sep * 0.07));
-      }
+    // Channel separation — R/B split at edges only
+    float sep = sin(uTime * 7.0) * 0.5 + 0.5;
+    if (sep > 0.65) {
+      float s = (sep - 0.65) / 0.35;
+      float e = pow(max(length(uv - 0.5) * 2.0 - 0.4, 0.0), 1.5);
+      tint  += vec3(s * e * 0.25, 0.0, s * e * 0.2);
+      tintA  = max(tintA, s * e * 0.08);
     }
 
-    // Phosphor burn afterimage (soft green ghost)
-    float burnPhase = fract(uTime * 0.25);
-    float burn      = (1.0 - burnPhase) * 0.12;
-    result = blendOver(result, vec4(uPhosphorTint, burn * 0.4));
-
-    // Screen-wide flicker on/off
-    float flicker = sin(uTime * 180.0) * 0.5 + 0.5;
-    if (flicker > 0.88) {
-      result = blendOver(result, vec4(uPhosphorTint * 0.2, 0.12));
+    // Wide phosphor flicker
+    float flick = sin(uTime * 140.0) * 0.5 + 0.5;
+    if (flick > 0.90) {
+      tint  += uPhosphorTint * 0.08;
+      tintA  = max(tintA, 0.06);
     }
-
-    // Noise flood
-    float flood = noise21(uv * 40.0 + uTime * 3.0);
-    result = blendOver(result, vec4(uPhosphorTint, flood * 0.08));
   }
 
-  // ── Final clamp ──────────────────────────────────────────────────────────────
-  result.rgb = clamp(result.rgb, 0.0, 1.0);
-  result.a   = clamp(result.a,   0.0, 0.94);
+  // ── Composite ────────────────────────────────────────────────────────────────
+  // dark  → black overlay (darkens underlying DOM)
+  // tint  → coloured additive overlay
+  // We output a single rgba — the browser blends this over the terminal DOM.
+  dark = clamp(dark, 0.0, 0.82);
 
-  gl_FragColor = result;
+  // Merge: tinted areas use tint colour; dark areas use black
+  float totalA = clamp(dark + tintA, 0.0, 0.88);
+  vec3  col    = totalA > 0.001
+    ? (vec3(0.0) * dark + tint * tintA) / totalA
+    : vec3(0.0);
+
+  gl_FragColor = vec4(col * totalA, totalA); // premultiplied
 }
 `;
 
@@ -308,9 +276,8 @@ export default function SignalLayerV2() {
   const uTime            = useRef(0.0);
   const uGlitchIntensity = useRef(0.0);
   const uGlitchTier      = useRef(0.0);
-  const uBarrelStrength  = useRef(0.22);
-  const uVignetteStrength= useRef(0.55);
-  const uNoiseStrength   = useRef(0.035);
+  const uVignetteStrength= useRef(0.30);
+  const uNoiseStrength   = useRef(0.018);
   const uScanlineHard    = useRef(1.0);
   const uScanlineSoft    = useRef(1.0);
   const uPhosphorOn      = useRef(1.0);
@@ -341,7 +308,6 @@ export default function SignalLayerV2() {
   const applyPreset = useCallback((name: string) => {
     const p = CRT_PRESETS[name];
     if (!p) return;
-    uBarrelStrength.current   = p.barrelStrength;
     uVignetteStrength.current = p.vignetteStrength;
     uNoiseStrength.current    = p.noiseStrength;
     uScanlineHard.current     = p.scanlineHard;
@@ -350,7 +316,6 @@ export default function SignalLayerV2() {
     tierFloor.current         = p.glitchTierFloor;
     if (materialRef.current) {
       const u = materialRef.current.uniforms;
-      u.uBarrelStrength.value   = p.barrelStrength;
       u.uVignetteStrength.value = p.vignetteStrength;
       u.uNoiseStrength.value    = p.noiseStrength;
       u.uScanlineHard.value     = p.scanlineHard;
@@ -376,7 +341,7 @@ export default function SignalLayerV2() {
     const renderer = new THREE.WebGLRenderer({
       antialias:          false,
       alpha:              true,
-      premultipliedAlpha: false,
+      premultipliedAlpha: true, // match browser compositor default — fixes Chrome stacking
       powerPreference:    'high-performance',
     });
     renderer.setSize(w, h);
@@ -400,7 +365,6 @@ export default function SignalLayerV2() {
       uGlitchIntensity:  { value: 0.0 },
       uGlitchTier:       { value: 0.0 },
       uResolution:       { value: uResolution.current },
-      uBarrelStrength:   { value: uBarrelStrength.current },
       uVignetteStrength: { value: uVignetteStrength.current },
       uNoiseStrength:    { value: uNoiseStrength.current },
       uScanlineHard:     { value: uScanlineHard.current },
@@ -499,8 +463,8 @@ export default function SignalLayerV2() {
   });
 
   useEventBus('neural:konami', () => {
-    setGlitchTier(3, 2500);
-    setTimeout(() => applyPreset('overdrive'), 2600);
+    setGlitchTier(3, 200);
+    setTimeout(() => applyPreset('overdrive'), 250);
   });
 
   useEventBus('audio:amplitude', (event) => {
