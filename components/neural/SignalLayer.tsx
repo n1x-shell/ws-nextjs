@@ -5,6 +5,13 @@ import * as PIXI from 'pixi.js';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
 
+// Phosphor tint RGB values per mode (multiplied by 0.05 in shader)
+const PHOSPHOR_TINTS: Record<string, [number, number, number]> = {
+  green:  [0.1, 0.3, 0.1],
+  amber:  [0.3, 0.18, 0.0],
+  violet: [0.2, 0.05, 0.4],
+};
+
 export default function SignalLayer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
@@ -44,6 +51,7 @@ export default function SignalLayer() {
           uniform float uTime;
           uniform float uGlitchIntensity;
           uniform vec2 uResolution;
+          uniform vec3 uPhosphorTint;
           
           vec2 curveRemapUV(vec2 uv) {
             uv = uv * 2.0 - 1.0;
@@ -89,7 +97,7 @@ export default function SignalLayer() {
             vec3 color = chromaticAberration(uv, aberrationAmount);
             color *= scanline(uv);
             color *= vignette(uv);
-            color += vec3(0.1, 0.3, 0.1) * 0.05;
+            color += uPhosphorTint * 0.05;
             
             float noiseAmount = noise(uv * uTime) * 0.015;
             color += vec3(noiseAmount);
@@ -131,9 +139,10 @@ export default function SignalLayer() {
           }),
           resources: {
             crtUniforms: {
-              uTime: { value: 0.0, type: 'f32' },
-              uGlitchIntensity: { value: 0.0, type: 'f32' },
-              uResolution: { value: [window.innerWidth, window.innerHeight], type: 'vec2<f32>' },
+              uTime:           { value: 0.0,                           type: 'f32' },
+              uGlitchIntensity:{ value: 0.0,                           type: 'f32' },
+              uResolution:     { value: [window.innerWidth, window.innerHeight], type: 'vec2<f32>' },
+              uPhosphorTint:   { value: PHOSPHOR_TINTS.green,          type: 'vec3<f32>' },
             },
           },
         });
@@ -188,6 +197,14 @@ export default function SignalLayer() {
       filterRef.current.resources.crtUniforms.uniforms.uGlitchIntensity = glitchIntensity;
     }
   }, [glitchIntensity]);
+
+  // Update shader tint when phosphor mode changes
+  useEventBus('neural:frequency-shift', (data: { mode?: string }) => {
+    if (!filterRef.current?.resources.crtUniforms) return;
+    const mode = (data?.mode ?? 'green') as string;
+    const tint = PHOSPHOR_TINTS[mode] ?? PHOSPHOR_TINTS.green;
+    filterRef.current.resources.crtUniforms.uniforms.uPhosphorTint = tint;
+  });
 
   // Listen to neural events
   useEventBus('neural:glitch-trigger', () => {

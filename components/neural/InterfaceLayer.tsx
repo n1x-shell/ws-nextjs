@@ -217,8 +217,8 @@ export default function InterfaceLayer() {
           borderRadius: '12px',
           boxShadow: `
             inset 0 0 100px rgba(0,0,0,0.9),
-            inset 0 0 20px rgba(51,255,51,0.1),
-            0 0 8px rgba(51,255,51,0.15)
+            inset 0 0 20px rgba(var(--phosphor-rgb),0.1),
+            0 0 8px rgba(var(--phosphor-rgb),0.15)
           `,
           transform: 'perspective(1000px)',
         }}
@@ -238,8 +238,8 @@ export default function InterfaceLayer() {
               ellipse at center,
               transparent 0%,
               transparent 60%,
-              rgba(51,255,51,0.05) 80%,
-              rgba(51,255,51,0.1) 100%
+              rgba(var(--phosphor-rgb),0.05) 80%,
+              rgba(var(--phosphor-rgb),0.1) 100%
             )`,
           }}
         />
@@ -289,7 +289,7 @@ export default function InterfaceLayer() {
             <header
               className="border border-[var(--phosphor-green)] n1x-header"
               style={{
-                background: 'rgba(51,255,51,0.03)',
+                background: 'rgba(var(--phosphor-rgb),0.03)',
                 flexShrink: 0,
                 padding: '0.5rem 0.75rem',
               }}
@@ -352,7 +352,7 @@ export default function InterfaceLayer() {
             <main
               className="border border-[var(--phosphor-green)]"
               style={{
-                background: 'rgba(51,255,51,0.01)',
+                background: 'rgba(var(--phosphor-rgb),0.01)',
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: 0,
@@ -367,7 +367,7 @@ export default function InterfaceLayer() {
                   gap: '0.4rem',
                   padding: '0.6rem 0.75rem 0',
                   flexShrink: 0,
-                  borderBottom: '1px solid rgba(51,255,51,0.3)',
+                  borderBottom: '1px solid rgba(var(--phosphor-rgb),0.3)',
                 }}
               >
                 {[
@@ -393,7 +393,7 @@ export default function InterfaceLayer() {
                       transition: 'background 0.15s',
                     }}
                     onMouseEnter={(e) => {
-                      (e.target as HTMLElement).style.background = 'rgba(51,255,51,0.1)';
+                      (e.target as HTMLElement).style.background = 'rgba(var(--phosphor-rgb),0.1)';
                       handleHover();
                     }}
                     onMouseLeave={(e) => {
@@ -434,7 +434,7 @@ export default function InterfaceLayer() {
             <footer
               className="border border-[var(--phosphor-green)]"
               style={{
-                background: 'rgba(51,255,51,0.03)',
+                background: 'rgba(var(--phosphor-rgb),0.03)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
