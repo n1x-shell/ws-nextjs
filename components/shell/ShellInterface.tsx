@@ -212,6 +212,20 @@ function buildBootLines(state: ARGState): [number, string][] {
 
 // ── BootSequence component ────────────────────────────────────────────────────
 
+// Glitch triggers keyed to COLD_BOOT_LINES indices — fire when that line appears
+const BOOT_GLITCH_TRIGGERS: Record<number, { tier: number; duration: number }> = {
+  0:  { tier: 1, duration: 120 },  // NeuralOS kernel — first flicker
+  7:  { tier: 1, duration: 80  },  // tunnelcore: frequency lock
+  9:  { tier: 1, duration: 100 },  // ghost: mounting deferred
+  14: { tier: 1, duration: 80  },  // memory-guard: /ghost LOCKED
+  17: { tier: 1, duration: 100 },  // neural-sync: identity matrix
+  19: { tier: 1, duration: 80  },  // crt-renderer: shader pipeline
+  22: { tier: 2, duration: 150 },  // glitch-engine: corruption standby
+  43: { tier: 1, duration: 80  },  // [OK] Started Glitch Engine
+  47: { tier: 1, duration: 80  },  // [OK] Started ghost-daemon
+  57: { tier: 1, duration: 100 },  // ghost-daemon: /ghost locked
+};
+
 function BootSequence({ onComplete, bootLines }: { 
   onComplete: () => void;
   bootLines: [number, string][];
@@ -229,17 +243,23 @@ function BootSequence({ onComplete, bootLines }: {
       totalDelay += delay;
       const t = setTimeout(() => {
         setLines(prev => [...prev, text]);
+        // Fire CRT glitch at thematic boot moments
+        const trigger = BOOT_GLITCH_TRIGGERS[i];
+        if (trigger) {
+          eventBus.emit('crt:glitch-tier', { tier: trigger.tier, duration: trigger.duration });
+        }
       }, totalDelay);
       timers.push(t);
     });
 
+    // End-of-boot flicker burst: tier 2 → tier 3 flash → tier 2 → settle
     const flickerDelay = totalDelay + 100;
     const t1 = setTimeout(() => {
       setDone(true);
-      eventBus.emit('neural:glitch-trigger', { intensity: 0.8 });
-      setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 1.0 }), 80);
-      setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.6 }), 160);
-      setTimeout(() => eventBus.emit('neural:glitch-trigger', { intensity: 0.9 }), 240);
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 80  });
+      setTimeout(() => eventBus.emit('crt:glitch-tier', { tier: 3, duration: 200 }), 80);
+      setTimeout(() => eventBus.emit('crt:glitch-tier', { tier: 2, duration: 80  }), 300);
+      setTimeout(() => eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 }), 400);
       setTimeout(() => onComplete(), 600);
     }, flickerDelay);
     timers.push(t1);
@@ -929,8 +949,7 @@ export default function ShellInterface() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontFamily: 'inherit' }}>
-                <div style={{ paddingTop: '1px', flexShrink: 0, fontSize: '16px' }}>
-
+                <div style={{ paddingTop: '1px', flexShrink: 0 }}>
                   {isChatMode() ? (
                     <NeuralBusPrompt inline />
                   ) : isMailMode() ? (
