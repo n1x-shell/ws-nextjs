@@ -858,7 +858,7 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
       {lines.slice(1).map((line, i) =>
         isCopyableLine(line)
           ? <CopyLine key={i + 1} line={line} />
-          : <div key={i + 1} style={{ color: C.n1xMsg, lineHeight: 1.7, marginTop: '0.2rem', wordBreak: 'break-word' }}>{line}</div>
+          : <div key={i + 1} style={{ color: C.n1xMsg, lineHeight: 1.7, marginTop: '0.75rem', wordBreak: 'break-word' }}>{line}</div>
       )}
     </div>
   );
@@ -897,7 +897,7 @@ const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
         </span>
       </div>
       {msg.text.split('\n').filter(l => l.trim() !== '').slice(1).map((line, i) => (
-        <div key={i} style={{ color, opacity: 0.9, lineHeight: 1.7, marginTop: '0.2rem', wordBreak: 'break-word' }}>{line}</div>
+        <div key={i} style={{ color, opacity: 0.9, lineHeight: 1.7, marginTop: '0.75rem', wordBreak: 'break-word' }}>{line}</div>
       ))}
     </div>
   );
