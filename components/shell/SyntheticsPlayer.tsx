@@ -200,7 +200,7 @@ export default function SyntheticsPlayer() {
             '--controls':           'none',
             '--media-primary-color': 'var(--phosphor-green)',
             '--media-background-color': '#000',
-          } as React.CSSProperties}
+          } as any}
         />
 
         {/* Mute indicator flash */}
