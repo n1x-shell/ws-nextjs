@@ -44,7 +44,7 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
           <div className="video-wrapper my-4 border border-[var(--phosphor-green)] bg-black">
             <div 
               className="video-title p-2.5 text-lg text-glow"
-              style={{ background: 'rgba(51, 255, 51, 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
+              style={{ background: 'rgba(var(--phosphor-rgb), 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
             >
               [AUGMENTED] - Complete Stream
             </div>
@@ -70,7 +70,7 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
           <div className="video-wrapper my-4 border border-[var(--phosphor-green)] bg-black">
             <div 
               className="video-title p-2.5 text-lg text-glow"
-              style={{ background: 'rgba(51, 255, 51, 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
+              style={{ background: 'rgba(var(--phosphor-rgb), 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
             >
               Split Brain (Cinematic Score)
             </div>
@@ -87,7 +87,7 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
           <div className="video-wrapper my-4 border border-[var(--phosphor-green)] bg-black">
             <div 
               className="video-title p-2.5 text-lg text-glow"
-              style={{ background: 'rgba(51, 255, 51, 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
+              style={{ background: 'rgba(var(--phosphor-rgb), 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
             >
               Get Hell Bent (Cinematic Score)
             </div>
@@ -110,7 +110,7 @@ export default function TabContent({ activeTab, konamiActivated }: TabContentPro
           <div className="video-wrapper my-4 border border-[var(--phosphor-green)] bg-black">
             <div 
               className="video-title p-2.5 text-lg text-glow"
-              style={{ background: 'rgba(51, 255, 51, 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
+              style={{ background: 'rgba(var(--phosphor-rgb), 0.05)', borderBottom: '1px solid var(--phosphor-green)' }}
             >
               GIGERCORE
             </div>
