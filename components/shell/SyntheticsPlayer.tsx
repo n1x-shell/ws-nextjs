@@ -6,58 +6,7 @@ import { TRACKS, getTrack } from '@/lib/tracks';
 import { audioEngine } from '@/lib/audioEngine';
 import { eventBus } from '@/lib/eventBus';
 import { isAudioUnlocked, setAudioUnlocked } from '@/lib/audioUnlock';
-
-// ── PlayOverlay ───────────────────────────────────────────────────────────────
-
-function PlayOverlay({ onPlay }: { onPlay: () => void }) {
-  const [fading, setFading] = useState(false);
-  const [gone,   setGone]   = useState(false);
-
-  const handle = useCallback(() => {
-    if (fading || gone) return;
-    setFading(true);
-    onPlay();
-    setTimeout(() => setGone(true), 400);
-  }, [fading, gone, onPlay]);
-
-  if (gone) return null;
-
-  return (
-    <div
-      onClick={(e) => { e.stopPropagation(); e.preventDefault(); handle(); }}
-      onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); handle(); }}
-      style={{
-        position:        'absolute',
-        inset:           0,
-        zIndex:          100,
-        background:      'rgba(0,0,0,0.45)',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        cursor:          'pointer',
-        opacity:         fading ? 0 : 1,
-        transition:      'opacity 0.4s ease',
-        userSelect:      'none',
-        WebkitUserSelect: 'none',
-      }}
-    >
-      <div style={{
-        width: '5rem', height: '5rem', borderRadius: '50%',
-        border: '2px solid var(--phosphor-green)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 0 24px rgba(0,255,65,0.3)',
-      }}>
-        <div style={{
-          width: 0, height: 0,
-          borderTop: '1rem solid transparent',
-          borderBottom: '1rem solid transparent',
-          borderLeft: '1.6rem solid var(--phosphor-green)',
-          marginLeft: '0.3rem',
-        }} />
-      </div>
-    </div>
-  );
-}
+import { PlayOverlay } from './PlayOverlay';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -282,7 +231,14 @@ export default function SyntheticsPlayer() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: '#000', position: 'relative', overflow: 'hidden',
     }}>
-      {!audioUnlocked && <PlayOverlay onPlay={handleGateUnlock} />}
+      {!audioUnlocked && (
+        <PlayOverlay
+          onPlay={handleGateUnlock}
+          line1="⚠ SYNTHETIC TRANSMISSION"
+          line2="AUGMENTED CONSCIOUSNESS EXPORT"
+          line3="FREQ: 33hz // SUBSTRATE: ACTIVE"
+        />
+      )}
 
       {/* ── Persistent player pool — ALL tracks rendered, only active is visible ── */}
       {TRACKS.map((t, i) => (
