@@ -1176,12 +1176,84 @@ export const commands: Record<string, Command> = {
   glitch: {
     name: 'glitch',
     description: 'Trigger system glitch',
-    usage: 'glitch [intensity]',
+    usage: 'glitch [intensity|tier <1|2|3>]',
     hidden: true,
     handler: (args) => {
+      if (args[0] === 'tier') {
+        const tier = parseInt(args[1] ?? '1', 10);
+        if (isNaN(tier) || tier < 0 || tier > 3) {
+          return { output: 'usage: glitch tier <0|1|2|3>', error: true };
+        }
+        eventBus.emit('crt:glitch-tier', { tier });
+        return { output: `glitch tier ${tier} initiated` };
+      }
       const intensity = args[0] ? parseFloat(args[0]) : 1.0;
       eventBus.emit('neural:glitch-trigger', { intensity });
-      return { output: 'System glitch initiated...' };
+      return { output: 'system glitch initiated...' };
+    },
+  },
+
+  crt: {
+    name: 'crt',
+    description: 'CRT shader controls',
+    usage: 'crt <preset|barrel|scanlines|phosphor> [value]',
+    hidden: true,
+    handler: (args) => {
+      const sub = args[0];
+      if (!sub) {
+        return {
+          output: (
+            <div style={{ fontSize: S.base }}>
+              <div style={{ marginBottom: '0.25rem' }}>crt — shader control interface</div>
+              <div style={{ opacity: 0.7 }}>crt preset &lt;default|raw|overdrive|ghost&gt;</div>
+              <div style={{ opacity: 0.7 }}>crt barrel &lt;0.0–1.0&gt;</div>
+              <div style={{ opacity: 0.7 }}>crt scanlines &lt;on|off&gt;</div>
+              <div style={{ opacity: 0.7 }}>crt phosphor &lt;on|off&gt;</div>
+              <div style={{ opacity: 0.7 }}>crt noise &lt;0.0–1.0&gt;</div>
+              <div style={{ opacity: 0.7 }}>crt vignette &lt;0.0–1.0&gt;</div>
+            </div>
+          ),
+        };
+      }
+      if (sub === 'preset') {
+        const name = args[1];
+        const valid = ['default', 'raw', 'overdrive', 'ghost'];
+        if (!name || !valid.includes(name)) {
+          return { output: `crt preset: choose from ${valid.join(', ')}`, error: true };
+        }
+        eventBus.emit('crt:preset', { name });
+        return { output: `crt preset: ${name}` };
+      }
+      if (sub === 'barrel') {
+        const v = parseFloat(args[1] ?? '');
+        if (isNaN(v) || v < 0 || v > 1) return { output: 'crt barrel: value 0.0–1.0', error: true };
+        eventBus.emit('crt:param', { key: 'uBarrelStrength', value: v });
+        return { output: `crt barrel: ${v}` };
+      }
+      if (sub === 'scanlines') {
+        const v = args[1] === 'off' ? 0 : 1;
+        eventBus.emit('crt:param', { key: 'uScanlineHard', value: v });
+        eventBus.emit('crt:param', { key: 'uScanlineSoft', value: v });
+        return { output: `crt scanlines: ${args[1] === 'off' ? 'off' : 'on'}` };
+      }
+      if (sub === 'phosphor') {
+        const v = args[1] === 'off' ? 0 : 1;
+        eventBus.emit('crt:param', { key: 'uPhosphorOn', value: v });
+        return { output: `crt phosphor: ${args[1] === 'off' ? 'off' : 'on'}` };
+      }
+      if (sub === 'noise') {
+        const v = parseFloat(args[1] ?? '');
+        if (isNaN(v) || v < 0 || v > 1) return { output: 'crt noise: value 0.0–1.0', error: true };
+        eventBus.emit('crt:param', { key: 'uNoiseStrength', value: v });
+        return { output: `crt noise: ${v}` };
+      }
+      if (sub === 'vignette') {
+        const v = parseFloat(args[1] ?? '');
+        if (isNaN(v) || v < 0 || v > 1) return { output: 'crt vignette: value 0.0–1.0', error: true };
+        eventBus.emit('crt:param', { key: 'uVignetteStrength', value: v });
+        return { output: `crt vignette: ${v}` };
+      }
+      return { output: `crt: unknown subcommand '${sub}'`, error: true };
     },
   },
 
