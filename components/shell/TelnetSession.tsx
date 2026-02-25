@@ -892,8 +892,13 @@ const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
           <span style={{ color: C.bracket }}>]</span>
         </span>
         <span style={{ color: C.bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
-        <span style={{ color, opacity: 0.9, wordBreak: 'break-word' }}>{msg.text}</span>
+        <span style={{ color, opacity: 0.9, wordBreak: 'break-word' }}>
+          {msg.text.split('\n').filter(l => l.trim() !== '')[0] ?? msg.text}
+        </span>
       </div>
+      {msg.text.split('\n').filter(l => l.trim() !== '').slice(1).map((line, i) => (
+        <div key={i} style={{ color, opacity: 0.9, lineHeight: 1.7, marginTop: '0.2rem', wordBreak: 'break-word' }}>{line}</div>
+      ))}
     </div>
   );
 };
