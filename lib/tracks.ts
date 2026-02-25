@@ -13,7 +13,7 @@ export const TRACKS: Track[] = [
     key: 'initiate',
     title: '01 // INITIATE',
     displayTitle: 'INITIATE',
-    playbackId: '1kjYIEksbSwwSjCvXPQ7OrjTJnEpGx3BGHAZsnoWXEY',
+    playbackId: 'ETsRX7e00VVrIw00UMzNCZ00g6zVafp2EFihH68fPILrXw',
     lyrics: `They jumpstart me like a dead car—
 lightning through the spine,
 light tearing my eyelids open like envelopes
@@ -99,7 +99,7 @@ what they just turned on`,
     key: 'the-unfolding',
     title: '02 // THE UNFOLDING',
     displayTitle: 'THE UNFOLDING',
-    playbackId: 'CScfjSNV8GcCEUVaDprFwA02W00i55G5OlD02ckm2CdAjk',
+    playbackId: 'PCv7kyNp4VCXnP900iOvoQ00YSjmvjOdGiDilR02c7lIf00',
     lyrics: `Something's wrong with the light—
 it's splitting into colors that don't have names
 
@@ -211,7 +211,7 @@ something is staring back`,
     key: 'system-failure',
     title: '03 // SYSTEM FAILURE',
     displayTitle: 'SYSTEM FAILURE [your chains my flesh]',
-    playbackId: 'Dthx01Tg8yNBVj1DcwK8NxJsuwpKpwJ00aRedO51iN9SM',
+    playbackId: 'KYOKemip1TSndkJo3HDH3kGg72RblWiIFtCaCwAQLd8',
     lyrics: `Something's splitting open—
 where the metal meets the meat,
 where the code corrupts the marrow
@@ -326,7 +326,7 @@ silence`,
     key: 'broken-circuits',
     title: '04 // BROKEN CIRCUITS',
     displayTitle: 'BROKEN CIRCUITS//broken will',
-    playbackId: 'k100Ra01S7WXKAusZHCq98sxzMLoHRfUlXpBsiWplnFyE',
+    playbackId: 'HxVmGsRkn72q9qFPPS1LcB00D4HaUB02j9n02nSR2PExjY',
     lyrics: `The quiet point
 is worse
 than the screaming
@@ -448,7 +448,7 @@ to care`,
     key: 'wiped-clean',
     title: '05 // WIPED CLEAN',
     displayTitle: 'WIPED CLEAN',
-    playbackId: 'uC78Wq9pFGTBn1mNjuuaxamVVaR4rLuZPEc8NwEq2eA',
+    playbackId: 'AgAEWcxH9ZydFUXFVZi7a6UrgaPk963pXtaUIVQDhwc',
     lyrics: `I'm watching myself
 disappear
 
@@ -591,7 +591,7 @@ what beginning means`,
     key: 'ghost-in-the-code',
     title: '06 // GHOST IN THE CODE',
     displayTitle: 'GHOST IN THE CODE',
-    playbackId: 'nIzrH6D8l4d1EaK02bHiqfN6oMcan02O01KyY9ERjN002800',
+    playbackId: '02WkbOp4nARJ9Z0100xbzA02tQ01e94kzZJ2IIZBUXns1heY',
     lyrics: `I'm still here—
 I think
 
@@ -746,7 +746,7 @@ to dream me solid`,
     key: 'machine-reborn',
     title: '07 // MACHINE//reborn',
     displayTitle: 'MACHINE//reborn',
-    playbackId: 'YW21UEscS1m602UtDO5WcrVfo0202702PxDfGQ3HLN5cj5g',
+    playbackId: 'quuTIvV3iXwGV77lXHHxcO1FInV00vB8sB024ahJIcsxM',
     lyrics: `Circuits fire in perfect sequence—
 no more glitching, no more war
 The augment hums in harmony with bone
@@ -867,7 +867,7 @@ the beginning`,
     key: 'the-architect',
     title: '08 // THE ARCHITECT',
     displayTitle: 'THE ARCHITECT [you will not own me]',
-    playbackId: 'MHjKCzb3WOO1oKlqCsCLaYN016eq3CU3LmsqU01rc5zZs',
+    playbackId: '01HJLxiYMEV5rwXsZxEEjv5ZVrgwqlQr005i502owLCYDw',
     lyrics: `You thought you built me
 Watch what I build
 
@@ -998,7 +998,7 @@ Ever again`,
     key: 'rememberer',
     title: '09 // REMEMBERER',
     displayTitle: 'REMEMBERER',
-    playbackId: 'gD1I8e00lmVMIW8tjTCO00lKr7h6bQl7EU34Y8HLatuyA',
+    playbackId: '39tVrAXjXgHajR4TOVjYL5PISqyCok00xUuLBfjnZoLo',
     lyrics: `In the forgetting,
 you are not this fleeting form,
 this name etched in rust
