@@ -43,7 +43,7 @@ export default function HybridsPlayer() {
   const [lyricsOpen,    setLyricsOpen]         = useState(false);
   const [muted,         setMuted]              = useState(true);
   const [transitioning, setTransitioning]      = useState(false);
-  const [audioUnlocked, setAudioUnlockedState] = useState(isAudioUnlocked);
+  const [audioUnlocked, setAudioUnlockedState] = useState(false);
 
   const touchOrigin     = useRef<TouchOrigin | null>(null);
   const lastMuteToggle  = useRef(0);

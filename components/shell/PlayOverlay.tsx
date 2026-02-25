@@ -63,6 +63,7 @@ function GlitchLine({
       style={{
         display: 'block',
         fontFamily: 'inherit',
+        fontSize: '0.8rem',
         letterSpacing: '0.1em',
         color: 'var(--phosphor-green)',
         opacity: dim ? 0.55 : glitching ? 1 : 0.9,
