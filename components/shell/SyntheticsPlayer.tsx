@@ -148,6 +148,11 @@ export default function SyntheticsPlayer() {
       audioEngine.notifyTrackChange(n + 1, TRACKS[n].displayTitle);
       setTransitioning(false);
 
+      // Mute all non-active players imperatively so React prop changes don't interfere
+      wrapperRefs.current.forEach((wrapper, idx) => {
+        const el = getMuxEl(wrapper);
+        if (el) el.muted = idx !== n;
+      });
       if (isAudioUnlocked()) {
         playWhenReady(n);
         const videoEl = getVideoEl(getMuxEl(wrapperRefs.current[n]));
@@ -293,7 +298,6 @@ export default function SyntheticsPlayer() {
             playbackId={t.playbackId}
             loop={false}
             playsInline
-            muted={i !== currentIndex}
             onEnded={() => { if (i === currentIndexRef.current) nextTrack(); }}
             style={{
               width: '100%', height: '100%',
