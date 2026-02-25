@@ -1079,6 +1079,14 @@ export const ANALOGUES_TRACKS: Track[] = [
     playbackId: '2ItnD3I5JW8D1os9uCLSSZi1LO3njiUS2JJndQd1mrw',
     lyrics: '',
   },
+  {
+    index: 2,
+    key: 'head-like-a-hole',
+    title: '02 // HEAD LIKE A HOLE',
+    displayTitle: 'HEAD LIKE A HOLE',
+    playbackId: '8FxVWXnyyOQwPkaE00f83ZjQ8ae82mHgb02JHFyS01sHGA',
+    lyrics: '',
+  },
 ];
 
 export function getAnaloguesTrack(index: number): Track {
