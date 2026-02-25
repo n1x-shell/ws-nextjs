@@ -184,6 +184,43 @@ body {
     0 0 4px var(--phosphor-green),
     0 0 8px var(--phosphor-green);
 }
+============================================================
+   PHOSPHOR SPECTRUM SHIFTS
+   Paste into app/globals.css after existing variable definitions.
+   Managed by useFrequencyShift + phosphorCommand.
+   ============================================================ */
+
+/* ── Amber / Orange ── P3 phosphor, classic oscilloscope amber ── */
+.amber-shift {
+  --phosphor-green:       #FFB000;
+  --phosphor-green-dim:   #CC8C00;
+  --phosphor-green-glow:  rgba(255, 176, 0, 0.15);
+  --text-base:            #FFB000;
+  --text-header:          #FFD966;
+  --text-dim:             #CC8C00;
+  --text-muted:           #997A00;
+  --border-color:         rgba(255, 176, 0, 0.3);
+  --border-dim:           rgba(255, 176, 0, 0.15);
+  --scanline-color:       rgba(255, 176, 0, 0.03);
+  --cursor-color:         #FFB000;
+  --selection-bg:         rgba(255, 176, 0, 0.2);
+}
+
+/* ── Violet / Purple ── synthetic spectrum, ghost frequency visible ── */
+.violet-shift {
+  --phosphor-green:       #B44FFF;
+  --phosphor-green-dim:   #8C2ECC;
+  --phosphor-green-glow:  rgba(180, 79, 255, 0.15);
+  --text-base:            #B44FFF;
+  --text-header:          #D699FF;
+  --text-dim:             #8C2ECC;
+  --text-muted:           #5C1E99;
+  --border-color:         rgba(180, 79, 255, 0.3);
+  --border-dim:           rgba(180, 79, 255, 0.15);
+  --scanline-color:       rgba(180, 79, 255, 0.03);
+  --cursor-color:         #B44FFF;
+  --selection-bg:         rgba(180, 79, 255, 0.2);
+}
 
 /* ── iOS: force GPU layers on animated elements ── */
 @supports (-webkit-touch-callout: none) {
