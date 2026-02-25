@@ -6,12 +6,22 @@ import { eventBus } from './eventBus';
 const AMBER_MS  = 33 * 60 * 1000;       // 00:33:00 — phosphor amber
 const VIOLET_MS = 33 * 60 * 60 * 1000;  // 33:00:00 — phosphor violet
 
-export type PhosphorMode = 'green' | 'amber' | 'violet';
+export type PhosphorMode = 'green' | 'amber' | 'violet' | 'white' | 'blue' | 'pink' | 'cyan' | 'red';
+
+const ALL_SHIFT_CLASSES = [
+  'amber-shift', 'violet-shift', 'white-shift',
+  'blue-shift',  'pink-shift',   'cyan-shift',  'red-shift',
+];
 
 const CLASS_MAP: Record<PhosphorMode, string> = {
   green:  '',
   amber:  'amber-shift',
   violet: 'violet-shift',
+  white:  'white-shift',
+  blue:   'blue-shift',
+  pink:   'pink-shift',
+  cyan:   'cyan-shift',
+  red:    'red-shift',
 };
 
 // Tracks whether the active mode was set automatically vs. by user command.
@@ -22,7 +32,7 @@ const AUTO_KEY = 'phosphor-auto';
 
 export function setPhosphorMode(mode: PhosphorMode, { auto = false } = {}) {
   const root = document.documentElement;
-  root.classList.remove('amber-shift', 'violet-shift');
+  root.classList.remove(...ALL_SHIFT_CLASSES);
   if (CLASS_MAP[mode]) root.classList.add(CLASS_MAP[mode]);
   try {
     sessionStorage.setItem(MODE_KEY, mode);

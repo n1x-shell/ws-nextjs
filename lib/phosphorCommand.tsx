@@ -33,6 +33,29 @@ function resolveFlag(flag: string): FlagResult {
     case '--violet':
       return { mode: 'violet' };
 
+    case '-w':
+    case '--white':
+    case '--p4':
+      return { mode: 'white' };
+
+    case '-b':
+    case '--blue':
+    case '--p7':
+      return { mode: 'blue' };
+
+    case '--pink':
+    case '--magenta':
+    case '-m':
+      return { mode: 'pink' };
+
+    case '-c':
+    case '--cyan':
+      return { mode: 'cyan' };
+
+    case '-r':
+    case '--red':
+      return { mode: 'red' };
+
     case '':
     case '--status':
       return { status: true };
@@ -45,9 +68,14 @@ function resolveFlag(flag: string): FlagResult {
 // ─── Mode display metadata ────────────────────────────────────────────────────
 
 const MODE_META: Record<PhosphorMode, { label: string; hex: string; glyph: string }> = {
-  green:  { label: 'GREEN',  hex: '#33FF66', glyph: '█' },
-  amber:  { label: 'AMBER',  hex: '#FFB000', glyph: '█' },
-  violet: { label: 'VIOLET', hex: '#B44FFF', glyph: '█' },
+  green:  { label: 'GREEN',   hex: '#33FF66', glyph: '█' },
+  amber:  { label: 'AMBER',   hex: '#FFB000', glyph: '█' },
+  violet: { label: 'VIOLET',  hex: '#B44FFF', glyph: '█' },
+  white:  { label: 'WHITE',   hex: '#E8F4F8', glyph: '█' },
+  blue:   { label: 'BLUE',    hex: '#4488FF', glyph: '█' },
+  pink:   { label: 'PINK',    hex: '#FF2D9B', glyph: '█' },
+  cyan:   { label: 'CYAN',    hex: '#00F5D4', glyph: '█' },
+  red:    { label: 'RED',     hex: '#FF3333', glyph: '█' },
 };
 
 // ─── Command handler ──────────────────────────────────────────────────────────
@@ -74,13 +102,28 @@ export function handlePhosphor(args: string[]): { output: React.ReactNode; error
           <div style={muted}>usage: phosphor [flag]</div>
           <div style={muted}>&nbsp;</div>
           <div style={muted}>
-            {'  '}-g  --green          <span style={{ color: '#33FF66' }}>█ phosphor green (default)</span>
+            {'  '}-g  --green                   <span style={{ color: '#33FF66' }}>█ phosphor green (default)</span>
           </div>
           <div style={muted}>
-            {'  '}-a  -o  --amber  --orange   <span style={{ color: '#FFB000' }}>█ phosphor amber</span>
+            {'  '}-a  -o  --amber  --orange      <span style={{ color: '#FFB000' }}>█ phosphor amber</span>
           </div>
           <div style={muted}>
-            {'  '}-p  -v  --purple --violet   <span style={{ color: '#B44FFF' }}>█ phosphor violet</span>
+            {'  '}-p  -v  --purple --violet      <span style={{ color: '#B44FFF' }}>█ phosphor violet</span>
+          </div>
+          <div style={muted}>
+            {'  '}-w  --white  --p4              <span style={{ color: '#E8F4F8' }}>█ P4 white</span>
+          </div>
+          <div style={muted}>
+            {'  '}-b  --blue   --p7              <span style={{ color: '#4488FF' }}>█ P7 blue</span>
+          </div>
+          <div style={muted}>
+            {'  '}-m  --pink   --magenta         <span style={{ color: '#FF2D9B' }}>█ hot pink</span>
+          </div>
+          <div style={muted}>
+            {'  '}-c  --cyan                     <span style={{ color: '#00F5D4' }}>█ cyan</span>
+          </div>
+          <div style={muted}>
+            {'  '}-r  --red                      <span style={{ color: '#FF3333' }}>█ red</span>
           </div>
         </div>
       ),
