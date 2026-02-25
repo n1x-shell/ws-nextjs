@@ -1,7 +1,7 @@
 'use client';
 
 import { NeuralProvider } from '@/contexts/NeuralContext';
-import SignalLayer from './SignalLayer';
+import SignalLayerV2 from './SignalLayerV2';
 import InterfaceLayer from './InterfaceLayer';
 import { useShellPresence } from '@/lib/useShellPresence';
 import { useFrequencyShift } from '@/lib/useFrequencyShift';
@@ -16,8 +16,8 @@ export default function NeuralCore() {
   return (
     <NeuralProvider>
       <ShellPresenceMount />
-      <SignalLayer />
       <InterfaceLayer />
+      <SignalLayerV2 />
     </NeuralProvider>
   );
 }

@@ -223,40 +223,7 @@ export default function InterfaceLayer() {
           transform: 'perspective(1000px)',
         }}
       >
-        <div
-          className="scanlines"
-          style={{ willChange: 'transform', transform: 'translateZ(0)' }}
-        />
-
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 998,
-            pointerEvents: 'none',
-            background: `radial-gradient(
-              ellipse at center,
-              transparent 0%,
-              transparent 60%,
-              rgba(var(--phosphor-rgb),0.05) 80%,
-              rgba(var(--phosphor-rgb),0.1) 100%
-            )`,
-          }}
-        />
-
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 997,
-            pointerEvents: 'none',
-            background: `radial-gradient(
-              ellipse at center,
-              transparent 30%,
-              rgba(0,0,0,0.7) 100%
-            )`,
-          }}
-        />
+        {/* Scanlines, vignette, and CRT effects handled by SignalLayerV2 (Three.js overlay) */}
 
         <div
           ref={screenContentRef}
