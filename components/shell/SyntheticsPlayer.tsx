@@ -9,8 +9,9 @@ import { eventBus } from '@/lib/eventBus';
 // ── AudioGate ─────────────────────────────────────────────────────────────────
 
 function AudioGate({ onUnlock }: { onUnlock: () => void }) {
-  const [fading, setFading] = useState(false);
-  const [blink,  setBlink]  = useState(true);
+  const [fading,  setFading]  = useState(false);
+  const [gone,    setGone]    = useState(false);
+  const [blink,   setBlink]   = useState(true);
 
   useEffect(() => {
     const id = setInterval(() => setBlink(b => !b), 600);
@@ -18,10 +19,13 @@ function AudioGate({ onUnlock }: { onUnlock: () => void }) {
   }, []);
 
   const handle = useCallback(() => {
-    if (fading) return;
+    if (fading || gone) return;
     setFading(true);
     onUnlock();
-  }, [fading, onUnlock]);
+    setTimeout(() => setGone(true), 500);
+  }, [fading, gone, onUnlock]);
+
+  if (gone) return null;
 
   return (
     <div
@@ -31,8 +35,7 @@ function AudioGate({ onUnlock }: { onUnlock: () => void }) {
         position:        'absolute',
         inset:           0,
         zIndex:          100,
-        background:      'rgba(0,0,0,0.92)',
-        backdropFilter:  'blur(4px)',
+        background:      'rgba(0,0,0,0.6)',
         display:         'flex',
         flexDirection:   'column',
         alignItems:      'center',
@@ -154,20 +157,15 @@ export default function SyntheticsPlayer() {
     audioEngine.setMuted(false);
     eventBus.emit('audio:user-gesture');
 
-    // Directly unmute and restart the video element — React prop update alone
-    // is not enough since MuxPlayer started with autoPlay="muted"
+    // Get the actual mux-player custom element from the DOM — the React ref
+    // points to the component instance, not the DOM node. The custom element
+    // proxies .muted and .play() directly to its internal video.
     const tryUnmute = () => {
-      const el = playerRef.current as any;
-      let videoEl: HTMLVideoElement | null = null;
-      if (el?.media?.nativeEl)        videoEl = el.media.nativeEl;
-      else if (el?.nativeEl)          videoEl = el.nativeEl;
-      else                            videoEl = (el as HTMLElement)?.querySelector?.('video') ?? null;
-
-      if (videoEl) {
-        videoEl.muted = false;
-        videoEl.play().catch(() => {});
+      const muxEl = document.querySelector('mux-player') as any;
+      if (muxEl) {
+        muxEl.muted = false;
+        muxEl.play?.().catch(() => {});
       } else {
-        // Player not hydrated yet — retry
         setTimeout(tryUnmute, 100);
       }
     };
@@ -210,25 +208,27 @@ export default function SyntheticsPlayer() {
   // ── Connect AudioEngine when player mounts / track changes ────────────────
 
   useEffect(() => {
-    if (!playerRef.current) return;
-    // MuxPlayer exposes the underlying media element via .media or querySelector
     const tryConnect = () => {
-      const el = playerRef.current as any;
+      // Get the mux-player custom element and pierce shadow DOM for <video>
+      const muxEl = document.querySelector('mux-player') as any;
       let videoEl: HTMLVideoElement | null = null;
-      if (el?.media?.nativeEl) {
-        videoEl = el.media.nativeEl;
-      } else if (el?.nativeEl) {
-        videoEl = el.nativeEl;
-      } else {
-        // Fallback: query DOM
-        const wrapper = el as HTMLElement;
-        videoEl = wrapper?.querySelector?.('video') ?? null;
+
+      if (muxEl?.shadowRoot) {
+        videoEl = muxEl.shadowRoot.querySelector('video');
       }
+      if (!videoEl) {
+        const inner = muxEl?.shadowRoot?.querySelector('mux-player-theme, media-theme');
+        videoEl = inner?.shadowRoot?.querySelector('video') ?? null;
+      }
+      if (!videoEl && muxEl) {
+        // Some versions proxy via .media
+        videoEl = muxEl.media?.nativeEl ?? muxEl.nativeEl ?? null;
+      }
+
       if (videoEl) {
         audioEngine.connect(videoEl, track.index, track.displayTitle);
       }
     };
-    // MuxPlayer hydrates async — try immediately and again after tick
     tryConnect();
     const t = setTimeout(tryConnect, 300);
     return () => clearTimeout(t);
@@ -334,7 +334,7 @@ export default function SyntheticsPlayer() {
         <MuxPlayer
           ref={playerRef}
           playbackId={track.playbackId}
-          autoPlay
+          autoPlay="muted"
           muted={muted}
           loop={false}
           playsInline
