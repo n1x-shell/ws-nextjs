@@ -306,7 +306,6 @@ export default function AnaloguesPlayer() {
         <MuxPlayer
           ref={playerRef}
           playbackId={track.playbackId}
-          preload="auto"
           loop={false}
           playsInline
           style={{
