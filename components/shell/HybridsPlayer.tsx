@@ -226,6 +226,7 @@ export default function HybridsPlayer() {
             playbackId={t.playbackId}
             loop={false}
             playsInline
+            autoPlay={false}
             onEnded={() => { if (i === currentIndexRef.current) goToTrack(currentIndexRef.current + 1, true); }}
             style={{
               width: '100%', height: '100%',
