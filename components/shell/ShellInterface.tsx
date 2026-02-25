@@ -715,7 +715,7 @@ export default function ShellInterface() {
                       <div>&gt; trust: {TRUST_LABELS[argState.trust]}</div>
                       <div>&gt; fragments: {argState.fragments.length}/9 recovered</div>
                     </div>
-                    <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(51,255,51,0.3)', opacity: 0.5 }}>
+                    <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.3)', opacity: 0.5 }}>
                       type <span className="text-glow">&apos;chat&apos;</span> to resume contact &middot;{' '}
                       <span className="text-glow">&apos;fragments&apos;</span> to check state
                     </div>
@@ -748,7 +748,7 @@ export default function ShellInterface() {
                       style={{
                         marginTop: '1rem',
                         paddingTop: '0.75rem',
-                        borderTop: '1px solid rgba(51,255,51,0.3)',
+                        borderTop: '1px solid rgba(var(--phosphor-rgb),0.3)',
                         opacity: 0.6,
                       }}
                     >
@@ -814,7 +814,7 @@ export default function ShellInterface() {
               style={{
                 flexShrink: 0,
                 padding: '0.4rem 0.75rem',
-                borderTop: '1px solid rgba(51,255,51,0.2)',
+                borderTop: '1px solid rgba(var(--phosphor-rgb),0.2)',
                 background: 'rgba(0,0,0,0.7)',
                 fontSize: 'var(--text-base)',
                 touchAction: 'none',
@@ -860,7 +860,7 @@ export default function ShellInterface() {
                       fontFamily: 'inherit',
                       background: 'transparent',
                       color: 'var(--phosphor-green)',
-                      border: '1px solid rgba(51,255,51,0.4)',
+                      border: '1px solid rgba(var(--phosphor-rgb),0.4)',
                       cursor: 'pointer',
                     }}
                   >

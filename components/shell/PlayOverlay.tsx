@@ -68,8 +68,8 @@ function GlitchLine({
         color: 'var(--phosphor-green)',
         opacity: dim ? 0.55 : glitching ? 1 : 0.9,
         textShadow: glitching
-          ? '0 0 8px rgba(0,255,65,0.9), 2px 0 rgba(255,0,0,0.4), -2px 0 rgba(0,0,255,0.4)'
-          : '0 0 6px rgba(0,255,65,0.4)',
+          ? '0 0 8px rgba(var(--phosphor-rgb),0.9), 2px 0 rgba(255,0,0,0.4), -2px 0 rgba(0,0,255,0.4)'
+          : '0 0 6px rgba(var(--phosphor-rgb),0.4)',
         transition: glitching ? 'none' : 'opacity 0.3s ease, text-shadow 0.3s ease',
         transform: glitching ? `translateX(${(Math.random() - 0.5) * 3}px)` : 'none',
       }}
@@ -144,13 +144,13 @@ export function PlayOverlay({ onPlay, line1, line2, line3 }: PlayOverlayProps) {
       <div
         style={{
           position: 'relative',
-          border: '1px solid rgba(0,255,65,0.5)',
+          border: '1px solid rgba(var(--phosphor-rgb),0.5)',
           padding: '0.85rem 1.1rem',
           textAlign: 'center',
           background: 'rgba(0,0,0,0.65)',
           backdropFilter: 'blur(4px)',
           WebkitBackdropFilter: 'blur(4px)',
-          boxShadow: '0 0 18px rgba(0,255,65,0.12), inset 0 0 12px rgba(0,255,65,0.04)',
+          boxShadow: '0 0 18px rgba(var(--phosphor-rgb),0.12), inset 0 0 12px rgba(var(--phosphor-rgb),0.04)',
           overflow: 'hidden',
           maxWidth: '80%',
         }}
@@ -183,7 +183,7 @@ export function PlayOverlay({ onPlay, line1, line2, line3 }: PlayOverlayProps) {
             right: 0,
             height: '1px',
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(0,255,65,0.6) 50%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(var(--phosphor-rgb),0.6) 50%, transparent 100%)',
             pointerEvents: 'none',
           }}
         />
@@ -206,7 +206,7 @@ export function PlayOverlay({ onPlay, line1, line2, line3 }: PlayOverlayProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 0 24px rgba(0,255,65,0.3)',
+          boxShadow: '0 0 24px rgba(var(--phosphor-rgb),0.3)',
         }}
       >
         <div

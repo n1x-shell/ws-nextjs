@@ -133,7 +133,7 @@ const CopyableLine: React.FC<{ line: string }> = ({ line }) => {
       <span
         style={{
           opacity: 0.9,
-          borderBottom: '1px dashed rgba(51,255,51,0.4)',
+          borderBottom: '1px dashed rgba(var(--phosphor-rgb),0.4)',
           paddingBottom: '1px',
           wordBreak: 'break-all',
         }}

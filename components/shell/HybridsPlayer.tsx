@@ -226,7 +226,6 @@ export default function HybridsPlayer() {
             playbackId={t.playbackId}
             loop={false}
             playsInline
-            autoPlay={false}
             onEnded={() => { if (i === currentIndexRef.current) goToTrack(currentIndexRef.current + 1, true); }}
             style={{
               width: '100%', height: '100%',
@@ -300,7 +299,7 @@ export default function HybridsPlayer() {
             display: 'flex', flexDirection: 'column',
             background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
-            borderTop: '1px solid rgba(51,255,51,0.35)', pointerEvents: 'auto',
+            borderTop: '1px solid rgba(var(--phosphor-rgb),0.35)', pointerEvents: 'auto',
           }}
           onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, 'panel'); }}
           onTouchEnd={(e)   => { e.stopPropagation(); handleTouchEnd(e); }}

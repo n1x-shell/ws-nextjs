@@ -31,19 +31,19 @@ const C = {
   selfMsg:     '#ffffff',
   otherMsg:    '#b0b0b0',
   n1xMsg:      'var(--phosphor-green)',
-  timestamp:   'rgba(51,255,51,0.3)',
+  timestamp:   'rgba(var(--phosphor-rgb),0.3)',
   system:      '#ff8c00',
-  thinking:    'rgba(51,255,51,0.45)',
+  thinking:    'rgba(var(--phosphor-rgb),0.45)',
   whoSelf:     '#ffffff',
   whoOther:    '#555555',
   whoN1X:      '#bf00ff',
   action:      '#ff69b4',
   cmdError:    '#ff6b6b',
   helpKey:     'var(--phosphor-green)',
-  helpDim:     'rgba(51,255,51,0.45)',
+  helpDim:     'rgba(var(--phosphor-rgb),0.45)',
   trustLevel:  '#fcd34d',
   fragId:      'var(--phosphor-green)',
-  fragLocked:  'rgba(51,255,51,0.2)',
+  fragLocked:  'rgba(var(--phosphor-rgb),0.2)',
   tier0:       '#555555',
 };
 
@@ -401,7 +401,7 @@ const CopyLine: React.FC<{ line: string }> = ({ line }) => {
       <span style={{ opacity: 0.35 }}>&lt;&lt; </span>
       <span style={{
         opacity: 0.95,
-        borderBottom: '1px dashed rgba(51,255,51,0.35)',
+        borderBottom: '1px dashed rgba(var(--phosphor-rgb),0.35)',
         paddingBottom: 1,
         wordBreak: 'break-all',
       }}>
@@ -458,7 +458,7 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
       fontFamily:   'monospace',
       fontSize:     S.base,
       lineHeight:   2,
-      color:        'rgba(51,255,51,0.55)',
+      color:        'rgba(var(--phosphor-rgb),0.55)',
       marginBottom: '0.25rem',
     }}>
       <div style={{ marginBottom: '0.15rem' }}>Online ({totalNodes}):</div>
@@ -575,10 +575,10 @@ const TrustOutput: React.FC = () => {
   return (
     <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
       <div>
-        <span style={{ color: 'rgba(51,255,51,0.5)' }}>TRUST LEVEL: </span>
+        <span style={{ color: 'rgba(var(--phosphor-rgb),0.5)' }}>TRUST LEVEL: </span>
         <span style={{ color: C.trustLevel, fontWeight: 'bold' }}>{trust} / 5</span>
       </div>
-      <div style={{ paddingLeft: '2ch', color: 'rgba(51,255,51,0.5)', opacity: 0.8 }}>
+      <div style={{ paddingLeft: '2ch', color: 'rgba(var(--phosphor-rgb),0.5)', opacity: 0.8 }}>
         {status}
       </div>
     </div>
@@ -593,7 +593,7 @@ const FragmentsOutput: React.FC = () => {
   if (fragments.length === 0) {
     return (
       <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
-        <div style={{ color: 'rgba(51,255,51,0.55)' }}>MEMORY FRAGMENTS: none collected</div>
+        <div style={{ color: 'rgba(var(--phosphor-rgb),0.55)' }}>MEMORY FRAGMENTS: none collected</div>
         <div style={{ paddingLeft: '2ch', opacity: 0.4, fontStyle: 'italic' }}>-- keep exploring the substrate --</div>
       </div>
     );
@@ -601,7 +601,7 @@ const FragmentsOutput: React.FC = () => {
 
   return (
     <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
-      <div style={{ color: 'rgba(51,255,51,0.55)', marginBottom: '0.15rem' }}>
+      <div style={{ color: 'rgba(var(--phosphor-rgb),0.55)', marginBottom: '0.15rem' }}>
         MEMORY FRAGMENTS: <span style={{ color: C.trustLevel }}>{fragments.length}</span> collected
       </div>
 
@@ -613,8 +613,8 @@ const FragmentsOutput: React.FC = () => {
             {collected ? (
               <>
                 <span style={{ color: C.fragId, minWidth: '6ch' }}>[{id}]</span>
-                <span style={{ color: 'rgba(51,255,51,0.65)', minWidth: '36ch' }}>{label}</span>
-                <span style={{ color: 'rgba(51,255,51,0.4)', fontSize: '0.8em' }}>COLLECTED</span>
+                <span style={{ color: 'rgba(var(--phosphor-rgb),0.65)', minWidth: '36ch' }}>{label}</span>
+                <span style={{ color: 'rgba(var(--phosphor-rgb),0.4)', fontSize: '0.8em' }}>COLLECTED</span>
               </>
             ) : (
               <>
@@ -653,7 +653,7 @@ const FragmentReadOutput: React.FC<{ fragmentId: string }> = ({ fragmentId }) =>
     if (trust < 3) {
       return (
         <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
-          <div style={{ color: 'rgba(51,255,51,0.5)' }}>[f009] FRAGMENT STILL ENCODED</div>
+          <div style={{ color: 'rgba(var(--phosphor-rgb),0.5)' }}>[f009] FRAGMENT STILL ENCODED</div>
           <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- deeper trust required --</div>
           <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- continue exploring the substrate --</div>
         </div>
@@ -672,7 +672,7 @@ const FragmentReadOutput: React.FC<{ fragmentId: string }> = ({ fragmentId }) =>
   if (!fragments.includes(id)) {
     return (
       <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
-        <div style={{ color: 'rgba(51,255,51,0.5)' }}>[{id}] FRAGMENT STILL ENCODED</div>
+        <div style={{ color: 'rgba(var(--phosphor-rgb),0.5)' }}>[{id}] FRAGMENT STILL ENCODED</div>
         <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- decryption key required --</div>
         <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- explore the substrate to unlock --</div>
       </div>
@@ -974,7 +974,7 @@ const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occ
     fontSize:      '0.7rem',
     fontFamily:    'monospace',
     opacity:       0.45,
-    borderBottom:  '1px solid rgba(51,255,51,0.1)',
+    borderBottom:  '1px solid rgba(var(--phosphor-rgb),0.1)',
     paddingBottom: '0.5rem',
     marginBottom:  '0.75rem',
     lineHeight:    1.6,
@@ -1199,7 +1199,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
     dispatchModAction(adminSecret, { type: 'kick', clientId: target }).then(result => {
       if (result.ok) {
         addLocalMsg(
-          <div key={`kick-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(51,255,51,0.6)' }}>
+          <div key={`kick-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(var(--phosphor-rgb),0.6)' }}>
             &gt; mod: kick signal sent to {target}
           </div>
         );
@@ -1234,7 +1234,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
     dispatchModAction(adminSecret, { type: 'mute', clientId: target, durationMs: durMs }).then(result => {
       if (result.ok) {
         addLocalMsg(
-          <div key={`sil-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(51,255,51,0.6)' }}>
+          <div key={`sil-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(var(--phosphor-rgb),0.6)' }}>
             &gt; mod: {target} silenced {durLabel}
           </div>
         );
@@ -1263,7 +1263,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
     dispatchModAction(adminSecret, { type: 'unmute', clientId: target }).then(result => {
       if (result.ok) {
         addLocalMsg(
-          <div key={`unm-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(51,255,51,0.6)' }}>
+          <div key={`unm-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(var(--phosphor-rgb),0.6)' }}>
             &gt; mod: {target} unmuted
           </div>
         );
@@ -1376,7 +1376,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             fontFamily: 'monospace',
             fontSize:   S.base,
             lineHeight: 1.8,
-            color:      'rgba(51,255,51,0.18)',
+            color:      'rgba(var(--phosphor-rgb),0.18)',
             fontStyle:  'italic',
           }}
         >
