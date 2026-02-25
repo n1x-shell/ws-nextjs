@@ -126,8 +126,9 @@ async function generateBotResponse(
       model:           bot.model,
       system:          buildBotPrompt(bot.id, history, trigger),
       messages:        [{ role: 'user', content: '[respond as instructed]' }],
-      maxOutputTokens: 120,
-      temperature:     0.88,
+      maxOutputTokens: 160,
+      temperature:     1.0,
+      topP:            0.95,
     });
     return parseBotResponse(result.text, allowSilent);
   } catch (err) {
