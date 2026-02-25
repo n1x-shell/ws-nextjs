@@ -1067,3 +1067,24 @@ export function getTrack(index: number): Track {
 export function getTrackByKey(key: string): Track | undefined {
   return TRACKS.find(t => t.key === key);
 }
+
+// ── ANALOGUES ─────────────────────────────────────────────────────────────────
+
+export const ANALOGUES_TRACKS: Track[] = [
+  {
+    index: 1,
+    key: 'supercharger-heaven',
+    title: '01 // SUPERCHARGER HEAVEN',
+    displayTitle: 'SUPERCHARGER HEAVEN',
+    playbackId: '2ItnD3I5JW8D1os9uCLSSZi1LO3njiUS2JJndQd1mrw',
+    lyrics: '',
+  },
+];
+
+export function getAnaloguesTrack(index: number): Track {
+  return ANALOGUES_TRACKS[((index % ANALOGUES_TRACKS.length) + ANALOGUES_TRACKS.length) % ANALOGUES_TRACKS.length];
+}
+
+export function getAnaloguesTrackByKey(key: string): Track | undefined {
+  return ANALOGUES_TRACKS.find(t => t.key === key);
+}

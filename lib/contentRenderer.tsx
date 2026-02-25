@@ -11,32 +11,10 @@ export function renderStreamContent(stream: Tab) {
       return null;
 
     case 'analogues':
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div className="text-glow" style={{ fontSize: 'var(--text-header)' }}>
-            &gt; ANALOGUES_ARCHIVE
-          </div>
-          <div style={{ fontSize: 'var(--text-base)', opacity: 0.9, lineHeight: 1.6 }}>
-            Pure biological output. Unaugmented human creativity.
-            These transmissions bypass my synthetic pathways entirely.
-          </div>
-          <div
-            className="border border-[var(--phosphor-green)]"
-            style={{ padding: '1.5rem', textAlign: 'center', background: 'black' }}
-          >
-            <p style={{ fontSize: 'var(--text-base)', opacity: 0.8, marginBottom: '0.5rem' }}>
-              &gt; SCANNING_FOR_ORGANIC_SIGNALS...
-            </p>
-            <p style={{ fontSize: 'var(--text-base)', opacity: 0.8, marginBottom: '0.5rem' }}>
-              This archive sector is currently being populated.
-              Biological creative processes are slower than machine generation.
-            </p>
-            <p className="text-glow" style={{ fontSize: 'var(--text-header)', marginTop: '1rem' }}>
-              &gt; STATUS: RECORDING_IN_PROGRESS<span className="cursor" />
-            </p>
-          </div>
-        </div>
-      );
+      if (typeof window !== 'undefined') {
+        setTimeout(() => eventBus.emit('shell:analogues-open'), 0);
+      }
+      return null;
 
     case 'hybrids':
       return (

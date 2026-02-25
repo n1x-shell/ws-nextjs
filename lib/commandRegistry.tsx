@@ -367,6 +367,7 @@ export const commands: Record<string, Command> = {
     aliases: ['core'],
     handler: () => {
       eventBus.emit('shell:synthetics-close');
+      eventBus.emit('shell:analogues-close');
       return { output: '', clearScreen: true };
     },
   },
@@ -682,12 +683,10 @@ export const commands: Record<string, Command> = {
 
       const stream = streamMap[args[0].toLowerCase()];
       if (stream) {
-        // Close the synthetics player when navigating away
-        if (stream !== 'synthetics') {
-          eventBus.emit('shell:synthetics-close');
-        }
+        if (stream !== 'synthetics') eventBus.emit('shell:synthetics-close');
+        if (stream !== 'analogues')  eventBus.emit('shell:analogues-close');
         const content = renderStreamContent(stream);
-        if (stream === 'synthetics') return { output: null };
+        if (stream === 'synthetics' || stream === 'analogues') return { output: null };
         if (content) return { output: content };
         return { output: 'Stream content not available', error: true };
       }
@@ -853,7 +852,7 @@ export const commands: Record<string, Command> = {
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
             <div><span className={S.glow}>synthetics</span>  --  [AUGMENTED] — 9 transmissions</div>
-            <div><span className={S.glow}>analogues</span>   --  Organic creations (recording in progress)</div>
+            <div><span className={S.glow}>analogues</span>   --  Organic creations (1 track)</div>
             <div><span className={S.glow}>hybrids</span>     --  Symbiotic fusion (calibration phase)</div>
             <div><span className={S.glow}>uplink</span>      --  External broadcast node</div>
           </div>
@@ -875,7 +874,7 @@ export const commands: Record<string, Command> = {
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
             <div style={{ color: '#33ff33' }}>[OK] SYNTHETICS  --  9 transmissions detected</div>
-            <div style={{ color: '#ffaa00' }}>[!!] ANALOGUES   --  Recording in progress</div>
+            <div style={{ color: '#ffaa00' }}>[!!] ANALOGUES   --  1 transmission detected</div>
             <div style={{ color: '#ffaa00' }}>[!!] HYBRIDS     --  Calibration phase</div>
             <div style={{ color: '#33ff33' }}>[OK] UPLINK      --  External node active</div>
           </div>
