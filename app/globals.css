@@ -30,6 +30,41 @@
   --glow:           #B44FFF;
 }
 
+/* White -- P4 phosphor, clinical blue-white */
+.white-shift {
+  --phosphor-green: #E8F4F8;
+  --phosphor-rgb:   232, 244, 248;
+  --glow:           #E8F4F8;
+}
+
+/* Blue -- P7 phosphor, military/surveillance */
+.blue-shift {
+  --phosphor-green: #4488FF;
+  --phosphor-rgb:   68, 136, 255;
+  --glow:           #4488FF;
+}
+
+/* Pink -- hot magenta, post-reconstruction */
+.pink-shift {
+  --phosphor-green: #FF2D9B;
+  --phosphor-rgb:   255, 45, 155;
+  --glow:           #FF2D9B;
+}
+
+/* Cyan -- ghost channel, cold precision */
+.cyan-shift {
+  --phosphor-green: #00F5D4;
+  --phosphor-rgb:   0, 245, 212;
+  --glow:           #00F5D4;
+}
+
+/* Red -- emergency/alert mode */
+.red-shift {
+  --phosphor-green: #FF3333;
+  --phosphor-rgb:   255, 51, 51;
+  --glow:           #FF3333;
+}
+
 /* CRITICAL: lock the page itself from ever scrolling */
 *,
 *::before,
