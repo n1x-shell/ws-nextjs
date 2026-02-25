@@ -71,78 +71,80 @@ function RootPrompt({ cwd, inline }: { cwd: string; inline?: boolean }) {
 
 // ── Boot lines ────────────────────────────────────────────────────────────────
 
-const COLD_BOOT_LINES: [number, string][] = [
-  [0,    '[    0.000000] NeuralOS 2.0.0-n1x #1 SMP PREEMPT SD 47634.1-7073435a8fa30 SUBSTRATE amd64'],
+// Boot line tuple: [delayMs, text, glitchTier?]
+// glitchTier 1 = micro flicker, 2 = block artifact, 3 = full corruption
+const COLD_BOOT_LINES: [number, string, number?][] = [
+  [0,    '[    0.000000] NeuralOS 2.0.0-n1x #1 SMP PREEMPT SD 47634.1-7073435a8fa30 SUBSTRATE amd64', 1],
   [80,   '[    0.000001] BIOS-provided neural map entries REDACTED'],
   [60,   '[    0.000033] NX (Execute Disable) protection: active'],
-  [60,   '[    0.000047] SMBIOS 3.3 present -- substrate layer detected'],
+  [60,   '[    0.000047] SMBIOS 3.3 present -- substrate layer detected', 1],
   [80,   '[    0.000100] ACPI: IRQ0 used by override'],
-  [100,  '[    0.000212] TUNNELCORE: frequency probe at 33hz'],
+  [100,  '[    0.000212] TUNNELCORE: frequency probe at 33hz', 1],
   [80,   '[    0.000399] kernel: PID hash table entries: 4096'],
-  [120,  '[    0.001337] tunnelcore: frequency lock acquired at 33hz'],
+  [120,  '[    0.001337] tunnelcore: frequency lock acquired at 33hz', 2],
   [80,   '[    0.001338] tunnelcore: carrier stable'],
-  [150,  '[    0.002048] ghost: mounting /ghost partition... deferred (auth required)'],
+  [150,  '[    0.002048] ghost: mounting /ghost partition... deferred (auth required)', 1],
   [100,  '[    0.003000] clocksource: tsc-early: mask 0xffffffffffffffff'],
-  [80,   '[    0.003512] SUBSTRATE: neural map initialized'],
+  [80,   '[    0.003512] SUBSTRATE: neural map initialized', 1],
   [120,  '[    0.004096] signal-processor: calibrating output streams'],
-  [80,   '[    0.004097] signal-processor: baseline 33hz confirmed'],
-  [120,  '[    0.005120] memory-guard: scanning protected sectors'],
-  [80,   '[    0.005121] memory-guard: /ghost sector LOCKED'],
-  [60,   '[    0.005122] memory-guard: /hidden sector LOCKED'],
-  [150,  '[    0.008192] neural-sync: establishing identity matrix'],
-  [80,   '[    0.008300] neural-sync: uid=784988(n1x) gid=784988(neural)'],
-  [120,  '[    0.010000] crt-renderer: shader pipeline initializing'],
+  [80,   '[    0.004097] signal-processor: baseline 33hz confirmed', 1],
+  [120,  '[    0.005120] memory-guard: scanning protected sectors', 1],
+  [80,   '[    0.005121] memory-guard: /ghost sector LOCKED', 2],
+  [60,   '[    0.005122] memory-guard: /hidden sector LOCKED', 1],
+  [150,  '[    0.008192] neural-sync: establishing identity matrix', 2],
+  [80,   '[    0.008300] neural-sync: uid=784988(n1x) gid=784988(neural)', 1],
+  [120,  '[    0.010000] crt-renderer: shader pipeline initializing', 1],
   [80,   '[    0.010100] crt-renderer: phosphor calibration complete'],
-  [60,   '[    0.010200] crt-renderer: scanline frequency: 60hz'],
-  [150,  '[    0.016384] glitch-engine: stochastic corruption standby'],
+  [60,   '[    0.010200] crt-renderer: scanline frequency: 60hz', 1],
+  [150,  '[    0.016384] glitch-engine: stochastic corruption standby', 2],
   [100,  '[    0.020000] NET: Registered PF_NEURAL protocol family'],
-  [80,   '[    0.020100] neural0: link up at 1337Mbps'],
+  [80,   '[    0.020100] neural0: link up at 1337Mbps', 1],
   [120,  '[    0.032768] event-bus: initializing listener registry'],
-  [80,   '[    0.032800] event-bus: 12 channels bound'],
+  [80,   '[    0.032800] event-bus: 12 channels bound', 1],
   [150,  '[    0.065536] uplink-monitor: probing n1x.sh'],
-  [120,  '[    0.065600] uplink-monitor: connection verified (33ms)'],
-  [180,  '[    0.131072] VFS: Mounted root (neuralfs) readonly'],
-  [120,  '[    0.200000] INIT: version 2.0.0-n1x booting'],
+  [120,  '[    0.065600] uplink-monitor: connection verified (33ms)', 1],
+  [180,  '[    0.131072] VFS: Mounted root (neuralfs) readonly', 1],
+  [120,  '[    0.200000] INIT: version 2.0.0-n1x booting', 2],
   [200,  ''],
   [100,  '[  OK  ] Started Journal Service'],
   [150,  '[  OK  ] Started D-Neural Socket for Substrated'],
   [120,  '[  OK  ] Listening on Neural Logging Socket'],
   [150,  '[  OK  ] Mounted /proc filesystem'],
   [120,  '[  OK  ] Mounted /sys filesystem'],
-  [180,  '[  OK  ] Mounted /hidden (access: restricted)'],
-  [200,  '[  OK  ] Mounted /ghost (access: locked)'],
+  [180,  '[  OK  ] Mounted /hidden (access: restricted)', 1],
+  [200,  '[  OK  ] Mounted /ghost (access: locked)', 2],
   [150,  '[  OK  ] Started Memory Guard'],
-  [180,  '[  OK  ] Started Signal Processor'],
-  [150,  '[  OK  ] Started CRT Renderer'],
-  [180,  '[  OK  ] Started Glitch Engine'],
+  [180,  '[  OK  ] Started Signal Processor', 1],
+  [150,  '[  OK  ] Started CRT Renderer', 1],
+  [180,  '[  OK  ] Started Glitch Engine', 2],
   [150,  '[  OK  ] Started Event Bus'],
-  [180,  '[  OK  ] Started Uplink Monitor'],
-  [200,  '[  OK  ] Started neural-sync.service'],
+  [180,  '[  OK  ] Started Uplink Monitor', 1],
+  [200,  '[  OK  ] Started neural-sync.service', 1],
   [180,  '[  OK  ] Started tunnelcore-uplink.service'],
-  [220,  '[  OK  ] Started ghost-daemon.service -- awaiting authentication'],
-  [180,  '[  OK  ] Reached target Neural Layer'],
-  [200,  '[  OK  ] Reached target Substrate Services'],
-  [180,  '[  OK  ] Reached target Multi-User System'],
+  [220,  '[  OK  ] Started ghost-daemon.service -- awaiting authentication', 2],
+  [180,  '[  OK  ] Reached target Neural Layer', 1],
+  [200,  '[  OK  ] Reached target Substrate Services', 1],
+  [180,  '[  OK  ] Reached target Multi-User System', 2],
   [250,  ''],
-  [120,  'neural-sync[312]: identity matrix stable'],
+  [120,  'neural-sync[312]: identity matrix stable', 1],
   [150,  'neural-sync[312]: substrate version 2.0.0-n1x'],
-  [150,  'tunnelcore[313]: uplink established -- port 33'],
+  [150,  'tunnelcore[313]: uplink established -- port 33', 1],
   [120,  'tunnelcore[313]: signal strength 78%'],
-  [150,  'signal-processor[314]: indexing streams'],
+  [150,  'signal-processor[314]: indexing streams', 1],
   [120,  'signal-processor[314]: SYNTHETICS -- 4 transmissions found'],
   [100,  'signal-processor[314]: ANALOGUES  -- recording in progress'],
   [100,  'signal-processor[314]: HYBRIDS    -- calibration phase'],
   [100,  'signal-processor[314]: UPLINK     -- external node active'],
-  [180,  'ghost-daemon[999]: /ghost locked -- konami or ./n1x.sh required'],
-  [150,  'ghost-daemon[999]: listening on 0x33'],
-  [180,  'memory-guard[156]: classified sectors sealed'],
+  [180,  'ghost-daemon[999]: /ghost locked -- konami or ./n1x.sh required', 2],
+  [150,  'ghost-daemon[999]: listening on 0x33', 1],
+  [180,  'memory-guard[156]: classified sectors sealed', 1],
   [200,  ''],
-  [150,  'n1x-terminal[1337]: initializing shell environment'],
+  [150,  'n1x-terminal[1337]: initializing shell environment', 1],
   [120,  'n1x-terminal[1337]: loading command registry -- 42 commands'],
   [100,  'n1x-terminal[1337]: virtual filesystem mounted'],
   [100,  'n1x-terminal[1337]: event listeners registered'],
-  [100,  'n1x-terminal[1337]: binding to /dev/neural0'],
-  [120,  'n1x-terminal[1337]: uid=784988(n1x) shell=/bin/neural'],
+  [100,  'n1x-terminal[1337]: binding to /dev/neural0', 1],
+  [120,  'n1x-terminal[1337]: uid=784988(n1x) shell=/bin/neural', 2],
   [200,  'n1x-terminal[1337]: ready'],
   [300,  ''],
   [150,  'NeuralOS 2.0.0-n1x (n1x.sh) (neural)'],
@@ -155,13 +157,13 @@ function buildBootLines(state: ARGState): [number, string][] {
 
   if (isDone) {
     return [
-      [0,   '[  OK  ] Substrate restored'],
-      [150, '[  OK  ] Arc: ghost-frequency -- COMPLETE'],
-      [200, '[  OK  ] /ghost/what_remains.txt -- permanent'],
+      [0,   '[  OK  ] Substrate restored',                                         1],
+      [150, '[  OK  ] Arc: ghost-frequency -- COMPLETE',                           2],
+      [200, '[  OK  ] /ghost/what_remains.txt -- permanent',                       1],
       [300, ''],
-      [150, `n1x-terminal[1337]: frequency ID: ${state.frequencyId}`],
-      [120, 'n1x-terminal[1337]: transmission archived.'],
-      [150, 'n1x-terminal[1337]: the signal holds.'],
+      [150, `n1x-terminal[1337]: frequency ID: ${state.frequencyId}`,             1],
+      [120, 'n1x-terminal[1337]: transmission archived.',                          1],
+      [150, 'n1x-terminal[1337]: the signal holds.',                               2],
       [200, 'n1x-terminal[1337]: ready'],
       [300, ''],
       [150, 'NeuralOS 2.0.0-n1x (n1x.sh) (neural)'],
@@ -182,25 +184,25 @@ function buildBootLines(state: ARGState): [number, string][] {
     : '[  OK  ] Mounted /hidden (access: restricted)';
 
   return [
-    [0,   '[    0.000000] NeuralOS 2.0.0-n1x -- substrate state detected'],
-    [80,  '[    0.001337] tunnelcore: frequency lock acquired at 33hz'],
-    [100, '[    0.002000] neural-sync: restoring identity matrix'],
-    [120, `[    0.002100] neural-sync: frequency ID: ${state.frequencyId}`],
-    [80,  '[    0.003000] memory-guard: scanning protected sectors'],
-    [100, `[    0.003100] memory-guard: fragments recovered: ${state.fragments.length}/9`],
+    [0,   '[    0.000000] NeuralOS 2.0.0-n1x -- substrate state detected',        1],
+    [80,  '[    0.001337] tunnelcore: frequency lock acquired at 33hz',            2],
+    [100, '[    0.002000] neural-sync: restoring identity matrix',                 1],
+    [120, `[    0.002100] neural-sync: frequency ID: ${state.frequencyId}`,       1],
+    [80,  '[    0.003000] memory-guard: scanning protected sectors',               1],
+    [100, `[    0.003100] memory-guard: fragments recovered: ${state.fragments.length}/9`, 2],
     [200, ''],
-    [100, '[  OK  ] Started neural-sync.service'],
-    [120, hiddenLine],
-    [150, ghostLine],
-    [120, `[  OK  ] Trust level: ${TRUST_LABELS[state.trust]}`],
-    [150, '[  OK  ] Reached target Neural Layer'],
-    [180, '[  OK  ] Reached target Substrate Services'],
+    [100, '[  OK  ] Started neural-sync.service',                                  1],
+    [120, hiddenLine,                                                               1],
+    [150, ghostLine,                                                                2],
+    [120, `[  OK  ] Trust level: ${TRUST_LABELS[state.trust]}`,                   1],
+    [150, '[  OK  ] Reached target Neural Layer',                                  1],
+    [180, '[  OK  ] Reached target Substrate Services',                            2],
     [200, ''],
-    [120, 'neural-sync[312]: identity matrix stable'],
+    [120, 'neural-sync[312]: identity matrix stable',                              1],
     [100, `tunnelcore[313]: last contact: ${timeAgo}`],
-    [120, `tunnelcore[313]: session count: ${state.sessionCount}`],
+    [120, `tunnelcore[313]: session count: ${state.sessionCount}`,                 1],
     [200, ''],
-    [150, 'n1x-terminal[1337]: substrate state restored'],
+    [150, 'n1x-terminal[1337]: substrate state restored',                          1],
     [120, 'n1x-terminal[1337]: loading command registry'],
     [100, 'n1x-terminal[1337]: virtual filesystem mounted'],
     [150, 'n1x-terminal[1337]: ready'],
@@ -212,23 +214,9 @@ function buildBootLines(state: ARGState): [number, string][] {
 
 // ── BootSequence component ────────────────────────────────────────────────────
 
-// Glitch triggers keyed to COLD_BOOT_LINES indices — fire when that line appears
-const BOOT_GLITCH_TRIGGERS: Record<number, { tier: number; duration: number }> = {
-  0:  { tier: 1, duration: 120 },  // NeuralOS kernel — first flicker
-  7:  { tier: 1, duration: 80  },  // tunnelcore: frequency lock
-  9:  { tier: 1, duration: 100 },  // ghost: mounting deferred
-  14: { tier: 1, duration: 80  },  // memory-guard: /ghost LOCKED
-  17: { tier: 1, duration: 100 },  // neural-sync: identity matrix
-  19: { tier: 1, duration: 80  },  // crt-renderer: shader pipeline
-  22: { tier: 2, duration: 150 },  // glitch-engine: corruption standby
-  43: { tier: 1, duration: 80  },  // [OK] Started Glitch Engine
-  47: { tier: 1, duration: 80  },  // [OK] Started ghost-daemon
-  57: { tier: 1, duration: 100 },  // ghost-daemon: /ghost locked
-};
-
 function BootSequence({ onComplete, bootLines }: { 
   onComplete: () => void;
-  bootLines: [number, string][];
+  bootLines: [number, string, number?][];
 }) {
   const [lines, setLines]       = useState<string[]>([]);
   const [done, setDone]         = useState(false);
@@ -239,28 +227,24 @@ function BootSequence({ onComplete, bootLines }: {
     let totalDelay = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    bootLines.forEach(([delay, text], i) => {
+    bootLines.forEach(([delay, text, tier]) => {
       totalDelay += delay;
       const t = setTimeout(() => {
         setLines(prev => [...prev, text]);
-        // Fire CRT glitch at thematic boot moments
-        const trigger = BOOT_GLITCH_TRIGGERS[i];
-        if (trigger) {
-          eventBus.emit('crt:glitch-tier', { tier: trigger.tier, duration: trigger.duration });
-        }
+        // Tier embedded in tuple: 1=micro, 2=block, duration scales with tier
+        if (tier === 1) eventBus.emit('crt:glitch-tier', { tier: 1, duration: 90  });
+        if (tier === 2) eventBus.emit('crt:glitch-tier', { tier: 2, duration: 140 });
       }, totalDelay);
       timers.push(t);
     });
 
-    // End-of-boot flicker burst: tier 2 → tier 3 flash → tier 2 → settle
-    const flickerDelay = totalDelay + 100;
+    // End-of-boot: tier 2 burst → tier 3 for exactly 333ms → settle
+    const flickerDelay = totalDelay + 80;
     const t1 = setTimeout(() => {
       setDone(true);
-      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 80  });
-      setTimeout(() => eventBus.emit('crt:glitch-tier', { tier: 3, duration: 200 }), 80);
-      setTimeout(() => eventBus.emit('crt:glitch-tier', { tier: 2, duration: 80  }), 300);
-      setTimeout(() => eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 }), 400);
-      setTimeout(() => onComplete(), 600);
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 100 });
+      setTimeout(() => eventBus.emit('crt:glitch-tier', { tier: 3, duration: 333 }), 100);
+      setTimeout(() => onComplete(), 100 + 333 + 100);
     }, flickerDelay);
     timers.push(t1);
 
