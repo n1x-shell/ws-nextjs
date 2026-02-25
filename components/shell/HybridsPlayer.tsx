@@ -252,6 +252,7 @@ export default function HybridsPlayer() {
             loop={false}
             playsInline
             muted={i !== currentIndex}
+            onEnded={() => { if (i === currentIndexRef.current) nextTrack(); }}
             style={{
               width: '100%', height: '100%',
               '--controls': 'none',
