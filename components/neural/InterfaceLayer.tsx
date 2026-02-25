@@ -329,7 +329,7 @@ export default function InterfaceLayer() {
                   display: 'flex',
                   flexWrap: 'wrap',
                   gap: '0.4rem',
-                  padding: '0.6rem 0.75rem 0',
+                  padding: '0.6rem 0.75rem',
                   flexShrink: 0,
                   borderBottom: '1px solid rgba(var(--phosphor-rgb),0.3)',
                 }}
