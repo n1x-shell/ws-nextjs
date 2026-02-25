@@ -29,8 +29,9 @@ export async function POST(req: Request) {
       model: 'alibaba/qwen3-max',
       system: systemPrompt,
       messages,
-      maxOutputTokens: unprompted ? 100 : 200,
-      temperature: unprompted ? 0.95 : 0.8,
+      maxOutputTokens: unprompted ? 120 : 200,
+      temperature: unprompted ? 1.0 : 1.0,
+      topP: 0.95,
     });
 
     return Response.json({ text: result.text });
