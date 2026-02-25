@@ -852,10 +852,11 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
         </span>
         <span style={{ color: C.bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
         <span style={{ color: C.n1xMsg, wordBreak: 'break-word' }}>
-          {lines.map((line, i) =>
+          {isCopyableLine(lines[0]) ? <CopyLine key={0} line={lines[0]} /> : lines[0]}
+          {lines.slice(1).map((line, i) =>
             isCopyableLine(line)
-              ? <CopyLine key={i} line={line} />
-              : <span key={i} style={{ display: i > 0 ? 'block' : 'inline' }}>{line}</span>
+              ? <CopyLine key={i + 1} line={line} />
+              : <span key={i + 1} style={{ display: 'block', marginTop: '0.2rem' }}>{line}</span>
           )}
         </span>
       </div>
