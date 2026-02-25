@@ -112,6 +112,9 @@ interface TouchOrigin {
   zone: 'video' | 'panel';
 }
 
+// ── Module-level unlock state — persists across remounts ─────────────────────
+let _audioUnlocked = false;
+
 // ── SyntheticsPlayer ──────────────────────────────────────────────────────────
 
 export default function SyntheticsPlayer() {
@@ -119,7 +122,7 @@ export default function SyntheticsPlayer() {
   const [lyricsOpen, setLyricsOpen]         = useState(false);
   const [muted, setMuted]                   = useState(true);
   const [transitioning, setTransitioning]   = useState(false);
-  const [audioUnlocked, setAudioUnlocked]   = useState(false);
+  const [audioUnlocked, setAudioUnlocked]   = useState(_audioUnlocked);
 
   const playerRef   = useRef<any>(null);
   const touchOrigin = useRef<TouchOrigin | null>(null);
@@ -147,15 +150,35 @@ export default function SyntheticsPlayer() {
   // ── Unlock audio when user taps the gate ─────────────────────────────────
 
   const handleGateUnlock = useCallback(() => {
+    _audioUnlocked = true;
     setAudioUnlocked(true);
     setMuted(false);
     audioEngine.setMuted(false);
-    audioEngine.resume();
     eventBus.emit('audio:user-gesture');
+
+    // Directly unmute and restart the video element — React prop update alone
+    // is not enough since MuxPlayer started with autoPlay="muted"
+    const tryUnmute = () => {
+      const el = playerRef.current as any;
+      let videoEl: HTMLVideoElement | null = null;
+      if (el?.media?.nativeEl)        videoEl = el.media.nativeEl;
+      else if (el?.nativeEl)          videoEl = el.nativeEl;
+      else                            videoEl = (el as HTMLElement)?.querySelector?.('video') ?? null;
+
+      if (videoEl) {
+        videoEl.muted = false;
+        videoEl.play().catch(() => {});
+      } else {
+        // Player not hydrated yet — retry
+        setTimeout(tryUnmute, 100);
+      }
+    };
+    tryUnmute();
   }, []);
 
   useEffect(() => {
     const unsub = eventBus.on('audio:user-gesture', () => {
+      _audioUnlocked = true;
       setAudioUnlocked(true);
       setMuted(false);
       audioEngine.setMuted(false);
@@ -313,7 +336,7 @@ export default function SyntheticsPlayer() {
         <MuxPlayer
           ref={playerRef}
           playbackId={track.playbackId}
-          autoPlay="muted"
+          autoPlay
           muted={muted}
           loop={false}
           playsInline
