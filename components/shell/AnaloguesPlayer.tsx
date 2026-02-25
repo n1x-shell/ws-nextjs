@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
-import { TRACKS, getTrack } from '@/lib/tracks';
+import { ANALOGUES_TRACKS, getAnaloguesTrack as getTrack } from '@/lib/tracks';
 import { audioEngine } from '@/lib/audioEngine';
 import { eventBus } from '@/lib/eventBus';
 
@@ -79,16 +79,16 @@ interface TouchOrigin {
 }
 
 // ── Module-level unlock state — persists across remounts this session ─────────
-let _audioUnlocked = false;
+let _analoguesAudioUnlocked = false;
 
-// ── SyntheticsPlayer ──────────────────────────────────────────────────────────
+// ── AnaloguesPlayer ──────────────────────────────────────────────────────────
 
-export default function SyntheticsPlayer() {
+export default function AnaloguesPlayer() {
   const [currentIndex, setCurrentIndex]     = useState(0);
   const [lyricsOpen, setLyricsOpen]         = useState(false);
   const [muted, setMuted]                   = useState(true);
   const [transitioning, setTransitioning]   = useState(false);
-  const [audioUnlocked, setAudioUnlocked]   = useState(_audioUnlocked);
+  const [audioUnlocked, setAudioUnlocked]   = useState(_analoguesAudioUnlocked);
 
   const playerRef   = useRef<any>(null);
   const touchOrigin = useRef<TouchOrigin | null>(null);
@@ -99,13 +99,13 @@ export default function SyntheticsPlayer() {
   // ── Navigate tracks ────────────────────────────────────────────────────────
 
   const goToTrack = useCallback((newIndex: number) => {
-    const normalised = ((newIndex % TRACKS.length) + TRACKS.length) % TRACKS.length;
+    const normalised = ((newIndex % ANALOGUES_TRACKS.length) + ANALOGUES_TRACKS.length) % ANALOGUES_TRACKS.length;
     if (normalised === currentIndex) return;
     setTransitioning(true);
     setLyricsOpen(false);
     setTimeout(() => {
       setCurrentIndex(normalised);
-      audioEngine.notifyTrackChange(normalised + 1, TRACKS[normalised].displayTitle);
+      audioEngine.notifyTrackChange(normalised + 1, ANALOGUES_TRACKS[normalised].displayTitle);
       setTransitioning(false);
     }, 200);
   }, [currentIndex]);
@@ -116,8 +116,7 @@ export default function SyntheticsPlayer() {
   // ── Autoplay on track change (after gesture given) ────────────────────────
 
   useEffect(() => {
-    if (!_audioUnlocked) return;
-    // Wait for transition + MuxPlayer hydration
+    if (!_analoguesAudioUnlocked) return;
     const t = setTimeout(() => {
       const muxEl = document.querySelector('mux-player') as any;
       if (muxEl) {
@@ -129,7 +128,7 @@ export default function SyntheticsPlayer() {
   }, [currentIndex]);
 
   const handleGateUnlock = useCallback(() => {
-    _audioUnlocked = true;
+    _analoguesAudioUnlocked = true;
     lastMuteToggle.current = Date.now();
     setAudioUnlocked(true);
     setMuted(false);
@@ -153,7 +152,7 @@ export default function SyntheticsPlayer() {
 
   useEffect(() => {
     const unsub = eventBus.on('audio:user-gesture', () => {
-      _audioUnlocked = true;
+      _analoguesAudioUnlocked = true;
       setAudioUnlocked(true);
       setMuted(false);
       audioEngine.setMuted(false);
@@ -362,7 +361,7 @@ export default function SyntheticsPlayer() {
             letterSpacing: '0.08em',
           }}
         >
-          {String(track.index).padStart(2, '0')} / {String(TRACKS.length).padStart(2, '0')}
+          {String(track.index).padStart(2, '0')} / {String(ANALOGUES_TRACKS.length).padStart(2, '0')}
         </div>
 
         {/* ── Lyrics panel ─────────────────────────────────────────────── */}
