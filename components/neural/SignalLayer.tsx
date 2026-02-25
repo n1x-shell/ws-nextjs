@@ -199,9 +199,9 @@ export default function SignalLayer() {
   }, [glitchIntensity]);
 
   // Update shader tint when phosphor mode changes
-  useEventBus('neural:frequency-shift', (data: { mode?: string }) => {
+  useEventBus('neural:frequency-shift', (event) => {
     if (!filterRef.current?.resources.crtUniforms) return;
-    const mode = (data?.mode ?? 'green') as string;
+    const mode = (event?.payload?.mode ?? 'green') as string;
     const tint = PHOSPHOR_TINTS[mode] ?? PHOSPHOR_TINTS.green;
     filterRef.current.resources.crtUniforms.uniforms.uPhosphorTint = tint;
   });
