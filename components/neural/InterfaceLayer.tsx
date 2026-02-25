@@ -305,9 +305,12 @@ export default function InterfaceLayer() {
               <div className="n1x-header-inner">
                 <div className="n1x-header-left">
                   <div className="text-glow-strong n1x-header-title">N1X.sh</div>
+                  <div className="n1x-header-sub">
+                    NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
+                  </div>
                 </div>
                 <div className="n1x-header-right">
-                  <div>&gt; UPTIME: {formatUptime(uptime)}&nbsp;|&nbsp;SESSION: {sessionCount}&nbsp;|&nbsp;NODES: {nodeCount}</div>
+                  <div>&gt; RUNTIME: {formatUptime(uptime)}&nbsp;|&nbsp;SESSION: {sessionCount}&nbsp;|&nbsp;NODES: {nodeCount}</div>
                 </div>
               </div>
             </header>
@@ -329,7 +332,7 @@ export default function InterfaceLayer() {
                   display: 'flex',
                   flexWrap: 'wrap',
                   gap: '0.4rem',
-                  padding: '0.6rem 0.75rem',
+                  padding: '0.6rem 0.75rem 0',
                   flexShrink: 0,
                   borderBottom: '1px solid rgba(var(--phosphor-rgb),0.3)',
                 }}
