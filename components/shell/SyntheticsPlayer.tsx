@@ -112,7 +112,7 @@ interface TouchOrigin {
   zone: 'video' | 'panel';
 }
 
-// ── Module-level unlock state — persists across remounts ─────────────────────
+// ── Module-level unlock state — persists across remounts this session ─────────
 let _audioUnlocked = false;
 
 // ── SyntheticsPlayer ──────────────────────────────────────────────────────────
@@ -146,8 +146,6 @@ export default function SyntheticsPlayer() {
 
   const nextTrack = useCallback(() => goToTrack(currentIndex + 1), [goToTrack, currentIndex]);
   const prevTrack = useCallback(() => goToTrack(currentIndex - 1), [goToTrack, currentIndex]);
-
-  // ── Unlock audio when user taps the gate ─────────────────────────────────
 
   const handleGateUnlock = useCallback(() => {
     _audioUnlocked = true;
