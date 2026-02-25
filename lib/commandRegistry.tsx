@@ -368,6 +368,7 @@ export const commands: Record<string, Command> = {
     handler: () => {
       eventBus.emit('shell:synthetics-close');
       eventBus.emit('shell:analogues-close');
+      eventBus.emit('shell:hybrids-close');
       return { output: '', clearScreen: true };
     },
   },
@@ -685,8 +686,9 @@ export const commands: Record<string, Command> = {
       if (stream) {
         if (stream !== 'synthetics') eventBus.emit('shell:synthetics-close');
         if (stream !== 'analogues')  eventBus.emit('shell:analogues-close');
+        if (stream !== 'hybrids')    eventBus.emit('shell:hybrids-close');
         const content = renderStreamContent(stream);
-        if (stream === 'synthetics' || stream === 'analogues') return { output: null };
+        if (stream === 'synthetics' || stream === 'analogues' || stream === 'hybrids') return { output: null };
         if (content) return { output: content };
         return { output: 'Stream content not available', error: true };
       }

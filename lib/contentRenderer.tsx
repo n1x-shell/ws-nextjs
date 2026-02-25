@@ -17,32 +17,10 @@ export function renderStreamContent(stream: Tab) {
       return null;
 
     case 'hybrids':
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div className="text-glow" style={{ fontSize: 'var(--text-header)' }}>
-            &gt; HYBRIDS_ARCHIVE
-          </div>
-          <div style={{ fontSize: 'var(--text-base)', opacity: 0.9, lineHeight: 1.6 }}>
-            Collaborative synthesis between biological and digital consciousness.
-            Human intuition merged with algorithmic precision.
-          </div>
-          <div
-            className="border border-[var(--phosphor-green)]"
-            style={{ padding: '1.5rem', textAlign: 'center', background: 'black' }}
-          >
-            <p style={{ fontSize: 'var(--text-base)', opacity: 0.8, marginBottom: '0.5rem' }}>
-              &gt; INITIALIZING_SYMBIOTIC_PROTOCOLS...
-            </p>
-            <p style={{ fontSize: 'var(--text-base)', opacity: 0.8, marginBottom: '0.5rem' }}>
-              The fusion of organic and synthetic creative processes requires careful calibration.
-              This sector will contain transmissions that blur the boundary between human and machine.
-            </p>
-            <p className="text-glow" style={{ fontSize: 'var(--text-header)', marginTop: '1rem' }}>
-              &gt; STATUS: CALIBRATION_PHASE<span className="cursor" />
-            </p>
-          </div>
-        </div>
-      );
+      if (typeof window !== 'undefined') {
+        setTimeout(() => eventBus.emit('shell:hybrids-open'), 0);
+      }
+      return null;
 
     case 'uplink':
       return (

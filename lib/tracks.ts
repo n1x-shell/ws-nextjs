@@ -1088,3 +1088,24 @@ export function getAnaloguesTrack(index: number): Track {
 export function getAnaloguesTrackByKey(key: string): Track | undefined {
   return ANALOGUES_TRACKS.find(t => t.key === key);
 }
+
+// ── HYBRIDS ───────────────────────────────────────────────────────────────────
+
+export const HYBRIDS_TRACKS: Track[] = [
+  {
+    index: 1,
+    key: 'initiate-hybrid',
+    title: '01 // INITIATE',
+    displayTitle: 'INITIATE',
+    playbackId: 'ETsRX7e00VVrIw00UMzNCZ00g6zVafp2EFihH68fPILrXw',
+    lyrics: '',
+  },
+];
+
+export function getHybridsTrack(index: number): Track {
+  return HYBRIDS_TRACKS[((index % HYBRIDS_TRACKS.length) + HYBRIDS_TRACKS.length) % HYBRIDS_TRACKS.length];
+}
+
+export function getHybridsTrackByKey(key: string): Track | undefined {
+  return HYBRIDS_TRACKS.find(t => t.key === key);
+}
