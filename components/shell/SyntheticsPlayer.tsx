@@ -41,30 +41,19 @@ function PlayOverlay({ onPlay }: { onPlay: () => void }) {
         WebkitUserSelect: 'none',
       }}
     >
-      {/* Play button */}
-      <div
-        style={{
-          width:        '5rem',
-          height:       '5rem',
-          borderRadius: '50%',
-          border:       '2px solid var(--phosphor-green)',
-          display:      'flex',
-          alignItems:   'center',
-          justifyContent: 'center',
-          boxShadow:    '0 0 24px rgba(0,255,65,0.3)',
-        }}
-      >
-        {/* Triangle */}
-        <div
-          style={{
-            width:       0,
-            height:      0,
-            borderTop:   '1rem solid transparent',
-            borderBottom:'1rem solid transparent',
-            borderLeft:  '1.6rem solid var(--phosphor-green)',
-            marginLeft:  '0.3rem',
-          }}
-        />
+      <div style={{
+        width: '5rem', height: '5rem', borderRadius: '50%',
+        border: '2px solid var(--phosphor-green)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 0 24px rgba(0,255,65,0.3)',
+      }}>
+        <div style={{
+          width: 0, height: 0,
+          borderTop: '1rem solid transparent',
+          borderBottom: '1rem solid transparent',
+          borderLeft: '1.6rem solid var(--phosphor-green)',
+          marginLeft: '0.3rem',
+        }} />
       </div>
     </div>
   );
@@ -73,70 +62,104 @@ function PlayOverlay({ onPlay }: { onPlay: () => void }) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TouchOrigin {
-  x: number;
-  y: number;
-  time: number;
-  zone: 'video' | 'panel';
+  x: number; y: number; time: number; zone: 'video' | 'panel';
 }
 
-// ── Module-level unlock state — now lives in lib/audioUnlock.ts ──────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getMuxEl(wrapper: HTMLDivElement | null): any {
+  return wrapper?.querySelector('mux-player') ?? null;
+}
+
+function getVideoEl(muxEl: any): HTMLVideoElement | null {
+  if (!muxEl) return null;
+  if (muxEl.shadowRoot) {
+    const v = muxEl.shadowRoot.querySelector('video');
+    if (v) return v;
+    const inner = muxEl.shadowRoot.querySelector('mux-player-theme, media-theme');
+    const v2 = inner?.shadowRoot?.querySelector('video');
+    if (v2) return v2;
+  }
+  return muxEl.media?.nativeEl ?? muxEl.nativeEl ?? null;
+}
+
+// Off-screen but NOT display:none — hls.js keeps buffering regardless of visibility.
+// 1×1 pixel, opacity 0, pointer-events none. Costs ~zero layout, ~zero paint.
+const PRELOAD_STYLE: React.CSSProperties = {
+  position: 'fixed', left: '-2px', top: '-2px',
+  width: '1px', height: '1px',
+  opacity: 0, pointerEvents: 'none', overflow: 'hidden',
+};
 
 // ── SyntheticsPlayer ──────────────────────────────────────────────────────────
 
 export default function SyntheticsPlayer() {
-  const [currentIndex, setCurrentIndex]     = useState(0);
-  const [lyricsOpen, setLyricsOpen]         = useState(false);
-  const [muted, setMuted]                   = useState(true);
-  const [transitioning, setTransitioning]   = useState(false);
-  const [audioUnlocked, setAudioUnlockedState] = useState(isAudioUnlocked);
+  const [currentIndex,   setCurrentIndex]      = useState(0);
+  const [lyricsOpen,     setLyricsOpen]        = useState(false);
+  const [muted,          setMuted]             = useState(true);
+  const [transitioning,  setTransitioning]     = useState(false);
+  const [audioUnlocked,  setAudioUnlockedState] = useState(isAudioUnlocked);
 
-  const playerRef   = useRef<any>(null);
-  const touchOrigin = useRef<TouchOrigin | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const touchOrigin     = useRef<TouchOrigin | null>(null);
+  const lastMuteToggle  = useRef(0);
+  const currentIndexRef = useRef(currentIndex);
+  // One ref per track — lets us scope querySelector to the right player element.
+  const wrapperRefs     = useRef<(HTMLDivElement | null)[]>(TRACKS.map(() => null));
+
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
   const track = getTrack(currentIndex);
 
-  // ── Poll until mux-player has loaded the new stream, then play ───────────────
-  const playWhenReady = useCallback(() => {
+  // ── Play active player, polling until hls.js has buffered enough ───────────
+
+  const playWhenReady = useCallback((idx: number) => {
     const attempt = (tries = 0) => {
-      const muxEl = document.querySelector('mux-player') as any;
+      const muxEl = getMuxEl(wrapperRefs.current[idx]);
       if (!muxEl) {
         if (tries < 20) setTimeout(() => attempt(tries + 1), 100);
         return;
       }
       muxEl.muted = false;
-      // readyState >= 3 (HAVE_FUTURE_DATA) means the new stream is buffered enough
       if (muxEl.readyState >= 3) {
         muxEl.play?.().catch(() => {});
-      } else if (tries < 30) {
-        setTimeout(() => attempt(tries + 1), 100);
+      } else if (tries < 40) {
+        setTimeout(() => attempt(tries + 1), 75);
       } else {
-        // Fallback: force play regardless
         muxEl.play?.().catch(() => {});
       }
     };
     attempt();
   }, []);
 
-  // ── Navigate tracks ────────────────────────────────────────────────────────
+  // ── Navigate ──────────────────────────────────────────────────────────────
 
   const goToTrack = useCallback((newIndex: number) => {
-    const normalised = ((newIndex % TRACKS.length) + TRACKS.length) % TRACKS.length;
-    if (normalised === currentIndex) return;
+    const n = ((newIndex % TRACKS.length) + TRACKS.length) % TRACKS.length;
+    if (n === currentIndexRef.current) return;
+
+    // Pause outgoing so it doesn't keep playing off-screen.
+    getMuxEl(wrapperRefs.current[currentIndexRef.current])?.pause?.();
+
     setTransitioning(true);
     setLyricsOpen(false);
+
     setTimeout(() => {
-      setCurrentIndex(normalised);
-      audioEngine.notifyTrackChange(normalised + 1, TRACKS[normalised].displayTitle);
+      setCurrentIndex(n);
+      audioEngine.notifyTrackChange(n + 1, TRACKS[n].displayTitle);
       setTransitioning(false);
+
       if (isAudioUnlocked()) {
-        playWhenReady();
+        playWhenReady(n);
+        const videoEl = getVideoEl(getMuxEl(wrapperRefs.current[n]));
+        if (videoEl) audioEngine.connect(videoEl, TRACKS[n].index, TRACKS[n].displayTitle);
       }
     }, 200);
-  }, [currentIndex]);
+  }, [playWhenReady]);
 
-  const nextTrack = useCallback(() => goToTrack(currentIndex + 1), [goToTrack, currentIndex]);
-  const prevTrack = useCallback(() => goToTrack(currentIndex - 1), [goToTrack, currentIndex]);
+  const nextTrack = useCallback(() => goToTrack(currentIndexRef.current + 1), [goToTrack]);
+  const prevTrack = useCallback(() => goToTrack(currentIndexRef.current - 1), [goToTrack]);
+
+  // ── Gate unlock ───────────────────────────────────────────────────────────
 
   const handleGateUnlock = useCallback(() => {
     setAudioUnlocked();
@@ -145,21 +168,8 @@ export default function SyntheticsPlayer() {
     setMuted(false);
     audioEngine.setMuted(false);
     eventBus.emit('audio:user-gesture');
-
-    // Get the actual mux-player custom element from the DOM — the React ref
-    // points to the component instance, not the DOM node. The custom element
-    // proxies .muted and .play() directly to its internal video.
-    const tryUnmute = () => {
-      const muxEl = document.querySelector('mux-player') as any;
-      if (muxEl) {
-        muxEl.muted = false;
-        muxEl.play?.().catch(() => {});
-      } else {
-        setTimeout(tryUnmute, 100);
-      }
-    };
-    tryUnmute();
-  }, []);
+    playWhenReady(currentIndexRef.current);
+  }, [playWhenReady]);
 
   useEffect(() => {
     const unsub = eventBus.on('audio:user-gesture', () => {
@@ -172,70 +182,49 @@ export default function SyntheticsPlayer() {
     return unsub;
   }, []);
 
-  // ── Auto-play on mount if audio was already unlocked this session ──────────
+  // Auto-play on mount if already unlocked (returning to this stream).
   useEffect(() => {
     if (!isAudioUnlocked()) return;
     setMuted(false);
     audioEngine.setMuted(false);
-    setTimeout(() => playWhenReady(), 150);
+    setTimeout(() => playWhenReady(0), 200);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── EventBus: shell commands ───────────────────────────────────────────────
+  // ── Connect AudioEngine to active <video> ─────────────────────────────────
+
+  useEffect(() => {
+    const tryConnect = () => {
+      const videoEl = getVideoEl(getMuxEl(wrapperRefs.current[currentIndex]));
+      if (videoEl) audioEngine.connect(videoEl, track.index, track.displayTitle);
+    };
+    tryConnect();
+    const t = setTimeout(tryConnect, 400);
+    return () => clearTimeout(t);
+  }, [currentIndex, track.index, track.displayTitle]);
+
+  // ── Shell commands ────────────────────────────────────────────────────────
 
   useEffect(() => {
     const unsub = eventBus.on('audio:command', (event: any) => {
       const { action, value } = event.payload ?? {};
       switch (action) {
-        case 'next':    nextTrack();                       break;
-        case 'prev':    prevTrack();                       break;
-        case 'goto':
-          if (typeof value === 'number') goToTrack(value); break;
-        case 'pause':   audioEngine.pause();               break;
-        case 'resume':  audioEngine.resume();              break;
-        case 'mute':    audioEngine.setMuted(true);  setMuted(true);  break;
-        case 'unmute':  audioEngine.setMuted(false); setMuted(false); break;
-        case 'volume':
-          if (typeof value === 'number') audioEngine.setVolume(value / 100);
-          break;
+        case 'next':   nextTrack(); break;
+        case 'prev':   prevTrack(); break;
+        case 'goto':   if (typeof value === 'number') goToTrack(value); break;
+        case 'pause':  audioEngine.pause(); break;
+        case 'resume': audioEngine.resume(); break;
+        case 'mute':   audioEngine.setMuted(true);  setMuted(true);  break;
+        case 'unmute': audioEngine.setMuted(false); setMuted(false); break;
+        case 'volume': if (typeof value === 'number') audioEngine.setVolume(value / 100); break;
       }
     });
     return unsub;
-  }, [nextTrack, prevTrack]);
+  }, [nextTrack, prevTrack, goToTrack]);
 
-  // ── Connect AudioEngine when player mounts / track changes ────────────────
-
-  useEffect(() => {
-    const tryConnect = () => {
-      // Get the mux-player custom element and pierce shadow DOM for <video>
-      const muxEl = document.querySelector('mux-player') as any;
-      let videoEl: HTMLVideoElement | null = null;
-
-      if (muxEl?.shadowRoot) {
-        videoEl = muxEl.shadowRoot.querySelector('video');
-      }
-      if (!videoEl) {
-        const inner = muxEl?.shadowRoot?.querySelector('mux-player-theme, media-theme');
-        videoEl = inner?.shadowRoot?.querySelector('video') ?? null;
-      }
-      if (!videoEl && muxEl) {
-        // Some versions proxy via .media
-        videoEl = muxEl.media?.nativeEl ?? muxEl.nativeEl ?? null;
-      }
-
-      if (videoEl) {
-        audioEngine.connect(videoEl, track.index, track.displayTitle);
-      }
-    };
-    tryConnect();
-    const t = setTimeout(tryConnect, 300);
-    return () => clearTimeout(t);
-  }, [currentIndex, track.index, track.displayTitle]);
-
-  // ── Keyboard nav (when player is focused, not input) ──────────────────────
+  // ── Keyboard nav ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Only intercept when nothing with meaningful input is focused
       const tag = (document.activeElement as HTMLElement)?.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
       if (e.key === 'ArrowUp')   { e.preventDefault(); nextTrack(); }
@@ -245,45 +234,26 @@ export default function SyntheticsPlayer() {
     return () => window.removeEventListener('keydown', onKey);
   }, [nextTrack, prevTrack]);
 
-  // ── Touch handlers ────────────────────────────────────────────────────────
+  // ── Touch ─────────────────────────────────────────────────────────────────
 
   const handleTouchStart = useCallback((e: React.TouchEvent, zone: 'video' | 'panel') => {
-    touchOrigin.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      time: Date.now(),
-      zone,
-    };
+    touchOrigin.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now(), zone };
   }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!touchOrigin.current) return;
-    const origin = touchOrigin.current;
+    const o = touchOrigin.current;
     touchOrigin.current = null;
-
-    const dy = e.changedTouches[0].clientY - origin.y;
-    const dx = e.changedTouches[0].clientX - origin.x;
-    const dt = Date.now() - origin.time;
-    const absDy = Math.abs(dy);
-    const absDx = Math.abs(dx);
-
-    // Must be predominantly vertical, fast enough, and exceed threshold
-    if (absDy < 50 || absDx > absDy || dt > 500) return;
-
-    if (origin.zone === 'panel') {
-      // Swipe up on panel → open, swipe down → close
-      if (dy < 0) setLyricsOpen(true);
-      else        setLyricsOpen(false);
+    const dy = e.changedTouches[0].clientY - o.y;
+    const dx = e.changedTouches[0].clientX - o.x;
+    const dt = Date.now() - o.time;
+    if (Math.abs(dy) < 50 || Math.abs(dx) > Math.abs(dy) || dt > 500) return;
+    if (o.zone === 'panel') {
+      if (dy < 0) setLyricsOpen(true); else setLyricsOpen(false);
     } else {
-      // Swipe up on video → next track, swipe down → prev track
-      if (dy < 0) nextTrack();
-      else        prevTrack();
+      if (dy < 0) nextTrack(); else prevTrack();
     }
   }, [nextTrack, prevTrack]);
-
-  const lastMuteToggle = useRef(0);
-
-  // ── Toggle mute on video tap (not panel) ─────────────────────────────────
 
   const handleVideoTap = useCallback(() => {
     const now = Date.now();
@@ -300,202 +270,146 @@ export default function SyntheticsPlayer() {
   const panelTranslate = lyricsOpen ? '0%' : 'calc(100% - 3rem)';
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        flex: '1 1 0%',
-        minHeight: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#000',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* ── Audio gate — shown until first tap ───────────────────────────── */}
+    <div style={{
+      flex: '1 1 0%', minHeight: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: '#000', position: 'relative', overflow: 'hidden',
+    }}>
       {!audioUnlocked && <PlayOverlay onPlay={handleGateUnlock} />}
 
-      {/* ── Video area ───────────────────────────────────────────────────── */}
-      <div
-        style={{
-          position: 'relative',
-          height: '100%',
-          // Keep 9:16 aspect ratio, max out on available height
-          aspectRatio: '9/16',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          opacity: transitioning ? 0 : 1,
-          transition: 'opacity 0.2s ease',
-        }}
-        onTouchStart={(e) => handleTouchStart(e, 'video')}
-        onTouchEnd={handleTouchEnd}
-        onClick={handleVideoTap}
-      >
-        <MuxPlayer
-          ref={playerRef}
-          playbackId={track.playbackId}
-          loop={false}
-          playsInline
-          style={{
-            width: '100%',
-            height: '100%',
-            '--controls':           'none',
-            '--media-primary-color': 'var(--phosphor-green)',
-            '--media-background-color': '#000',
-          } as any}
+      {/* ── Persistent player pool — ALL tracks rendered, only active is visible ── */}
+      {TRACKS.map((t, i) => (
+        <div
+          key={t.playbackId}
+          ref={el => { wrapperRefs.current[i] = el; }}
+          style={i === currentIndex ? {
+            position: 'relative', height: '100%',
+            aspectRatio: '9/16', maxWidth: '100%', overflow: 'hidden',
+            opacity: transitioning ? 0 : 1,
+            transition: 'opacity 0.2s ease',
+          } : PRELOAD_STYLE}
+        >
+          <MuxPlayer
+            playbackId={t.playbackId}
+            loop={false}
+            playsInline
+            muted={i !== currentIndex}
+            style={{
+              width: '100%', height: '100%',
+              '--controls': 'none',
+              '--media-primary-color': 'var(--phosphor-green)',
+              '--media-background-color': '#000',
+            } as any}
+          />
+        </div>
+      ))}
+
+      {/* ── Controls overlay — pointer-events threaded carefully ─────────── */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+
+        {/* Touch + tap capture for video area */}
+        <div
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }}
+          onTouchStart={(e) => handleTouchStart(e, 'video')}
+          onTouchEnd={handleTouchEnd}
+          onClick={handleVideoTap}
         />
 
-        {/* Mute indicator — only show if user re-muted after unlock */}
+        {/* Mute indicator */}
         {muted && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '1rem',
-            right: '0.75rem',
-            fontSize: '0.65rem',
-            color: 'var(--phosphor-green)',
-            opacity: 0.5,
-            pointerEvents: 'none',
-            fontFamily: 'inherit',
-            letterSpacing: '0.05em',
-          }}
-        >
-          MUTED · TAP
-        </div>
+          <div style={{
+            position: 'absolute', top: '1rem', right: '0.75rem',
+            fontSize: '0.65rem', color: 'var(--phosphor-green)',
+            opacity: 0.5, pointerEvents: 'none',
+            fontFamily: 'inherit', letterSpacing: '0.05em',
+          }}>
+            MUTED · TAP
+          </div>
         )}
 
-        {/* Track counter top-left */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '1rem',
-            left: '0.75rem',
-            fontSize: '0.65rem',
-            color: 'var(--phosphor-green)',
-            opacity: 0.5,
-            pointerEvents: 'none',
-            fontFamily: 'inherit',
-            letterSpacing: '0.08em',
-          }}
-        >
+        {/* Track counter */}
+        <div style={{
+          position: 'absolute', top: '1rem', left: '0.75rem',
+          fontSize: '0.65rem', color: 'var(--phosphor-green)',
+          opacity: 0.5, pointerEvents: 'none',
+          fontFamily: 'inherit', letterSpacing: '0.08em',
+        }}>
           {String(track.index).padStart(2, '0')} / {String(TRACKS.length).padStart(2, '0')}
         </div>
 
-        {/* ── Lyrics panel ─────────────────────────────────────────────── */}
+        {/* Swipe hints */}
+        {!lyricsOpen && (
+          <div style={{
+            position: 'absolute', right: '0.6rem', top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex', flexDirection: 'column', gap: '0.35rem',
+            opacity: 0.25, pointerEvents: 'none',
+            fontSize: '0.7rem', color: 'var(--phosphor-green)', fontFamily: 'inherit',
+          }}>
+            <span>▲</span>
+            <span>▼</span>
+          </div>
+        )}
+
+        {/* Lyrics panel */}
         <div
           style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
+            position: 'absolute', bottom: 0, left: 0, right: 0,
             height: '82%',
             transform: `translateY(${panelTranslate})`,
             transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
-            display: 'flex',
-            flexDirection: 'column',
+            display: 'flex', flexDirection: 'column',
             background: 'rgba(0,0,0,0.78)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
             borderTop: '1px solid rgba(51,255,51,0.35)',
+            pointerEvents: 'auto',
           }}
           onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(e, 'panel'); }}
           onTouchEnd={(e)   => { e.stopPropagation(); handleTouchEnd(e); }}
         >
-          {/* Panel header — always visible */}
           <div
             style={{
-              flexShrink: 0,
-              height: '3rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0 0.75rem',
-              cursor: 'pointer',
+              flexShrink: 0, height: '3rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '0 0.75rem', cursor: 'pointer',
             }}
             onClick={(e) => { e.stopPropagation(); setLyricsOpen(o => !o); }}
           >
-            <span
-              style={{
-                fontSize: 'var(--text-base)',
-                color: 'var(--phosphor-green)',
-                fontFamily: 'inherit',
-                letterSpacing: '0.06em',
-                fontWeight: 'bold',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: 'calc(100% - 2rem)',
-              }}
-            >
+            <span style={{
+              fontSize: 'var(--text-base)', color: 'var(--phosphor-green)',
+              fontFamily: 'inherit', letterSpacing: '0.06em', fontWeight: 'bold',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: 'calc(100% - 2rem)',
+            }}>
               {track.displayTitle}
             </span>
-            <span
-              style={{
-                fontSize: '1rem',
-                color: 'var(--phosphor-green)',
-                opacity: 0.7,
-                flexShrink: 0,
-                userSelect: 'none',
-                transform: lyricsOpen ? 'rotate(180deg)' : 'none',
-                transition: 'transform 0.3s ease',
-                display: 'inline-block',
-              }}
-            >
+            <span style={{
+              fontSize: '1rem', color: 'var(--phosphor-green)', opacity: 0.7,
+              flexShrink: 0, userSelect: 'none',
+              transform: lyricsOpen ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.3s ease', display: 'inline-block',
+            }}>
               ↑
             </span>
           </div>
-
-          {/* Scrollable lyrics */}
           <div
             style={{
-              flex: '1 1 0%',
-              overflowY: 'auto',
-              overflowX: 'hidden',
+              flex: '1 1 0%', overflowY: 'auto', overflowX: 'hidden',
               padding: '0.5rem 1rem 2rem',
               WebkitOverflowScrolling: 'touch',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <pre
-              style={{
-                fontFamily: 'inherit',
-                fontSize: 'var(--text-base)',
-                color: 'var(--phosphor-green)',
-                opacity: 0.85,
-                lineHeight: 1.8,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                margin: 0,
-              }}
-            >
+            <pre style={{
+              fontFamily: 'inherit', fontSize: 'var(--text-base)',
+              color: 'var(--phosphor-green)', opacity: 0.85,
+              lineHeight: 1.8, whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word', margin: 0,
+            }}>
               {track.lyrics}
             </pre>
           </div>
         </div>
-
-        {/* Swipe hint arrows — shown briefly, fade out */}
-        {!lyricsOpen && (
-          <div
-            style={{
-              position: 'absolute',
-              right: '0.6rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.35rem',
-              opacity: 0.25,
-              pointerEvents: 'none',
-              fontSize: '0.7rem',
-              color: 'var(--phosphor-green)',
-              fontFamily: 'inherit',
-            }}
-          >
-            <span>▲</span>
-            <span>▼</span>
-          </div>
-        )}
       </div>
     </div>
   );
