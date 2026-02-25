@@ -116,7 +116,7 @@ export function handlePhosphor(args: string[]): { output: React.ReactNode; error
     };
   }
 
-  setPhosphorMode(mode);
+  setPhosphorMode(mode, { auto: false });
 
   return {
     output: (

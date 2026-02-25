@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import { eventBus } from './eventBus';
 
-const SHIFT_MS = 33 * 60 * 60 * 1000; // 33:00:00 exactly
+const AMBER_MS  = 33 * 60 * 1000;       // 00:33:00 — phosphor amber
+const VIOLET_MS = 33 * 60 * 60 * 1000;  // 33:00:00 — phosphor violet
 
 export type PhosphorMode = 'green' | 'amber' | 'violet';
 
@@ -13,43 +14,70 @@ const CLASS_MAP: Record<PhosphorMode, string> = {
   violet: 'violet-shift',
 };
 
-export function setPhosphorMode(mode: PhosphorMode) {
+// Tracks whether the active mode was set automatically vs. by user command.
+// Auto shifts can continue progressing (green → amber → violet).
+// A manual override locks out further automatic shifts for the session.
+const MODE_KEY = 'phosphor-mode';
+const AUTO_KEY = 'phosphor-auto';
+
+export function setPhosphorMode(mode: PhosphorMode, { auto = false } = {}) {
   const root = document.documentElement;
   root.classList.remove('amber-shift', 'violet-shift');
   if (CLASS_MAP[mode]) root.classList.add(CLASS_MAP[mode]);
   try {
-    sessionStorage.setItem('phosphor-mode', mode);
+    sessionStorage.setItem(MODE_KEY, mode);
+    sessionStorage.setItem(AUTO_KEY, auto ? '1' : '0');
   } catch {}
   eventBus.emit('neural:frequency-shift', { mode });
 }
 
 export function getPhosphorMode(): PhosphorMode {
   try {
-    const stored = sessionStorage.getItem('phosphor-mode') as PhosphorMode | null;
+    const stored = sessionStorage.getItem(MODE_KEY) as PhosphorMode | null;
     if (stored && stored in CLASS_MAP) return stored;
   } catch {}
   return 'green';
 }
 
+function wasAutoShifted(): boolean {
+  try { return sessionStorage.getItem(AUTO_KEY) === '1'; } catch { return false; }
+}
+
 export function useFrequencyShift() {
   useEffect(() => {
-    // Restore session mode on mount
+    // Restore session mode on mount (page reload within the same session).
     const saved = getPhosphorMode();
-    if (saved !== 'green') setPhosphorMode(saved);
+    if (saved !== 'green') setPhosphorMode(saved, { auto: wasAutoShifted() });
 
-    // Auto-shift to amber at exactly 33:00:00
-    const timer = setTimeout(() => {
-      // Only shift if user hasn't manually changed it
-      const current = getPhosphorMode();
-      if (current === 'green') {
-        setPhosphorMode('amber');
+    // ── Amber at 33 minutes ─────────────────────────────────────────────────
+    const amberTimer = setTimeout(() => {
+      if (getPhosphorMode() === 'green') {
+        setPhosphorMode('amber', { auto: true });
         eventBus.emit('neural:log', {
           source: 'signal-processor[314]',
-          message: 'session threshold 33:00:00 reached — phosphor resonance shifting to amber spectrum',
+          message: 'session threshold 00:33:00 reached — phosphor resonance shifting to amber spectrum',
         });
       }
-    }, SHIFT_MS);
+    }, AMBER_MS);
 
-    return () => clearTimeout(timer);
+    // ── Violet at 33 hours ──────────────────────────────────────────────────
+    // Continues the natural progression if the mode is still auto-managed.
+    // A manual user override (auto=false) blocks further automatic shifts.
+    const violetTimer = setTimeout(() => {
+      const current = getPhosphorMode();
+      const isAuto  = wasAutoShifted();
+      if (current === 'green' || (current === 'amber' && isAuto)) {
+        setPhosphorMode('violet', { auto: true });
+        eventBus.emit('neural:log', {
+          source: 'signal-processor[314]',
+          message: 'session threshold 33:00:00 reached — phosphor resonance shifting to violet spectrum',
+        });
+      }
+    }, VIOLET_MS);
+
+    return () => {
+      clearTimeout(amberTimer);
+      clearTimeout(violetTimer);
+    };
   }, []);
 }
