@@ -9,6 +9,7 @@ import { eventBus } from '@/lib/eventBus';
 import { isChatMode } from '@/components/shell/NeuralLink';
 import { getTelnetHandle, onHandleChange } from '@/lib/telnetBridge';
 import { loadARGState, startSession, getTimeAway, TRUST_LABELS, ARGState } from '@/lib/argState';
+import SyntheticsPlayer from '@/components/shell/SyntheticsPlayer';
 
 // ── Fish prompt renderer ──────────────────────────────────────────────────────
 
@@ -330,6 +331,7 @@ export default function ShellInterface() {
   const [shellUser, setShellUser]   = useState<string>('ghost');
   const [shellDir, setShellDir]     = useState<string>('~');
   const [rootMode, setRootMode]     = useState(false);
+  const [syntheticsActive, setSyntheticsActive] = useState(false);
   const inputRef                    = useRef<HTMLTextAreaElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
@@ -373,6 +375,10 @@ export default function ShellInterface() {
   useEventBus('shell:root-mode-change', (event) => {
     setRootMode(!!event.payload?.active);
   });
+
+  // ── Synthetics player open/close ─────────────────────────────────────────
+  useEventBus('shell:synthetics-open',  () => setSyntheticsActive(true));
+  useEventBus('shell:synthetics-close', () => setSyntheticsActive(false));
 
   // Sync user display — dir is handled by shell:set-directory eventBus above
   useEffect(() => {
@@ -642,7 +648,10 @@ export default function ShellInterface() {
         <BootSequence onComplete={handleBootComplete} bootLines={bootLines} />
       ) : (
         <>
-          {/* Output pane */}
+          {/* Output pane — or synthetics player */}
+          {syntheticsActive ? (
+            <SyntheticsPlayer />
+          ) : (
           <div
             ref={outputRef}
             className="shell-output"
@@ -784,8 +793,7 @@ export default function ShellInterface() {
 
             <div ref={historyEndRef} />
           </div>
-
-          {/* Autocomplete suggestion bar */}
+          )} {/* end syntheticsActive ternary */}
           {suggestions.length > 0 && !isPrompting && !isChatMode() && (
             <div
               style={{
