@@ -853,13 +853,13 @@ const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
         <span style={{ color: C.bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
         <span style={{ color: C.n1xMsg, wordBreak: 'break-word' }}>
           {isCopyableLine(lines[0]) ? <CopyLine key={0} line={lines[0]} /> : lines[0]}
-          {lines.slice(1).map((line, i) =>
-            isCopyableLine(line)
-              ? <CopyLine key={i + 1} line={line} />
-              : <span key={i + 1} style={{ display: 'block', marginTop: '0.2rem' }}>{line}</span>
-          )}
         </span>
       </div>
+      {lines.slice(1).map((line, i) =>
+        isCopyableLine(line)
+          ? <CopyLine key={i + 1} line={line} />
+          : <div key={i + 1} style={{ color: C.n1xMsg, lineHeight: 1.7, marginTop: '0.2rem', wordBreak: 'break-word' }}>{line}</div>
+      )}
     </div>
   );
 };
