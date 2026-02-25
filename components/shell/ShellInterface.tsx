@@ -617,7 +617,7 @@ export default function ShellInterface() {
   };
 
   const handleShellClick = useCallback(() => {
-    if (!booting) {
+    if (!booting && !syntheticsActive) {
       // Don't steal focus if the user has selected text (mobile long-press)
       const selection = window.getSelection();
       if (selection && selection.toString().length > 0) return;
@@ -627,13 +627,12 @@ export default function ShellInterface() {
         inputRef.current?.focus();
       }
     }
-  }, [booting, promptState]);
+  }, [booting, promptState, syntheticsActive]);
 
   const isPrompting = promptState !== null;
 
   return (
     <div
-      onClick={handleShellClick}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -860,6 +859,7 @@ export default function ShellInterface() {
           {isPrompting ? (
             <form
               onSubmit={handlePromptSubmit}
+              onClick={() => promptInputRef.current?.focus()}
               style={{
                 flexShrink: 0,
                 padding: '0.5rem 0.75rem',
@@ -902,6 +902,7 @@ export default function ShellInterface() {
             /* Normal input line — fish-style prompt or neural bus prompt */
             <form
               onSubmit={handleSubmit}
+              onClick={() => inputRef.current?.focus()}
               style={{
                 flexShrink: 0,
                 padding: '0.5rem 0.75rem',

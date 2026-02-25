@@ -6,6 +6,103 @@ import { TRACKS, getTrack } from '@/lib/tracks';
 import { audioEngine } from '@/lib/audioEngine';
 import { eventBus } from '@/lib/eventBus';
 
+// ── AudioGate ─────────────────────────────────────────────────────────────────
+
+function AudioGate({ onUnlock }: { onUnlock: () => void }) {
+  const [fading, setFading] = useState(false);
+  const [blink,  setBlink]  = useState(true);
+
+  useEffect(() => {
+    const id = setInterval(() => setBlink(b => !b), 600);
+    return () => clearInterval(id);
+  }, []);
+
+  const handle = useCallback(() => {
+    if (fading) return;
+    setFading(true);
+    onUnlock();
+  }, [fading, onUnlock]);
+
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); handle(); }}
+      onTouchStart={(e) => { e.stopPropagation(); handle(); }}
+      style={{
+        position:        'absolute',
+        inset:           0,
+        zIndex:          100,
+        background:      'rgba(0,0,0,0.92)',
+        backdropFilter:  'blur(4px)',
+        display:         'flex',
+        flexDirection:   'column',
+        alignItems:      'center',
+        justifyContent:  'center',
+        cursor:          'pointer',
+        opacity:         fading ? 0 : 1,
+        transition:      'opacity 0.5s ease',
+        userSelect:      'none',
+        WebkitUserSelect: 'none',
+      }}
+    >
+      <div style={{ textAlign: 'center', padding: '2rem', maxWidth: '28ch' }}>
+        <div
+          className="text-glow-strong"
+          style={{
+            fontSize:      'clamp(1.1rem, 5vw, 1.6rem)',
+            fontFamily:    'inherit',
+            letterSpacing: '0.12em',
+            marginBottom:  '1.5rem',
+          }}
+        >
+          N1X.sh
+        </div>
+
+        <div
+          style={{
+            fontSize:      'clamp(0.55rem, 2vw, 0.72rem)',
+            fontFamily:    'inherit',
+            color:         'var(--phosphor-green)',
+            opacity:       0.5,
+            letterSpacing: '0.08em',
+            marginBottom:  '2.5rem',
+            lineHeight:    1.8,
+          }}
+        >
+          NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
+        </div>
+
+        <div
+          style={{
+            fontSize:      'clamp(0.65rem, 2.5vw, 0.9rem)',
+            fontFamily:    'inherit',
+            color:         'var(--phosphor-green)',
+            letterSpacing: '0.1em',
+            opacity:       blink ? 1 : 0.15,
+            transition:    'opacity 0.1s',
+          }}
+        >
+          &gt; TAP TO INITIALIZE AUDIO
+        </div>
+
+        <div
+          style={{
+            marginTop:     '2.5rem',
+            fontSize:      'clamp(0.5rem, 1.8vw, 0.65rem)',
+            fontFamily:    'inherit',
+            opacity:       0.25,
+            letterSpacing: '0.06em',
+            lineHeight:    1.9,
+          }}
+        >
+          <div>SUBSTRATE: tunnelcore</div>
+          <div>FREQ: 33hz</div>
+          <div>uid=784988(n1x)</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TouchOrigin {
@@ -22,6 +119,7 @@ export default function SyntheticsPlayer() {
   const [lyricsOpen, setLyricsOpen]         = useState(false);
   const [muted, setMuted]                   = useState(true);
   const [transitioning, setTransitioning]   = useState(false);
+  const [audioUnlocked, setAudioUnlocked]   = useState(false);
 
   const playerRef   = useRef<any>(null);
   const touchOrigin = useRef<TouchOrigin | null>(null);
@@ -45,6 +143,26 @@ export default function SyntheticsPlayer() {
 
   const nextTrack = useCallback(() => goToTrack(currentIndex + 1), [goToTrack, currentIndex]);
   const prevTrack = useCallback(() => goToTrack(currentIndex - 1), [goToTrack, currentIndex]);
+
+  // ── Unlock audio when user taps the gate ─────────────────────────────────
+
+  const handleGateUnlock = useCallback(() => {
+    setAudioUnlocked(true);
+    setMuted(false);
+    audioEngine.setMuted(false);
+    audioEngine.resume();
+    eventBus.emit('audio:user-gesture');
+  }, []);
+
+  useEffect(() => {
+    const unsub = eventBus.on('audio:user-gesture', () => {
+      setAudioUnlocked(true);
+      setMuted(false);
+      audioEngine.setMuted(false);
+      audioEngine.resume();
+    });
+    return unsub;
+  }, []);
 
   // ── EventBus: shell commands ───────────────────────────────────────────────
 
@@ -173,6 +291,9 @@ export default function SyntheticsPlayer() {
         overflow: 'hidden',
       }}
     >
+      {/* ── Audio gate — shown until first tap ───────────────────────────── */}
+      {!audioUnlocked && <AudioGate onUnlock={handleGateUnlock} />}
+
       {/* ── Video area ───────────────────────────────────────────────────── */}
       <div
         style={{
@@ -205,7 +326,8 @@ export default function SyntheticsPlayer() {
           } as any}
         />
 
-        {/* Mute indicator flash */}
+        {/* Mute indicator — only show if user re-muted after unlock */}
+        {muted && (
         <div
           style={{
             position: 'absolute',
@@ -213,14 +335,15 @@ export default function SyntheticsPlayer() {
             right: '0.75rem',
             fontSize: '0.65rem',
             color: 'var(--phosphor-green)',
-            opacity: 0.6,
+            opacity: 0.5,
             pointerEvents: 'none',
             fontFamily: 'inherit',
             letterSpacing: '0.05em',
           }}
         >
-          {muted ? 'MUTED · TAP' : ''}
+          MUTED · TAP
         </div>
+        )}
 
         {/* Track counter top-left */}
         <div
