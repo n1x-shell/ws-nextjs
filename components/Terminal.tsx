@@ -162,8 +162,8 @@ export default function Terminal() {
             borderRadius: '12px',
             boxShadow: `
               inset 0 0 100px rgba(0, 0, 0, 0.9),
-              inset 0 0 20px rgba(51, 255, 51, 0.1),
-              0 0 8px rgba(51, 255, 51, 0.15)
+              inset 0 0 20px rgba(var(--phosphor-rgb), 0.1),
+              0 0 8px rgba(var(--phosphor-rgb), 0.15)
             `,
             transform: 'perspective(1000px)',
           }}
@@ -185,8 +185,8 @@ export default function Terminal() {
                 ellipse at center,
                 transparent 0%,
                 transparent 60%,
-                rgba(51, 255, 51, 0.05) 80%,
-                rgba(51, 255, 51, 0.1) 100%
+                rgba(var(--phosphor-rgb), 0.05) 80%,
+                rgba(var(--phosphor-rgb), 0.1) 100%
               )`,
             }}
           />
@@ -216,7 +216,7 @@ export default function Terminal() {
             <div className="terminal-container w-full h-full p-5 grid grid-rows-[auto_1fr_auto] gap-4">
               <header 
                 className="terminal-header border border-[var(--phosphor-green)] p-3"
-                style={{ background: 'rgba(51, 255, 51, 0.03)' }}
+                style={{ background: 'rgba(var(--phosphor-rgb), 0.03)' }}
               >
                 <div className="flex justify-between items-start flex-wrap gap-2">
                   <div>
@@ -236,7 +236,7 @@ export default function Terminal() {
                 ref={contentRef}
                 className="terminal-content border border-[var(--phosphor-green)] p-4 overflow-y-auto overflow-x-hidden"
                 style={{ 
-                  background: 'rgba(51, 255, 51, 0.01)',
+                  background: 'rgba(var(--phosphor-rgb), 0.01)',
                   scrollbarWidth: 'thin',
                   scrollbarColor: 'var(--phosphor-green) var(--terminal-bg)',
                   WebkitOverflowScrolling: 'touch',
@@ -260,7 +260,7 @@ export default function Terminal() {
                       style={{
                         fontSize: '18px',
                         fontFamily: 'inherit',
-                        boxShadow: activeTab === tab.id ? '0 0 8px rgba(51, 255, 51, 0.5)' : 'none',
+                        boxShadow: activeTab === tab.id ? '0 0 8px rgba(var(--phosphor-rgb), 0.5)' : 'none',
                       }}
                       onClick={() => handleTabChange(tab.id)}
                       onMouseEnter={handleHover}
@@ -276,7 +276,7 @@ export default function Terminal() {
 
               <footer 
                 className="terminal-footer border border-[var(--phosphor-green)] px-4 py-2 flex justify-between text-sm"
-                style={{ background: 'rgba(51, 255, 51, 0.03)' }}
+                style={{ background: 'rgba(var(--phosphor-rgb), 0.03)' }}
               >
                 <div>
                   <span className="status-dot"></span>
