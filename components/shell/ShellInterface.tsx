@@ -6,8 +6,7 @@ import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPat
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
-import { isChatMode } from '@/components/shell/NeuralLink';
-import { getTelnetHandle, onHandleChange } from '@/lib/telnetBridge';
+import { getTelnetHandle, onHandleChange, isTelnetActive } from '@/lib/telnetBridge';
 import { loadARGState, startSession, getTimeAway, TRUST_LABELS, ARGState } from '@/lib/argState';
 import SyntheticsPlayer from '@/components/shell/SyntheticsPlayer';
 import AnaloguesPlayer from '@/components/shell/AnaloguesPlayer';
@@ -850,7 +849,7 @@ export default function ShellInterface() {
     requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
   }, [history.length]);
 
-  // Explicit scroll signal from streaming components (NeuralLinkStream)
+  // Explicit scroll signal from streaming components
   useEventBus('shell:request-scroll', () => {
     const el = outputRef.current;
     if (!el) return;
@@ -985,7 +984,7 @@ export default function ShellInterface() {
       }, 0);
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (isChatMode() || suggestions.length === 0) return;
+      if (suggestions.length === 0) return;
 
       const completed = suggestions[0];
       // Split on whitespace to detect whether we're completing a command or an argument
@@ -1181,9 +1180,7 @@ export default function ShellInterface() {
                   </div>
                 ) : item.command !== '' ? (
                   <div style={{ marginBottom: '0.25rem' }}>
-                    {item.chatMode ? (
-                      <NeuralBusPrompt />
-                    ) : item.user === 'root' ? (
+                    {item.user === 'root' ? (
                       <RootPrompt cwd={item.cwd || '/'} />
                     ) : (
                       <FishPrompt
@@ -1215,7 +1212,7 @@ export default function ShellInterface() {
             {matrixActive && <MatrixCanvas onExit={() => setMatrixActive(false)} />}
           </div>
           )} {/* end stream player ternary */}
-          {suggestions.length > 0 && !isPrompting && !isChatMode() && (
+          {suggestions.length > 0 && !isPrompting && !isTelnetActive() && (
             <div
               style={{
                 flexShrink: 0,
@@ -1336,7 +1333,7 @@ export default function ShellInterface() {
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontFamily: 'inherit' }}>
                 <div style={{ paddingTop: '1px', flexShrink: 0, fontSize: '16px' }}>
-                  {isChatMode() ? (
+                  {isTelnetActive() ? (
                     <NeuralBusPrompt inline />
                   ) : isMailMode() ? (
                     <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>

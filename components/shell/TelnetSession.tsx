@@ -4,9 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
 import { useAblyRoom, type RoomMsg, type MessageMetadata, type ConnectionStatus } from '@/lib/ablyClient';
 import {
-  setChatMode,
-} from '@/components/shell/NeuralLink';
-import {
   activateTelnet,
   deactivateTelnet,
   clearHandle,
@@ -1416,7 +1413,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
   const handleDisconnect = useCallback(() => {
     deactivateTelnet();
-    setChatMode(false);
     eventBus.emit('shell:push-output', {
       command: '',
       output: (
@@ -1473,7 +1469,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
       activateTelnet(handle, sendWithSlash, handleDisconnect);
-      setChatMode(true);
       setMode('multi');
       eventBus.emit('telnet:connected');
       setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
@@ -1507,8 +1502,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       isMountedRef.current = false;
       deactivateTelnet();
       clearHandle();
-      setChatMode(false);
-    };
+      };
   }, []);
 
   // ── Message renderer ──────────────────────────────────────────────────────
