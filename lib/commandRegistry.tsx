@@ -8,14 +8,6 @@ import { Tab } from '@/types/neural.types';
 import { renderStreamContent } from './contentRenderer';
 import { createSystemCommands, setRequestPrompt, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
 import { handlePhosphor } from './phosphorCommand';
-import {
-  NeuralLinkStream,
-  NeuralChatSession,
-  handleChatInput,
-  isChatMode,
-  setChatMode,
-  resetConversation,
-} from '@/components/shell/NeuralLink';
 import { isTelnetActive, telnetSend, telnetDisconnect } from '@/lib/telnetBridge';
 
 const fs = new FileSystemNavigator();
@@ -23,7 +15,7 @@ const fs = new FileSystemNavigator();
 let isRoot   = false;
 let _requestPrompt: ((label: string, onSubmit: (pw: string) => void) => void) = () => {};
 
-// ── Root mode flag — module-level, like isChatMode in NeuralLink ─────────────
+// ── Root mode flag — module-level ────────────────────────────────────────────
 export function isRootMode(): boolean { return isRoot; }
 export function setRootMode(active: boolean): void {
   isRoot = active;
@@ -1115,11 +1107,6 @@ export const commands: Record<string, Command> = {
     description: 'Exit current session (chat, mail, or root)',
     usage: 'exit',
     handler: () => {
-      // Chat mode takes priority — disconnect neural link first
-      if (isChatMode()) {
-        return handleChatInput('exit');
-      }
-
       // Mail mode
       if (mailModeActive) {
         setMailMode(false);
@@ -1319,31 +1306,15 @@ export function executeCommand(
     return handleMailInput(trimmed);
   }
 
-  // ── Chat mode intercept ─────────────────────────────────────────────────
-  // When neural-link is active, route all input through the chat handler
-  // except for system commands that should always work
-  if (isChatMode()) {
+  // ── Telnet / exit shortcuts ────────────────────────────────────────────
+  {
     const firstWord = trimmed.toLowerCase().split(/\s+/)[0];
 
-    if (firstWord === 'clear') {
-      return { output: '', clearScreen: true };
-    }
-
     if (firstWord === 'exit' || firstWord === 'quit' || firstWord === '/quit') {
-      // If telnet bridge is active, disconnect from Ably channel
       if (isTelnetActive()) {
         telnetDisconnect();
         return { output: null };
       }
-      return handleChatInput('exit');
-    }
-
-    if (firstWord === '/reset') {
-      return handleChatInput('/reset');
-    }
-
-    if (firstWord === '/history') {
-      return handleChatInput('/history');
     }
 
     // ── Ably mesh mode: route input to ghost channel ─────────────────────
@@ -1351,9 +1322,6 @@ export function executeCommand(
       telnetSend(trimmed);
       return { output: null, silent: true }; // TelnetSession renders its own feed
     }
-
-    // Everything else goes to the neural link
-    return handleChatInput(trimmed);
   }
 
   // ── Normal command execution ────────────────────────────────────────────

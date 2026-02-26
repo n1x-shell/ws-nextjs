@@ -4,10 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
-import {
-  setChatMode,
-  resetConversation,
-} from '@/components/shell/NeuralLink';
 import { TelnetSession } from '@/components/shell/TelnetSession';
 
 const SESSION_START = Date.now();
