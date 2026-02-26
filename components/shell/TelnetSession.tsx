@@ -16,6 +16,7 @@ const S = {
   base:   'var(--text-base)',
   header: 'var(--text-header)',
   glow:   'text-glow',
+  accent: 'var(--phosphor-accent)',
 };
 
 // ── Color palette ─────────────────────────────────────────────────────────────
@@ -36,12 +37,13 @@ const C = {
   whoN1X:      '#bf00ff',
   action:      '#ff69b4',
   cmdError:    '#ff6b6b',
-  helpKey:     'var(--phosphor-green)',
+  helpKey:     'var(--phosphor-accent)',
   helpDim:     'rgba(var(--phosphor-rgb),0.45)',
-  trustLevel:  '#fcd34d',
-  fragId:      'var(--phosphor-green)',
-  fragLocked:  'rgba(var(--phosphor-rgb),0.2)',
+  trustLevel:  'var(--phosphor-accent)',
+  fragId:      'var(--phosphor-accent)',
+  fragLocked:  'rgba(var(--phosphor-accent-rgb),0.25)',
   tier0:       '#555555',
+  accent:      'var(--phosphor-accent)',
 };
 
 // N1X fixed sigil
@@ -318,12 +320,12 @@ const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
   [400,  <span key="o1" style={{ fontSize: S.base, opacity: 0.8 }}>Connected to n1x.sh.</span>],
   [700,  <span key="o2" style={{ fontSize: S.base, opacity: 0.5 }}>Escape character is &apos;^]&apos;.</span>],
   [1000, <span key="o3">&nbsp;</span>],
-  [1200, <span key="o4" style={{ fontSize: S.base, opacity: 0.5, color: 'var(--phosphor-amber, #ffaa00)' }}>ghost-daemon[999]: mesh network failure</span>],
+  [1200, <span key="o4" style={{ fontSize: S.base, opacity: 0.5, color: 'var(--phosphor-accent)' }}>ghost-daemon[999]: mesh network failure</span>],
   [1600, <span key="o5" style={{ fontSize: S.base, opacity: 0.5 }}>ghost-daemon[999]: falling back to direct link</span>],
   [2000, <span key="o6">&nbsp;</span>],
-  [2200, <span key="o7" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; CARRIER DETECTED</span>],
+  [2200, <span key="o7" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em', color: 'var(--phosphor-accent)' }}>&gt;&gt; CARRIER DETECTED</span>],
   [2500, <span key="o8" className={S.glow} style={{ fontSize: S.base }}>&gt;&gt; FREQUENCY LOCK: 33hz</span>],
-  [2800, <span key="o9" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; DIRECT_LINK ACTIVE</span>],
+  [2800, <span key="o9" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em', color: 'var(--phosphor-accent)' }}>&gt;&gt; DIRECT_LINK ACTIVE</span>],
   [3200, <span key="o10">&nbsp;</span>],
   [3400, (
     <div key="o11" style={{ fontSize: S.base }}>
@@ -526,7 +528,7 @@ const HelpOutput: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
 
   return (
     <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
-      <div style={{ color: C.helpKey, opacity: 0.7, marginBottom: '0.25rem' }}>GHOST CHANNEL — COMMANDS</div>
+      <div style={{ color: C.accent, opacity: 0.7, marginBottom: '0.25rem' }}>GHOST CHANNEL — COMMANDS</div>
       {rows.map(r => (
         <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
           <span style={{ color: C.helpKey, minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
@@ -1016,7 +1018,7 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
         <div className={S.glow} style={{ opacity: 0.9 }}>connected.</div>
       )}
       {showResult && status === 'failed' && (
-        <div style={{ opacity: 0.5, color: 'var(--phosphor-amber, #ffaa00)' }}>mesh unreachable. direct link only.</div>
+        <div style={{ opacity: 0.5, color: 'var(--phosphor-accent)' }}>mesh unreachable. direct link only.</div>
       )}
     </div>
   );
@@ -1560,13 +1562,13 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
           </div>
 
           <div style={{ opacity: 0.2, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace' }}>
-            type <span className={S.glow}>exit</span> to disconnect
+            type <span className={S.glow} style={{ color: C.accent }}>exit</span> to disconnect
             &nbsp;&middot;&nbsp;
-            <span className={S.glow}>/who</span> list nodes
+            <span className={S.glow} style={{ color: C.accent }}>/who</span> list nodes
             &nbsp;&middot;&nbsp;
-            <span className={S.glow}>/me</span> action
+            <span className={S.glow} style={{ color: C.accent }}>/me</span> action
             &nbsp;&middot;&nbsp;
-            <span className={S.glow}>/help</span> commands
+            <span className={S.glow} style={{ color: C.accent }}>/help</span> commands
           </div>
         </div>
       )}
