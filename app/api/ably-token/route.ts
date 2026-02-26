@@ -5,12 +5,27 @@
 //
 // All tokens include n1x:mod [subscribe] so every client can receive
 // mod actions (kicks, mutes, unmutes) published by admins via /api/mod.
+//
+// Rate limited: 30 token requests per IP per minute to prevent unlimited
+// Ably connection creation and quota exhaustion.
 
 import Ably from 'ably';
+import { Redis } from '@upstash/redis';
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+const redis = Redis.fromEnv();
+
+export async function GET(req: Request) {
+  // ── Rate limiting — 30 requests per IP per minute ─────────────────────────
+  const rl = await rateLimit(redis, req, {
+    limit:         30,
+    windowSeconds: 60,
+    prefix:        'rl:ably-token',
+  });
+  if (!rl.allowed) return tooManyRequests(rl);
+
   const apiKey = process.env.ABLY_API_KEY?.trim();
   if (!apiKey) {
     return Response.json({ error: 'ABLY_API_KEY not configured' }, { status: 500 });

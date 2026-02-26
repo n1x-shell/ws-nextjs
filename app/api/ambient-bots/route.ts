@@ -17,6 +17,7 @@
 import Ably from 'ably';
 import { generateText } from 'ai';
 import { Redis } from '@upstash/redis';
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit';
 import {
   AMBIENT_BOTS,
   BOT_IDS,
@@ -264,6 +265,14 @@ async function runConversationLoop(
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request): Promise<Response> {
+  // ── Rate limiting — 10 requests per IP per minute ─────────────────────────
+  const rl = await rateLimit(redis, req, {
+    limit:         10,
+    windowSeconds: 60,
+    prefix:        'rl:ambient',
+  });
+  if (!rl.allowed) return tooManyRequests(rl);
+
   const apiKey = process.env.ABLY_API_KEY?.trim();
   if (!apiKey) {
     return Response.json({ error: 'ABLY_API_KEY not configured' }, { status: 500 });
