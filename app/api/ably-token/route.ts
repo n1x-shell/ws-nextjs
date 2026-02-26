@@ -19,7 +19,7 @@ export async function GET() {
     const rest = new Ably.Rest(apiKey);
     const tokenRequest = await rest.auth.createTokenRequest({
       capability: {
-        ghost:       ['publish', 'subscribe', 'presence', 'history'],
+        ghost:       ['subscribe', 'presence', 'history'],
         'n1x:mod':   ['subscribe'],
         'n1x:shell': ['presence'],
       },
