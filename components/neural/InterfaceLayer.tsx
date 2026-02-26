@@ -402,7 +402,7 @@ export default function InterfaceLayer() {
                   { label: 'SYNTHETICS', cmd: 'load synthetics', effect: 'static-burst'   as const, duration: 200 },
                   { label: 'ANALOGUES',  cmd: 'load analogues',  effect: 'static-burst'   as const, duration: 200 },
                   // { label: 'HYBRIDS',    cmd: 'load hybrids',    effect: 'static-burst'   as const, duration: 200 },
-                  { label: 'UPLINK',     cmd: 'load uplink',     effect: 'static-burst'   as const, duration: 200 },
+                  // { label: 'UPLINK',     cmd: 'load uplink',     effect: 'static-burst'   as const, duration: 200 },
                 ].map((tab) => (
                   <button
                     key={tab.label}
