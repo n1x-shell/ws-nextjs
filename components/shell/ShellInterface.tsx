@@ -269,8 +269,7 @@ function BootSequence({ onComplete, bootLines }: {
         fontSize: 'var(--text-base)',
         fontFamily: 'inherit',
         overscrollBehavior: 'contain',
-        opacity: done ? 0 : 1,
-        transition: done ? 'opacity 0.15s ease-out' : 'none',
+
       }}
     >
       {lines.map((line, i) => {
@@ -353,6 +352,7 @@ export default function ShellInterface() {
   const [cursorHidden, setCursorHidden] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [booting, setBooting]       = useState(true);
+  const [transitionPhase, setTransitionPhase] = useState<'powering-off' | 'powering-on' | null>(null);
   const [shellUser, setShellUser]   = useState<string>('ghost');
   const [shellDir, setShellDir]     = useState<string>('~');
   const [rootMode, setRootMode]     = useState(false);
@@ -422,20 +422,33 @@ export default function ShellInterface() {
   }, [currentUser]);
 
   const handleBootComplete = useCallback(() => {
-    setBooting(false);
-    // Restore persisted unlock states
-    if (argState.ghostUnlocked) {
-      eventBus.emit('neural:ghost-unlocked');
-    }
-    if (argState.hiddenUnlocked) {
-      eventBus.emit('neural:hidden-unlocked');
-    }
-    // Restore backup extraction — emit after ghost-unlocked so the VFS
-    // singleton is already unlocked when vfs:restore-backup fires.
-    if (argState.backupExtracted && argState.ghostUnlocked) {
-      eventBus.emit('vfs:restore-backup');
-    }
-    setTimeout(() => inputRef.current?.focus(), 100);
+    // Phase 1: power-off animation plays (450ms, matches CSS)
+    setTransitionPhase('powering-off');
+
+    // Phase 2: at ~440ms the screen is at scaleY≈0 — swap content while invisible
+    setTimeout(() => {
+      setBooting(false);
+      // Restore persisted unlock states
+      if (argState.ghostUnlocked) {
+        eventBus.emit('neural:ghost-unlocked');
+      }
+      if (argState.hiddenUnlocked) {
+        eventBus.emit('neural:hidden-unlocked');
+      }
+      // Restore backup extraction — emit after ghost-unlocked so the VFS
+      // singleton is already unlocked when vfs:restore-backup fires.
+      if (argState.backupExtracted && argState.ghostUnlocked) {
+        eventBus.emit('vfs:restore-backup');
+      }
+      // Phase 3: power-on animation expands the shell in (580ms, matches CSS)
+      setTransitionPhase('powering-on');
+
+      // Phase 4: clear phase, focus input
+      setTimeout(() => {
+        setTransitionPhase(null);
+        inputRef.current?.focus();
+      }, 600);
+    }, 440);
   }, [argState]);
 
   useEffect(() => {
@@ -668,6 +681,11 @@ export default function ShellInterface() {
 
   return (
     <div
+      className={
+        transitionPhase === 'powering-off' ? 'crt-powering-off' :
+        transitionPhase === 'powering-on'  ? 'crt-powering-on'  :
+        undefined
+      }
       style={{
         display: 'flex',
         flexDirection: 'column',
