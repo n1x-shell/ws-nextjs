@@ -341,12 +341,12 @@ function getMultiSequence(host: string, count: number): ConnectLine[] {
     { delay: 400,  text: `Connected to ${host}.` },
     { delay: 700,  text: `Escape character is '^]'.` },
     { delay: 900,  text: '' },
-    { delay: 1100, text: 'ghost-daemon[999]: connection established' },
-    { delay: 1400, text: 'ghost-daemon[999]: frequency lock: 33hz', bright: true },
-    { delay: 1700, text: 'ghost-daemon[999]: signal integrity: NOMINAL' },
-    { delay: 2000, text: `ghost-daemon[999]: ${count} node(s) on channel` },
-    { delay: 2300, text: 'ghost-daemon[999]: classification level: ACTIVE', bright: true },
-    { delay: 2600, text: 'ghost-daemon[999]: this channel is being monitored' },
+    { delay: 1100, text: 'ghost-daemon[999]: connection  ESTABLISHED' },
+    { delay: 1400, text: 'ghost-daemon[999]: freq-lock   33hz', bright: true },
+    { delay: 1700, text: 'ghost-daemon[999]: signal      NOMINAL' },
+    { delay: 2000, text: `ghost-daemon[999]: peers       ${count} node(s)` },
+    { delay: 2300, text: 'ghost-daemon[999]: clearance   ACTIVE', bright: true },
+    { delay: 2600, text: 'ghost-daemon[999]: monitoring  enabled' },
     { delay: 3000, text: '>> MESH_MODE_ACTIVE', bright: true },
   ];
 }
