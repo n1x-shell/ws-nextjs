@@ -1794,7 +1794,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 {state.manifestComplete && hasF010 ? ' -- MANIFEST COMPLETE -- run: transmit manifest.complete' : ''}
               </div>
               {totalRecovered > 0 && (
-                <div style={{ marginTop: '0.5rem', opacity: 0.4, fontSize: 'var(--text-sm, 0.75rem)' }}>
+                <div style={{ marginTop: '0.5rem', opacity: 0.4, fontSize: S.base }}>
                   tip: fragments read {'<id>'}  to view recovered content
                 </div>
               )}
