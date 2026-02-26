@@ -346,8 +346,8 @@ function pathDirsOnly(rawInput: string): boolean {
 
 // ── MatrixCanvas ──────────────────────────────────────────────────────────────
 // Renders inside the shell output zone (position:absolute, inset:0).
-// Contains: phosphor rain, per-column melt bursts, horizontal glitch slices
-// with RGB fringe, scrolling CRT scanlines, and a radial vignette.
+// Contains: dense phosphor rain, per-column melt with character morphing,
+// horizontal glitch slice displacement, scrolling CRT scanlines, radial vignette.
 
 const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const wrapRef   = useRef<HTMLDivElement>(null);
@@ -360,25 +360,30 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Size canvas buffer to exact container dimensions
     const W = wrap.clientWidth;
     const H = wrap.clientHeight;
     canvas.width  = W;
     canvas.height = H;
 
-    const FONT  = 14;
-    const COLS  = Math.floor(W / FONT);
-    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()N1X!?アイウエオカキクケコ';
+    // Smaller font = denser columns
+    const FONT  = 12;   // render size — readable but not oversized
+    const STEP  = 7;    // column pitch — tighter than font width = more streams
+    const COLS  = Math.floor(W / STEP);
+    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()N1X!?アイウエオカキクケコサシスセソタチツテト';
+    const CL    = CHARS.length;
+
     const phosphor = getComputedStyle(document.documentElement)
       .getPropertyValue('--phosphor-green').trim() || '#33ff33';
 
-    // Drop positions — staggered above top so they don't all arrive at once
+    // Drop positions staggered above top so they cascade in
     const drops  = Array.from({ length: COLS }, () => -(Math.random() * (H / FONT)));
     // Per-column melt: speed multiplier + frames remaining
-    const speeds = Array<number>(COLS).fill(1);
+    const speeds = Array<number>(COLS).fill(0.5);   // base speed halved vs original
     const meltT  = Array<number>(COLS).fill(0);
+    // Per-column character morph phase — float, indexes into CHARS
+    const morph  = Array.from({ length: COLS }, () => Math.random() * CL);
 
-    // Glitch state
+    // Glitch state — displacement only, no composite fills (those caused the purple bar)
     let glitchActive = false;
     let glitchFrames = 0;
     let glitchY      = 0;
@@ -387,7 +392,7 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     let frameCount   = 0;
     let nextGlitch   = 40 + Math.random() * 90;
 
-    // Vignette gradient — baked once, expensive to recreate every frame
+    // Vignette baked once
     const vignette = ctx.createRadialGradient(W/2, H/2, H * 0.2, W/2, H/2, H * 0.9);
     vignette.addColorStop(0, 'rgba(0,0,0,0)');
     vignette.addColorStop(1, 'rgba(0,0,0,0.65)');
@@ -397,47 +402,59 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     const draw = () => {
       frameCount++;
 
-      // ── Melt: randomly accelerate a column for a burst of frames ──────────
-      if (frameCount % 5 === 0 && Math.random() > 0.80) {
-        const col = Math.floor(Math.random() * COLS);
-        if (meltT[col] === 0) {
-          speeds[col] = 2.5 + Math.random() * 2.5;
-          meltT[col]  = 8 + Math.floor(Math.random() * 14);
+      // ── Melt trigger: per-column per-frame chance to start melting
+      for (let i = 0; i < COLS; i++) {
+        if (meltT[i] > 0) {
+          if (--meltT[i] === 0) speeds[i] = 0.5;
+        } else if (Math.random() > 0.985) {
+          // ~1.5% chance per column per frame — many columns melt simultaneously
+          speeds[i] = 1.2 + Math.random() * 1.8;   // 2.4–6× the halved base
+          meltT[i]  = 25 + Math.floor(Math.random() * 40); // 25–65 frames
         }
       }
-      for (let i = 0; i < COLS; i++) {
-        if (meltT[i] > 0 && --meltT[i] === 0) speeds[i] = 1;
-      }
 
-      // ── Fade trail — controls how long the phosphor persistence lasts ──────
-      ctx.fillStyle = 'rgba(0,0,0,0.055)';
+      // ── Fade trail — slightly slower fade keeps the dense trails visible longer
+      ctx.fillStyle = 'rgba(0,0,0,0.045)';
       ctx.fillRect(0, 0, W, H);
 
-      // ── Rain ──────────────────────────────────────────────────────────────
+      // ── Rain + morph
       ctx.font = `${FONT}px monospace`;
       for (let i = 0; i < COLS; i++) {
-        const ch  = CHARS[Math.floor(Math.random() * CHARS.length)];
-        const x   = i * FONT;
-        const y   = drops[i] * FONT;
         const hot = meltT[i] > 0;
 
-        // Melting columns flash white at the leading character
+        // Morph: advance phase slowly normally, rapidly when melting
+        // This makes characters visibly cycle/transform at the column head
+        morph[i] += hot ? 0.55 + Math.random() * 0.35 : 0.025 + Math.random() * 0.02;
+        const ch  = CHARS[Math.floor(morph[i]) % CL];
+
+        const x = i * STEP;
+        const y = drops[i] * FONT;
+
         ctx.fillStyle   = hot ? '#ffffff' : phosphor;
-        ctx.globalAlpha = hot ? 1 : 0.6 + Math.random() * 0.4;
+        ctx.globalAlpha = hot ? 1 : 0.55 + Math.random() * 0.45;
         ctx.fillText(ch, x, y);
         ctx.globalAlpha = 1;
 
-        if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 5);
+        // Secondary dim character one step behind — adds body and depth to the stream
+        if (drops[i] > 1) {
+          const prevCh = CHARS[Math.floor(morph[i] - 1 + CL) % CL];
+          ctx.fillStyle   = phosphor;
+          ctx.globalAlpha = 0.25;
+          ctx.fillText(prevCh, x, (drops[i] - 1) * FONT);  // x already STEP-based
+          ctx.globalAlpha = 1;
+        }
+
+        if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 6);
         drops[i] += speeds[i];
       }
 
-      // ── Glitch: grab a horizontal slice, displace it, add RGB fringe ──────
+      // ── Glitch: horizontal slice displacement only
       if (!glitchActive && frameCount >= nextGlitch) {
         glitchActive = true;
         glitchFrames = 0;
         glitchY      = 10 + Math.random() * (H - 50);
-        glitchH      = 5 + Math.random() * 24;
-        glitchOff    = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 26);
+        glitchH      = 4 + Math.random() * 18;
+        glitchOff    = (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random() * 22);
         nextGlitch   = frameCount + 40 + Math.random() * 110;
       }
 
@@ -447,28 +464,17 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
           const slice = ctx.getImageData(0, glitchY, W, glitchH);
           ctx.putImageData(slice, glitchOff, glitchY);
         } catch { /* taint safety */ }
-
-        // RGB channel fringe on the displaced strip
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.18;
-        ctx.fillStyle   = '#ff0000';
-        ctx.fillRect(glitchOff - 3, glitchY, W, glitchH);
-        ctx.fillStyle   = '#0000ff';
-        ctx.fillRect(glitchOff + 3, glitchY, W, glitchH);
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 1;
-
         if (glitchFrames >= 2 + Math.floor(Math.random() * 3)) glitchActive = false;
       }
 
-      // ── CRT scanlines — horizontal bands scrolling downward at 0.6px/frame
+      // ── CRT scanlines
       ctx.fillStyle   = '#000000';
       ctx.globalAlpha = 0.10;
       const scanY = (frameCount * 0.6) % 4;
       for (let y = scanY; y < H; y += 4) ctx.fillRect(0, y, W, 1.5);
       ctx.globalAlpha = 1;
 
-      // ── Vignette ──────────────────────────────────────────────────────────
+      // ── Vignette
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, W, H);
 
@@ -487,14 +493,14 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     >
       <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
       <div style={{
-        position:    'absolute',
-        bottom:      '0.75rem',
-        left:        '50%',
-        transform:   'translateX(-50%)',
-        color:       'var(--phosphor-green)',
-        fontFamily:  'monospace',
-        fontSize:    '11px',
-        opacity:     0.35,
+        position:      'absolute',
+        bottom:        '0.75rem',
+        left:          '50%',
+        transform:     'translateX(-50%)',
+        color:         'var(--phosphor-green)',
+        fontFamily:    'monospace',
+        fontSize:      '11px',
+        opacity:       0.35,
         pointerEvents: 'none',
         letterSpacing: '0.1em',
       }}>
