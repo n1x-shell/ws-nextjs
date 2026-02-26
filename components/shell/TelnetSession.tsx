@@ -1483,7 +1483,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     if (connectionStatus === 'failed') {
       runOfflineBoot();
     } else {
-      runMultiBoot(occupantCount);
+      runMultiBoot(occupantCount + 4);
     }
   }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runMultiBoot]);
 
