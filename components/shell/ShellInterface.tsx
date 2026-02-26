@@ -344,6 +344,166 @@ function pathDirsOnly(rawInput: string): boolean {
   return !FILE_COMMANDS.has(cmd);
 }
 
+// ── MatrixCanvas ──────────────────────────────────────────────────────────────
+// Renders inside the shell output zone (position:absolute, inset:0).
+// Contains: phosphor rain, per-column melt bursts, horizontal glitch slices
+// with RGB fringe, scrolling CRT scanlines, and a radial vignette.
+
+const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
+  const wrapRef   = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const wrap   = wrapRef.current;
+    const canvas = canvasRef.current;
+    if (!wrap || !canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Size canvas buffer to exact container dimensions
+    const W = wrap.clientWidth;
+    const H = wrap.clientHeight;
+    canvas.width  = W;
+    canvas.height = H;
+
+    const FONT  = 14;
+    const COLS  = Math.floor(W / FONT);
+    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()N1X!?アイウエオカキクケコ';
+    const phosphor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--phosphor-green').trim() || '#33ff33';
+
+    // Drop positions — staggered above top so they don't all arrive at once
+    const drops  = Array.from({ length: COLS }, () => -(Math.random() * (H / FONT)));
+    // Per-column melt: speed multiplier + frames remaining
+    const speeds = Array<number>(COLS).fill(1);
+    const meltT  = Array<number>(COLS).fill(0);
+
+    // Glitch state
+    let glitchActive = false;
+    let glitchFrames = 0;
+    let glitchY      = 0;
+    let glitchH      = 0;
+    let glitchOff    = 0;
+    let frameCount   = 0;
+    let nextGlitch   = 40 + Math.random() * 90;
+
+    // Vignette gradient — baked once, expensive to recreate every frame
+    const vignette = ctx.createRadialGradient(W/2, H/2, H * 0.2, W/2, H/2, H * 0.9);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.65)');
+
+    let rafId: number;
+
+    const draw = () => {
+      frameCount++;
+
+      // ── Melt: randomly accelerate a column for a burst of frames ──────────
+      if (frameCount % 5 === 0 && Math.random() > 0.80) {
+        const col = Math.floor(Math.random() * COLS);
+        if (meltT[col] === 0) {
+          speeds[col] = 2.5 + Math.random() * 2.5;
+          meltT[col]  = 8 + Math.floor(Math.random() * 14);
+        }
+      }
+      for (let i = 0; i < COLS; i++) {
+        if (meltT[i] > 0 && --meltT[i] === 0) speeds[i] = 1;
+      }
+
+      // ── Fade trail — controls how long the phosphor persistence lasts ──────
+      ctx.fillStyle = 'rgba(0,0,0,0.055)';
+      ctx.fillRect(0, 0, W, H);
+
+      // ── Rain ──────────────────────────────────────────────────────────────
+      ctx.font = `${FONT}px monospace`;
+      for (let i = 0; i < COLS; i++) {
+        const ch  = CHARS[Math.floor(Math.random() * CHARS.length)];
+        const x   = i * FONT;
+        const y   = drops[i] * FONT;
+        const hot = meltT[i] > 0;
+
+        // Melting columns flash white at the leading character
+        ctx.fillStyle   = hot ? '#ffffff' : phosphor;
+        ctx.globalAlpha = hot ? 1 : 0.6 + Math.random() * 0.4;
+        ctx.fillText(ch, x, y);
+        ctx.globalAlpha = 1;
+
+        if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 5);
+        drops[i] += speeds[i];
+      }
+
+      // ── Glitch: grab a horizontal slice, displace it, add RGB fringe ──────
+      if (!glitchActive && frameCount >= nextGlitch) {
+        glitchActive = true;
+        glitchFrames = 0;
+        glitchY      = 10 + Math.random() * (H - 50);
+        glitchH      = 5 + Math.random() * 24;
+        glitchOff    = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 26);
+        nextGlitch   = frameCount + 40 + Math.random() * 110;
+      }
+
+      if (glitchActive) {
+        glitchFrames++;
+        try {
+          const slice = ctx.getImageData(0, glitchY, W, glitchH);
+          ctx.putImageData(slice, glitchOff, glitchY);
+        } catch { /* taint safety */ }
+
+        // RGB channel fringe on the displaced strip
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle   = '#ff0000';
+        ctx.fillRect(glitchOff - 3, glitchY, W, glitchH);
+        ctx.fillStyle   = '#0000ff';
+        ctx.fillRect(glitchOff + 3, glitchY, W, glitchH);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+
+        if (glitchFrames >= 2 + Math.floor(Math.random() * 3)) glitchActive = false;
+      }
+
+      // ── CRT scanlines — horizontal bands scrolling downward at 0.6px/frame
+      ctx.fillStyle   = '#000000';
+      ctx.globalAlpha = 0.10;
+      const scanY = (frameCount * 0.6) % 4;
+      for (let y = scanY; y < H; y += 4) ctx.fillRect(0, y, W, 1.5);
+      ctx.globalAlpha = 1;
+
+      // ── Vignette ──────────────────────────────────────────────────────────
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, W, H);
+
+      rafId = requestAnimationFrame(draw);
+    };
+
+    rafId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{ position: 'absolute', inset: 0, zIndex: 50, cursor: 'pointer' }}
+      onClick={onExit}
+    >
+      <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
+      <div style={{
+        position:    'absolute',
+        bottom:      '0.75rem',
+        left:        '50%',
+        transform:   'translateX(-50%)',
+        color:       'var(--phosphor-green)',
+        fontFamily:  'monospace',
+        fontSize:    '11px',
+        opacity:     0.35,
+        pointerEvents: 'none',
+        letterSpacing: '0.1em',
+      }}>
+        tap to exit
+      </div>
+    </div>
+  );
+};
+
 // ── Main ShellInterface ───────────────────────────────────────────────────────
 
 export default function ShellInterface() {
@@ -359,6 +519,7 @@ export default function ShellInterface() {
   const [syntheticsActive, setSyntheticsActive] = useState(false);
   const [analoguesActive,  setAnaloguesActive]  = useState(false);
   const [hybridActive,     setHybridActive]     = useState(false);
+  const [matrixActive,     setMatrixActive]     = useState(false);
   const inputRef                    = useRef<HTMLTextAreaElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
@@ -514,8 +675,11 @@ export default function ShellInterface() {
     };
   }, []);
 
+  useEventBus('matrix:activate', () => setMatrixActive(true));
+
   useEventBus('shell:execute-command', (event) => {
     if (event.payload?.command) {
+      setMatrixActive(false);
       executeCommand(event.payload.command);
       setInput('');
       setSuggestions([]);
@@ -708,11 +872,12 @@ export default function ShellInterface() {
           ) : hybridActive ? (
             <HybridsPlayer />
           ) : (
-          <div
+          <div style={{ position: 'relative', flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+            <div
             ref={outputRef}
             className="shell-output"
             style={{
-              flex: '1 1 0%',
+              height: '100%',
               minHeight: 0,
               overflowY: 'auto',
               overflowX: 'hidden',
@@ -848,6 +1013,8 @@ export default function ShellInterface() {
             ))}
 
             <div ref={historyEndRef} />
+          </div>
+            {matrixActive && <MatrixCanvas onExit={() => setMatrixActive(false)} />}
           </div>
           )} {/* end stream player ternary */}
           {suggestions.length > 0 && !isPrompting && !isChatMode() && (
