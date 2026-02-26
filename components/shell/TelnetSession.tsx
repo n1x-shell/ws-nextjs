@@ -1681,6 +1681,17 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       setMode('multi');
       eventBus.emit('telnet:connected');
       setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
+      // Broadcast join announcement to all occupants
+      fetch('/api/messages', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: handle,
+          text:     `[[ ${handle} ENTERED THE MANCAVE ]]`,
+          roomId:   'mancave',
+          announce: true,
+        }),
+      }).catch(() => { /* fail silently */ });
     });
   }, [handle, sendWithSlash, handleDisconnect, runSequence]);
 
