@@ -1494,6 +1494,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           }, accumulated);
         });
 
+        // fire hack effect after last line ("Session completed")
+        setTimeout(() => eventBus.emit('neural:hack-complete'), accumulated + 100);
+
         return {
           output: (
             <span style={{ fontSize: S.base, opacity: 0.7 }}>
@@ -1534,6 +1537,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             );
           }, i * INTERVAL);
         });
+
+        // fire hack effect after last line
+        setTimeout(() => eventBus.emit('neural:hack-complete'), (lines.length - 1) * INTERVAL + 150);
 
         return {
           output: (

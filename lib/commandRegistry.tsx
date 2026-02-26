@@ -541,6 +541,7 @@ export const commands: Record<string, Command> = {
       // ── /hidden context: n1x.sh → trigger konami/ghost unlock ──────────
       if (result.name === 'n1x.sh' && result.directory.startsWith('/hidden')) {
         eventBus.emit('neural:konami');
+        eventBus.emit('neural:hack-complete');
 
         return {
           output: (
@@ -612,6 +613,7 @@ export const commands: Record<string, Command> = {
         setTimeout(() => {
           startSubstrateDaemon();
           eventBus.emit('neural:substrated-started');
+          eventBus.emit('neural:hack-complete');
         }, 2100);
 
         return {
