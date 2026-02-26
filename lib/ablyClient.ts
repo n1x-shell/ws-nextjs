@@ -230,16 +230,20 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       return;
     }
 
-    const messageId = makeId();
-    const payload: UserMessageEvent = {
-      roomId:    'ghost',
-      userId:    handle,
-      messageId,
-      text,
-      ts: Date.now(),
-    };
-    if (metadata) payload.metadata = metadata;
-    channelRef.current?.publish('user.message', payload);
+    // Publish via the server-side API so client tokens never need the 'publish'
+    // capability on the ghost channel. The server stamps userId from clientId,
+    // preventing identity spoofing.
+    fetch('/api/messages', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: handle,
+        text,
+        ...(metadata ? { metadata } : {}),
+      }),
+    }).catch((err) => {
+      console.error('[send] failed to deliver message:', err);
+    });
 
     try {
       const raw = localStorage.getItem('n1x_substrate');
