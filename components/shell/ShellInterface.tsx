@@ -933,7 +933,7 @@ export default function ShellInterface() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontFamily: 'inherit' }}>
-                <div style={{ paddingTop: '1px', flexShrink: 0 }}>
+                <div style={{ paddingTop: '1px', flexShrink: 0, fontSize: '16px' }}>
                   {isChatMode() ? (
                     <NeuralBusPrompt inline />
                   ) : isMailMode() ? (
