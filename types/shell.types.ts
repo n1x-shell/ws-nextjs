@@ -31,7 +31,6 @@ export interface CommandOutput {
   error?: boolean;
   cwd?: string;
   user?: string;
-  chatMode?: boolean;
 }
 
 export interface ShellState {

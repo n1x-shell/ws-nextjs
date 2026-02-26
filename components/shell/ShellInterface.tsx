@@ -6,8 +6,7 @@ import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPat
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
-import { isChatMode } from '@/components/shell/NeuralLink';
-import { getTelnetHandle, onHandleChange } from '@/lib/telnetBridge';
+import { getTelnetHandle, onHandleChange, isTelnetActive } from '@/lib/telnetBridge';
 import { loadARGState, startSession, getTimeAway, TRUST_LABELS, ARGState } from '@/lib/argState';
 import SyntheticsPlayer from '@/components/shell/SyntheticsPlayer';
 import AnaloguesPlayer from '@/components/shell/AnaloguesPlayer';
@@ -24,7 +23,7 @@ function FishPrompt({ user, cwd, inline }: { user: string; cwd: string; inline?:
       <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', fontWeight: 'bold' }}>
         {user}
       </span>
-      <span style={{ color: '#ffaa00' }}>@</span>
+      <span style={{ color: 'var(--phosphor-accent)' }}>@</span>
       <span style={{ color: isRoot ? '#f87171' : 'var(--phosphor-green)', fontWeight: 'bold' }}>
         n1x
       </span>
@@ -32,7 +31,7 @@ function FishPrompt({ user, cwd, inline }: { user: string; cwd: string; inline?:
       <span style={{ color: '#38bdf8' }}>
         {cwd}
       </span>
-      <span style={{ opacity: 0.5, marginLeft: '0.3rem' }}>
+      <span style={{ opacity: 0.5, marginLeft: '0.3rem', color: isRoot ? 'var(--phosphor-accent)' : undefined }}>
         {suffix}
       </span>
     </span>
@@ -345,137 +344,327 @@ function pathDirsOnly(rawInput: string): boolean {
 }
 
 // ── MatrixCanvas ──────────────────────────────────────────────────────────────
-// Renders inside the shell output zone (position:absolute, inset:0).
-// Contains: dense phosphor rain, per-column melt with character morphing,
-// horizontal glitch slice displacement, scrolling CRT scanlines, radial vignette.
+//
+// Film-quality matrix rain. Key techniques:
+//
+// 1. PER-POSITION CHARACTER GRID — each cell in the canvas grid holds its own
+//    glyph that mutates at an independent rate. Head cells mutate fast (every
+//    2–5 frames). Distant trail cells mutate slowly (every 20–60 frames).
+//    This gives each column a "signature" strand rather than pure noise.
+//
+// 2. BLOOM via ctx.shadowBlur — head character is drawn twice:
+//    first pass: white fill, shadowBlur=18, shadowColor=phosphor → soft halo
+//    second pass: bright phosphor fill, shadowBlur=6 → tight inner glow
+//    Trail chars get a third pass at shadowBlur=4 for the first few rows.
+//
+// 3. DEPTH via per-column font-size — columns are randomly assigned one of
+//    three font sizes (10/14/18px). Smaller = background, dimmer, faster fade.
+//    Larger = foreground, brighter, slower fade.
+//
+// 4. EXPLICIT TRAIL REINFORCEMENT — beyond the shared fade-rect accumulation,
+//    the top TRAIL_DRAW rows behind each head are explicitly redrawn each frame
+//    with exponential alpha falloff. This ensures the near-head gradient is
+//    always crisp regardless of frame-rate variation.
+//
+// 5. SECOND BLOOM PASS — after all columns are drawn, an offscreen canvas
+//    captures only the bright regions, applies a CSS blur filter, then
+//    composites back onto the main canvas with 'lighter' blending. This is
+//    the technique that makes it look like a render rather than a web page.
+//
+// 6. Column activation/deactivation — after a stream completes, it has a
+//    random chance to pause before restarting. Grouped activation bursts
+//    (every ~120 frames a wave of dormant columns re-activates) create the
+//    organic "rain front" movement from the film.
 
 const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
-  const wrapRef   = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef    = useRef<HTMLDivElement>(null);
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const bloomRef   = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const wrap   = wrapRef.current;
     const canvas = canvasRef.current;
-    if (!wrap || !canvas) return;
+    const bloom  = bloomRef.current;
+    if (!wrap || !canvas || !bloom) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const bctx = bloom.getContext('2d');
+    if (!ctx || !bctx) return;
 
     const W = wrap.clientWidth;
     const H = wrap.clientHeight;
-    canvas.width  = W;
-    canvas.height = H;
+    canvas.width  = W;  canvas.height  = H;
+    bloom.width   = W;  bloom.height   = H;
 
-    // Smaller font = denser columns
-    const FONT  = 12;   // render size — readable but not oversized
-    const STEP  = 7;    // column pitch — tighter than font width = more streams
-    const COLS  = Math.floor(W / STEP);
-    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()N1X!?アイウエオカキクケコサシスセソタチツテト';
-    const CL    = CHARS.length;
+    // ── Character set — half-width katakana is the film's actual glyph source ─
+    // Plus digits and a small set of symbols. N1X injected as easter egg.
+    const CHARS = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789!?$%@+=#N1X';
+    const CL = CHARS.length;
 
-    const phosphor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--phosphor-green').trim() || '#33ff33';
+    // ── Resolve phosphor colour to RGB components ──────────────────────────
+    const cssPhosphor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--phosphor-green').trim() || '#00ff41';
+    const tmp = document.createElement('canvas');
+    tmp.width = tmp.height = 1;
+    const tc = tmp.getContext('2d')!;
+    tc.fillStyle = cssPhosphor;
+    tc.fillRect(0, 0, 1, 1);
+    const [pr, pg, pb] = tc.getImageData(0, 0, 1, 1).data;
 
-    // Drop positions staggered above top so they cascade in
-    const drops  = Array.from({ length: COLS }, () => -(Math.random() * (H / FONT)));
-    // Per-column melt: speed multiplier + frames remaining
-    const speeds = Array<number>(COLS).fill(0.5);   // base speed halved vs original
-    const meltT  = Array<number>(COLS).fill(0);
-    // Per-column character morph phase — float, indexes into CHARS
-    const morph  = Array.from({ length: COLS }, () => Math.random() * CL);
+    // ── Column definitions ────────────────────────────────────────────────
+    // Each column gets one of three depth tiers at construction time.
+    // tier 0 = background (small, dim, fast fade)
+    // tier 1 = midground
+    // tier 2 = foreground (large, bright, slow fade)
+    const TIERS = [
+      { fs: 11, speed: [0.25, 0.45], dimFactor: 0.45, trailDraw: 5,  shadowOuter: 10, shadowInner: 4  },
+      { fs: 14, speed: [0.35, 0.65], dimFactor: 0.72, trailDraw: 7,  shadowOuter: 16, shadowInner: 6  },
+      { fs: 18, speed: [0.50, 1.00], dimFactor: 1.00, trailDraw: 10, shadowOuter: 22, shadowInner: 8  },
+    ];
+    // Tier distribution: mostly bg/mid, sparse fg
+    const TIER_WEIGHTS = [0.40, 0.38, 0.22];
 
-    // Glitch state — displacement only, no composite fills (those caused the purple bar)
-    let glitchActive = false;
+    function pickTier(): number {
+      const r = Math.random();
+      if (r < TIER_WEIGHTS[0]) return 0;
+      if (r < TIER_WEIGHTS[0] + TIER_WEIGHTS[1]) return 1;
+      return 2;
+    }
+
+    // ── Build column grid ─────────────────────────────────────────────────
+    // Tight pitch for dense coverage. ~35% of columns get a half-speed flag
+    // which halves their advance rate — these become the slow-drifting ghost
+    // strands that make the field look layered even within a single tier.
+    const GRID_STEP = 7; // pixels between column centres — half the old value = 2× columns
+    const NUM_COLS  = Math.floor(W / GRID_STEP);
+
+    type Col = {
+      x:        number;
+      tier:     number;
+      fs:       number;
+      speed:    number;
+      halfSpeed: boolean; // if true, advance at 0.5× nominal speed
+      y:        number;    // head position in rows (fractional, can be negative)
+      rows:     number;    // total rows for this font size
+      chars:    Uint16Array; // per-row character indices
+      mutNext:  Uint32Array; // frame at which each row next mutates
+      active:   boolean;
+      resumeAt: number;   // frame when dormant col wakes up
+    };
+
+    const cols: Col[] = [];
+    for (let i = 0; i < NUM_COLS; i++) {
+      const tier = pickTier();
+      const t    = TIERS[tier];
+      const rows = Math.ceil(H / t.fs) + 4;
+      const chars   = new Uint16Array(rows);
+      const mutNext = new Uint32Array(rows);
+      for (let r = 0; r < rows; r++) {
+        chars[r]   = Math.floor(Math.random() * CL);
+        mutNext[r] = Math.floor(Math.random() * 60);
+      }
+      const [sMin, sMax] = t.speed;
+      const halfSpeed    = Math.random() < 0.35;
+      const baseSpeed    = sMin + Math.random() * (sMax - sMin);
+      cols.push({
+        x:         i * GRID_STEP,
+        tier,
+        fs:        t.fs,
+        speed:     halfSpeed ? baseSpeed * 0.5 : baseSpeed,
+        halfSpeed,
+        y:         -(1 + Math.random() * (H / t.fs) * 1.2),
+        rows,
+        chars,
+        mutNext,
+        active:    Math.random() > 0.30,
+        resumeAt:  0,
+      });
+    }
+
+    // ── Vignette gradient — baked once ────────────────────────────────────
+    const vig = ctx.createRadialGradient(W/2, H/2, H * 0.08, W/2, H/2, H * 0.9);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.78)');
+
+    // ── Glitch state ──────────────────────────────────────────────────────
+    let glitchOn     = false;
     let glitchFrames = 0;
-    let glitchY      = 0;
-    let glitchH      = 0;
-    let glitchOff    = 0;
-    let frameCount   = 0;
-    let nextGlitch   = 40 + Math.random() * 90;
+    let gY = 0, gH = 0, gOff = 0;
+    let frame     = 0;
+    let nextGlitch = 70 + Math.random() * 130;
 
-    // Vignette baked once
-    const vignette = ctx.createRadialGradient(W/2, H/2, H * 0.2, W/2, H/2, H * 0.9);
-    vignette.addColorStop(0, 'rgba(0,0,0,0)');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.65)');
+    // ── Activation wave state ─────────────────────────────────────────────
+    let nextWave = 80 + Math.random() * 120;
 
     let rafId: number;
 
     const draw = () => {
-      frameCount++;
+      frame++;
 
-      // ── Melt trigger: per-column per-frame chance to start melting
-      for (let i = 0; i < COLS; i++) {
-        if (meltT[i] > 0) {
-          if (--meltT[i] === 0) speeds[i] = 0.5;
-        } else if (Math.random() > 0.985) {
-          // ~1.5% chance per column per frame — many columns melt simultaneously
-          speeds[i] = 1.2 + Math.random() * 1.8;   // 2.4–6× the halved base
-          meltT[i]  = 25 + Math.floor(Math.random() * 40); // 25–65 frames
-        }
-      }
-
-      // ── Fade trail — slightly slower fade keeps the dense trails visible longer
-      ctx.fillStyle = 'rgba(0,0,0,0.045)';
+      // ── Slow shared fade — the "persistence of phosphor" effect ──────────
+      // 0.05 at 60fps → each pixel reaches black in ~20 frames at base level.
+      // Fast columns overwrite frequently so their trails appear longer.
+      ctx.fillStyle = 'rgba(0,0,0,0.05)';
       ctx.fillRect(0, 0, W, H);
 
-      // ── Rain + morph
-      ctx.font = `${FONT}px monospace`;
-      for (let i = 0; i < COLS; i++) {
-        const hot = meltT[i] > 0;
+      // ── Clear bloom canvas ────────────────────────────────────────────────
+      bctx.clearRect(0, 0, W, H);
 
-        // Morph: advance phase slowly normally, rapidly when melting
-        // This makes characters visibly cycle/transform at the column head
-        morph[i] += hot ? 0.55 + Math.random() * 0.35 : 0.025 + Math.random() * 0.02;
-        const ch  = CHARS[Math.floor(morph[i]) % CL];
+      // ── Activation wave — periodically wake dormant columns in a burst ───
+      if (frame >= nextWave) {
+        const waveCount = 8 + Math.floor(Math.random() * 20);
+        let woken = 0;
+        for (let i = 0; i < cols.length && woken < waveCount; i++) {
+          const c = cols[i];
+          if (!c.active && frame >= c.resumeAt) {
+            c.active = true;
+            c.y      = -(1 + Math.random() * 4);
+            woken++;
+          }
+        }
+        nextWave = frame + 60 + Math.random() * 100;
+      }
 
-        const x = i * STEP;
-        const y = drops[i] * FONT;
-
-        ctx.fillStyle   = hot ? '#ffffff' : phosphor;
-        ctx.globalAlpha = hot ? 1 : 0.55 + Math.random() * 0.45;
-        ctx.fillText(ch, x, y);
-        ctx.globalAlpha = 1;
-
-        // Secondary dim character one step behind — adds body and depth to the stream
-        if (drops[i] > 1) {
-          const prevCh = CHARS[Math.floor(morph[i] - 1 + CL) % CL];
-          ctx.fillStyle   = phosphor;
-          ctx.globalAlpha = 0.25;
-          ctx.fillText(prevCh, x, (drops[i] - 1) * FONT);  // x already STEP-based
-          ctx.globalAlpha = 1;
+      // ── Render all columns ────────────────────────────────────────────────
+      for (const col of cols) {
+        if (!col.active) {
+          if (frame >= col.resumeAt) { col.active = true; col.y = -(1 + Math.random() * 3); }
+          else continue;
         }
 
-        if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 6);
-        drops[i] += speeds[i];
+        const { x, tier, fs, chars, mutNext, rows } = col;
+        const t         = TIERS[tier];
+        const headRow   = Math.floor(col.y);
+        const headPx    = col.y * fs;
+
+        // ── Mutate characters ───────────────────────────────────────────
+        for (let r = 0; r < rows; r++) {
+          if (frame >= mutNext[r]) {
+            chars[r] = Math.floor(Math.random() * CL);
+            // Rows near the head mutate fast; deep trail rows mutate slowly
+            const dist = headRow - r;
+            const rate = dist < 4
+              ? 2  + Math.floor(Math.random() * 4)   // rapid near head
+              : dist < 10
+                ? 8  + Math.floor(Math.random() * 12) // medium in trail
+                : 25 + Math.floor(Math.random() * 50); // slow in deep trail
+            mutNext[r] = frame + rate;
+          }
+        }
+
+        ctx.font = `bold ${fs}px monospace`;
+
+        // ── Explicit trail reinforcement — top TRAIL_DRAW rows behind head ─
+        // This ensures the bright-green-to-dim gradient is always crisp.
+        const trailLen = t.trailDraw;
+        for (let k = trailLen; k >= 1; k--) {
+          const r = headRow - k;
+          if (r < 0 || r >= rows) continue;
+          const py = r * fs;
+          if (py < -fs || py > H + fs) continue;
+          const ch  = CHARS[chars[r] % CL];
+          const alp = t.dimFactor * Math.pow(0.70, k);
+          ctx.globalAlpha = alp;
+          // First couple of rows get a subtle glow too
+          if (k <= 3) {
+            ctx.shadowBlur  = t.shadowInner;
+            ctx.shadowColor = `rgb(${pr},${pg},${pb})`;
+          }
+          ctx.fillStyle = `rgb(${pr},${pg},${pb})`;
+          ctx.fillText(ch, x, py);
+          ctx.shadowBlur  = 0;
+        }
+        ctx.globalAlpha = 1;
+
+        // ── Head character — white with full bloom ─────────────────────
+        if (headPx > -(fs * 2) && headPx < H + fs) {
+          const ch = CHARS[chars[Math.max(0, headRow) % rows] % CL];
+
+          // Pass 1: white fill, large shadowBlur → soft outer halo
+          ctx.shadowBlur  = t.shadowOuter;
+          ctx.shadowColor = `rgb(${pr},${pg},${pb})`;
+          ctx.fillStyle   = '#ffffff';
+          ctx.globalAlpha = 1.0;
+          ctx.fillText(ch, x, headPx);
+
+          // Pass 2: bright phosphor, tight shadowBlur → inner glow
+          ctx.shadowBlur  = t.shadowInner;
+          ctx.shadowColor = `rgb(${Math.min(255,pr+40)},${Math.min(255,pg+10)},${pb})`;
+          ctx.fillStyle   = `rgb(${Math.min(255,pr+80)},${Math.min(255,pg+20)},${pb})`;
+          ctx.fillText(ch, x, headPx);
+
+          ctx.shadowBlur  = 0;
+          ctx.globalAlpha = 1;
+
+          // Also paint to bloom canvas — this gets blurred and composited
+          bctx.font        = `bold ${fs}px monospace`;
+          bctx.globalAlpha = t.dimFactor;
+          bctx.fillStyle   = `rgb(${pr},${pg},${pb})`;
+          bctx.fillText(ch, x, headPx);
+          // Shoulder row 1 on bloom canvas
+          const r1 = headRow - 1;
+          if (r1 >= 0 && r1 < rows) {
+            bctx.globalAlpha = t.dimFactor * 0.55;
+            bctx.fillText(CHARS[chars[r1 % rows] % CL], x, r1 * fs);
+          }
+          bctx.globalAlpha = 1;
+        }
+
+        // ── Advance head ───────────────────────────────────────────────
+        col.y += col.speed;
+
+        // Reset when fully below screen
+        if (col.y * fs > H + fs * 6) {
+          col.y = -(3 + Math.random() * (H / fs) * 0.5);
+          const [sMin, sMax] = TIERS[tier].speed;
+          const fresh = sMin + Math.random() * (sMax - sMin);
+          col.speed = col.halfSpeed ? fresh * 0.5 : fresh;
+          if (Math.random() > 0.55) {
+            col.active   = false;
+            col.resumeAt = frame + Math.floor(20 + Math.random() * 80);
+          }
+        }
       }
 
-      // ── Glitch: horizontal slice displacement only
-      if (!glitchActive && frameCount >= nextGlitch) {
-        glitchActive = true;
+      // ── Bloom composite pass ──────────────────────────────────────────────
+      // Draw the bloom canvas (bright heads only) with blur + lighter blending.
+      // CSS filter is applied via a temporary canvas element approach —
+      // we snapshot the bloom canvas, draw it blurred onto main with lighter.
+      ctx.save();
+      ctx.filter      = 'blur(8px)';
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(bloom, 0, 0);
+      ctx.filter      = 'blur(3px)';
+      ctx.globalAlpha = 0.30;
+      ctx.drawImage(bloom, 0, 0);
+      ctx.restore();
+
+      // ── Glitch slice displacement ──────────────────────────────────────────
+      if (!glitchOn && frame >= nextGlitch) {
+        glitchOn     = true;
         glitchFrames = 0;
-        glitchY      = 10 + Math.random() * (H - 50);
-        glitchH      = 4 + Math.random() * 18;
-        glitchOff    = (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random() * 22);
-        nextGlitch   = frameCount + 40 + Math.random() * 110;
+        gY   = 8  + Math.random() * (H - 40);
+        gH   = 2  + Math.random() * 12;
+        gOff = (Math.random() > 0.5 ? 1 : -1) * (4 + Math.random() * 20);
+        nextGlitch = frame + 55 + Math.random() * 140;
       }
-
-      if (glitchActive) {
-        glitchFrames++;
+      if (glitchOn) {
         try {
-          const slice = ctx.getImageData(0, glitchY, W, glitchH);
-          ctx.putImageData(slice, glitchOff, glitchY);
-        } catch { /* taint safety */ }
-        if (glitchFrames >= 2 + Math.floor(Math.random() * 3)) glitchActive = false;
+          const sl = ctx.getImageData(0, gY, W, gH);
+          ctx.putImageData(sl, gOff, gY);
+        } catch { /**/ }
+        if (++glitchFrames >= 2 + Math.floor(Math.random() * 3)) glitchOn = false;
       }
 
-      // ── CRT scanlines
-      ctx.fillStyle   = '#000000';
-      ctx.globalAlpha = 0.10;
-      const scanY = (frameCount * 0.6) % 4;
-      for (let y = scanY; y < H; y += 4) ctx.fillRect(0, y, W, 1.5);
+      // ── CRT scanlines — subtle horizontal banding ─────────────────────────
+      ctx.fillStyle   = '#000';
+      ctx.globalAlpha = 0.07;
+      const scanOff = (frame * 0.4) % 3;
+      for (let y = scanOff; y < H; y += 3) ctx.fillRect(0, y, W, 1);
       ctx.globalAlpha = 1;
 
-      // ── Vignette
-      ctx.fillStyle = vignette;
+      // ── Radial vignette ───────────────────────────────────────────────────
+      ctx.fillStyle = vig;
       ctx.fillRect(0, 0, W, H);
 
       rafId = requestAnimationFrame(draw);
@@ -491,6 +680,8 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
       style={{ position: 'absolute', inset: 0, zIndex: 50, cursor: 'pointer' }}
       onClick={onExit}
     >
+      {/* Bloom canvas — never visible directly, read by draw() via drawImage */}
+      <canvas ref={bloomRef} style={{ display: 'none' }} />
       <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
       <div style={{
         position:      'absolute',
@@ -499,10 +690,10 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         transform:     'translateX(-50%)',
         color:         'var(--phosphor-green)',
         fontFamily:    'monospace',
-        fontSize:      '11px',
-        opacity:       0.35,
+        fontSize:      'var(--text-base)',
+        opacity:       0.3,
         pointerEvents: 'none',
-        letterSpacing: '0.1em',
+        letterSpacing: '0.12em',
       }}>
         tap to exit
       </div>
@@ -658,7 +849,7 @@ export default function ShellInterface() {
     requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
   }, [history.length]);
 
-  // Explicit scroll signal from streaming components (NeuralLinkStream)
+  // Explicit scroll signal from streaming components
   useEventBus('shell:request-scroll', () => {
     const el = outputRef.current;
     if (!el) return;
@@ -793,7 +984,7 @@ export default function ShellInterface() {
       }, 0);
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (isChatMode() || suggestions.length === 0) return;
+      if (suggestions.length === 0) return;
 
       const completed = suggestions[0];
       // Split on whitespace to detect whether we're completing a command or an argument
@@ -989,9 +1180,7 @@ export default function ShellInterface() {
                   </div>
                 ) : item.command !== '' ? (
                   <div style={{ marginBottom: '0.25rem' }}>
-                    {item.chatMode ? (
-                      <NeuralBusPrompt />
-                    ) : item.user === 'root' ? (
+                    {item.user === 'root' ? (
                       <RootPrompt cwd={item.cwd || '/'} />
                     ) : (
                       <FishPrompt
@@ -1023,7 +1212,7 @@ export default function ShellInterface() {
             {matrixActive && <MatrixCanvas onExit={() => setMatrixActive(false)} />}
           </div>
           )} {/* end stream player ternary */}
-          {suggestions.length > 0 && !isPrompting && !isChatMode() && (
+          {suggestions.length > 0 && !isPrompting && !isTelnetActive() && (
             <div
               style={{
                 flexShrink: 0,
@@ -1144,7 +1333,7 @@ export default function ShellInterface() {
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', fontFamily: 'inherit' }}>
                 <div style={{ paddingTop: '1px', flexShrink: 0, fontSize: '16px' }}>
-                  {isChatMode() ? (
+                  {isTelnetActive() ? (
                     <NeuralBusPrompt inline />
                   ) : isMailMode() ? (
                     <span style={{ whiteSpace: 'nowrap', color: '#ffaa00', fontWeight: 'bold' }}>mail&gt;</span>

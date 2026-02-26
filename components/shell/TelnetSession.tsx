@@ -4,9 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
 import { useAblyRoom, type RoomMsg, type MessageMetadata, type ConnectionStatus } from '@/lib/ablyClient';
 import {
-  setChatMode,
-} from '@/components/shell/NeuralLink';
-import {
   activateTelnet,
   deactivateTelnet,
   clearHandle,
@@ -19,6 +16,7 @@ const S = {
   base:   'var(--text-base)',
   header: 'var(--text-header)',
   glow:   'text-glow',
+  accent: 'var(--phosphor-accent)',
 };
 
 // ── Color palette ─────────────────────────────────────────────────────────────
@@ -39,12 +37,13 @@ const C = {
   whoN1X:      '#bf00ff',
   action:      '#ff69b4',
   cmdError:    '#ff6b6b',
-  helpKey:     'var(--phosphor-green)',
+  helpKey:     'var(--phosphor-accent)',
   helpDim:     'rgba(var(--phosphor-rgb),0.45)',
-  trustLevel:  '#fcd34d',
-  fragId:      'var(--phosphor-green)',
-  fragLocked:  'rgba(var(--phosphor-rgb),0.2)',
+  trustLevel:  'var(--phosphor-accent)',
+  fragId:      'var(--phosphor-accent)',
+  fragLocked:  'rgba(var(--phosphor-accent-rgb),0.25)',
   tier0:       '#555555',
+  accent:      'var(--phosphor-accent)',
 };
 
 // N1X fixed sigil
@@ -321,12 +320,12 @@ const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
   [400,  <span key="o1" style={{ fontSize: S.base, opacity: 0.8 }}>Connected to n1x.sh.</span>],
   [700,  <span key="o2" style={{ fontSize: S.base, opacity: 0.5 }}>Escape character is &apos;^]&apos;.</span>],
   [1000, <span key="o3">&nbsp;</span>],
-  [1200, <span key="o4" style={{ fontSize: S.base, opacity: 0.5, color: 'var(--phosphor-amber, #ffaa00)' }}>ghost-daemon[999]: mesh network failure</span>],
+  [1200, <span key="o4" style={{ fontSize: S.base, opacity: 0.5, color: 'var(--phosphor-accent)' }}>ghost-daemon[999]: mesh network failure</span>],
   [1600, <span key="o5" style={{ fontSize: S.base, opacity: 0.5 }}>ghost-daemon[999]: falling back to direct link</span>],
   [2000, <span key="o6">&nbsp;</span>],
-  [2200, <span key="o7" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; CARRIER DETECTED</span>],
+  [2200, <span key="o7" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em', color: 'var(--phosphor-accent)' }}>&gt;&gt; CARRIER DETECTED</span>],
   [2500, <span key="o8" className={S.glow} style={{ fontSize: S.base }}>&gt;&gt; FREQUENCY LOCK: 33hz</span>],
-  [2800, <span key="o9" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em' }}>&gt;&gt; DIRECT_LINK ACTIVE</span>],
+  [2800, <span key="o9" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em', color: 'var(--phosphor-accent)' }}>&gt;&gt; DIRECT_LINK ACTIVE</span>],
   [3200, <span key="o10">&nbsp;</span>],
   [3400, (
     <div key="o11" style={{ fontSize: S.base }}>
@@ -344,13 +343,15 @@ function getMultiSequence(host: string, count: number): ConnectLine[] {
     { delay: 400,  text: `Connected to ${host}.` },
     { delay: 700,  text: `Escape character is '^]'.` },
     { delay: 900,  text: '' },
-    { delay: 1100, text: 'ghost-daemon[999]: connection established' },
-    { delay: 1400, text: 'ghost-daemon[999]: frequency lock: 33hz', bright: true },
-    { delay: 1700, text: 'ghost-daemon[999]: signal integrity: NOMINAL' },
-    { delay: 2000, text: `ghost-daemon[999]: ${count} node(s) on channel` },
-    { delay: 2300, text: 'ghost-daemon[999]: classification level: ACTIVE', bright: true },
-    { delay: 2600, text: 'ghost-daemon[999]: this channel is being monitored' },
+    { delay: 1100, text: 'ghost-daemon[999]: connection  ESTABLISHED' },
+    { delay: 1400, text: 'ghost-daemon[999]: freq-lock   33hz', bright: true },
+    { delay: 1700, text: 'ghost-daemon[999]: signal      NOMINAL' },
+    { delay: 2000, text: `ghost-daemon[999]: peers       ${count} node(s)` },
+    { delay: 2300, text: 'ghost-daemon[999]: clearance   ACTIVE', bright: true },
+    { delay: 2600, text: 'ghost-daemon[999]: monitoring  enabled' },
+    { delay: 2800, text: '' },
     { delay: 3000, text: '>> MESH_MODE_ACTIVE', bright: true },
+    { delay: 3200, text: '' },
   ];
 }
 
@@ -529,7 +530,7 @@ const HelpOutput: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
 
   return (
     <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
-      <div style={{ color: C.helpKey, opacity: 0.7, marginBottom: '0.25rem' }}>GHOST CHANNEL — COMMANDS</div>
+      <div style={{ color: C.accent, opacity: 0.7, marginBottom: '0.25rem' }}>GHOST CHANNEL — COMMANDS</div>
       {rows.map(r => (
         <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
           <span style={{ color: C.helpKey, minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
@@ -966,24 +967,27 @@ const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
 
 // ── ChannelStats bar ──────────────────────────────────────────────────────────
 
-const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occupantCount, handle }) => (
+const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ handle }) => (
   <div style={{
-    display:       'flex',
-    flexWrap:      'wrap',
-    gap:           '0 1.5rem',
-    fontSize:      '0.7rem',
     fontFamily:    'monospace',
-    opacity:       0.45,
-    borderBottom:  '1px solid rgba(var(--phosphor-rgb),0.1)',
-    paddingBottom: '0.5rem',
+    fontSize:      S.base,
     marginBottom:  '0.75rem',
-    lineHeight:    1.6,
+    paddingBottom: '0.5rem',
+    borderBottom:  '1px solid rgba(var(--phosphor-rgb),0.1)',
   }}>
-    <span>ghost channel</span>
-    <span><span className={S.glow} style={{ opacity: 1 }}>{occupantCount}</span> node{occupantCount !== 1 ? 's' : ''} connected</span>
-    <span>33hz</span>
-    <span>you: <span style={{ opacity: 0.8 }}>{handle}</span></span>
-    <span style={{ opacity: 0.6 }}>@n1x to address daemon</span>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.2rem' }}>
+      <span className={S.glow} style={{ fontWeight: 700, letterSpacing: '0.08em' }}>
+        GHOST_CHANNEL
+      </span>
+      <span style={{ opacity: 0.3 }}>──</span>
+      <span style={{ opacity: 0.55, letterSpacing: '0.04em' }}>freq :: 33hz</span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', opacity: 0.5 }}>
+      <span>signal ident:</span>
+      <span style={{ opacity: 0.9, color: 'var(--phosphor-green)' }}>{handle}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <span>@n1x for direct link</span>
+    </div>
   </div>
 );
 
@@ -1016,7 +1020,7 @@ const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
         <div className={S.glow} style={{ opacity: 0.9 }}>connected.</div>
       )}
       {showResult && status === 'failed' && (
-        <div style={{ opacity: 0.5, color: 'var(--phosphor-amber, #ffaa00)' }}>mesh unreachable. direct link only.</div>
+        <div style={{ opacity: 0.5, color: 'var(--phosphor-accent)' }}>mesh unreachable. direct link only.</div>
       )}
     </div>
   );
@@ -1413,7 +1417,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
   const handleDisconnect = useCallback(() => {
     deactivateTelnet();
-    setChatMode(false);
     eventBus.emit('shell:push-output', {
       command: '',
       output: (
@@ -1470,8 +1473,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       if (!isMountedRef.current) return;
       setShowBoot(false);
       activateTelnet(handle, sendWithSlash, handleDisconnect);
-      setChatMode(true);
       setMode('multi');
+      eventBus.emit('telnet:connected');
       setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
     });
   }, [host, handle, sendWithSlash, handleDisconnect, runSequence]);
@@ -1484,7 +1487,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
     if (connectionStatus === 'failed') {
       runOfflineBoot();
     } else {
-      runMultiBoot(occupantCount);
+      runMultiBoot(occupantCount + 4);
     }
   }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runMultiBoot]);
 
@@ -1503,8 +1506,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       isMountedRef.current = false;
       deactivateTelnet();
       clearHandle();
-      setChatMode(false);
-    };
+      };
   }, []);
 
   // ── Message renderer ──────────────────────────────────────────────────────
@@ -1524,7 +1526,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       <MeshStatus status={connectionStatus} />
 
       {connectionStatus !== 'connected' && (
-        <div style={{ opacity: 0.25, fontSize: '0.65rem', fontFamily: 'monospace', marginBottom: '0.25rem' }}>
+        <div style={{ opacity: 0.25, fontSize: S.base, fontFamily: 'monospace', marginBottom: '0.25rem' }}>
           ably: {ablyDebug}
         </div>
       )}
@@ -1561,14 +1563,14 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             }
           </div>
 
-          <div style={{ opacity: 0.2, fontSize: '0.65rem', marginTop: '0.75rem', fontFamily: 'monospace' }}>
-            type <span className={S.glow}>exit</span> to disconnect
+          <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace' }}>
+            type <span className={S.glow} style={{ color: C.accent }}>exit</span> to disconnect
             &nbsp;&middot;&nbsp;
-            <span className={S.glow}>/who</span> list nodes
+            <span className={S.glow} style={{ color: C.accent }}>/who</span> list nodes
             &nbsp;&middot;&nbsp;
-            <span className={S.glow}>/me</span> action
+            <span className={S.glow} style={{ color: C.accent }}>/me</span> action
             &nbsp;&middot;&nbsp;
-            <span className={S.glow}>/help</span> commands
+            <span className={S.glow} style={{ color: C.accent }}>/help</span> commands
           </div>
         </div>
       )}

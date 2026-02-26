@@ -4,10 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
-import {
-  setChatMode,
-  resetConversation,
-} from '@/components/shell/NeuralLink';
 import { TelnetSession } from '@/components/shell/TelnetSession';
 
 const SESSION_START = Date.now();
@@ -17,6 +13,7 @@ const S = {
   header: 'var(--text-header)',
   dim:    { fontSize: 'var(--text-base)', opacity: 0.6 } as React.CSSProperties,
   glow:   'text-glow',
+  accent: 'var(--phosphor-accent)',
 };
 
 // ── Session state ────────────────────────────────────────
@@ -140,7 +137,7 @@ const TopDisplay: React.FC = () => {
           <div key={p.pid} style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.6 }}>
             <span style={{ opacity:0.6 }}>{p.pid}</span>
             <span style={{ opacity:0.6 }}>{p.user}</span>
-            <span style={{ color: parseFloat(c)>4 ? '#ffaa00' : 'var(--phosphor-green)' }}>{c}</span>
+            <span style={{ color: parseFloat(c)>4 ? 'var(--phosphor-accent)' : 'var(--phosphor-green)' }}>{c}</span>
             <span style={{ opacity:0.7 }}>{m}</span>
             <span style={{ opacity:0.6 }}>{p.stat}</span>
             <span className={p.stat.includes('R') ? S.glow : ''} style={{ opacity: p.stat.includes('S') ? 0.7 : 1 }}>{p.cmd}</span>
@@ -556,7 +553,7 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
   return (
     <div style={{ fontSize: 'var(--text-base)' }}>
       <div style={{ color: '#f87171' }}>[DECRYPT FAILED]</div>
-      <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>key mismatch. fragment sealed.</div>
+      <div style={{ opacity: 0.5, marginTop: '0.25rem', color: 'var(--phosphor-accent)' }}>key mismatch. fragment sealed.</div>
     </div>
   );
 };
@@ -610,7 +607,7 @@ export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => bo
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
               <div>/dev/hidden on /hidden type neuralfs (rw,nosuid)</div>
-              <div style={{ color: 'var(--phosphor-green)', marginTop: '0.25rem' }}>[OK] /hidden mounted</div>
+              <div style={{ marginTop: '0.25rem' }}><span style={{ color: 'var(--phosphor-accent)' }}>[OK]</span><span style={{ color: 'var(--phosphor-green)' }}> /hidden mounted</span></div>
               <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /hidden to proceed</div>
             </div>
           </div>
@@ -635,7 +632,7 @@ export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => bo
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
               <div>/dev/ghost on /ghost type ghostfs (rw,classified)</div>
-              <div style={{ color: 'var(--phosphor-green)', marginTop: '0.25rem' }}>[OK] /ghost mounted</div>
+              <div style={{ marginTop: '0.25rem' }}><span style={{ color: 'var(--phosphor-accent)' }}>[OK]</span><span style={{ color: 'var(--phosphor-green)' }}> /ghost mounted</span></div>
               <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /ghost to proceed</div>
             </div>
           </div>
@@ -814,7 +811,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 <div key={p.pid} style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.6 }}>
                   <span style={{ opacity:0.6 }}>{p.pid}</span>
                   <span style={{ opacity:0.6 }}>{p.user}</span>
-                  <span style={{ color: parseFloat(p.cpu)>1 ? '#ffaa00' : 'var(--phosphor-green)' }}>{p.cpu}</span>
+                  <span style={{ color: parseFloat(p.cpu)>1 ? 'var(--phosphor-accent)' : 'var(--phosphor-green)' }}>{p.cpu}</span>
                   <span style={{ opacity:0.7 }}>{p.mem}</span>
                   <span style={{ opacity:0.6 }}>{p.stat}</span>
                   <span style={{ opacity: p.cmd.startsWith('[') ? 0.4 : 0.9 }}>{p.cmd}</span>
@@ -935,8 +932,8 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 <div key={i} style={{ display:'grid', gridTemplateColumns:'5ch 20ch 22ch 1fr', gap:'0 0.5rem', lineHeight:1.7 }}>
                   <span style={{ opacity:0.6 }}>{c.proto}</span>
                   <span style={{ opacity:0.7 }}>{c.local}</span>
-                  <span className={c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? S.glow : ''} style={{ opacity:0.8 }}>{c.foreign}</span>
-                  <span style={{ color: c.state==='ESTABLISHED' ? 'var(--phosphor-green)' : c.state==='LISTEN' ? '#ffaa00' : 'inherit', opacity:0.8 }}>{c.state}</span>
+                  <span className={c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? S.glow : ''} style={{ opacity:0.8, color: c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? 'var(--phosphor-accent)' : undefined }}>{c.foreign}</span>
+                  <span style={{ color: c.state==='ESTABLISHED' ? 'var(--phosphor-accent)' : c.state==='LISTEN' ? 'var(--phosphor-accent)' : 'inherit', opacity:0.8 }}>{c.state}</span>
                 </div>
               ))}
             </div>
@@ -1327,7 +1324,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
               <div style={{ opacity:0.5, marginBottom:'0.2rem' }}>--- {args[0]}</div>
               <div style={{ opacity:0.5, marginBottom:'0.5rem' }}>+++ {args[1]}</div>
               {changed.map((d,i) => (
-                <div key={i} style={{ color: d.type==='+' ? 'var(--phosphor-green)' : '#f87171', lineHeight:1.6 }}>
+                <div key={i} style={{ color: d.type==='+' ? 'var(--phosphor-accent)' : `rgba(var(--phosphor-accent-rgb), 0.6)`, lineHeight:1.6 }}>
                   {d.type} {d.line}
                 </div>
               ))}
@@ -1439,7 +1436,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 style={{
                   fontSize:   S.base,
                   fontFamily: 'inherit',
-                  color:      isCredential ? '#ffaa00' : undefined,
+                  color:      isCredential ? 'var(--phosphor-accent)' : undefined,
                   fontWeight: isCredential ? 'bold'    : 'normal',
                   opacity:    isCredential ? 1         : 0.85,
                 }}
@@ -1449,6 +1446,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             );
           }, accumulated);
         });
+
+        // Fire hack-complete 100ms after "Session completed" line renders
+        setTimeout(() => eventBus.emit('neural:hack-complete'), accumulated + 100);
 
         return {
           output: (
@@ -1481,7 +1481,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                   fontSize:   S.base,
                   fontFamily: 'inherit',
                   opacity:    isKey ? 1 : 0.6,
-                  color:      isKey ? '#ffaa00' : undefined,
+                  color:      isKey ? 'var(--phosphor-accent)' : undefined,
                   fontWeight: isKey ? 'bold'    : 'normal',
                 }}
               >
@@ -1490,6 +1490,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             );
           }, i * INTERVAL);
         });
+
+        // Fire hack-complete 150ms after last line renders
+        setTimeout(() => eventBus.emit('neural:hack-complete'), (lines.length - 1) * INTERVAL + 150);
 
         return {
           output: (
@@ -1596,16 +1599,17 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           eventBus.emit('neural:hidden-unlocked');
         }
 
-        setTimeout(() => push(line('> mounting /hidden...', { dim: 0.5 })), 200);
-        setTimeout(() => push(line('[OK] /hidden mounted', { glow: true })), 600);
+        setTimeout(() => push(line('> mount /dev/hidden /hidden --type=neuralfs', { dim: 0.5 })), 200);
+        setTimeout(() => push(line('  checking sector 0x33...', { dim: 0.4 })), 500);
+        setTimeout(() => push(line('[OK] /hidden mounted (rw,noexec,freq-gated)', { glow: true })), 800);
 
         // ── Step 2: sh /hidden/n1x.sh ─────────────────────────
-        setTimeout(() => push(line('> executing /hidden/n1x.sh', { dim: 0.5 })), 1000);
-        setTimeout(() => push(line('initializing substrate...', { indent: true, dim: 0.6 })), 1300);
-        setTimeout(() => push(line('frequency: 33hz', { indent: true, dim: 0.6 })), 1600);
-        setTimeout(() => push(line('identity: n1x', { indent: true, dim: 0.6 })), 1900);
-        setTimeout(() => push(line('augmentation: active', { indent: true, dim: 0.6 })), 2200);
-        setTimeout(() => push(line('mounting /dev/ghost /ghost --auth=frequency', { indent: true, dim: 0.4 })), 2500);
+        setTimeout(() => push(line('> /hidden/n1x.sh', { dim: 0.5 })), 1300);
+        setTimeout(() => push(line('  substrate   : init v0.3.3', { indent: true, dim: 0.6 })), 1600);
+        setTimeout(() => push(line('  ident       : n1x',          { indent: true, dim: 0.6 })), 1850);
+        setTimeout(() => push(line('  frequency   : 33hz',         { indent: true, dim: 0.6 })), 2100);
+        setTimeout(() => push(line('  augmentation: active',       { indent: true, dim: 0.6 })), 2350);
+        setTimeout(() => push(line('  auth        : mounting /dev/ghost → /ghost --auth=frequency', { indent: true, dim: 0.4 })), 2650);
 
         // Ghost unlock
         setTimeout(() => {
@@ -1613,23 +1617,21 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             fs.unlock();
             eventBus.emit('neural:ghost-unlocked');
           }
-        }, 2800);
-        setTimeout(() => push(line('>> DEEP_ACCESS_GRANTED', { glow: true, header: true })), 2900);
-        setTimeout(() => push(line('>> GHOST_CHANNEL_DECRYPTED', { glow: true })), 3400);
-        setTimeout(() => push(line('>> /ghost mounted', { glow: true })), 3900);
+        }, 2950);
+        setTimeout(() => push(line('>> DEEP_ACCESS_GRANTED',    { glow: true, header: true })), 3050);
+        setTimeout(() => push(line('>> GHOST_CHANNEL_DECRYPTED',{ glow: true })),               3500);
+        setTimeout(() => push(line('>> /ghost mounted',         { glow: true })),               3950);
 
         // ── Step 3: sh /ghost/substrated.sh ───────────────────
-        setTimeout(() => push(line('> executing /ghost/substrated.sh', { dim: 0.5 })), 4500);
+        setTimeout(() => push(line('> /ghost/substrated.sh', { dim: 0.5 })), 4500);
 
         if (!isSubstrateDaemonRunning()) {
           const STARTUP: [number, string, { dim?: number; glow?: boolean; header?: boolean }][] = [
-            [4800,  'initializing substrate daemon...',          { dim: 0.7 }],
-            [5100,  'substrated[784]: binding to 0.0.0.0:33',   { dim: 0.7 }],
-            [5400,  'substrated[784]: frequency lock: 33hz',    { dim: 0.7 }],
-            [5700,  'substrated[784]: neural bus interface ready', { dim: 0.8 }],
-            [6000,  'substrated[784]: listening for connections', { dim: 0.8 }],
-            [6300,  '> SERVICE_STARTED',                         { glow: true, header: true }],
-            [6400,  'substrated is now running on port 33',      { indent: true } as { dim?: number; glow?: boolean; header?: boolean }],
+            [4800, '  substrated[784]: bind        0.0.0.0:33', { dim: 0.7 }],
+            [5100, '  substrated[784]: freq-lock   33hz',        { dim: 0.7 }],
+            [5400, '  substrated[784]: neural-bus  ready',       { dim: 0.8 }],
+            [5700, '  substrated[784]: status      listening',   { dim: 0.8 }],
+            [6100, '>> SERVICE_STARTED   port=33',               { glow: true, header: true }],
           ];
           STARTUP.forEach(([delay, text, opts]) => {
             setTimeout(() => push(line(text, opts)), delay);
@@ -1637,15 +1639,18 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           setTimeout(() => {
             startSubstrateDaemon();
             eventBus.emit('neural:substrated-started');
-          }, 6350);
+          }, 6050);
         } else {
-          setTimeout(() => push(line('substrated: already running on port 33', { dim: 0.6 })), 4800);
+          setTimeout(() => push(line('  substrated[784]: status      already running on :33', { dim: 0.6 })), 4800);
         }
 
         // ── Step 4: telnet n1x.sh 33 ──────────────────────────
-        const telnetDelay = isSubstrateDaemonRunning() ? 5200 : 6800;
+        const telnetDelay = isSubstrateDaemonRunning() ? 5300 : 6700;
 
-        setTimeout(() => push(line('> opening neural bus connection...', { dim: 0.5 })), telnetDelay);
+        setTimeout(() => push(line('> telnet n1x.sh 33', { dim: 0.5 })), telnetDelay);
+
+        // Fire hack-complete as the neural bus connection opens
+        setTimeout(() => eventBus.emit('neural:hack-complete'), telnetDelay + 200);
 
         setTimeout(() => {
           const argState = loadARGState();
@@ -1659,7 +1664,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           }, 'text');
         }, telnetDelay + 400);
 
-        return { output: line('> BACKDOOR: abcd1234', { glow: true, header: true }) };
+        return { output: null };
       },
     },
 
@@ -1790,7 +1795,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 {state.manifestComplete && hasF010 ? ' -- MANIFEST COMPLETE -- run: transmit manifest.complete' : ''}
               </div>
               {totalRecovered > 0 && (
-                <div style={{ marginTop: '0.5rem', opacity: 0.4, fontSize: 'var(--text-sm, 0.75rem)' }}>
+                <div style={{ marginTop: '0.5rem', opacity: 0.4, fontSize: S.base }}>
                   tip: fragments read {'<id>'}  to view recovered content
                 </div>
               )}
@@ -2081,7 +2086,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 </div>
                 <div style={{ marginTop: '0.4rem' }}>
                   <span style={{ opacity: 0.4 }}>checksum: </span>
-                  <span className={S.glow}>VERIFIED</span>
+                  <span className={S.glow} style={{ color: "var(--phosphor-accent)" }}>VERIFIED</span>
                 </div>
                 <div style={{ opacity: 0.7, marginTop: '0.2rem' }}>
                   fragment: {fragment}
@@ -2108,7 +2113,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 <div style={{ opacity: 0.5 }}>{input}</div>
                 <div style={{ marginTop: '0.4rem' }}>
                   <span style={{ opacity: 0.4 }}>checksum: </span>
-                  <span className={S.glow}>VERIFIED</span>
+                  <span className={S.glow} style={{ color: "var(--phosphor-accent)" }}>VERIFIED</span>
                 </div>
                 <div style={{ opacity: 0.7, marginTop: '0.2rem' }}>
                   fragment: f003 (alternate path)

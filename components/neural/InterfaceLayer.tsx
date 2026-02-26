@@ -7,7 +7,6 @@ import { useEventBus } from '@/hooks/useEventBus';
 import ShellInterface from '../shell/ShellInterface';
 import { eventBus } from '@/lib/eventBus';
 import { deactivateTelnet } from '@/lib/telnetBridge';
-import { isChatMode, setChatMode, resetConversation } from '@/components/shell/NeuralLink';
 
 // Parse processorLoad from context (may be "42", "42%", or a number) into 0–100
 function seedLoad(raw: number | string): number {
@@ -282,7 +281,7 @@ export default function InterfaceLayer() {
           transform: 'perspective(1000px)',
         }}
       >
-        {/* Scanlines, vignette, and CRT effects handled by SignalLayerV2 (Three.js overlay) */}
+        {/* Scanlines, vignette, and CRT effects handled by SignalLayer (Three.js overlay) */}
 
         <div
           ref={screenContentRef}
@@ -433,8 +432,6 @@ export default function InterfaceLayer() {
                       eventBus.emit('crt:glitch-tier', { tier: tab.effect === 'channel-switch' ? 2 : 1, duration: tab.duration });
                       fireTabEffect(tab.effect, tab.duration, () => {
                         deactivateTelnet();
-                        setChatMode(false);
-                        resetConversation();
                         eventBus.emit('shell:clear');
                         setTimeout(() => eventBus.emit('shell:execute-command', { command: tab.cmd }), 50);
                       });

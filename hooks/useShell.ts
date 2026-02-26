@@ -2,7 +2,6 @@ import { useState, useCallback, useRef } from 'react';
 import { CommandOutput, ShellState } from '@/types/shell.types';
 import { executeCommand, getCurrentDirectory } from '@/lib/commandRegistry';
 import { eventBus } from '@/lib/eventBus';
-import { isChatMode } from '@/components/shell/NeuralLink';
 
 export type RequestPromptFn = (label: string, onSubmit: (value: string) => void, type?: string) => void;
 
@@ -65,7 +64,6 @@ export function useShell() {
             error: payload.error,
             cwd: getCurrentDirectory(),
             user: currentUserRef.current,
-            chatMode: isChatMode(),
           },
         ]),
       }));
@@ -77,7 +75,6 @@ export function useShell() {
     // Snapshot prompt context BEFORE execution (cd changes dir during handler)
     const cwdBefore  = getCurrentDirectory();
     const userBefore = currentUserRef.current;
-    const chatBefore = isChatMode();
 
     const result = executeCommand(input, requestPromptRef.current);
 
@@ -97,7 +94,6 @@ export function useShell() {
       error: result.error,
       cwd: cwdBefore,
       user: userBefore,
-      chatMode: chatBefore,
     };
 
     setState((prev) => ({

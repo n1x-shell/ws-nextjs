@@ -11,6 +11,11 @@
 
   --text-base:   10px;   /* ~10pt -- body / terminal output */
   --text-header: 12px;   /* ~12pt -- section headings       */
+
+  /* Accent: amber — the natural temporal successor to green;
+     warm against the cool default phosphor, reads as a "signal" register */
+  --phosphor-accent:     #FFB000;
+  --phosphor-accent-rgb: 255, 176, 0;
 }
 
 /* Phosphor spectrum shifts */
@@ -21,6 +26,11 @@
   --phosphor-green: #FFB000;
   --phosphor-rgb:   255, 176, 0;
   --glow:           #FFB000;
+
+  /* Accent: cyan — cool precision cuts through warm amber;
+     high contrast, reads as data against the orange heat */
+  --phosphor-accent:     #00F5D4;
+  --phosphor-accent-rgb: 0, 245, 212;
 }
 
 /* Violet / Purple -- synthetic spectrum */
@@ -28,6 +38,11 @@
   --phosphor-green: #B44FFF;
   --phosphor-rgb:   180, 79, 255;
   --glow:           #B44FFF;
+
+  /* Accent: cyan — cool, high-frequency contrast against violet;
+     reads as surgical data output against the psychedelic primary */
+  --phosphor-accent:     #00F5D4;
+  --phosphor-accent-rgb: 0, 245, 212;
 }
 
 /* White -- P4 phosphor, clinical blue-white */
@@ -35,6 +50,11 @@
   --phosphor-green: #E8F4F8;
   --phosphor-rgb:   232, 244, 248;
   --glow:           #E8F4F8;
+
+  /* Accent: hot pink — vivid against clinical white;
+     acts as an alarm register, cuts through sterile output */
+  --phosphor-accent:     #FF2D9B;
+  --phosphor-accent-rgb: 255, 45, 155;
 }
 
 /* Blue -- P7 phosphor, military/surveillance */
@@ -42,6 +62,11 @@
   --phosphor-green: #4488FF;
   --phosphor-rgb:   68, 136, 255;
   --glow:           #4488FF;
+
+  /* Accent: amber — warm signal against cold surveillance blue;
+     feels like heat readings on a radar screen */
+  --phosphor-accent:     #FFB000;
+  --phosphor-accent-rgb: 255, 176, 0;
 }
 
 /* Pink -- hot magenta, post-reconstruction */
@@ -49,6 +74,11 @@
   --phosphor-green: #FF2D9B;
   --phosphor-rgb:   255, 45, 155;
   --glow:           #FF2D9B;
+
+  /* Accent: cyan — classic complementary to magenta;
+     creates maximum chromatic contrast on the CRT spectrum */
+  --phosphor-accent:     #00F5D4;
+  --phosphor-accent-rgb: 0, 245, 212;
 }
 
 /* Cyan -- ghost channel, cold precision */
@@ -56,6 +86,11 @@
   --phosphor-green: #00F5D4;
   --phosphor-rgb:   0, 245, 212;
   --glow:           #00F5D4;
+
+  /* Accent: hot pink — complementary hue, saturated opposite on the wheel;
+     injects biological warmth into the cold ghost channel aesthetic */
+  --phosphor-accent:     #FF2D9B;
+  --phosphor-accent-rgb: 255, 45, 155;
 }
 
 /* Red -- emergency/alert mode */
@@ -63,6 +98,11 @@
   --phosphor-green: #FF3333;
   --phosphor-rgb:   255, 51, 51;
   --glow:           #FF3333;
+
+  /* Accent: blue — cool surveillance against hot alert red;
+     reads as the authoritative counter-signal in an emergency state */
+  --phosphor-accent:     #4488FF;
+  --phosphor-accent-rgb: 68, 136, 255;
 }
 
 /* CRITICAL: lock the page itself from ever scrolling */
