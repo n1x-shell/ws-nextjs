@@ -24,6 +24,7 @@ interface MessageBody {
   clientId:  string;
   text:      string;
   roomId?:   string;
+  announce?: boolean;
   metadata?: MessageMetadata;
 }
 
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { clientId, text, roomId, metadata } = body;
+  const { clientId, text, roomId, announce, metadata } = body;
 
   // ── Validate inputs ───────────────────────────────────────────────────────
   if (!clientId || typeof clientId !== 'string' || !isValidHandle(clientId)) {
@@ -86,19 +87,27 @@ export async function POST(req: Request) {
   }
 
   const messageId = makeId();
-
-  const payload = {
-    roomId:    targetChannel,
-    userId:    clientId,           // stamped server-side — client cannot spoof this
-    messageId,
-    text:      text.trim(),
-    ts:        Date.now(),
-    ...(metadata ? { metadata } : {}),
-  };
+  const rest = new Ably.Rest(apiKey);
 
   try {
-    const rest = new Ably.Rest(apiKey);
-    await rest.channels.get(targetChannel).publish('user.message', payload);
+    if (announce) {
+      // Publish as a system announcement — renders in the orange system style for all occupants
+      await rest.channels.get(targetChannel).publish('bot.system', {
+        text:      text.trim(),
+        ts:        Date.now(),
+        messageId,
+      });
+    } else {
+      const payload = {
+        roomId:    targetChannel,
+        userId:    clientId,
+        messageId,
+        text:      text.trim(),
+        ts:        Date.now(),
+        ...(metadata ? { metadata } : {}),
+      };
+      await rest.channels.get(targetChannel).publish('user.message', payload);
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 502 });
