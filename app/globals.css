@@ -238,6 +238,40 @@ body {
     0 0 8px var(--phosphor-green);
 }
 
+/* ── CRT power transition ──────────────────────────────────────────────────────
+   Power-off: screen squishes to a bright horizontal line, then collapses to dark.
+   Power-on:  line blooms from nothing, expands to fill the screen.
+   Both use scaleY so the effect anchors to the vertical center of the terminal.
+   filter:brightness spikes at near-zero scaleY to fake the phosphor afterglow. */
+
+@keyframes crt-power-off {
+  0%   { transform: scaleY(1);      filter: brightness(1);   }
+  45%  { transform: scaleY(0.06);   filter: brightness(2.2); }
+  65%  { transform: scaleY(0.015);  filter: brightness(6);   }
+  80%  { transform: scaleY(0.006);  filter: brightness(3.5); }
+  100% { transform: scaleY(0);      filter: brightness(0);   }
+}
+
+@keyframes crt-power-on {
+  0%   { transform: scaleY(0);      filter: brightness(0);   }
+  12%  { transform: scaleY(0.006);  filter: brightness(9);   }
+  28%  { transform: scaleY(0.04);   filter: brightness(4);   }
+  58%  { transform: scaleY(1);      filter: brightness(1.6); }
+  100% { transform: scaleY(1);      filter: brightness(1);   }
+}
+
+.crt-powering-off {
+  transform-origin: center center;
+  animation: crt-power-off 450ms ease-in forwards;
+  overflow: hidden;
+}
+
+.crt-powering-on {
+  transform-origin: center center;
+  animation: crt-power-on 580ms ease-out forwards;
+  overflow: hidden;
+}
+
 /* iOS: force GPU layers on animated elements */
 @supports (-webkit-touch-callout: none) {
   .scanlines,
