@@ -345,9 +345,10 @@ function pathDirsOnly(rawInput: string): boolean {
 }
 
 // ── MatrixCanvas ──────────────────────────────────────────────────────────────
-// Renders inside the shell output zone (position:absolute, inset:0).
-// Contains: dense phosphor rain, per-column melt with character morphing,
-// horizontal glitch slice displacement, scrolling CRT scanlines, radial vignette.
+// Three depth layers (bg/mid/fg) with different font sizes, speeds, densities.
+// White leading heads with green shoulder gradient behind them.
+// Slow fade so trails run nearly full screen height.
+// Glitch slice displacement. CRT scanlines. Radial vignette.
 
 const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const wrapRef   = useRef<HTMLDivElement>(null);
@@ -365,117 +366,173 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     canvas.width  = W;
     canvas.height = H;
 
-    // Smaller font = denser columns
-    const FONT  = 12;   // render size — readable but not oversized
-    const STEP  = 7;    // column pitch — tighter than font width = more streams
-    const COLS  = Math.floor(W / STEP);
-    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()N1X!?アイウエオカキクケコサシスセソタチツテト';
-    const CL    = CHARS.length;
+    const CHARS = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%&*N1X!?';
+    const CL = CHARS.length;
 
-    const phosphor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--phosphor-green').trim() || '#33ff33';
+    // Parse the CSS phosphor colour once
+    const cssPhosphor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--phosphor-green').trim() || '#00ff41';
 
-    // Drop positions staggered above top so they cascade in
-    const drops  = Array.from({ length: COLS }, () => -(Math.random() * (H / FONT)));
-    // Per-column melt: speed multiplier + frames remaining
-    const speeds = Array<number>(COLS).fill(0.5);   // base speed halved vs original
-    const meltT  = Array<number>(COLS).fill(0);
-    // Per-column character morph phase — float, indexes into CHARS
-    const morph  = Array.from({ length: COLS }, () => Math.random() * CL);
+    // Convert hex/css colour to rgb components for alpha compositing
+    const tmp = document.createElement('canvas');
+    tmp.width = tmp.height = 1;
+    const tc = tmp.getContext('2d')!;
+    tc.fillStyle = cssPhosphor;
+    tc.fillRect(0, 0, 1, 1);
+    const [pr, pg, pb] = tc.getImageData(0, 0, 1, 1).data;
 
-    // Glitch state — displacement only, no composite fills (those caused the purple bar)
+    // ── Layer definitions ──────────────────────────────────────────────────
+    // Each layer: fontSize, columnStep, baseSpeed, trailAlpha, headBrightness,
+    //             density (fraction of columns active), morphRate
+    const LAYERS = [
+      // Background — small, slow, dim, high density (fills the field)
+      { fs: 10, step: 8,  speed: 0.28, fade: 0.018, headBright: 0.55, density: 0.88, morph: 0.015 },
+      // Mid — medium, moderate speed, normal brightness
+      { fs: 14, step: 12, speed: 0.55, fade: 0.028, headBright: 0.85, density: 0.70, morph: 0.04  },
+      // Foreground — large, fast, bright, sparse — the "hero" streams
+      { fs: 18, step: 22, speed: 1.1,  fade: 0.038, headBright: 1.0,  density: 0.45, morph: 0.08  },
+    ];
+
+    // Build per-layer stream arrays
+    type Stream = {
+      x:      number;   // pixel x
+      drop:   number;   // current y in font-units (fractional)
+      speed:  number;   // current speed (font-units/frame)
+      morph:  number;   // float phase into CHARS
+      active: boolean;
+      melt:   number;   // frames remaining in melt burst
+    };
+
+    const layers = LAYERS.map(({ fs, step, speed, density }) => {
+      const cols = Math.floor(W / step);
+      const streams: Stream[] = [];
+      for (let i = 0; i < cols; i++) {
+        streams.push({
+          x:      i * step,
+          drop:   -(Math.random() * (H / fs) * 1.5),
+          speed:  speed * (0.7 + Math.random() * 0.6),
+          morph:  Math.random() * CL,
+          active: Math.random() < density,
+          melt:   0,
+        });
+      }
+      return streams;
+    });
+
+    // Shared slow fade — applied once per frame regardless of layer count
+    // Must be slow enough that the tallest (fg, fs=18) trail fills most of the screen
+    // Slowest layer speed=0.28, at 60fps that's ~0.28*60=16.8 units/s, screen=H/18 units
+    // fade=0.018 → each pixel decays to 0 in ~56 frames → trail length ≈ 56*0.28=15 units = 270px at H=480
+    // Looks right for dense coverage.
+
+    // Glitch state
     let glitchActive = false;
     let glitchFrames = 0;
-    let glitchY      = 0;
-    let glitchH      = 0;
-    let glitchOff    = 0;
-    let frameCount   = 0;
-    let nextGlitch   = 40 + Math.random() * 90;
+    let glitchY = 0, glitchH2 = 0, glitchOff = 0;
+    let frameCount = 0;
+    let nextGlitch = 50 + Math.random() * 100;
 
-    // Vignette baked once
-    const vignette = ctx.createRadialGradient(W/2, H/2, H * 0.2, W/2, H/2, H * 0.9);
-    vignette.addColorStop(0, 'rgba(0,0,0,0)');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.65)');
+    // Vignette — baked once
+    const vig = ctx.createRadialGradient(W/2, H/2, H * 0.15, W/2, H/2, H * 0.85);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.72)');
 
     let rafId: number;
 
     const draw = () => {
       frameCount++;
 
-      // ── Melt trigger: per-column per-frame chance to start melting
-      for (let i = 0; i < COLS; i++) {
-        if (meltT[i] > 0) {
-          if (--meltT[i] === 0) speeds[i] = 0.5;
-        } else if (Math.random() > 0.985) {
-          // ~1.5% chance per column per frame — many columns melt simultaneously
-          speeds[i] = 1.2 + Math.random() * 1.8;   // 2.4–6× the halved base
-          meltT[i]  = 25 + Math.floor(Math.random() * 40); // 25–65 frames
-        }
-      }
-
-      // ── Fade trail — slightly slower fade keeps the dense trails visible longer
-      ctx.fillStyle = 'rgba(0,0,0,0.045)';
+      // ── Single shared fade pass ───────────────────────────────────────────
+      // Use a very low alpha black rect — the magic number for trail length
+      ctx.fillStyle = 'rgba(0,0,0,0.06)';
       ctx.fillRect(0, 0, W, H);
 
-      // ── Rain + morph
-      ctx.font = `${FONT}px monospace`;
-      for (let i = 0; i < COLS; i++) {
-        const hot = meltT[i] > 0;
+      // ── Render each layer back-to-front ───────────────────────────────────
+      LAYERS.forEach(({ fs, step, speed: baseSpeed, headBright, morph: morphRate }, li) => {
+        const streams = layers[li];
+        ctx.font = `${fs}px monospace`;
 
-        // Morph: advance phase slowly normally, rapidly when melting
-        // This makes characters visibly cycle/transform at the column head
-        morph[i] += hot ? 0.55 + Math.random() * 0.35 : 0.025 + Math.random() * 0.02;
-        const ch  = CHARS[Math.floor(morph[i]) % CL];
+        for (const s of streams) {
+          if (!s.active) {
+            // Inactive streams: low chance to activate each frame
+            if (Math.random() > 0.997) { s.active = true; s.drop = -(Math.random() * 3); }
+            continue;
+          }
 
-        const x = i * STEP;
-        const y = drops[i] * FONT;
+          // Melt: random chance to burst
+          if (s.melt > 0) {
+            s.melt--;
+            if (s.melt === 0) s.speed = baseSpeed * (0.7 + Math.random() * 0.6);
+          } else if (Math.random() > 0.994) {
+            s.melt  = 18 + Math.floor(Math.random() * 35);
+            s.speed = baseSpeed * (2.2 + Math.random() * 2.0);
+          }
 
-        ctx.fillStyle   = hot ? '#ffffff' : phosphor;
-        ctx.globalAlpha = hot ? 1 : 0.55 + Math.random() * 0.45;
-        ctx.fillText(ch, x, y);
-        ctx.globalAlpha = 1;
+          s.morph += s.melt > 0
+            ? morphRate * (4 + Math.random() * 4)
+            : morphRate * (0.8 + Math.random() * 0.4);
 
-        // Secondary dim character one step behind — adds body and depth to the stream
-        if (drops[i] > 1) {
-          const prevCh = CHARS[Math.floor(morph[i] - 1 + CL) % CL];
-          ctx.fillStyle   = phosphor;
-          ctx.globalAlpha = 0.25;
-          ctx.fillText(prevCh, x, (drops[i] - 1) * FONT);  // x already STEP-based
-          ctx.globalAlpha = 1;
+          const ch = CHARS[Math.floor(s.morph) % CL];
+          const y  = s.drop * fs;
+
+          if (y > -fs && y < H + fs) {
+            // ── Head character: white flash, size-dependent brightness ──────
+            const headAlpha = s.melt > 0 ? 1.0 : headBright;
+            ctx.fillStyle   = s.melt > 0 ? '#ffffff' : `rgb(${pr+60},${pg},${pb})`;
+            ctx.globalAlpha = headAlpha;
+            ctx.fillText(ch, s.x, y);
+
+            // ── Shoulder: 2–4 chars behind head, bright green fading to dim ─
+            const shoulderLen = 3 + Math.floor(fs / 6);
+            for (let k = 1; k <= shoulderLen; k++) {
+              const sy = y - k * fs;
+              if (sy < -fs) break;
+              const sCh = CHARS[Math.floor(s.morph - k * 0.4 + CL * 4) % CL];
+              ctx.fillStyle   = `rgb(${pr},${pg},${pb})`;
+              ctx.globalAlpha = headAlpha * Math.pow(0.55, k);
+              ctx.fillText(sCh, s.x, sy);
+            }
+            ctx.globalAlpha = 1;
+          }
+
+          // Reset when fully below screen
+          if (y > H + fs * 4) {
+            s.drop  = -(2 + Math.random() * (H / fs) * 0.4);
+            s.speed = baseSpeed * (0.7 + Math.random() * 0.6);
+            // Small chance to deactivate — keeps density dynamic
+            if (Math.random() > 0.85) s.active = false;
+          }
+
+          s.drop += s.speed;
         }
+      });
 
-        if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 6);
-        drops[i] += speeds[i];
-      }
-
-      // ── Glitch: horizontal slice displacement only
+      // ── Glitch slice ──────────────────────────────────────────────────────
       if (!glitchActive && frameCount >= nextGlitch) {
         glitchActive = true;
         glitchFrames = 0;
-        glitchY      = 10 + Math.random() * (H - 50);
-        glitchH      = 4 + Math.random() * 18;
-        glitchOff    = (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random() * 22);
-        nextGlitch   = frameCount + 40 + Math.random() * 110;
+        glitchY   = 10 + Math.random() * (H - 50);
+        glitchH2  = 3 + Math.random() * 14;
+        glitchOff = (Math.random() > 0.5 ? 1 : -1) * (6 + Math.random() * 18);
+        nextGlitch = frameCount + 45 + Math.random() * 120;
       }
-
       if (glitchActive) {
-        glitchFrames++;
         try {
-          const slice = ctx.getImageData(0, glitchY, W, glitchH);
-          ctx.putImageData(slice, glitchOff, glitchY);
-        } catch { /* taint safety */ }
-        if (glitchFrames >= 2 + Math.floor(Math.random() * 3)) glitchActive = false;
+          const sl = ctx.getImageData(0, glitchY, W, glitchH2);
+          ctx.putImageData(sl, glitchOff, glitchY);
+        } catch { /**/ }
+        if (++glitchFrames >= 2 + Math.floor(Math.random() * 3)) glitchActive = false;
       }
 
-      // ── CRT scanlines
-      ctx.fillStyle   = '#000000';
-      ctx.globalAlpha = 0.10;
-      const scanY = (frameCount * 0.6) % 4;
-      for (let y = scanY; y < H; y += 4) ctx.fillRect(0, y, W, 1.5);
+      // ── CRT scanlines ─────────────────────────────────────────────────────
+      ctx.fillStyle   = '#000';
+      ctx.globalAlpha = 0.09;
+      const sOff = (frameCount * 0.5) % 3;
+      for (let y = sOff; y < H; y += 3) ctx.fillRect(0, y, W, 1);
       ctx.globalAlpha = 1;
 
-      // ── Vignette
-      ctx.fillStyle = vignette;
+      // ── Vignette ──────────────────────────────────────────────────────────
+      ctx.fillStyle = vig;
       ctx.fillRect(0, 0, W, H);
 
       rafId = requestAnimationFrame(draw);
@@ -500,9 +557,9 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         color:         'var(--phosphor-green)',
         fontFamily:    'monospace',
         fontSize:      '11px',
-        opacity:       0.35,
+        opacity:       0.3,
         pointerEvents: 'none',
-        letterSpacing: '0.1em',
+        letterSpacing: '0.12em',
       }}>
         tap to exit
       </div>
