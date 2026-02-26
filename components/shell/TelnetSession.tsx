@@ -1475,6 +1475,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       activateTelnet(handle, sendWithSlash, handleDisconnect);
       setChatMode(true);
       setMode('multi');
+      eventBus.emit('telnet:connected');
       setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
     });
   }, [host, handle, sendWithSlash, handleDisconnect, runSequence]);
