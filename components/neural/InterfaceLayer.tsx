@@ -282,7 +282,7 @@ export default function InterfaceLayer() {
           transform: 'perspective(1000px)',
         }}
       >
-        {/* Scanlines, vignette, and CRT effects handled by SignalLayerV2 (Three.js overlay) */}
+        {/* Scanlines, vignette, and CRT effects handled by SignalLayer (Three.js overlay) */}
 
         <div
           ref={screenContentRef}
