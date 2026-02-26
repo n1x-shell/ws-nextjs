@@ -58,11 +58,11 @@ export default function InterfaceLayer() {
   const tabLockRef    = useRef(false);
   const screenLockRef = useRef(false);
 
-  const fireTabEffect   = useCallback((effect: 'channel-switch' | 'static-burst', duration: number, swapFn: () => void) => {
+  const fireTabEffect = useCallback((effect: 'channel-switch' | 'static-burst', duration: number, swapFn: () => void) => {
     if (tabLockRef.current) return;
     tabLockRef.current = true;
     setTabEffect(effect);
-    setTimeout(swapFn,       effect === 'channel-switch' ? 110 : 90);
+    setTimeout(swapFn, effect === 'channel-switch' ? 110 : 90);
     setTimeout(() => { setTabEffect(null); tabLockRef.current = false; }, duration);
   }, []);
 
@@ -72,6 +72,24 @@ export default function InterfaceLayer() {
     setScreenEffect(effect);
     const duration = effect === 'whiteout-flash' ? 320 : 370;
     setTimeout(() => { setScreenEffect(null); screenLockRef.current = false; }, duration);
+  }, []);
+
+  // static burst → desync tear sequence (hack complete)
+  const fireHackSequence = useCallback(() => {
+    if (screenLockRef.current) return;
+    screenLockRef.current = true;
+    setScreenEffect('whiteout-flash');
+    // static-burst on the shell area simultaneously
+    setTabEffect('static-burst');
+    setTimeout(() => setTabEffect(null), 200);
+    // desync tear follows after burst clears
+    setTimeout(() => {
+      setScreenEffect('desync-tear');
+      setTimeout(() => {
+        setScreenEffect(null);
+        screenLockRef.current = false;
+      }, 370);
+    }, 200);
   }, []);
 
   // SESSION: visit count from localStorage (incremented by TelnetSession on mount)
@@ -190,6 +208,12 @@ export default function InterfaceLayer() {
   useEventBus('neural:frequency-shift', () => {
     eventBus.emit('crt:glitch-tier', { tier: 2, duration: 350 });
     fireScreenEffect('desync-tear');
+  });
+
+  // Static burst → desync tear when n1x.sh / substrated.sh / john / strace complete
+  useEventBus('neural:hack-complete', () => {
+    eventBus.emit('crt:glitch-tier', { tier: 3, duration: 550 });
+    fireHackSequence();
   });
 
   const handleClick = (e: React.MouseEvent) => {
@@ -406,8 +430,7 @@ export default function InterfaceLayer() {
                     onTouchStart={handleHover}
                     onClick={() => {
                       if (!tab.cmd) return;
-                      const glitchTier = tab.effect === 'channel-switch' ? 2 : 1;
-                      eventBus.emit('crt:glitch-tier', { tier: glitchTier, duration: tab.duration });
+                      eventBus.emit('crt:glitch-tier', { tier: tab.effect === 'channel-switch' ? 2 : 1, duration: tab.duration });
                       fireTabEffect(tab.effect, tab.duration, () => {
                         deactivateTelnet();
                         setChatMode(false);
