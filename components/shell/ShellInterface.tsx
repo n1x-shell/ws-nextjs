@@ -432,20 +432,23 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     }
 
     // ── Build column grid ─────────────────────────────────────────────────
-    // Use the smallest font size as the grid pitch so columns don't overlap.
-    const GRID_STEP = 13; // pixels between column centres
+    // Tight pitch for dense coverage. ~35% of columns get a half-speed flag
+    // which halves their advance rate — these become the slow-drifting ghost
+    // strands that make the field look layered even within a single tier.
+    const GRID_STEP = 7; // pixels between column centres — half the old value = 2× columns
     const NUM_COLS  = Math.floor(W / GRID_STEP);
 
     type Col = {
-      x:       number;
-      tier:    number;
-      fs:      number;
-      speed:   number;
-      y:       number;    // head position in rows (fractional, can be negative)
-      rows:    number;    // total rows for this font size
-      chars:   Uint16Array; // per-row character indices
-      mutNext: Uint32Array; // frame at which each row next mutates
-      active:  boolean;
+      x:        number;
+      tier:     number;
+      fs:       number;
+      speed:    number;
+      halfSpeed: boolean; // if true, advance at 0.5× nominal speed
+      y:        number;    // head position in rows (fractional, can be negative)
+      rows:     number;    // total rows for this font size
+      chars:    Uint16Array; // per-row character indices
+      mutNext:  Uint32Array; // frame at which each row next mutates
+      active:   boolean;
       resumeAt: number;   // frame when dormant col wakes up
     };
 
@@ -461,17 +464,20 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         mutNext[r] = Math.floor(Math.random() * 60);
       }
       const [sMin, sMax] = t.speed;
+      const halfSpeed    = Math.random() < 0.35;
+      const baseSpeed    = sMin + Math.random() * (sMax - sMin);
       cols.push({
-        x:        i * GRID_STEP,
+        x:         i * GRID_STEP,
         tier,
-        fs:       t.fs,
-        speed:    sMin + Math.random() * (sMax - sMin),
-        y:        -(1 + Math.random() * (H / t.fs) * 1.2),
+        fs:        t.fs,
+        speed:     halfSpeed ? baseSpeed * 0.5 : baseSpeed,
+        halfSpeed,
+        y:         -(1 + Math.random() * (H / t.fs) * 1.2),
         rows,
         chars,
         mutNext,
-        active:   Math.random() > 0.30,
-        resumeAt: 0,
+        active:    Math.random() > 0.30,
+        resumeAt:  0,
       });
     }
 
@@ -609,8 +615,10 @@ const MatrixCanvas: React.FC<{ onExit: () => void }> = ({ onExit }) => {
 
         // Reset when fully below screen
         if (col.y * fs > H + fs * 6) {
-          col.y     = -(3 + Math.random() * (H / fs) * 0.5);
-          col.speed = TIERS[tier].speed[0] + Math.random() * (TIERS[tier].speed[1] - TIERS[tier].speed[0]);
+          col.y = -(3 + Math.random() * (H / fs) * 0.5);
+          const [sMin, sMax] = TIERS[tier].speed;
+          const fresh = sMin + Math.random() * (sMax - sMin);
+          col.speed = col.halfSpeed ? fresh * 0.5 : fresh;
           if (Math.random() > 0.55) {
             col.active   = false;
             col.resumeAt = frame + Math.floor(20 + Math.random() * 80);
