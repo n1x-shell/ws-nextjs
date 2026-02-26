@@ -535,10 +535,10 @@ const HelpOutput: React.FC<{ isAdmin?: boolean; roomName?: 'ghost' | 'mancave' }
     ];
     return (
       <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
-        <div style={{ color: '#ff6600', opacity: 0.85, marginBottom: '0.25rem' }}>MANCAVE — COMMANDS</div>
+        <div style={{ color: '#00e5ff', opacity: 0.85, marginBottom: '0.25rem' }}>MANCAVE — COMMANDS</div>
         {mancaveRows.map(r => (
           <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
-            <span style={{ color: '#ff6600', minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
+            <span style={{ color: '#00e5ff', minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
             {r.alias && (
               <span style={{ color: C.helpDim, minWidth: '6ch', flexShrink: 0 }}>{r.alias}</span>
             )}
@@ -1025,20 +1025,20 @@ const ChannelStats: React.FC<{ occupantCount: number; handle: string; roomName: 
         style={{
           fontWeight: 700,
           letterSpacing: '0.08em',
-          color: isMancave ? '#ff6600' : undefined,
-          textShadow: isMancave ? '0 0 8px rgba(255,102,0,0.6)' : undefined,
+          color: isMancave ? '#00e5ff' : undefined,
+          textShadow: isMancave ? '0 0 8px rgba(0,229,255,0.6)' : undefined,
         }}
       >
         {isMancave ? 'MANCAVE' : 'GHOST_CHANNEL'}
       </span>
       <span style={{ opacity: 0.3 }}>──</span>
-      <span style={{ opacity: 0.55, letterSpacing: '0.04em', color: isMancave ? '#ff6600' : undefined }}>
+      <span style={{ opacity: 0.55, letterSpacing: '0.04em', color: isMancave ? '#00e5ff' : undefined }}>
         {isMancave ? 'freq :: private' : 'freq :: 33hz'}
       </span>
     </div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', opacity: 0.5 }}>
       <span>signal ident:</span>
-      <span style={{ opacity: 0.9, color: isMancave ? '#ff6600' : 'var(--phosphor-green)' }}>{handle}</span>
+      <span style={{ opacity: 0.9, color: isMancave ? '#00e5ff' : 'var(--phosphor-green)' }}>{handle}</span>
       <span style={{ opacity: 0.4 }}>·</span>
       <span>{isMancave ? '/leave to exit' : '@n1x for direct link'}</span>
     </div>
@@ -1173,7 +1173,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
       ];
       const msg = VIBES[Math.floor(Math.random() * VIBES.length)];
       addLocalMsg(
-        <div key={`vibe-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, color: '#ff6600', opacity: 0.85 }}>
+        <div key={`vibe-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, color: '#00e5ff', opacity: 0.85 }}>
           <span style={{ opacity: 0.4 }}>[VIBE] </span>{msg}
         </div>
       );
@@ -1197,7 +1197,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
       const total = rolls.reduce((a, b) => a + b, 0);
       addLocalMsg(
         <div key={`roll-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
-          <span style={{ color: '#ff6600' }}>[ROLL {count}d{sides}] </span>
+          <span style={{ color: '#00e5ff' }}>[ROLL {count}d{sides}] </span>
           <span style={{ opacity: 0.7 }}>{rolls.join(' + ')} </span>
           <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>= {total}</span>
         </div>
@@ -1221,7 +1221,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
       const pick = CHANNELS[Math.floor(Math.random() * CHANNELS.length)];
       addLocalMsg(
         <div key={`tv-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
-          <span style={{ color: '#ff6600' }}>[TV] </span>
+          <span style={{ color: '#00e5ff' }}>[TV] </span>
           <span style={{ color: 'var(--phosphor-green)', opacity: 0.8 }}>{pick.ch} — </span>
           <span style={{ opacity: 0.85 }}>{pick.show}</span>
         </div>
@@ -1243,7 +1243,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
       const b = BEERS[Math.floor(Math.random() * BEERS.length)];
       addLocalMsg(
         <div key={`beer-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
-          <div><span style={{ color: '#ff6600' }}>[BEER] </span><span style={{ fontWeight: 'bold', opacity: 0.9 }}>{b.name}</span></div>
+          <div><span style={{ color: '#00e5ff' }}>[BEER] </span><span style={{ fontWeight: 'bold', opacity: 0.9 }}>{b.name}</span></div>
           <div style={{ paddingLeft: '2ch', opacity: 0.65 }}>IBU: {b.ibu}  ·  ABV: {b.abv}%</div>
           <div style={{ paddingLeft: '2ch', opacity: 0.5, fontStyle: 'italic' }}>{b.note}</div>
         </div>
@@ -1273,7 +1273,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
     }
     // Correct passphrase — announce, disconnect from ghost, then launch mancave
     addLocalMsg(
-      <div key={`mc-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: '#ff6600', textShadow: '0 0 8px rgba(255,102,0,0.5)' }}>
+      <div key={`mc-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: '#00e5ff', textShadow: '0 0 8px rgba(0,229,255,0.5)' }}>
         &gt;&gt; MANCAVE_ACCESS_GRANTED — switching channel...
       </div>
     );
@@ -1795,11 +1795,11 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
           <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
             {roomName === 'mancave' ? (
               <>
-                <span style={{ color: '#ff6600' }}>/leave</span> to exit
+                <span style={{ color: '#00e5ff' }}>/leave</span> to exit
                 &nbsp;·&nbsp;
-                <span style={{ color: '#ff6600' }}>/vibe</span> · <span style={{ color: '#ff6600' }}>/roll</span> · <span style={{ color: '#ff6600' }}>/tv</span> · <span style={{ color: '#ff6600' }}>/beer</span>
+                <span style={{ color: '#00e5ff' }}>/vibe</span> · <span style={{ color: '#00e5ff' }}>/roll</span> · <span style={{ color: '#00e5ff' }}>/tv</span> · <span style={{ color: '#00e5ff' }}>/beer</span>
                 &nbsp;·&nbsp;
-                <span style={{ color: '#ff6600' }}>/help</span> for all commands
+                <span style={{ color: '#00e5ff' }}>/help</span> for all commands
               </>
             ) : (
               <>
