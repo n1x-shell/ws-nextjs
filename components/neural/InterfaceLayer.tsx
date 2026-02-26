@@ -50,6 +50,29 @@ function ProcBar({ seed }: { seed: number | string }) {
 export default function InterfaceLayer() {
   const { uptime, processorLoad, triggerGlitch } = useNeuralState();
   const screenContentRef = useRef<HTMLDivElement>(null);
+  const shellAreaRef     = useRef<HTMLDivElement>(null);
+
+  // ── CRT transition states ─────────────────────────────────────────────────
+  const [tabEffect,    setTabEffect]    = useState<'channel-switch' | 'static-burst' | null>(null);
+  const [screenEffect, setScreenEffect] = useState<'whiteout-flash' | 'desync-tear' | null>(null);
+  const tabLockRef    = useRef(false);
+  const screenLockRef = useRef(false);
+
+  const fireTabEffect   = useCallback((effect: 'channel-switch' | 'static-burst', duration: number, swapFn: () => void) => {
+    if (tabLockRef.current) return;
+    tabLockRef.current = true;
+    setTabEffect(effect);
+    setTimeout(swapFn,       effect === 'channel-switch' ? 110 : 90);
+    setTimeout(() => { setTabEffect(null); tabLockRef.current = false; }, duration);
+  }, []);
+
+  const fireScreenEffect = useCallback((effect: 'whiteout-flash' | 'desync-tear') => {
+    if (screenLockRef.current) return;
+    screenLockRef.current = true;
+    setScreenEffect(effect);
+    const duration = effect === 'whiteout-flash' ? 320 : 370;
+    setTimeout(() => { setScreenEffect(null); screenLockRef.current = false; }, duration);
+  }, []);
 
   // SESSION: visit count from localStorage (incremented by TelnetSession on mount)
   const [sessionCount, setSessionCount] = useState<number>(() => {
@@ -157,26 +180,17 @@ export default function InterfaceLayer() {
     }
   });
 
-  const [tabSwitching, setTabSwitching] = useState(false);
+  // Whiteout flash when telnet successfully connects
+  useEventBus('telnet:connected', () => {
+    eventBus.emit('crt:glitch-tier', { tier: 2, duration: 300 });
+    fireScreenEffect('whiteout-flash');
+  });
 
-  const handleTabClick = useCallback((cmd: string) => {
-    if (tabSwitching) return;
-    setTabSwitching(true);
-    // Fire tier-2 CRT glitch on the WebGL layer immediately
-    eventBus.emit('crt:glitch-tier', { tier: 2, duration: 220 });
-    // Content swap at midpoint — scaleY is at minimum ~110ms in
-    setTimeout(() => {
-      deactivateTelnet();
-      setChatMode(false);
-      resetConversation();
-      eventBus.emit('shell:clear');
-      setTimeout(() => {
-        eventBus.emit('shell:execute-command', { command: cmd });
-      }, 50);
-    }, 110);
-    // Clear class after animation completes
-    setTimeout(() => setTabSwitching(false), 240);
-  }, [tabSwitching]);
+  // Desync tear when phosphor spectrum shifts (manual or auto)
+  useEventBus('neural:frequency-shift', () => {
+    eventBus.emit('crt:glitch-tier', { tier: 2, duration: 350 });
+    fireScreenEffect('desync-tear');
+  });
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -248,7 +262,12 @@ export default function InterfaceLayer() {
 
         <div
           ref={screenContentRef}
-          className="screen-content"
+          className={[
+            'screen-content',
+            screenEffect === 'whiteout-flash' ? 'crt-whiteout-flash' :
+            screenEffect === 'desync-tear'    ? 'crt-desync-tear'    :
+            '',
+          ].filter(Boolean).join(' ')}
           style={{
             position: 'relative',
             zIndex: 10,
@@ -356,11 +375,11 @@ export default function InterfaceLayer() {
                 }}
               >
                 {[
-                  { label: 'CORE',       cmd: 'clear' },
-                  { label: 'SYNTHETICS', cmd: 'load synthetics' },
-                  { label: 'ANALOGUES',  cmd: 'load analogues' },
-                  // { label: 'HYBRIDS',    cmd: 'load hybrids' },
-                  { label: 'UPLINK',     cmd: 'load uplink' },
+                  { label: 'CORE',       cmd: 'clear',           effect: 'channel-switch' as const, duration: 240 },
+                  { label: 'SYNTHETICS', cmd: 'load synthetics', effect: 'static-burst'   as const, duration: 200 },
+                  { label: 'ANALOGUES',  cmd: 'load analogues',  effect: 'static-burst'   as const, duration: 200 },
+                  // { label: 'HYBRIDS',    cmd: 'load hybrids',    effect: 'static-burst'   as const, duration: 200 },
+                  { label: 'UPLINK',     cmd: 'load uplink',     effect: 'static-burst'   as const, duration: 200 },
                 ].map((tab) => (
                   <button
                     key={tab.label}
@@ -386,7 +405,16 @@ export default function InterfaceLayer() {
                     }}
                     onTouchStart={handleHover}
                     onClick={() => {
-                      if (tab.cmd) handleTabClick(tab.cmd);
+                      if (!tab.cmd) return;
+                      const glitchTier = tab.effect === 'channel-switch' ? 2 : 1;
+                      eventBus.emit('crt:glitch-tier', { tier: glitchTier, duration: tab.duration });
+                      fireTabEffect(tab.effect, tab.duration, () => {
+                        deactivateTelnet();
+                        setChatMode(false);
+                        resetConversation();
+                        eventBus.emit('shell:clear');
+                        setTimeout(() => eventBus.emit('shell:execute-command', { command: tab.cmd }), 50);
+                      });
                     }}
                   >
                     {tab.label}
@@ -396,7 +424,12 @@ export default function InterfaceLayer() {
 
               {/* Shell */}
               <div
-                className={tabSwitching ? 'crt-channel-switch' : undefined}
+                ref={shellAreaRef}
+                className={
+                  tabEffect === 'channel-switch' ? 'crt-channel-switch' :
+                  tabEffect === 'static-burst'   ? 'crt-static-burst'   :
+                  undefined
+                }
                 style={{
                   flex: '1 1 0%',
                   minHeight: 0,
