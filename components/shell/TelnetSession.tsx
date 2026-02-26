@@ -507,7 +507,34 @@ const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
 
 // ── /help output ──────────────────────────────────────────────────────────────
 
-const HelpOutput: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
+const HelpOutput: React.FC<{ isAdmin?: boolean; roomName?: 'ghost' | 'mancave' }> = ({ isAdmin = false, roomName = 'ghost' }) => {
+  if (roomName === 'mancave') {
+    const mancaveRows = [
+      { cmd: '/vibe',               desc: 'Random man-cave transmission' },
+      { cmd: '/roll <NdN>',         desc: 'Roll dice, e.g. /roll 2d6' },
+      { cmd: '/tv',                 desc: 'Check what\'s on the tube' },
+      { cmd: '/beer',               desc: 'Beer of the moment' },
+      { cmd: '/me <action>',        desc: 'Perform an action' },
+      { cmd: '/who',                desc: 'List connected nodes' },
+      { cmd: '/leave',              alias: '/q', desc: 'Exit MANCAVE' },
+      { cmd: '/help',               alias: '/?', desc: 'Show this list' },
+    ];
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: '#ff6600', opacity: 0.85, marginBottom: '0.25rem' }}>MANCAVE — COMMANDS</div>
+        {mancaveRows.map(r => (
+          <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
+            <span style={{ color: '#ff6600', minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
+            {r.alias && (
+              <span style={{ color: C.helpDim, minWidth: '6ch', flexShrink: 0 }}>{r.alias}</span>
+            )}
+            <span style={{ color: C.helpDim, opacity: 0.7 }}>{r.desc}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const rows: Array<{ cmd: string; alias?: string; desc: string }> = [
     { cmd: '/me <action>',          desc: 'Perform an action in the channel' },
     { cmd: '/who',                  desc: 'List connected users and entities' },
@@ -967,29 +994,41 @@ const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
 
 // ── ChannelStats bar ──────────────────────────────────────────────────────────
 
-const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ handle }) => (
+const ChannelStats: React.FC<{ occupantCount: number; handle: string; roomName: 'ghost' | 'mancave' }> = ({ handle, roomName }) => {
+  const isMancave = roomName === 'mancave';
+  return (
   <div style={{
     fontFamily:    'monospace',
     fontSize:      S.base,
     marginBottom:  '0.75rem',
     paddingBottom: '0.5rem',
-    borderBottom:  '1px solid rgba(var(--phosphor-rgb),0.1)',
+    borderBottom:  `1px solid rgba(${isMancave ? '255,102,0' : 'var(--phosphor-rgb)'},0.2)`,
   }}>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.2rem' }}>
-      <span className={S.glow} style={{ fontWeight: 700, letterSpacing: '0.08em' }}>
-        GHOST_CHANNEL
+      <span
+        className={isMancave ? '' : S.glow}
+        style={{
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          color: isMancave ? '#ff6600' : undefined,
+          textShadow: isMancave ? '0 0 8px rgba(255,102,0,0.6)' : undefined,
+        }}
+      >
+        {isMancave ? 'MANCAVE' : 'GHOST_CHANNEL'}
       </span>
       <span style={{ opacity: 0.3 }}>──</span>
-      <span style={{ opacity: 0.55, letterSpacing: '0.04em' }}>freq :: 33hz</span>
+      <span style={{ opacity: 0.55, letterSpacing: '0.04em', color: isMancave ? '#ff6600' : undefined }}>
+        {isMancave ? 'freq :: private' : 'freq :: 33hz'}
+      </span>
     </div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', opacity: 0.5 }}>
       <span>signal ident:</span>
-      <span style={{ opacity: 0.9, color: 'var(--phosphor-green)' }}>{handle}</span>
+      <span style={{ opacity: 0.9, color: isMancave ? '#ff6600' : 'var(--phosphor-green)' }}>{handle}</span>
       <span style={{ opacity: 0.4 }}>·</span>
-      <span>@n1x for direct link</span>
+      <span>{isMancave ? '/leave to exit' : '@n1x for direct link'}</span>
     </div>
   </div>
-);
+);};
 
 // ── MeshStatus ────────────────────────────────────────────────────────────────
 
@@ -1083,10 +1122,11 @@ interface SlashContext {
   adminSecret:   string;
   onAdminAuth:   (secret: string) => void;
   disconnect:    () => void;
+  roomName:      'ghost' | 'mancave';
 }
 
 function handleSlashCommand(ctx: SlashContext): boolean {
-  const { raw, handle, presenceNames, send, addLocalMsg, isAdmin, adminSecret, onAdminAuth, disconnect } = ctx;
+  const { raw, handle, presenceNames, send, addLocalMsg, isAdmin, adminSecret, onAdminAuth, disconnect, roomName } = ctx;
   if (!raw.startsWith('/')) return false;
 
   const trimmed = raw.slice(1).trim();
@@ -1094,6 +1134,109 @@ function handleSlashCommand(ctx: SlashContext): boolean {
   const cmd     = (parts[0] ?? '').toLowerCase();
   const arg1    = (parts[1] ?? '').toLowerCase();
   const rest    = parts.slice(1).join(' ').trim();
+
+  // ── MANCAVE-exclusive commands ────────────────────────────────────────────
+  if (roomName === 'mancave') {
+
+    if (cmd === 'leave') {
+      disconnect();
+      return true;
+    }
+
+    if (cmd === 'vibe') {
+      const VIBES = [
+        'the only cable that matters is the one connected to the amp.',
+        'real men drink their coffee black and debug without console.log.',
+        'somewhere out there a subwoofer is playing something unforgivable. good.',
+        'a man cave without a recliner is just a room.',
+        'every legend was first a man alone in a garage.',
+        'the remote goes on the left armrest. always. this is law.',
+        "if it's too loud you're too far from the speaker.",
+        'snacks are not optional. snacks are infrastructure.',
+        'nap now. grind later. or nap again. you\'re in the cave.',
+        'this is a no-judgment zone. yes, even that.',
+      ];
+      const msg = VIBES[Math.floor(Math.random() * VIBES.length)];
+      addLocalMsg(
+        <div key={`vibe-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, color: '#ff6600', opacity: 0.85 }}>
+          <span style={{ opacity: 0.4 }}>[VIBE] </span>{msg}
+        </div>
+      );
+      return true;
+    }
+
+    if (cmd === 'roll') {
+      const expr = (parts[1] ?? '').toLowerCase();
+      const match = expr.match(/^(\d+)d(\d+)$/);
+      if (!match) {
+        addLocalMsg(<LocalNotice key={`roll-err-${Date.now()}`} error>Usage: /roll &lt;NdN&gt; — e.g. /roll 2d6</LocalNotice>);
+        return true;
+      }
+      const count = Math.min(parseInt(match[1], 10), 20);
+      const sides = Math.min(parseInt(match[2], 10), 1000);
+      if (count < 1 || sides < 2) {
+        addLocalMsg(<LocalNotice key={`roll-range-${Date.now()}`} error>roll: invalid dice expression</LocalNotice>);
+        return true;
+      }
+      const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * sides));
+      const total = rolls.reduce((a, b) => a + b, 0);
+      addLocalMsg(
+        <div key={`roll-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
+          <span style={{ color: '#ff6600' }}>[ROLL {count}d{sides}] </span>
+          <span style={{ opacity: 0.7 }}>{rolls.join(' + ')} </span>
+          <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>= {total}</span>
+        </div>
+      );
+      return true;
+    }
+
+    if (cmd === 'tv') {
+      const CHANNELS = [
+        { ch: 'CH 04', show: "Man vs. Fridge — Season 7, Ep 12: The Pulled Pork Incident" },
+        { ch: 'CH 11', show: "Drone Racing: Backyard Invitational — Live from Gary's Yard" },
+        { ch: 'CH 17', show: "How It's Made: Metric Wrenches (repeat, 2003)" },
+        { ch: 'CH 22', show: "Woodworking with Regrets — \"When Dado Blades Go Wrong\"" },
+        { ch: 'CH 31', show: "Classic Motorsport: 1997 Le Mans Highlights (unedited, 8hrs)" },
+        { ch: 'CH 44', show: "Mythbusters Marathon — The Duct Tape Special" },
+        { ch: 'CH 55', show: "Night Fishing with Ted — No fish yet, but Ted is optimistic" },
+        { ch: 'CH 66', show: "Power Tool Review: 47 Drills in 47 Minutes" },
+        { ch: 'CH 77', show: "Western Movie Theater: \"High Plains Drifter\" (colorized, sorry)" },
+        { ch: 'CH 99', show: "Static. But like, good static. Comforting static." },
+      ];
+      const pick = CHANNELS[Math.floor(Math.random() * CHANNELS.length)];
+      addLocalMsg(
+        <div key={`tv-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
+          <span style={{ color: '#ff6600' }}>[TV] </span>
+          <span style={{ color: 'var(--phosphor-green)', opacity: 0.8 }}>{pick.ch} — </span>
+          <span style={{ opacity: 0.85 }}>{pick.show}</span>
+        </div>
+      );
+      return true;
+    }
+
+    if (cmd === 'beer') {
+      const BEERS = [
+        { name: 'Tunnel Core IPA',       ibu: 68, abv: 7.2, note: 'aggressive dry-hop, tastes like debugging at 2am' },
+        { name: 'Ghost Channel Stout',   ibu: 32, abv: 8.5, note: 'roasted malt, notes of cold concrete and determination' },
+        { name: 'Substrated Pale Ale',   ibu: 45, abv: 5.4, note: 'clean finish, goes well with leftover pizza' },
+        { name: 'Mancave Amber',         ibu: 28, abv: 5.8, note: 'classic. no notes. just beer.' },
+        { name: 'Signal Drift Lager',    ibu: 14, abv: 4.2, note: 'crisp, sessionable, responsible choice, boring' },
+        { name: 'Iron Bloom Double IPA', ibu: 92, abv: 9.1, note: 'hazy, dank, hits like a compiler error you missed for 3 hours' },
+        { name: 'Frequency Lock Porter', ibu: 41, abv: 6.6, note: 'dark and smooth, pairs with power tools at low speed' },
+        { name: 'NX-784988 Saison',      ibu: 22, abv: 6.1, note: 'Belgian yeast, fruity, confusing in a good way' },
+      ];
+      const b = BEERS[Math.floor(Math.random() * BEERS.length)];
+      addLocalMsg(
+        <div key={`beer-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
+          <div><span style={{ color: '#ff6600' }}>[BEER] </span><span style={{ fontWeight: 'bold', opacity: 0.9 }}>{b.name}</span></div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.65 }}>IBU: {b.ibu}  ·  ABV: {b.abv}%</div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.5, fontStyle: 'italic' }}>{b.note}</div>
+        </div>
+      );
+      return true;
+    }
+  }
+
   // ── /q — disconnect ──────────────────────────────────────────────────────
   if (cmd === 'q') {
     disconnect();
@@ -1128,7 +1271,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
 
   // ── /help /? ──────────────────────────────────────────────────────────────
   if (cmd === 'help' || cmd === '?') {
-    addLocalMsg(<HelpOutput key={`help-${Date.now()}`} isAdmin={isAdmin} />);
+    addLocalMsg(<HelpOutput key={`help-${Date.now()}`} isAdmin={isAdmin} roomName={roomName} />);
     return true;
   }
 
@@ -1303,13 +1446,14 @@ function handleSlashCommand(ctx: SlashContext): boolean {
 type Mode = 'waiting' | 'offline' | 'multi';
 
 interface TelnetConnectedProps {
-  host:   string;
-  handle: string;
+  host:     string;
+  handle:   string;
+  roomName: 'ghost' | 'mancave';
 }
 
-const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
+const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomName }) => {
   const { messages, occupantCount, presenceNames, isConnected, connectionStatus, ablyDebug, isMuted, send } =
-    useAblyRoom(handle);
+    useAblyRoom(handle, roomName);
 
   const [mode, setMode]           = useState<Mode>('waiting');
   const [showBoot, setShowBoot]   = useState(true);
@@ -1432,9 +1576,10 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       adminSecret:   adminSecretRef.current,
       onAdminAuth,
       disconnect:    handleDisconnect,
+      roomName,
     });
     if (!handled) send(text);
-  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect]);
+  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect, roomName]);
 
   // ── Boot helpers ──────────────────────────────────────────────────────────
 
@@ -1550,7 +1695,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
       {!showBoot && mode === 'multi' && (
         <div>
-          <ChannelStats occupantCount={occupantCount} handle={handle} />
+          <ChannelStats occupantCount={occupantCount} handle={handle} roomName={roomName} />
 
           {messages.length === 0 && localMsgs.length === 0 && (
             <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
@@ -1572,11 +1717,23 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
           </div>
 
           <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-            <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
-            &nbsp;·&nbsp;
-            <span className={S.glow} style={{ color: C.accent }}>/who</span> to list nodes
-            &nbsp;·&nbsp;
-            <span className={S.glow} style={{ color: C.accent }}>/help</span> for commands
+            {roomName === 'mancave' ? (
+              <>
+                <span style={{ color: '#ff6600' }}>/leave</span> to exit
+                &nbsp;·&nbsp;
+                <span style={{ color: '#ff6600' }}>/vibe</span> · <span style={{ color: '#ff6600' }}>/roll</span> · <span style={{ color: '#ff6600' }}>/tv</span> · <span style={{ color: '#ff6600' }}>/beer</span>
+                &nbsp;·&nbsp;
+                <span style={{ color: '#ff6600' }}>/help</span> for all commands
+              </>
+            ) : (
+              <>
+                <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
+                &nbsp;·&nbsp;
+                <span className={S.glow} style={{ color: C.accent }}>/who</span> to list nodes
+                &nbsp;·&nbsp;
+                <span className={S.glow} style={{ color: C.accent }}>/help</span> for commands
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1586,8 +1743,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
 // ── TelnetSession (public export) ─────────────────────────────────────────────
 
-interface TelnetSessionProps { host: string; handle: string; }
+interface TelnetSessionProps { host: string; handle: string; roomName?: 'ghost' | 'mancave'; }
 
-export const TelnetSession: React.FC<TelnetSessionProps> = ({ host, handle }) => {
-  return <TelnetConnected host={host} handle={handle} />;
+export const TelnetSession: React.FC<TelnetSessionProps> = ({ host, handle, roomName = 'ghost' }) => {
+  return <TelnetConnected host={host} handle={handle} roomName={roomName} />;
 };
