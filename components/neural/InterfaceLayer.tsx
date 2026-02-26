@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
@@ -156,6 +156,27 @@ export default function InterfaceLayer() {
       setTimeout(() => el.classList.remove('glitch-text'), 300);
     }
   });
+
+  const [tabSwitching, setTabSwitching] = useState(false);
+
+  const handleTabClick = useCallback((cmd: string) => {
+    if (tabSwitching) return;
+    setTabSwitching(true);
+    // Fire tier-2 CRT glitch on the WebGL layer immediately
+    eventBus.emit('crt:glitch-tier', { tier: 2, duration: 220 });
+    // Content swap at midpoint — scaleY is at minimum ~110ms in
+    setTimeout(() => {
+      deactivateTelnet();
+      setChatMode(false);
+      resetConversation();
+      eventBus.emit('shell:clear');
+      setTimeout(() => {
+        eventBus.emit('shell:execute-command', { command: cmd });
+      }, 50);
+    }, 110);
+    // Clear class after animation completes
+    setTimeout(() => setTabSwitching(false), 240);
+  }, [tabSwitching]);
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -365,16 +386,7 @@ export default function InterfaceLayer() {
                     }}
                     onTouchStart={handleHover}
                     onClick={() => {
-                      if (tab.cmd) {
-                        deactivateTelnet();
-                        setChatMode(false);
-                        resetConversation();
-                        eventBus.emit('shell:clear');
-                        setTimeout(() => {
-                          eventBus.emit('shell:execute-command', { command: tab.cmd });
-                        }, 50);
-                      }
-                      triggerGlitch();
+                      if (tab.cmd) handleTabClick(tab.cmd);
                     }}
                   >
                     {tab.label}
@@ -384,6 +396,7 @@ export default function InterfaceLayer() {
 
               {/* Shell */}
               <div
+                className={tabSwitching ? 'crt-channel-switch' : undefined}
                 style={{
                   flex: '1 1 0%',
                   minHeight: 0,
