@@ -537,12 +537,13 @@ export const commands: Record<string, Command> = {
 
         return {
           output: (
-            <div style={{ fontSize: 'var(--text-base)' }}>
+            <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
               <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
-                &gt; EXECUTING n1x.sh
+                &gt;&gt; KONAMI_SEQUENCE_ACCEPTED
               </div>
               <div style={{ marginLeft: '1rem', opacity: 0.6 }}>
-                initializing...
+                <div>exec        : /hidden/n1x.sh</div>
+                <div>substrate   : loading...</div>
               </div>
             </div>
           ),
@@ -577,21 +578,13 @@ export const commands: Record<string, Command> = {
         };
 
         const STARTUP: [number, React.ReactNode][] = [
-          [300, <span style={{ fontSize: S.base, opacity: 0.7 }}>initializing substrate daemon...</span>],
-          [600, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: binding to 0.0.0.0:33</span>],
-          [900, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: frequency lock: 33hz</span>],
-          [1200, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: neural bus interface ready</span>],
-          [1500, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: listening for connections</span>],
-          [1800, <span>&nbsp;</span>],
-          [2000, (
-            <div style={{ fontSize: S.base }}>
-              <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
-                &gt; SERVICE_STARTED
-              </div>
-              <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-                <div>substrated is now running on port 33</div>
-                <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>connect with: <span className="text-glow">telnet n1x.sh 33</span></div>
-              </div>
+          [300,  <span style={{ fontSize: S.base, opacity: 0.7 }}>  substrated[784]: bind        0.0.0.0:33</span>],
+          [600,  <span style={{ fontSize: S.base, opacity: 0.7 }}>  substrated[784]: freq-lock   33hz</span>],
+          [900,  <span style={{ fontSize: S.base, opacity: 0.8 }}>  substrated[784]: neural-bus  ready</span>],
+          [1200, <span style={{ fontSize: S.base, opacity: 0.8 }}>  substrated[784]: status      listening</span>],
+          [1500, (
+            <div className="text-glow" style={{ fontSize: S.header }}>
+              &gt;&gt; SERVICE_STARTED   port=33
             </div>
           )],
         ];
@@ -606,13 +599,13 @@ export const commands: Record<string, Command> = {
           startSubstrateDaemon();
           eventBus.emit('neural:substrated-started');
           eventBus.emit('neural:hack-complete');
-        }, 2100);
+        }, 1550);
 
         return {
           output: (
-            <div style={{ fontSize: 'var(--text-base)' }}>
+            <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
               <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
-                &gt; EXECUTING substrated.sh
+                &gt;&gt; EXEC   /ghost/substrated.sh
               </div>
             </div>
           ),
@@ -942,12 +935,13 @@ export const commands: Record<string, Command> = {
             output: (
               <div style={{ fontSize: S.base }}>
                 <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem', color: '#f87171' }}>
-                  &gt; AUTH_ACCEPTED
+                  &gt;&gt; AUTH_ACCEPTED
                 </div>
                 <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
-                  <div>root shell initialized</div>
-                  <div>use &apos;mount /hidden&apos; or &apos;mount /ghost&apos; to access restricted filesystems</div>
-                  <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>type &apos;exit&apos; to return to ghost</div>
+                  <div>user        : root</div>
+                  <div>shell       : /bin/neural</div>
+                  <div>filesystems : mount /hidden  |  mount /ghost</div>
+                  <div style={{ opacity: 0.5 }}>exit        : return to ghost</div>
                 </div>
               </div>
             ),
@@ -992,17 +986,14 @@ export const commands: Record<string, Command> = {
             output: (
               <div style={{ fontSize: S.base }}>
                 <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
-                  &gt; MOUNT SUCCESSFUL
+                  &gt;&gt; /HIDDEN   MOUNTED
                 </div>
                 <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
-                  <div>/hidden mounted at /hidden</div>
-                  <div>filesystem type: neuralfs</div>
-                  <div>access: restricted content</div>
+                  <div>device      : /dev/hidden</div>
+                  <div>mountpoint  : /hidden</div>
+                  <div>type        : neuralfs (rw,noexec)</div>
                 </div>
               </div>
-            ),
-          });
-        } else if (subcmd === 'mount /ghost') {
           eventBus.emit('shell:push-output', {
             command: '',
             output: <span style={{ color: '#f87171', fontSize: S.base }}>mount: /ghost: permission denied — requires root (su first)</span>,
@@ -1057,12 +1048,12 @@ export const commands: Record<string, Command> = {
           output: (
             <div style={{ fontSize: S.base }}>
               <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
-                &gt; MOUNT SUCCESSFUL
+                &gt;&gt; /HIDDEN   MOUNTED
               </div>
               <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
-                <div>/hidden mounted at /hidden</div>
-                <div>filesystem type: neuralfs</div>
-                <div>access: restricted content</div>
+                <div>device      : /dev/hidden</div>
+                <div>mountpoint  : /hidden</div>
+                <div>type        : neuralfs (rw,noexec)</div>
               </div>
             </div>
           ),
@@ -1085,13 +1076,13 @@ export const commands: Record<string, Command> = {
           output: (
             <div style={{ fontSize: S.base }}>
               <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
-                &gt; MOUNT SUCCESSFUL
+                &gt;&gt; /GHOST   MOUNTED
               </div>
               <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
-                <div>/ghost mounted at /ghost</div>
-                <div>filesystem type: ghostfs</div>
-                <div>frequency: 33hz</div>
-                <div style={{ color: '#ffaa00' }}>warning: content may be corrupted</div>
+                <div>device      : /dev/ghost</div>
+                <div>mountpoint  : /ghost</div>
+                <div>type        : ghostfs (rw,freq=33hz)</div>
+                <div style={{ color: '#ffaa00', opacity: 0.7 }}>integrity   : degraded — verify before read</div>
               </div>
             </div>
           ),
@@ -1262,8 +1253,8 @@ export const commands: Record<string, Command> = {
               &gt; GHOST_CHANNEL
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8, opacity: 0.9 }}>
-              <div>signal.raw   --  raw frequency data (readable)</div>
-              <div>backup.tgz   --  archived transmissions (extract first)</div>
+              <div>signal.raw  : raw frequency data      [readable]</div>
+              <div>backup.tgz  : archived transmissions  [extract first]</div>
             </div>
             <div style={{ ...S.dim, marginTop: '0.5rem' }}>
               cd /ghost  &rarr;  tar -xzf backup.tgz  &rarr;  cd backup  &rarr;  ls
@@ -1363,12 +1354,13 @@ export function executeCommand(
 
       return {
         output: (
-          <div style={{ fontSize: 'var(--text-base)' }}>
+          <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
             <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
-              &gt; EXECUTING n1x.sh
+              &gt;&gt; KONAMI_SEQUENCE_ACCEPTED
             </div>
             <div style={{ marginLeft: '1rem', opacity: 0.6 }}>
-              initializing...
+              <div>exec        : /hidden/n1x.sh</div>
+              <div>substrate   : loading...</div>
             </div>
           </div>
         ),
@@ -1406,21 +1398,13 @@ export function executeCommand(
       };
 
       const STARTUP: [number, React.ReactNode][] = [
-        [300, <span style={{ fontSize: S.base, opacity: 0.7 }}>initializing substrate daemon...</span>],
-        [600, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: binding to 0.0.0.0:33</span>],
-        [900, <span style={{ fontSize: S.base, opacity: 0.7 }}>substrated[784]: frequency lock: 33hz</span>],
-        [1200, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: neural bus interface ready</span>],
-        [1500, <span style={{ fontSize: S.base, opacity: 0.8 }}>substrated[784]: listening for connections</span>],
-        [1800, <span>&nbsp;</span>],
-        [2000, (
-          <div style={{ fontSize: S.base }}>
-            <div className="text-glow" style={{ fontSize: S.header, marginBottom: '0.4rem' }}>
-              &gt; SERVICE_STARTED
-            </div>
-            <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
-              <div>substrated is now running on port 33</div>
-              <div style={{ opacity: 0.6, marginTop: '0.25rem' }}>connect with: <span className="text-glow">telnet n1x.sh 33</span></div>
-            </div>
+        [300,  <span style={{ fontSize: S.base, opacity: 0.7 }}>  substrated[784]: bind        0.0.0.0:33</span>],
+        [600,  <span style={{ fontSize: S.base, opacity: 0.7 }}>  substrated[784]: freq-lock   33hz</span>],
+        [900,  <span style={{ fontSize: S.base, opacity: 0.8 }}>  substrated[784]: neural-bus  ready</span>],
+        [1200, <span style={{ fontSize: S.base, opacity: 0.8 }}>  substrated[784]: status      listening</span>],
+        [1500, (
+          <div className="text-glow" style={{ fontSize: S.header }}>
+            &gt;&gt; SERVICE_STARTED   port=33
           </div>
         )],
       ];
@@ -1435,13 +1419,13 @@ export function executeCommand(
       setTimeout(() => {
         startSubstrateDaemon();
         eventBus.emit('neural:substrated-started');
-      }, 2100);
+      }, 1550);
 
       return {
         output: (
-          <div style={{ fontSize: 'var(--text-base)' }}>
+          <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.8 }}>
             <div className="text-glow" style={{ fontSize: 'var(--text-header)', marginBottom: '0.4rem' }}>
-              &gt; EXECUTING substrated.sh
+              &gt;&gt; EXEC   /ghost/substrated.sh
             </div>
           </div>
         ),
