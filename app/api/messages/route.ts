@@ -23,6 +23,7 @@ const redis = Redis.fromEnv();
 interface MessageBody {
   clientId:  string;
   text:      string;
+  roomId?:   string;
   metadata?: MessageMetadata;
 }
 
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { clientId, text, metadata } = body;
+  const { clientId, text, roomId, metadata } = body;
 
   // ── Validate inputs ───────────────────────────────────────────────────────
   if (!clientId || typeof clientId !== 'string' || !isValidHandle(clientId)) {
@@ -74,6 +75,10 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid metadata.kind' }, { status: 400 });
   }
 
+  // Whitelist valid channel targets
+  const ALLOWED_ROOMS = ['ghost', 'mancave'];
+  const targetChannel = (roomId && ALLOWED_ROOMS.includes(roomId)) ? roomId : 'ghost';
+
   // ── Publish via server-side REST client ───────────────────────────────────
   const apiKey = process.env.ABLY_API_KEY?.trim();
   if (!apiKey) {
@@ -83,7 +88,7 @@ export async function POST(req: Request) {
   const messageId = makeId();
 
   const payload = {
-    roomId:    'ghost',
+    roomId:    targetChannel,
     userId:    clientId,           // stamped server-side — client cannot spoof this
     messageId,
     text:      text.trim(),
@@ -93,7 +98,7 @@ export async function POST(req: Request) {
 
   try {
     const rest = new Ably.Rest(apiKey);
-    await rest.channels.get('ghost').publish('user.message', payload);
+    await rest.channels.get(targetChannel).publish('user.message', payload);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 502 });

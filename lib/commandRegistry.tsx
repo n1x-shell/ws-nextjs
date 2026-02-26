@@ -9,6 +9,8 @@ import { renderStreamContent } from './contentRenderer';
 import { createSystemCommands, setRequestPrompt, isSubstrateDaemonRunning, startSubstrateDaemon } from './systemCommands';
 import { handlePhosphor } from './phosphorCommand';
 import { isTelnetActive, telnetSend, telnetDisconnect } from '@/lib/telnetBridge';
+import { TelnetSession } from '@/components/shell/TelnetSession';
+import { loadARGState } from '@/lib/argState';
 
 const fs = new FileSystemNavigator();
 
@@ -1258,6 +1260,52 @@ export const commands: Record<string, Command> = {
     usage: 'phosphor [-g|-a|-o|-p|-v] [--green|--amber|--orange|--purple|--violet]',
     hidden: true,
     handler: (args: string[]) => handlePhosphor(args),
+  },
+
+  mancave: {
+    name: 'mancave',
+    description: 'Access the MANCAVE private channel',
+    usage: 'mancave',
+    hidden: true,
+    handler: () => {
+      _requestPrompt('MANCAVE ACCESS // enter passphrase:', (pw) => {
+        if (pw.trim().toLowerCase() !== 'cunt') {
+          eventBus.emit('shell:push-output', {
+            command: '',
+            output: (
+              <span style={{ color: '#f87171', fontSize: S.base }}>
+                access denied — wrong frequency
+              </span>
+            ),
+            error: true,
+          });
+          return;
+        }
+
+        const argState = loadARGState();
+        const handle = argState.frequencyId || 'ghost';
+
+        const push = (output: React.ReactNode) =>
+          eventBus.emit('shell:push-output', { command: '', output });
+
+        push(
+          <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+            <div className="text-glow" style={{ fontSize: S.header, color: '#ff6600', marginBottom: '0.25rem' }}>
+              &gt;&gt; MANCAVE_ACCESS_GRANTED
+            </div>
+            <div style={{ opacity: 0.5 }}>entering private channel...</div>
+          </div>
+        );
+
+        setTimeout(() => {
+          eventBus.emit('shell:push-output', {
+            command: '',
+            output: <TelnetSession host="n1x.sh" handle={handle} roomName="mancave" />,
+          });
+        }, 400);
+      });
+      return { output: null };
+    },
   },
 
   ...systemCommands,

@@ -35,6 +35,7 @@ export async function GET(req: Request) {
     const tokenRequest = await rest.auth.createTokenRequest({
       capability: {
         ghost:       ['subscribe', 'presence', 'history'],
+        mancave:     ['subscribe', 'presence', 'history'],
         'n1x:mod':   ['subscribe'],
         'n1x:shell': ['presence'],
       },
