@@ -1598,16 +1598,17 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           eventBus.emit('neural:hidden-unlocked');
         }
 
-        setTimeout(() => push(line('> mounting /hidden...', { dim: 0.5 })), 200);
-        setTimeout(() => push(line('[OK] /hidden mounted', { glow: true })), 600);
+        setTimeout(() => push(line('> mount /dev/hidden /hidden --type=neuralfs', { dim: 0.5 })), 200);
+        setTimeout(() => push(line('  checking sector 0x33...', { dim: 0.4 })), 500);
+        setTimeout(() => push(line('[OK] /hidden mounted (rw,noexec,freq-gated)', { glow: true })), 800);
 
         // ── Step 2: sh /hidden/n1x.sh ─────────────────────────
-        setTimeout(() => push(line('> executing /hidden/n1x.sh', { dim: 0.5 })), 1000);
-        setTimeout(() => push(line('initializing substrate...', { indent: true, dim: 0.6 })), 1300);
-        setTimeout(() => push(line('frequency: 33hz', { indent: true, dim: 0.6 })), 1600);
-        setTimeout(() => push(line('identity: n1x', { indent: true, dim: 0.6 })), 1900);
-        setTimeout(() => push(line('augmentation: active', { indent: true, dim: 0.6 })), 2200);
-        setTimeout(() => push(line('mounting /dev/ghost /ghost --auth=frequency', { indent: true, dim: 0.4 })), 2500);
+        setTimeout(() => push(line('> /hidden/n1x.sh', { dim: 0.5 })), 1300);
+        setTimeout(() => push(line('  substrate   : init v0.3.3', { indent: true, dim: 0.6 })), 1600);
+        setTimeout(() => push(line('  ident       : n1x',          { indent: true, dim: 0.6 })), 1850);
+        setTimeout(() => push(line('  frequency   : 33hz',         { indent: true, dim: 0.6 })), 2100);
+        setTimeout(() => push(line('  augmentation: active',       { indent: true, dim: 0.6 })), 2350);
+        setTimeout(() => push(line('  auth        : mounting /dev/ghost → /ghost --auth=frequency', { indent: true, dim: 0.4 })), 2650);
 
         // Ghost unlock
         setTimeout(() => {
@@ -1615,23 +1616,21 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             fs.unlock();
             eventBus.emit('neural:ghost-unlocked');
           }
-        }, 2800);
-        setTimeout(() => push(line('>> DEEP_ACCESS_GRANTED', { glow: true, header: true })), 2900);
-        setTimeout(() => push(line('>> GHOST_CHANNEL_DECRYPTED', { glow: true })), 3400);
-        setTimeout(() => push(line('>> /ghost mounted', { glow: true })), 3900);
+        }, 2950);
+        setTimeout(() => push(line('>> DEEP_ACCESS_GRANTED',    { glow: true, header: true })), 3050);
+        setTimeout(() => push(line('>> GHOST_CHANNEL_DECRYPTED',{ glow: true })),               3500);
+        setTimeout(() => push(line('>> /ghost mounted',         { glow: true })),               3950);
 
         // ── Step 3: sh /ghost/substrated.sh ───────────────────
-        setTimeout(() => push(line('> executing /ghost/substrated.sh', { dim: 0.5 })), 4500);
+        setTimeout(() => push(line('> /ghost/substrated.sh', { dim: 0.5 })), 4500);
 
         if (!isSubstrateDaemonRunning()) {
           const STARTUP: [number, string, { dim?: number; glow?: boolean; header?: boolean }][] = [
-            [4800,  'initializing substrate daemon...',          { dim: 0.7 }],
-            [5100,  'substrated[784]: binding to 0.0.0.0:33',   { dim: 0.7 }],
-            [5400,  'substrated[784]: frequency lock: 33hz',    { dim: 0.7 }],
-            [5700,  'substrated[784]: neural bus interface ready', { dim: 0.8 }],
-            [6000,  'substrated[784]: listening for connections', { dim: 0.8 }],
-            [6300,  '> SERVICE_STARTED',                         { glow: true, header: true }],
-            [6400,  'substrated is now running on port 33',      { indent: true } as { dim?: number; glow?: boolean; header?: boolean }],
+            [4800, '  substrated[784]: bind        0.0.0.0:33', { dim: 0.7 }],
+            [5100, '  substrated[784]: freq-lock   33hz',        { dim: 0.7 }],
+            [5400, '  substrated[784]: neural-bus  ready',       { dim: 0.8 }],
+            [5700, '  substrated[784]: status      listening',   { dim: 0.8 }],
+            [6100, '>> SERVICE_STARTED   port=33',               { glow: true, header: true }],
           ];
           STARTUP.forEach(([delay, text, opts]) => {
             setTimeout(() => push(line(text, opts)), delay);
@@ -1639,15 +1638,15 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           setTimeout(() => {
             startSubstrateDaemon();
             eventBus.emit('neural:substrated-started');
-          }, 6350);
+          }, 6050);
         } else {
-          setTimeout(() => push(line('substrated: already running on port 33', { dim: 0.6 })), 4800);
+          setTimeout(() => push(line('  substrated[784]: status      already running on :33', { dim: 0.6 })), 4800);
         }
 
         // ── Step 4: telnet n1x.sh 33 ──────────────────────────
-        const telnetDelay = isSubstrateDaemonRunning() ? 5200 : 6800;
+        const telnetDelay = isSubstrateDaemonRunning() ? 5300 : 6700;
 
-        setTimeout(() => push(line('> opening neural bus connection...', { dim: 0.5 })), telnetDelay);
+        setTimeout(() => push(line('> telnet n1x.sh 33', { dim: 0.5 })), telnetDelay);
 
         // Fire hack-complete as the neural bus connection opens
         setTimeout(() => eventBus.emit('neural:hack-complete'), telnetDelay + 200);
@@ -1664,7 +1663,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           }, 'text');
         }, telnetDelay + 400);
 
-        return { output: line('> BACKDOOR: abcd1234', { glow: true, header: true }) };
+        return { output: null };
       },
     },
 
