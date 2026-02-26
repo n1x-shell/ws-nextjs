@@ -305,9 +305,6 @@ export default function InterfaceLayer() {
               <div className="n1x-header-inner">
                 <div className="n1x-header-left">
                   <div className="text-glow-strong n1x-header-title">N1X.sh</div>
-                  <div className="n1x-header-sub">
-                    NEURAL_INTERFACE // TUNNELCORE_ACCESS_POINT
-                  </div>
                 </div>
                 <div className="n1x-header-right">
                   <div>&gt; RUNTIME: {formatUptime(uptime)}&nbsp;|&nbsp;SESSION: {sessionCount}&nbsp;|&nbsp;NODES: {nodeCount}</div>
