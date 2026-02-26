@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
@@ -154,55 +153,12 @@ const TopDisplay: React.FC = () => {
 };
 
 // ── MatrixOverlay ────────────────────────────────────────
+// Triggers the matrix canvas overlay in ShellInterface via eventBus.
+// Rendering, effects, and exit are all handled there.
 
 const MatrixOverlay: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const fontSize = 14;
-    const cols     = Math.floor(canvas.width / fontSize);
-    const drops    = Array<number>(cols).fill(1);
-    const chars    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()N1X!?';
-
-    const draw = () => {
-      ctx.fillStyle = 'rgba(0,0,0,0.05)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--phosphor-green').trim() || '#33ff33';
-      ctx.font = `${fontSize}px monospace`;
-      for (let i = 0; i < drops.length; i++) {
-        ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * fontSize, drops[i] * fontSize);
-        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
-        drops[i]++;
-      }
-    };
-
-    const interval = setInterval(draw, 33);
-    return () => { clearInterval(interval); };
-  }, []);
-
-  if (!visible) return null;
-
-  return createPortal(
-    <div
-      style={{ position:'fixed', inset:0, zIndex:9999, cursor:'pointer' }}
-      onClick={() => setVisible(false)}
-    >
-      <canvas ref={canvasRef} style={{ display:'block', width:'100%', height:'100%' }} />
-      <div style={{ position:'absolute', bottom:'2rem', left:'50%', transform:'translateX(-50%)', color:'var(--phosphor-green)', fontFamily:'monospace', fontSize:'11px', opacity:0.5 }}>
-        tap to exit
-      </div>
-    </div>,
-    document.body
-  );
+  useEffect(() => { eventBus.emit('matrix:activate'); }, []);
+  return null;
 };
 
 // ── MorsePlayer ──────────────────────────────────────────
@@ -1494,9 +1450,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           }, accumulated);
         });
 
-        // fire hack effect after last line ("Session completed")
-        setTimeout(() => eventBus.emit('neural:hack-complete'), accumulated + 100);
-
         return {
           output: (
             <span style={{ fontSize: S.base, opacity: 0.7 }}>
@@ -1537,9 +1490,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             );
           }, i * INTERVAL);
         });
-
-        // fire hack effect after last line
-        setTimeout(() => eventBus.emit('neural:hack-complete'), (lines.length - 1) * INTERVAL + 150);
 
         return {
           output: (
@@ -1696,9 +1646,6 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         const telnetDelay = isSubstrateDaemonRunning() ? 5200 : 6800;
 
         setTimeout(() => push(line('> opening neural bus connection...', { dim: 0.5 })), telnetDelay);
-
-        // hack-complete effect fires in the gap before TelnetSession mounts
-        setTimeout(() => eventBus.emit('neural:hack-complete'), telnetDelay + 200);
 
         setTimeout(() => {
           const argState = loadARGState();
