@@ -1450,6 +1450,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
           }, accumulated);
         });
 
+        // Fire hack-complete 100ms after "Session completed" line renders
+        setTimeout(() => eventBus.emit('neural:hack-complete'), accumulated + 100);
+
         return {
           output: (
             <span style={{ fontSize: S.base, opacity: 0.7 }}>
@@ -1490,6 +1493,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
             );
           }, i * INTERVAL);
         });
+
+        // Fire hack-complete 150ms after last line renders
+        setTimeout(() => eventBus.emit('neural:hack-complete'), (lines.length - 1) * INTERVAL + 150);
 
         return {
           output: (
@@ -1646,6 +1652,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         const telnetDelay = isSubstrateDaemonRunning() ? 5200 : 6800;
 
         setTimeout(() => push(line('> opening neural bus connection...', { dim: 0.5 })), telnetDelay);
+
+        // Fire hack-complete as the neural bus connection opens
+        setTimeout(() => eventBus.emit('neural:hack-complete'), telnetDelay + 200);
 
         setTimeout(() => {
           const argState = loadARGState();
