@@ -1288,7 +1288,7 @@ export function executeCommand(
   {
     const firstWord = trimmed.toLowerCase().split(/\s+/)[0];
 
-    if (firstWord === 'exit' || firstWord === 'quit' || firstWord === '/quit') {
+    if (firstWord === 'quit' || firstWord === '/quit') {
       if (isTelnetActive()) {
         telnetDisconnect();
         return { output: null };
