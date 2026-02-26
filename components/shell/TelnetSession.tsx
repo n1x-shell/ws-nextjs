@@ -541,6 +541,7 @@ const HelpOutput: React.FC<{ isAdmin?: boolean; roomName?: 'ghost' | 'mancave' }
     { cmd: '/trust',                desc: 'Show your current trust level with N1X' },
     { cmd: '/fragments',            alias: '/frags',           desc: 'Show collected memory fragments' },
     { cmd: '/fragments read <id>',  alias: '/frags read <id>', desc: 'Read a collected fragment' },
+    { cmd: '/mancave <passphrase>', desc: 'Enter the MANCAVE private channel' },
     { cmd: '/help',                 alias: '/?',               desc: 'Show this command list' },
     { cmd: '@n1x <message>',        desc: 'Ping N1X directly' },
     { cmd: '@vestige <message>',    desc: 'Ping Vestige directly' },
@@ -1235,6 +1236,43 @@ function handleSlashCommand(ctx: SlashContext): boolean {
       );
       return true;
     }
+  }
+
+  // ── /mancave — enter mancave private channel (ghost room only) ──────────────
+  if (cmd === 'mancave' && roomName === 'ghost') {
+    const passphrase = parts.slice(1).join(' ').trim().toLowerCase();
+    if (!passphrase) {
+      addLocalMsg(
+        <LocalNotice key={`mc-usage-${Date.now()}`} error>
+          Usage: /mancave &lt;passphrase&gt;
+        </LocalNotice>
+      );
+      return true;
+    }
+    if (passphrase !== 'cunt') {
+      addLocalMsg(
+        <LocalNotice key={`mc-deny-${Date.now()}`} error>
+          access denied — wrong frequency
+        </LocalNotice>
+      );
+      return true;
+    }
+    // Correct passphrase — announce, disconnect from ghost, then launch mancave
+    addLocalMsg(
+      <div key={`mc-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: '#ff6600', textShadow: '0 0 8px rgba(255,102,0,0.5)' }}>
+        &gt;&gt; MANCAVE_ACCESS_GRANTED — switching channel...
+      </div>
+    );
+    setTimeout(() => {
+      disconnect();
+      setTimeout(() => {
+        eventBus.emit('shell:push-output', {
+          command: '',
+          output: <TelnetSession host="n1x.sh" handle={handle} roomName="mancave" />,
+        });
+      }, 500);
+    }, 400);
+    return true;
   }
 
   // ── /q — disconnect ──────────────────────────────────────────────────────
