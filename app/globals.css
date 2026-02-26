@@ -293,7 +293,7 @@ body {
   pointer-events: none;
 }
 
-/* ── CRT desync tear (phosphor shift) ──────────────────────────────────────────
+/* ── CRT desync tear (phosphor shift + hack complete) ──────────────────────────
    Horizontal sync loss — the screen warps like a bad VHS tracking signal.
    Combines skew + lateral displacement + hue rotation. ~350ms. */
 
