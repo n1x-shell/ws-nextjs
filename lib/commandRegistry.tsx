@@ -994,6 +994,9 @@ export const commands: Record<string, Command> = {
                   <div>type        : neuralfs (rw,noexec)</div>
                 </div>
               </div>
+            ),
+          });
+        } else if (subcmd === 'mount /ghost') {
           eventBus.emit('shell:push-output', {
             command: '',
             output: <span style={{ color: '#f87171', fontSize: S.base }}>mount: /ghost: permission denied — requires root (su first)</span>,
