@@ -128,7 +128,7 @@ interface UseAblyRoomResult {
   send:             (text: string, metadata?: MessageMetadata) => void;
 }
 
-export function useAblyRoom(handle: string): UseAblyRoomResult {
+export function useAblyRoom(handle: string, channelName: string = 'ghost'): UseAblyRoomResult {
   const [messages, setMessages]               = useState<RoomMsg[]>([]);
   const [occupantCount, setOccupantCount]     = useState(0);
   const [presenceNames, setPresenceNames]     = useState<string[]>([]);
@@ -239,6 +239,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       body: JSON.stringify({
         clientId: handle,
         text,
+        roomId: channelName,
         ...(metadata ? { metadata } : {}),
       }),
     }).catch((err) => {
@@ -429,7 +430,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
     }
 
     clientRef.current  = client;
-    const channel = client.channels.get('ghost');
+    const channel = client.channels.get(channelName);
     channelRef.current = channel;
 
     // ── Subscribe to n1x:mod for incoming kick/mute/unmute events ─────────
@@ -514,28 +515,32 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
       if (data.userId === handle) {
         messageCountRef.current += 1;
 
-        if (data.text.toLowerCase().includes('@n1x')) {
-          n1xPingCountRef.current += 1;
-          triggerN1X(data.text, data.messageId);
-        }
+        if (channelName === 'ghost') {
+          if (data.text.toLowerCase().includes('@n1x')) {
+            n1xPingCountRef.current += 1;
+            triggerN1X(data.text, data.messageId);
+          }
 
-        const pinnedBots = detectAmbientPings(data.text);
-        for (const botId of pinnedBots) {
-          triggerAmbientBotPing(data.text, data.messageId, botId);
-        }
+          const pinnedBots = detectAmbientPings(data.text);
+          for (const botId of pinnedBots) {
+            triggerAmbientBotPing(data.text, data.messageId, botId);
+          }
 
-        if (pinnedBots.length === 0) {
-          triggerAmbientBots(data.text, data.messageId, isAction);
-        }
+          if (pinnedBots.length === 0) {
+            triggerAmbientBots(data.text, data.messageId, isAction);
+          }
 
-        checkF010();
+          checkF010();
+        }
       } else {
-        // Message from another human — count toward N1X chime threshold
-        chimeCounterRef.current += 1;
-        if (chimeCounterRef.current >= CHIME_THRESHOLD) {
-          chimeCounterRef.current = 0;
-          if (Math.random() < 0.5) {
-            triggerN1XChime();
+        if (channelName === 'ghost') {
+          // Message from another human — count toward N1X chime threshold
+          chimeCounterRef.current += 1;
+          if (chimeCounterRef.current >= CHIME_THRESHOLD) {
+            chimeCounterRef.current = 0;
+            if (Math.random() < 0.5) {
+              triggerN1XChime();
+            }
           }
         }
       }
@@ -725,7 +730,7 @@ export function useAblyRoom(handle: string): UseAblyRoomResult {
         .then(() => {
           if (isMountedRef.current) setIsConnected(true);
           // Only trigger the bot welcome on fresh joins, not reconnects within grace period.
-          if (!suppressWelcome) {
+          if (!suppressWelcome && channelName === 'ghost') {
             triggerAmbientBotJoin();
           }
         })
