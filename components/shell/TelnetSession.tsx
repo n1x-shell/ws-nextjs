@@ -1082,10 +1082,11 @@ interface SlashContext {
   isAdmin:       boolean;
   adminSecret:   string;
   onAdminAuth:   (secret: string) => void;
+  disconnect:    () => void;
 }
 
 function handleSlashCommand(ctx: SlashContext): boolean {
-  const { raw, handle, presenceNames, send, addLocalMsg, isAdmin, adminSecret, onAdminAuth } = ctx;
+  const { raw, handle, presenceNames, send, addLocalMsg, isAdmin, adminSecret, onAdminAuth, disconnect } = ctx;
   if (!raw.startsWith('/')) return false;
 
   const trimmed = raw.slice(1).trim();
@@ -1093,6 +1094,12 @@ function handleSlashCommand(ctx: SlashContext): boolean {
   const cmd     = (parts[0] ?? '').toLowerCase();
   const arg1    = (parts[1] ?? '').toLowerCase();
   const rest    = parts.slice(1).join(' ').trim();
+  // ── /q — disconnect ──────────────────────────────────────────────────────
+  if (cmd === 'q') {
+    disconnect();
+    return true;
+  }
+
   // ── /who /nodes ───────────────────────────────────────────────────────────
   if (cmd === 'who' || cmd === 'nodes') {
     addLocalMsg(
@@ -1399,20 +1406,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
 
   // ── Wrapped send ──────────────────────────────────────────────────────────
 
-  const sendWithSlash = useCallback((text: string) => {
-    const handled = handleSlashCommand({
-      raw:           text,
-      handle,
-      presenceNames,
-      send,
-      addLocalMsg,
-      isAdmin:       isAdminRef.current,
-      adminSecret:   adminSecretRef.current,
-      onAdminAuth,
-    });
-    if (!handled) send(text);
-  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth]);
-
   // ── Disconnect ────────────────────────────────────────────────────────────
 
   const handleDisconnect = useCallback(() => {
@@ -1427,6 +1420,21 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       ),
     });
   }, []);
+
+  const sendWithSlash = useCallback((text: string) => {
+    const handled = handleSlashCommand({
+      raw:           text,
+      handle,
+      presenceNames,
+      send,
+      addLocalMsg,
+      isAdmin:       isAdminRef.current,
+      adminSecret:   adminSecretRef.current,
+      onAdminAuth,
+      disconnect:    handleDisconnect,
+    });
+    if (!handled) send(text);
+  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect]);
 
   // ── Boot helpers ──────────────────────────────────────────────────────────
 
@@ -1563,14 +1571,12 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             }
           </div>
 
-          <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace' }}>
-            type <span className={S.glow} style={{ color: C.accent }}>exit</span> to disconnect
-            &nbsp;&middot;&nbsp;
-            <span className={S.glow} style={{ color: C.accent }}>/who</span> list nodes
-            &nbsp;&middot;&nbsp;
-            <span className={S.glow} style={{ color: C.accent }}>/me</span> action
-            &nbsp;&middot;&nbsp;
-            <span className={S.glow} style={{ color: C.accent }}>/help</span> commands
+          <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+            <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
+            &nbsp;·&nbsp;
+            <span className={S.glow} style={{ color: C.accent }}>/who</span> to list nodes
+            &nbsp;·&nbsp;
+            <span className={S.glow} style={{ color: C.accent }}>/help</span> for commands
           </div>
         </div>
       )}
