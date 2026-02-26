@@ -355,7 +355,21 @@ function getMultiSequence(host: string, count: number): ConnectLine[] {
   ];
 }
 
-// ── Copy helpers ──────────────────────────────────────────────────────────────
+function getMancaveSequence(handle: string, count: number): ConnectLine[] {
+  return [
+    { delay: 0,    text: 'Trying mancave...' },
+    { delay: 400,  text: 'Connected.' },
+    { delay: 700,  text: '' },
+    { delay: 900,  text: 'mancave[001]: passphrase      ACCEPTED' },
+    { delay: 1200, text: 'mancave[001]: channel         PRIVATE', bright: true },
+    { delay: 1500, text: `mancave[001]: ident           ${handle}` },
+    { delay: 1800, text: `mancave[001]: occupants       ${count} node(s)` },
+    { delay: 2100, text: 'mancave[001]: bots            OFFLINE — human only', bright: true },
+    { delay: 2400, text: '' },
+    { delay: 2600, text: '>> MANCAVE_ACTIVE', bright: true },
+    { delay: 2800, text: '' },
+  ];
+}
 
 const FRAGMENT_KEY_RE = /^>>\s*FRAGMENT KEY:/i;
 const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
@@ -1659,6 +1673,17 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     }, 3600);
   }, [pushLine]);
 
+  const runMancaveBoot = useCallback((count: number) => {
+    runSequence(getMancaveSequence(handle, count), () => {
+      if (!isMountedRef.current) return;
+      setShowBoot(false);
+      activateTelnet(handle, sendWithSlash, handleDisconnect);
+      setMode('multi');
+      eventBus.emit('telnet:connected');
+      setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
+    });
+  }, [handle, sendWithSlash, handleDisconnect, runSequence]);
+
   const runMultiBoot = useCallback((count: number) => {
     runSequence(getMultiSequence(host, count), () => {
       if (!isMountedRef.current) return;
@@ -1677,10 +1702,12 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     bootFiredRef.current = true;
     if (connectionStatus === 'failed') {
       runOfflineBoot();
+    } else if (roomName === 'mancave') {
+      runMancaveBoot(occupantCount);
     } else {
       runMultiBoot(occupantCount + 4);
     }
-  }, [isConnected, connectionStatus, occupantCount, runOfflineBoot, runMultiBoot]);
+  }, [isConnected, connectionStatus, occupantCount, roomName, runOfflineBoot, runMancaveBoot, runMultiBoot]);
 
   // ── Re-register send when presenceNames changes ───────────────────────────
 
