@@ -238,24 +238,78 @@ body {
     0 0 8px var(--phosphor-green);
 }
 
-/* ── CRT channel switch ────────────────────────────────────────────────────────
-   Tab navigation: fast collapse to a horizontal line, content swaps at the
-   pinch, then expands back. Same physics as power-off/on but 5× shorter.
-   Reads as "changing the channel" vs the boot's "powering on". */
+/* ── CRT channel switch (CORE tab) ────────────────────────────────────────────
+   Fast collapse to a line and expand — "changing the channel". ~220ms. */
 
 @keyframes crt-channel-switch {
-  0%   { transform: scaleY(1);     filter: brightness(1);    }
-  30%  { transform: scaleY(0.04);  filter: brightness(3.5);  }
-  45%  { transform: scaleY(0.008); filter: brightness(7);    }
-  55%  { transform: scaleY(0.008); filter: brightness(7);    }
-  70%  { transform: scaleY(0.04);  filter: brightness(3.5);  }
-  100% { transform: scaleY(1);     filter: brightness(1);    }
+  0%   { transform: scaleY(1);     filter: brightness(1);   }
+  30%  { transform: scaleY(0.04);  filter: brightness(3.5); }
+  45%  { transform: scaleY(0.008); filter: brightness(7);   }
+  55%  { transform: scaleY(0.008); filter: brightness(7);   }
+  70%  { transform: scaleY(0.04);  filter: brightness(3.5); }
+  100% { transform: scaleY(1);     filter: brightness(1);   }
 }
 
 .crt-channel-switch {
   transform-origin: center center;
   animation: crt-channel-switch 220ms ease-in-out forwards;
   overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── CRT static burst (SYNTHETICS / ANALOGUES / UPLINK tabs) ──────────────────
+   Antenna interference — opacity strobe + horizontal jitter. ~180ms. */
+
+@keyframes crt-static-burst {
+  0%   { transform: translateX(0);    opacity: 1;    filter: brightness(1);   }
+  10%  { transform: translateX(-4px); opacity: 0.4;  filter: brightness(2);   }
+  20%  { transform: translateX( 5px); opacity: 0.85; filter: brightness(0.7); }
+  30%  { transform: translateX(-3px); opacity: 0.3;  filter: brightness(2.5); }
+  42%  { transform: translateX( 6px); opacity: 0.9;  filter: brightness(0.5); }
+  55%  { transform: translateX(-2px); opacity: 0.5;  filter: brightness(1.8); }
+  68%  { transform: translateX( 3px); opacity: 0.8;  filter: brightness(1);   }
+  80%  { transform: translateX(-1px); opacity: 0.95; filter: brightness(1.1); }
+  100% { transform: translateX(0);    opacity: 1;    filter: brightness(1);   }
+}
+
+.crt-static-burst {
+  animation: crt-static-burst 180ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* ── CRT whiteout flash (telnet connected) ─────────────────────────────────────
+   Electron beam reset — instant white spike, fast decay. ~300ms. */
+
+@keyframes crt-whiteout-flash {
+  0%   { filter: brightness(1)  saturate(1);   }
+  8%   { filter: brightness(12) saturate(0);   }
+  20%  { filter: brightness(5)  saturate(0.3); }
+  45%  { filter: brightness(2)  saturate(0.7); }
+  100% { filter: brightness(1)  saturate(1);   }
+}
+
+.crt-whiteout-flash {
+  animation: crt-whiteout-flash 300ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* ── CRT desync tear (phosphor shift) ──────────────────────────────────────────
+   Horizontal sync loss — the screen warps like a bad VHS tracking signal.
+   Combines skew + lateral displacement + hue rotation. ~350ms. */
+
+@keyframes crt-desync-tear {
+  0%   { transform: skewX(0deg)    translateX(0);    filter: hue-rotate(0deg)   brightness(1);   }
+  8%   { transform: skewX(-4deg)   translateX(-8px); filter: hue-rotate(90deg)  brightness(1.5); }
+  18%  { transform: skewX( 3deg)   translateX(12px); filter: hue-rotate(180deg) brightness(0.7); }
+  28%  { transform: skewX(-2deg)   translateX(-6px); filter: hue-rotate(270deg) brightness(1.3); }
+  40%  { transform: skewX( 1.5deg) translateX( 4px); filter: hue-rotate(180deg) brightness(1.1); }
+  55%  { transform: skewX(-0.5deg) translateX(-2px); filter: hue-rotate(60deg)  brightness(1);   }
+  70%  { transform: skewX( 0.2deg) translateX( 1px); filter: hue-rotate(20deg)  brightness(1);   }
+  100% { transform: skewX(0deg)    translateX(0);    filter: hue-rotate(0deg)   brightness(1);   }
+}
+
+.crt-desync-tear {
+  animation: crt-desync-tear 350ms ease-out forwards;
   pointer-events: none;
 }
 
