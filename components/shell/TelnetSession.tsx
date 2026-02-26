@@ -966,7 +966,7 @@ const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
 const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ handle }) => (
   <div style={{
     fontFamily:    'monospace',
-    fontSize:      '0.7rem',
+    fontSize:      S.base,
     marginBottom:  '0.75rem',
     paddingBottom: '0.5rem',
     borderBottom:  '1px solid rgba(var(--phosphor-rgb),0.1)',
@@ -1522,7 +1522,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
       <MeshStatus status={connectionStatus} />
 
       {connectionStatus !== 'connected' && (
-        <div style={{ opacity: 0.25, fontSize: '0.65rem', fontFamily: 'monospace', marginBottom: '0.25rem' }}>
+        <div style={{ opacity: 0.25, fontSize: S.base, fontFamily: 'monospace', marginBottom: '0.25rem' }}>
           ably: {ablyDebug}
         </div>
       )}
@@ -1559,7 +1559,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             }
           </div>
 
-          <div style={{ opacity: 0.2, fontSize: '0.65rem', marginTop: '0.75rem', fontFamily: 'monospace' }}>
+          <div style={{ opacity: 0.2, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace' }}>
             type <span className={S.glow}>exit</span> to disconnect
             &nbsp;&middot;&nbsp;
             <span className={S.glow}>/who</span> list nodes
