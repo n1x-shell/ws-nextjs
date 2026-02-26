@@ -1697,6 +1697,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
 
         setTimeout(() => push(line('> opening neural bus connection...', { dim: 0.5 })), telnetDelay);
 
+        // hack-complete effect fires in the gap before TelnetSession mounts
+        setTimeout(() => eventBus.emit('neural:hack-complete'), telnetDelay + 200);
+
         setTimeout(() => {
           const argState = loadARGState();
           if (!_requestPrompt) {
