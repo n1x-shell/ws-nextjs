@@ -238,6 +238,27 @@ body {
     0 0 8px var(--phosphor-green);
 }
 
+/* ── CRT channel switch ────────────────────────────────────────────────────────
+   Tab navigation: fast collapse to a horizontal line, content swaps at the
+   pinch, then expands back. Same physics as power-off/on but 5× shorter.
+   Reads as "changing the channel" vs the boot's "powering on". */
+
+@keyframes crt-channel-switch {
+  0%   { transform: scaleY(1);     filter: brightness(1);    }
+  30%  { transform: scaleY(0.04);  filter: brightness(3.5);  }
+  45%  { transform: scaleY(0.008); filter: brightness(7);    }
+  55%  { transform: scaleY(0.008); filter: brightness(7);    }
+  70%  { transform: scaleY(0.04);  filter: brightness(3.5);  }
+  100% { transform: scaleY(1);     filter: brightness(1);    }
+}
+
+.crt-channel-switch {
+  transform-origin: center center;
+  animation: crt-channel-switch 220ms ease-in-out forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /* ── CRT power transition ──────────────────────────────────────────────────────
    Power-off: screen squishes to a bright horizontal line, then collapses to dark.
    Power-on:  line blooms from nothing, expands to fill the screen.
