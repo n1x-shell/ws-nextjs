@@ -273,35 +273,54 @@ function BootSequence({ onComplete, bootLines }: {
         transition: done ? 'opacity 0.15s ease-out' : 'none',
       }}
     >
-      {lines.map((line, i) => (
-        <div
-          key={i}
-          style={{
-            lineHeight: 1.6,
-            color: line.startsWith('[  OK  ]')
-              ? 'var(--phosphor-green)'
-              : line.startsWith('[  FAIL]')
-              ? '#f87171'
-              : line.startsWith('NeuralOS')
-              ? 'var(--phosphor-green)'
-              : undefined,
-            opacity: line === ''
-              ? 1
-              : line.startsWith('[    0.')
-              ? 0.6
-              : line.startsWith('[  OK  ]')
-              ? 0.9
-              : line.startsWith('n1x-terminal')
-              ? 1
-              : 0.75,
-            fontWeight: line.startsWith('NeuralOS') || line.startsWith('n1x-terminal[1337]: ready')
-              ? 'bold'
-              : 'normal',
-          }}
-        >
-          {line === '' ? '\u00a0' : line}
-        </div>
-      ))}
+      {lines.map((line, i) => {
+        const isOK       = line.startsWith('[  OK  ]');
+        const isFail     = line.startsWith('[  FAIL]');
+        const isNeuralOS = line.startsWith('NeuralOS');
+        const isReady    = line.startsWith('n1x-terminal[1337]: ready');
+        const isTerminal = line.startsWith('n1x-terminal');
+        const isKernel   = line.startsWith('[    0.');
+        const isGhostDmn = line.includes('ghost-daemon') || line.includes('/ghost');
+        const isTunnel   = line.includes('tunnelcore') || line.includes('33hz');
+
+        // Mirror the glow hierarchy the rest of the shell uses:
+        // text-glow-strong → headings / key moments
+        // text-glow        → [  OK  ] / terminal init / lore-dense lines
+        // no class         → dim kernel timestamps, blank spacers
+        const glowClass =
+          isNeuralOS || isReady
+            ? 'text-glow-strong'
+            : isOK || isTerminal || isGhostDmn || isTunnel
+            ? 'text-glow'
+            : '';
+
+        return (
+          <div
+            key={i}
+            className={glowClass}
+            style={{
+              lineHeight: 1.6,
+              color: isOK || isNeuralOS
+                ? 'var(--phosphor-green)'
+                : isFail
+                ? '#f87171'
+                : undefined,
+              opacity: line === ''
+                ? 1
+                : isKernel
+                ? 0.6
+                : isOK
+                ? 0.9
+                : isTerminal
+                ? 1
+                : 0.75,
+              fontWeight: isNeuralOS || isReady ? 'bold' : 'normal',
+            }}
+          >
+            {line === '' ? '\u00a0' : line}
+          </div>
+        );
+      })}
     </div>
   );
 }
