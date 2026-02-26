@@ -39,7 +39,7 @@ const CRT_PRESETS: Record<string, CRTPreset> = {
 
 // ─── Tier decay durations (ms) ────────────────────────────────────────────────
 
-const TIER_DECAY: Record<number, number> = { 1: 500, 2: 1000, 3: 200 };
+const TIER_DECAY: Record<number, number> = { 1: 500, 2: 1000, 3: 2200 };
 
 // ─── Vertex shader ────────────────────────────────────────────────────────────
 
@@ -463,8 +463,8 @@ export default function SignalLayerV2() {
   });
 
   useEventBus('neural:konami', () => {
-    setGlitchTier(3, 200);
-    setTimeout(() => applyPreset('overdrive'), 250);
+    setGlitchTier(3, 2500);
+    setTimeout(() => applyPreset('overdrive'), 2600);
   });
 
   useEventBus('audio:amplitude', (event) => {
