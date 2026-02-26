@@ -151,7 +151,7 @@ const COLD_BOOT_LINES: [number, string, number?][] = [
   [600,  ''],
 ];
 
-function buildBootLines(state: ARGState): [number, string][] {
+function buildBootLines(state: ARGState): [number, string, number?][] {
   const isFirst = state.sessionCount <= 1;
   const isDone = state.manifestComplete;
 
