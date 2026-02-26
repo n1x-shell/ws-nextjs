@@ -57,6 +57,7 @@ const S = {
   header: 'var(--text-header)',
   dim:    { fontSize: 'var(--text-base)', opacity: 0.6 } as React.CSSProperties,
   glow:   'text-glow',
+  accent: 'var(--phosphor-accent)',
 };
 
 // ── Mail mode state ───────────────────────────────────────────────────────────
@@ -124,7 +125,7 @@ function renderMailListing(): React.ReactNode {
           <div key={i}>
             <span style={{ opacity: 0.5 }}>{i + 1}</span>
             {'  '}
-            <span style={{ color: '#ffaa00' }}>{msg.from.split('@')[0]}</span>
+            <span style={{ color: 'var(--phosphor-accent)' }}>{msg.from.split('@')[0]}</span>
             {'  '}
             <span style={{ opacity: 0.8 }}>{msg.subject}</span>
             {'  '}
@@ -148,7 +149,7 @@ function renderMailMessage(n: number): React.ReactNode {
   return (
     <div style={{ fontSize: S.base }}>
       <div style={{ borderBottom: '1px solid rgba(var(--phosphor-rgb),0.3)', paddingBottom: '0.4rem', marginBottom: '0.5rem' }}>
-        <div><span style={{ opacity: 0.5 }}>From:</span> <span style={{ color: '#ffaa00' }}>{msg.from}</span></div>
+        <div><span style={{ opacity: 0.5 }}>From:</span> <span style={{ color: 'var(--phosphor-accent)' }}>{msg.from}</span></div>
         <div><span style={{ opacity: 0.5 }}>Date:</span> {msg.date}</div>
         <div><span style={{ opacity: 0.5 }}>Subject:</span> {msg.subject}</div>
       </div>
@@ -431,7 +432,7 @@ export const commands: Record<string, Command> = {
                   className={row.isDir ? S.glow : ''}
                   style={
                     row.isSh  ? { color: 'var(--phosphor-green)', fontWeight: 'bold' } :
-                    row.isTgz ? { color: '#ffaa00' } :
+                    row.isTgz ? { color: 'var(--phosphor-accent)' } :
                     !row.isDir ? { opacity: 0.9 } : {}
                   }
                 >
@@ -857,8 +858,8 @@ export const commands: Record<string, Command> = {
           </div>
           <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
             <div style={{ color: 'var(--phosphor-green)' }}>[OK] SYNTHETICS  --  9 transmissions detected</div>
-            <div style={{ color: '#ffaa00' }}>[!!] ANALOGUES   --  1 transmission detected</div>
-            <div style={{ color: '#ffaa00' }}>[!!] HYBRIDS     --  Calibration phase</div>
+            <div style={{ color: 'var(--phosphor-accent)' }}>[!!] ANALOGUES   --  1 transmission detected</div>
+            <div style={{ color: 'var(--phosphor-accent)' }}>[!!] HYBRIDS     --  Calibration phase</div>
             <div style={{ color: 'var(--phosphor-green)' }}>[OK] UPLINK      --  External node active</div>
           </div>
           <div style={{ ...S.dim, marginTop: '0.5rem' }}>
@@ -880,9 +881,9 @@ export const commands: Record<string, Command> = {
         eventBus.emit('shell:push-output', { command: '', output });
 
       const FIELDS: [number, React.ReactNode][] = [
-        [0,   <span style={{ fontSize: S.base, opacity: 0.7 }}>NEURAL_SYNC     : 85%</span>],
-        [120, <span style={{ fontSize: S.base, opacity: 0.7 }}>MEMORY_BUFFER   : 62%</span>],
-        [240, <span style={{ fontSize: S.base, opacity: 0.7 }}>SIGNAL_STRENGTH : 78%</span>],
+        [0,   <span style={{ fontSize: S.base, opacity: 0.7 }}>NEURAL_SYNC     : <span style={{ color: 'var(--phosphor-accent)' }}>85%</span></span>],
+        [120, <span style={{ fontSize: S.base, opacity: 0.7 }}>MEMORY_BUFFER   : <span style={{ color: 'var(--phosphor-accent)' }}>62%</span></span>],
+        [240, <span style={{ fontSize: S.base, opacity: 0.7 }}>SIGNAL_STRENGTH : <span style={{ color: 'var(--phosphor-accent)' }}>78%</span></span>],
         [360, <span style={{ fontSize: S.base, opacity: 0.7 }}>UPLINK          : ACTIVE</span>],
         [480, <span style={{ fontSize: S.base, opacity: 0.85 }}>MODE            : {isRoot ? 'ROOT' : 'ACTIVE'}</span>],
         [600, <span style={{ fontSize: S.base, opacity: isSubstrateDaemonRunning() ? 1 : 0.5 }}>SUBSTRATED      : {isSubstrateDaemonRunning() ? 'RUNNING (port 33)' : 'INACTIVE'}</span>],
@@ -1027,7 +1028,7 @@ export const commands: Record<string, Command> = {
               <div>/dev/neural on / type neuralfs (rw,relatime)</div>
               <div>/dev/tunnelcore on /streams type tunnelfs (rw,relatime)</div>
               {fs.isHiddenUnlocked() && <div>/dev/hidden on /hidden type neuralfs (rw,noexec)</div>}
-              {fs.isGhostUnlocked()  && <div style={{ color: '#ffaa00' }}>/dev/ghost on /ghost type ghostfs (rw,freq=33hz)</div>}
+              {fs.isGhostUnlocked()  && <div style={{ color: 'var(--phosphor-accent)' }}>/dev/ghost on /ghost type ghostfs (rw,freq=33hz)</div>}
               {!fs.isHiddenUnlocked() && <div style={{ opacity: 0.4 }}>/dev/hidden on /hidden type neuralfs (locked)</div>}
               {!fs.isGhostUnlocked()  && <div style={{ opacity: 0.4 }}>/dev/ghost on /ghost type ghostfs (locked)</div>}
             </div>
@@ -1077,7 +1078,7 @@ export const commands: Record<string, Command> = {
         setTimeout(() => pushG(<span style={{ fontSize: S.base, opacity: 0.9 }}>device      : /dev/ghost</span>),  150);
         setTimeout(() => pushG(<span style={{ fontSize: S.base, opacity: 0.9 }}>mountpoint  : /ghost</span>),     280);
         setTimeout(() => pushG(<span style={{ fontSize: S.base, opacity: 0.9 }}>type        : ghostfs (rw,freq=33hz)</span>), 410);
-        setTimeout(() => pushG(<span style={{ fontSize: S.base, opacity: 0.7, color: '#ffaa00' }}>integrity   : degraded — verify before read</span>), 560);
+        setTimeout(() => pushG(<span style={{ fontSize: S.base, opacity: 0.7, color: 'var(--phosphor-accent)' }}>integrity   : degraded — verify before read</span>), 560);
         return { output: null };
       }
 
@@ -1136,7 +1137,7 @@ export const commands: Record<string, Command> = {
     handler: () => ({
       output: (
         <div style={{ fontSize: S.base }}>
-          <div style={{ color: '#ffaa00' }}>unlock: deprecated -- try a different approach</div>
+          <div style={{ color: 'var(--phosphor-accent)' }}>unlock: deprecated -- try a different approach</div>
           <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>
             hint: look in /etc, listen on port 33, or trace the ghost-daemon
           </div>
@@ -1242,7 +1243,7 @@ export const commands: Record<string, Command> = {
       const push = (output: React.ReactNode) =>
         eventBus.emit('shell:push-output', { command: '', output });
 
-      push(<div className={S.glow} style={{ fontSize: S.header }}>&gt;&gt; GHOST_CHANNEL</div>);
+      push(<div className={S.glow} style={{ fontSize: S.header, color: 'var(--phosphor-accent)' }}>&gt;&gt; GHOST_CHANNEL</div>);
       setTimeout(() => push(<span style={{ fontSize: S.base, opacity: 0.9 }}>signal.raw  : raw frequency data      [readable]</span>),    150);
       setTimeout(() => push(<span style={{ fontSize: S.base, opacity: 0.9 }}>backup.tgz  : archived transmissions  [extract first]</span>), 280);
       setTimeout(() => push(<span style={{ ...S.dim, fontSize: S.base }}>cd /ghost  →  tar -xzf backup.tgz  →  cd backup  →  ls</span>), 450);

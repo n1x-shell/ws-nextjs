@@ -97,6 +97,7 @@ export function handlePhosphor(args: string[]): { output: React.ReactNode; error
           <div style={base}>
             current mode{'  '}
             <span style={{ color: meta.hex }}>{meta.glyph} {meta.label}</span>
+            {'  '}→ accent: <span style={{ color: 'var(--phosphor-accent)' }}>█</span>
           </div>
           <div style={dim}>&nbsp;</div>
           <div style={muted}>usage: phosphor [flag]</div>
@@ -168,6 +169,7 @@ export function handlePhosphor(args: string[]): { output: React.ReactNode; error
         <div style={base}>
           phosphor resonance shifting —{' '}
           <span style={{ color: meta.hex }}>{meta.glyph} {meta.label}</span>
+          {'  '}+ <span style={{ color: 'var(--phosphor-accent)' }}>█ accent paired</span>
         </div>
         <div style={dim}>spectrum locked at {meta.hex.toLowerCase()}</div>
         <div style={dim}>──────────────────────────────</div>

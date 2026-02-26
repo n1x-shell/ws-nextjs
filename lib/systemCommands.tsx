@@ -13,6 +13,7 @@ const S = {
   header: 'var(--text-header)',
   dim:    { fontSize: 'var(--text-base)', opacity: 0.6 } as React.CSSProperties,
   glow:   'text-glow',
+  accent: 'var(--phosphor-accent)',
 };
 
 // ── Session state ────────────────────────────────────────
@@ -136,7 +137,7 @@ const TopDisplay: React.FC = () => {
           <div key={p.pid} style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.6 }}>
             <span style={{ opacity:0.6 }}>{p.pid}</span>
             <span style={{ opacity:0.6 }}>{p.user}</span>
-            <span style={{ color: parseFloat(c)>4 ? '#ffaa00' : 'var(--phosphor-green)' }}>{c}</span>
+            <span style={{ color: parseFloat(c)>4 ? 'var(--phosphor-accent)' : 'var(--phosphor-green)' }}>{c}</span>
             <span style={{ opacity:0.7 }}>{m}</span>
             <span style={{ opacity:0.6 }}>{p.stat}</span>
             <span className={p.stat.includes('R') ? S.glow : ''} style={{ opacity: p.stat.includes('S') ? 0.7 : 1 }}>{p.cmd}</span>
@@ -552,7 +553,7 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
   return (
     <div style={{ fontSize: 'var(--text-base)' }}>
       <div style={{ color: '#f87171' }}>[DECRYPT FAILED]</div>
-      <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>key mismatch. fragment sealed.</div>
+      <div style={{ opacity: 0.5, marginTop: '0.25rem', color: 'var(--phosphor-accent)' }}>key mismatch. fragment sealed.</div>
     </div>
   );
 };
@@ -606,7 +607,7 @@ export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => bo
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
               <div>/dev/hidden on /hidden type neuralfs (rw,nosuid)</div>
-              <div style={{ color: 'var(--phosphor-green)', marginTop: '0.25rem' }}>[OK] /hidden mounted</div>
+              <div style={{ marginTop: '0.25rem' }}><span style={{ color: 'var(--phosphor-accent)' }}>[OK]</span><span style={{ color: 'var(--phosphor-green)' }}> /hidden mounted</span></div>
               <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /hidden to proceed</div>
             </div>
           </div>
@@ -631,7 +632,7 @@ export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => bo
             </div>
             <div style={{ marginLeft: '1rem', lineHeight: 1.8 }}>
               <div>/dev/ghost on /ghost type ghostfs (rw,classified)</div>
-              <div style={{ color: 'var(--phosphor-green)', marginTop: '0.25rem' }}>[OK] /ghost mounted</div>
+              <div style={{ marginTop: '0.25rem' }}><span style={{ color: 'var(--phosphor-accent)' }}>[OK]</span><span style={{ color: 'var(--phosphor-green)' }}> /ghost mounted</span></div>
               <div style={{ opacity: 0.5, marginTop: '0.25rem' }}>cd /ghost to proceed</div>
             </div>
           </div>
@@ -810,7 +811,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 <div key={p.pid} style={{ display:'grid', gridTemplateColumns:'6ch 6ch 6ch 6ch 5ch 1fr', gap:'0 0.5rem', lineHeight:1.6 }}>
                   <span style={{ opacity:0.6 }}>{p.pid}</span>
                   <span style={{ opacity:0.6 }}>{p.user}</span>
-                  <span style={{ color: parseFloat(p.cpu)>1 ? '#ffaa00' : 'var(--phosphor-green)' }}>{p.cpu}</span>
+                  <span style={{ color: parseFloat(p.cpu)>1 ? 'var(--phosphor-accent)' : 'var(--phosphor-green)' }}>{p.cpu}</span>
                   <span style={{ opacity:0.7 }}>{p.mem}</span>
                   <span style={{ opacity:0.6 }}>{p.stat}</span>
                   <span style={{ opacity: p.cmd.startsWith('[') ? 0.4 : 0.9 }}>{p.cmd}</span>
@@ -931,8 +932,8 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 <div key={i} style={{ display:'grid', gridTemplateColumns:'5ch 20ch 22ch 1fr', gap:'0 0.5rem', lineHeight:1.7 }}>
                   <span style={{ opacity:0.6 }}>{c.proto}</span>
                   <span style={{ opacity:0.7 }}>{c.local}</span>
-                  <span className={c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? S.glow : ''} style={{ opacity:0.8 }}>{c.foreign}</span>
-                  <span style={{ color: c.state==='ESTABLISHED' ? 'var(--phosphor-green)' : c.state==='LISTEN' ? '#ffaa00' : 'inherit', opacity:0.8 }}>{c.state}</span>
+                  <span className={c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? S.glow : ''} style={{ opacity:0.8, color: c.foreign.includes('n1x')||c.foreign.includes('ghost')||c.foreign.includes('substrated') ? 'var(--phosphor-accent)' : undefined }}>{c.foreign}</span>
+                  <span style={{ color: c.state==='ESTABLISHED' ? 'var(--phosphor-accent)' : c.state==='LISTEN' ? 'var(--phosphor-accent)' : 'inherit', opacity:0.8 }}>{c.state}</span>
                 </div>
               ))}
             </div>
@@ -1323,7 +1324,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
               <div style={{ opacity:0.5, marginBottom:'0.2rem' }}>--- {args[0]}</div>
               <div style={{ opacity:0.5, marginBottom:'0.5rem' }}>+++ {args[1]}</div>
               {changed.map((d,i) => (
-                <div key={i} style={{ color: d.type==='+' ? 'var(--phosphor-green)' : '#f87171', lineHeight:1.6 }}>
+                <div key={i} style={{ color: d.type==='+' ? 'var(--phosphor-accent)' : `rgba(var(--phosphor-accent-rgb), 0.6)`, lineHeight:1.6 }}>
                   {d.type} {d.line}
                 </div>
               ))}
@@ -1435,7 +1436,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 style={{
                   fontSize:   S.base,
                   fontFamily: 'inherit',
-                  color:      isCredential ? '#ffaa00' : undefined,
+                  color:      isCredential ? 'var(--phosphor-accent)' : undefined,
                   fontWeight: isCredential ? 'bold'    : 'normal',
                   opacity:    isCredential ? 1         : 0.85,
                 }}
@@ -1480,7 +1481,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                   fontSize:   S.base,
                   fontFamily: 'inherit',
                   opacity:    isKey ? 1 : 0.6,
-                  color:      isKey ? '#ffaa00' : undefined,
+                  color:      isKey ? 'var(--phosphor-accent)' : undefined,
                   fontWeight: isKey ? 'bold'    : 'normal',
                 }}
               >
@@ -2085,7 +2086,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 </div>
                 <div style={{ marginTop: '0.4rem' }}>
                   <span style={{ opacity: 0.4 }}>checksum: </span>
-                  <span className={S.glow}>VERIFIED</span>
+                  <span className={S.glow} style={{ color: "var(--phosphor-accent)" }}>VERIFIED</span>
                 </div>
                 <div style={{ opacity: 0.7, marginTop: '0.2rem' }}>
                   fragment: {fragment}
@@ -2112,7 +2113,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                 <div style={{ opacity: 0.5 }}>{input}</div>
                 <div style={{ marginTop: '0.4rem' }}>
                   <span style={{ opacity: 0.4 }}>checksum: </span>
-                  <span className={S.glow}>VERIFIED</span>
+                  <span className={S.glow} style={{ color: "var(--phosphor-accent)" }}>VERIFIED</span>
                 </div>
                 <div style={{ opacity: 0.7, marginTop: '0.2rem' }}>
                   fragment: f003 (alternate path)
