@@ -349,7 +349,9 @@ function getMultiSequence(host: string, count: number): ConnectLine[] {
     { delay: 2000, text: `ghost-daemon[999]: peers       ${count} node(s)` },
     { delay: 2300, text: 'ghost-daemon[999]: clearance   ACTIVE', bright: true },
     { delay: 2600, text: 'ghost-daemon[999]: monitoring  enabled' },
+    { delay: 2800, text: '' },
     { delay: 3000, text: '>> MESH_MODE_ACTIVE', bright: true },
+    { delay: 3200, text: '' },
   ];
 }
 
@@ -1561,7 +1563,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle }) => {
             }
           </div>
 
-          <div style={{ opacity: 0.2, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace' }}>
+          <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace' }}>
             type <span className={S.glow} style={{ color: C.accent }}>exit</span> to disconnect
             &nbsp;&middot;&nbsp;
             <span className={S.glow} style={{ color: C.accent }}>/who</span> list nodes
