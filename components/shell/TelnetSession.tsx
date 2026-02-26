@@ -966,24 +966,27 @@ const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
 
 // ── ChannelStats bar ──────────────────────────────────────────────────────────
 
-const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ occupantCount, handle }) => (
+const ChannelStats: React.FC<{ occupantCount: number; handle: string }> = ({ handle }) => (
   <div style={{
-    display:       'flex',
-    flexWrap:      'wrap',
-    gap:           '0 1.5rem',
-    fontSize:      '0.7rem',
     fontFamily:    'monospace',
-    opacity:       0.45,
-    borderBottom:  '1px solid rgba(var(--phosphor-rgb),0.1)',
-    paddingBottom: '0.5rem',
+    fontSize:      '0.7rem',
     marginBottom:  '0.75rem',
-    lineHeight:    1.6,
+    paddingBottom: '0.5rem',
+    borderBottom:  '1px solid rgba(var(--phosphor-rgb),0.1)',
   }}>
-    <span>ghost channel</span>
-    <span><span className={S.glow} style={{ opacity: 1 }}>{occupantCount}</span> node{occupantCount !== 1 ? 's' : ''} connected</span>
-    <span>33hz</span>
-    <span>you: <span style={{ opacity: 0.8 }}>{handle}</span></span>
-    <span style={{ opacity: 0.6 }}>@n1x to address daemon</span>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.2rem' }}>
+      <span className={S.glow} style={{ fontWeight: 700, letterSpacing: '0.08em' }}>
+        GHOST_CHANNEL
+      </span>
+      <span style={{ opacity: 0.3 }}>──</span>
+      <span style={{ opacity: 0.55, letterSpacing: '0.04em' }}>freq :: 33hz</span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', opacity: 0.5 }}>
+      <span>signal ident:</span>
+      <span style={{ opacity: 0.9, color: 'var(--phosphor-green)' }}>{handle}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <span>@n1x for direct link</span>
+    </div>
   </div>
 );
 
