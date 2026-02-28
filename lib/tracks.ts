@@ -1087,6 +1087,14 @@ export const ANALOGUES_TRACKS: Track[] = [
     playbackId: '8FxVWXnyyOQwPkaE00f83ZjQ8ae82mHgb02JHFyS01sHGA',
     lyrics: '',
   },
+  {
+    index: 3,
+    key: 'council-of-wolves-and-snakes',
+    title: '03 // COUNCIL OF WOLVES AND SNAKES',
+    displayTitle: 'COUNCIL OF WOLVES AND SNAKES',
+    playbackId: 'xN5yKYepMJSOxz02d5sRnIgPAcB3zCQwjLeNFHTFpEzk',
+    lyrics: '',
+  },
 ];
 
 export function getAnaloguesTrack(index: number): Track {
