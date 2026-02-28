@@ -668,7 +668,7 @@ LLM provider configured via Vercel AI SDK. Current model: `alibaba/qwen3-max`.
 >   ambient bots (Vestige/Lumen/Cascade) [COMPLETE]
 >   admin/mod system                     [COMPLETE]
 >   player sigil tiers                   [COMPLETE]
-> PHASE 3 — MUX MEDIA MIGRATION          [PENDING — packages installed, embeds still YouTube]
+> PHASE 3 — MUX MEDIA MIGRATION          [COMPLETE]
 > PHASE 4 — THOUGHT STREAM ENGINE        [PENDING]
 > PHASE 5 — AUDIO VISUALIZATION          [PENDING]
 > PHASE 6 — INTEGRATION LAYER            [PENDING]
