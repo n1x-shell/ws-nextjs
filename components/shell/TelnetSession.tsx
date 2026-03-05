@@ -1759,6 +1759,16 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     return () => setMudSuggestionProvider(null);
   }, [mudSession]); // re-run when mudSession state changes
 
+  // ── MUD state events — drive tab panel swap in InterfaceLayer ─────────
+  useEffect(() => {
+    const ms = mudSessionRef.current;
+    if (ms && (ms.phase === 'active' || ms.phase === 'combat' || ms.phase === 'character_creation')) {
+      eventBus.emit('mud:active', { phase: ms.phase, inCombat: ms.phase === 'combat' });
+    } else if (!ms || ms.phase === 'inactive' || ms.phase === 'dead') {
+      eventBus.emit('mud:exit');
+    }
+  }, [mudSession]);
+
   // ── Mod event listeners ───────────────────────────────────────────────────
   // mod:kicked — received by ablyClient when this client is kicked
   // mod:suppressed — received when this client tries to send while muted
