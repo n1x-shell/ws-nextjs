@@ -9,6 +9,10 @@ import {
   clearHandle,
 } from '@/lib/telnetBridge';
 import { incrementSession, loadARGState, getPlayerSigil } from '@/lib/argState';
+import type { MudSession } from '@/lib/mud/types';
+import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
+import { handleMudCommand, startCreationFlow, handleCreationInput } from '@/lib/mud/mudCommands';
+import type { MudContext } from '@/lib/mud/mudCommands';
 
 // ── Style constants ───────────────────────────────────────────────────────────
 
@@ -562,6 +566,12 @@ const HelpOutput: React.FC<{ isAdmin?: boolean; roomName?: 'ghost' | 'mancave' }
     { cmd: '@lumen <message>',      desc: 'Ping Lumen directly' },
     { cmd: '@cascade <message>',    desc: 'Ping Cascade directly' },
   ];
+
+  // Show /enter at trust 5 with manifest complete
+  const argForHelp = readARGState();
+  if (argForHelp.trust >= 5 && argForHelp.fragments.filter((f: string) => f !== 'f010').length >= 9) {
+    rows.push({ cmd: '/enter', alias: '/tunnelcore', desc: 'Enter TUNNELCORE — the world beneath the terminal' });
+  }
 
   const opRows: Array<{ cmd: string; desc: string }> = [
     { cmd: '/kick <handle>',           desc: 'terminate connection' },
@@ -1138,6 +1148,7 @@ interface SlashContext {
   onAdminAuth:   (secret: string) => void;
   disconnect:    () => void;
   roomName:      'ghost' | 'mancave';
+  onMudSession?: (session: MudSession) => void;
 }
 
 function handleSlashCommand(ctx: SlashContext): boolean {
@@ -1484,6 +1495,74 @@ function handleSlashCommand(ctx: SlashContext): boolean {
     return true;
   }
 
+  // ── /enter /tunnelcore — MUD entry gate (ghost room only) ───────────────
+  if ((cmd === 'enter' || cmd === 'tunnelcore') && roomName === 'ghost') {
+    const argState = readARGState();
+    // ARG gate: trust 5 + fragments f001-f009
+    if (argState.trust < 5) {
+      addLocalMsg(
+        <LocalNotice key={`mud-gate-trust-${Date.now()}`} error>
+          signal insufficient. trust level 5 required.
+        </LocalNotice>
+      );
+      return true;
+    }
+    const collectedCount = argState.fragments.filter(
+      (f: string) => f !== 'f010'
+    ).length;
+    if (collectedCount < 9) {
+      addLocalMsg(
+        <LocalNotice key={`mud-gate-frags-${Date.now()}`} error>
+          fragments incomplete. {collectedCount}/9 recovered. keep searching.
+        </LocalNotice>
+      );
+      return true;
+    }
+
+    // Emit MUD entry event for cross-component effects
+    eventBus.emit('mud:entering');
+
+    // Check for existing character
+    if (hasExistingCharacter(handle)) {
+      const session = loadFullSession(handle);
+      if (session && !session.character?.isDead) {
+        // Resume existing character — notify parent via callback
+        if (ctx.onMudSession) ctx.onMudSession(session);
+        addLocalMsg(
+          <div key={`mud-resume-${Date.now()}`} style={{
+            fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
+          }}>
+            <div style={{ opacity: 0.5 }}>&gt;&gt; SUBSTRATE_LINK RE-ESTABLISHED</div>
+            <div style={{ color: '#bf00ff', opacity: 0.8, marginTop: '0.25rem' }}>
+              welcome back, {session.character!.subjectId}. you&apos;re still breathing. good.
+            </div>
+            <div style={{ color: 'var(--phosphor-accent)', opacity: 0.6, marginTop: '0.25rem' }}>
+              &gt;&gt; LOCATION: {session.character!.currentRoom}
+            </div>
+            <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
+              /look to survey · /mudhelp for commands · /save to persist
+            </div>
+          </div>
+        );
+        return true;
+      }
+    }
+
+    // New character — start creation flow via callback
+    if (ctx.onMudSession) {
+      const freshSession: MudSession = {
+        phase: 'character_creation',
+        character: null,
+        world: null,
+        npcState: null,
+        combat: null,
+        creation: { step: 'archetype' },
+      };
+      ctx.onMudSession(freshSession);
+    }
+    return true;
+  }
+
   // ── unknown command ───────────────────────────────────────────────────────
   addLocalMsg(
     <LocalNotice key={`unk-${Date.now()}`} error>
@@ -1522,6 +1601,10 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   // Keep a stable ref to isAdmin so sendWithSlash always reads latest value
   const isAdminRef     = useRef(false);
 
+  // ── MUD session state (refs declared here, callbacks after addLocalMsg) ──
+  const [, setMudSessionState] = useState<MudSession | null>(null);
+  const mudSessionRef = useRef<MudSession | null>(null);
+
   // ── Sync isAdmin ref ──────────────────────────────────────────────────────
   useEffect(() => { isAdminRef.current = isAdmin; }, [isAdmin]);
 
@@ -1550,6 +1633,13 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     };
     setLocalMsgs(prev => [...prev, entry]);
     eventBus.emit('shell:request-scroll');
+  }, []);
+
+  // ── MUD session callbacks (after addLocalMsg is declared) ─────────────
+
+  const setMudSession = useCallback((s: MudSession | null) => {
+    mudSessionRef.current = s;
+    setMudSessionState(s);
   }, []);
 
   // ── Mod event listeners ───────────────────────────────────────────────────
@@ -1617,7 +1707,64 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     });
   }, []);
 
+  // ── MUD entry callback (passed into handleSlashCommand) ─────────────────
+
+  const onMudSessionEntry = useCallback((session: MudSession) => {
+    setMudSession(session);
+    if (session.phase === 'character_creation') {
+      // Start the creation flow with scripted N1X dialogue
+      const ctx: MudContext = {
+        addLocalMsg,
+        handle,
+        session,
+        setSession: setMudSession,
+      };
+      startCreationFlow(ctx);
+    } else if (session.phase === 'active') {
+      // Resume — auto-fire /look after a short delay for the welcome message to render
+      setTimeout(() => {
+        const ms = mudSessionRef.current;
+        if (ms && ms.phase === 'active') {
+          const ctx: MudContext = {
+            addLocalMsg,
+            handle,
+            session: ms,
+            setSession: setMudSession,
+          };
+          handleMudCommand('/look', ctx);
+        }
+      }, 600);
+    }
+  }, [addLocalMsg, handle, setMudSession]);
+
   const sendWithSlash = useCallback((text: string) => {
+    // ── MUD interception: creation phase captures ALL input ──────────────
+    const ms = mudSessionRef.current;
+    if (ms && ms.phase === 'character_creation' && ms.creation) {
+      const ctx: MudContext = {
+        addLocalMsg,
+        handle,
+        session: ms,
+        setSession: setMudSession,
+      };
+      const result = handleCreationInput(text, ctx);
+      if (result.handled) return; // consumed by creation — do not send to Ably
+    }
+
+    // ── MUD interception: active phase routes /commands ──────────────────
+    if (ms && ms.phase === 'active' && text.startsWith('/')) {
+      const ctx: MudContext = {
+        addLocalMsg,
+        handle,
+        session: ms,
+        setSession: setMudSession,
+      };
+      const result = handleMudCommand(text, ctx);
+      if (result.handled) return; // consumed by MUD — do not send to Ably
+      // If not handled, fall through to regular slash command processing
+    }
+
+    // ── Regular slash command handling ───────────────────────────────────
     const handled = handleSlashCommand({
       raw:           text,
       handle,
@@ -1629,9 +1776,10 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       onAdminAuth,
       disconnect:    handleDisconnect,
       roomName,
+      onMudSession:  onMudSessionEntry,
     });
     if (!handled) send(text);
-  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect, roomName]);
+  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect, roomName, setMudSession, onMudSessionEntry]);
 
   // ── Boot helpers ──────────────────────────────────────────────────────────
 
