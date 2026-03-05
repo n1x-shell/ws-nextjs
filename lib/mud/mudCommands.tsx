@@ -2195,7 +2195,8 @@ export function getMudSuggestions(partial: string, session: MudSession): string[
 
     // /go → exit directions + room names
     if (cmd === '/go') {
-      const exits = getVisibleExits(char.currentRoom, char).map(e => e.direction);
+    const exits = getVisibleExits(char.currentRoom, char).map(e => e.direction);
+
       // Add junction branch names
       if (char.currentRoom === 'z08_r03') {
         const branches = getJunctionBranches(char);
