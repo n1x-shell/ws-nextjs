@@ -7,11 +7,12 @@ import {
   activateTelnet,
   deactivateTelnet,
   clearHandle,
+  setMudSuggestionProvider,
 } from '@/lib/telnetBridge';
 import { incrementSession, loadARGState, getPlayerSigil } from '@/lib/argState';
 import type { MudSession } from '@/lib/mud/types';
 import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
-import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue } from '@/lib/mud/mudCommands';
+import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue, getMudSuggestions, getMudHUDData } from '@/lib/mud/mudCommands';
 import type { MudContext } from '@/lib/mud/mudCommands';
 import { getRoom } from '@/lib/mud/worldMap';
 
@@ -1603,7 +1604,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   const isAdminRef     = useRef(false);
 
   // ── MUD session state (refs declared here, callbacks after addLocalMsg) ──
-  const [, setMudSessionState] = useState<MudSession | null>(null);
+  const [mudSession, setMudSessionState] = useState<MudSession | null>(null);
   const mudSessionRef = useRef<MudSession | null>(null);
 
   // ── Sync isAdmin ref ──────────────────────────────────────────────────────
@@ -1642,6 +1643,17 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     mudSessionRef.current = s;
     setMudSessionState(s);
   }, []);
+
+  // ── MUD autocomplete provider — register/unregister on session change ──
+  useEffect(() => {
+    const ms = mudSessionRef.current;
+    if (ms && (ms.phase === 'active' || ms.phase === 'combat' || ms.phase === 'character_creation')) {
+      setMudSuggestionProvider((partial: string) => getMudSuggestions(partial, ms));
+    } else {
+      setMudSuggestionProvider(null);
+    }
+    return () => setMudSuggestionProvider(null);
+  }, [mudSession]); // re-run when mudSession state changes
 
   // ── Mod event listeners ───────────────────────────────────────────────────
   // mod:kicked — received by ablyClient when this client is kicked
@@ -1922,12 +1934,17 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       isMountedRef.current = false;
       deactivateTelnet();
       clearHandle();
+      setMudSuggestionProvider(null);
       };
   }, []);
 
   // ── Message renderer ──────────────────────────────────────────────────────
 
+  const isMudActive = mudSession && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'character_creation' || mudSession.phase === 'dead');
+
   function renderMessage(msg: RoomMsg): React.ReactNode {
+    // Suppress bot messages when MUD is active
+    if (isMudActive && (msg.isN1X || msg.isAmbientBot)) return null;
     if (msg.isSystem)     return <SystemMsg        key={msg.id} msg={msg} />;
     if (msg.isN1X)        return <N1XMessage        key={msg.id} msg={msg} />;
     if (msg.isAmbientBot) return <AmbientBotMessage key={msg.id} msg={msg} />;
@@ -1988,7 +2005,35 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
                 &nbsp;·&nbsp;
                 <span style={{ color: '#00e5ff' }}>/help</span> for all commands
               </>
-            ) : (
+            ) : isMudActive && mudSession?.character ? (() => {
+              const hud = getMudHUDData(mudSession);
+              if (!hud) return null;
+              const hpPct = Math.round((hud.hp / hud.maxHp) * 100);
+              const xpPct = hud.xpNext > 0 ? Math.round((hud.xp / hud.xpNext) * 100) : 100;
+              const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
+              const hpBarW = 12;
+              const hpFilled = Math.max(0, Math.round((hud.hp / hud.maxHp) * hpBarW));
+              const xpBarW = 8;
+              const xpFilled = hud.xpNext > 0 ? Math.max(0, Math.round((hud.xp / hud.xpNext) * xpBarW)) : xpBarW;
+              return (
+                <div style={{ display: 'flex', gap: '1.5ch', flexWrap: 'wrap', alignItems: 'baseline' }}>
+                  <span style={{ color: hpColor }}>
+                    HP {'█'.repeat(hpFilled)}{'░'.repeat(hpBarW - hpFilled)} {hud.hp}/{hud.maxHp}
+                  </span>
+                  {hud.inCombat && hud.ram !== undefined && (
+                    <span style={{ color: '#c084fc' }}>
+                      RAM {hud.ram}/{hud.maxRam}
+                    </span>
+                  )}
+                  <span style={{ color: 'var(--phosphor-accent)', opacity: 0.7 }}>
+                    XP {'█'.repeat(xpFilled)}{'░'.repeat(xpBarW - xpFilled)} Lv.{hud.level}
+                  </span>
+                  <span style={{ color: '#fcd34d', opacity: 0.7 }}>
+                    {hud.creds}c
+                  </span>
+                </div>
+              );
+            })() : (
               <>
                 <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
                 &nbsp;·&nbsp;

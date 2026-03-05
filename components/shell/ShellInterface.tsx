@@ -6,7 +6,7 @@ import { getCommandSuggestions, getCurrentDirectory, getDisplayDirectory, getPat
 import { useEventBus } from '@/hooks/useEventBus';
 import { useNeuralState } from '@/contexts/NeuralContext';
 import { eventBus } from '@/lib/eventBus';
-import { getTelnetHandle, onHandleChange, isTelnetActive } from '@/lib/telnetBridge';
+import { getTelnetHandle, onHandleChange, isTelnetActive, getMudSuggestions, hasMudSuggestionProvider } from '@/lib/telnetBridge';
 import { loadARGState, startSession, getTimeAway, TRUST_LABELS, ARGState } from '@/lib/argState';
 import SyntheticsPlayer from '@/components/shell/SyntheticsPlayer';
 import AnaloguesPlayer from '@/components/shell/AnaloguesPlayer';
@@ -937,16 +937,21 @@ export default function ShellInterface() {
     setTimeout(resizeTextarea, 0);
 
     if (value.trim()) {
-      const parts = value.trim().split(/\s+/);
-      if (parts.length === 1) {
-        // Still typing the command name — suggest commands as before
-        setSuggestions(getCommandSuggestions(parts[0]));
+      // ── MUD autocomplete when in telnet/MUD mode ──────────────────────
+      if (isTelnetActive() && hasMudSuggestionProvider()) {
+        setSuggestions(getMudSuggestions(value.trim()));
       } else {
-        // Command already typed — suggest filesystem paths for the last argument.
-        // Use the raw value so a trailing space means "blank prefix in cwd".
-        const rawParts = value.split(/\s+/);
-        const pathPartial = rawParts[rawParts.length - 1];
-        setSuggestions(getPathSuggestions(pathPartial, pathDirsOnly(value)));
+        const parts = value.trim().split(/\s+/);
+        if (parts.length === 1) {
+          // Still typing the command name — suggest commands as before
+          setSuggestions(getCommandSuggestions(parts[0]));
+        } else {
+          // Command already typed — suggest filesystem paths for the last argument.
+          // Use the raw value so a trailing space means "blank prefix in cwd".
+          const rawParts = value.split(/\s+/);
+          const pathPartial = rawParts[rawParts.length - 1];
+          setSuggestions(getPathSuggestions(pathPartial, pathDirsOnly(value)));
+        }
       }
     } else {
       setSuggestions([]);
@@ -987,12 +992,23 @@ export default function ShellInterface() {
       if (suggestions.length === 0) return;
 
       const completed = suggestions[0];
-      // Split on whitespace to detect whether we're completing a command or an argument
-      const parts = input.trimEnd().split(/\s+/);
-      const isPathCompletion = parts.length > 1;
 
       // Hide cursor during completion to avoid it flashing mid-word
       setCursorHidden(true);
+
+      // MUD suggestions are full commands (e.g. "/go north") — replace entire input
+      if (isTelnetActive() && hasMudSuggestionProvider()) {
+        const newInput = completed + (suggestions.length === 1 ? ' ' : '');
+        setInput(newInput);
+        setCursorPos(newInput.length);
+        if (suggestions.length === 1) setSuggestions([]);
+        requestAnimationFrame(() => requestAnimationFrame(() => setCursorHidden(false)));
+        return;
+      }
+
+      // Split on whitespace to detect whether we're completing a command or an argument
+      const parts = input.trimEnd().split(/\s+/);
+      const isPathCompletion = parts.length > 1;
 
       if (isPathCompletion) {
         // Replace only the last token with the completed path fragment.
@@ -1212,7 +1228,7 @@ export default function ShellInterface() {
             {matrixActive && <MatrixCanvas onExit={() => setMatrixActive(false)} />}
           </div>
           )} {/* end stream player ternary */}
-          {suggestions.length > 0 && !isPrompting && !isTelnetActive() && (
+          {suggestions.length > 0 && !isPrompting && (!isTelnetActive() || hasMudSuggestionProvider()) && (
             <div
               style={{
                 flexShrink: 0,
@@ -1231,6 +1247,16 @@ export default function ShellInterface() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setCursorHidden(true);
+                      // MUD suggestions are full commands — replace entire input
+                      if (isTelnetActive() && hasMudSuggestionProvider()) {
+                        const newInput = cmd + ' ';
+                        setInput(newInput);
+                        setCursorPos(newInput.length);
+                        setSuggestions([]);
+                        requestAnimationFrame(() => requestAnimationFrame(() => setCursorHidden(false)));
+                        inputRef.current?.focus();
+                        return;
+                      }
                       const parts = input.trimEnd().split(/\s+/);
                       if (parts.length > 1) {
                         // Path completion — replace only the last token
