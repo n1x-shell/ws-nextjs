@@ -2012,9 +2012,28 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     return { handled: true, stopPropagation: true };
   }
 
-  // ── /q — allow disconnect to pass through ──────────────────────────────
-  if (cmd === 'q') {
-    return { handled: false }; // Let ghost channel handler process /q
+  // ── /q /quit /leave — exit MUD, save state, return to ghost channel ────
+  if (cmd === 'q' || cmd === 'quit' || cmd === 'leave') {
+    if (session.character) {
+      saveFullSession(handle, session);
+    }
+    // Clear MUD session
+    setSession({ phase: 'inactive', character: null, world: null, npcState: null, combat: null, creation: null } as MudSession);
+    eventBus.emit('mud:exit');
+    addLocalMsg(
+      <div key={k('mud-exit')} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
+        <MudSpacer />
+        <MudLine color={C.accent} glow>
+          &gt;&gt; TUNNELCORE SESSION SUSPENDED
+        </MudLine>
+        <MudLine color={C.dim}>
+          state saved. /enter to resume.
+        </MudLine>
+        <MudSpacer />
+      </div>
+    );
+    // Let the ghost channel /q handler also disconnect
+    return { handled: false };
   }
 
   // ── Block all non-MUD commands ────────────────────────────────────────
