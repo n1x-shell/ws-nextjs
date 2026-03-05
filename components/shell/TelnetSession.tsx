@@ -1574,6 +1574,110 @@ function handleSlashCommand(ctx: SlashContext): boolean {
   return true;
 }
 
+// ── MudHUD Panel ─────────────────────────────────────────────────────────────
+// Sits above the input bar when MUD is active. Cyberpunk dashboard aesthetic.
+
+const MudHUD: React.FC<{ session: MudSession }> = ({ session }) => {
+  const hud = getMudHUDData(session);
+  if (!hud) return null;
+
+  const hpPct = hud.maxHp > 0 ? hud.hp / hud.maxHp : 0;
+  const xpPct = hud.xpNext > 0 ? hud.xp / hud.xpNext : 1;
+  const ramPct = hud.maxRam > 0 ? hud.ram / hud.maxRam : 1;
+
+  const hpColor = hpPct > 0.6 ? 'var(--phosphor-green)' : hpPct > 0.25 ? '#fbbf24' : '#ff4444';
+  const xpColor = '#ff69b4'; // neon pink
+  const ramColor = '#c084fc';
+  const credColor = '#fcd34d';
+  const scripColor = '#a78bfa';
+  const locColor = 'rgba(var(--phosphor-rgb),0.7)';
+  const labelColor = 'rgba(var(--phosphor-rgb),0.5)';
+  const borderColor = hud.inCombat ? 'rgba(255,68,68,0.4)' : 'rgba(var(--phosphor-rgb),0.2)';
+
+  const BAR_W = 16;
+  const XP_W = 20;
+
+  const bar = (filled: number, total: number, color: string, bg = 'rgba(var(--phosphor-rgb),0.15)') => {
+    const f = Math.max(0, Math.round(filled * total));
+    return (
+      <span>
+        <span style={{ color }}> {'█'.repeat(f)}</span>
+        <span style={{ color: bg }}>{'░'.repeat(total - f)}</span>
+      </span>
+    );
+  };
+
+  return (
+    <div style={{
+      fontFamily: 'monospace',
+      fontSize: S.base,
+      lineHeight: 1.6,
+      padding: '0.4rem 0.75rem',
+      borderTop: `1px solid ${borderColor}`,
+      borderBottom: `1px solid ${borderColor}`,
+      background: hud.inCombat ? 'rgba(255,30,30,0.04)' : 'rgba(0,0,0,0.3)',
+    }}>
+      {/* Row 1: Identity + Level */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5ch' }}>
+        <div>
+          <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+            {hud.subjectId}
+          </span>
+          <span style={{ color: labelColor }}> · </span>
+          <span style={{ color: 'rgba(var(--phosphor-rgb),0.6)' }}>{hud.archetype}</span>
+          <span style={{ color: labelColor }}> · </span>
+          <span style={{ color: 'rgba(var(--phosphor-rgb),0.6)' }}>{hud.combatStyle}</span>
+        </div>
+        <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold' }}>
+          Lv.{hud.level}
+        </span>
+      </div>
+
+      {/* Row 2: HP + RAM */}
+      <div style={{ display: 'flex', gap: '2ch', flexWrap: 'wrap', alignItems: 'baseline', marginTop: '0.15rem' }}>
+        <span>
+          <span style={{ color: labelColor }}>HP </span>
+          {bar(hpPct, BAR_W, hpColor)}
+          <span style={{ color: hpColor, marginLeft: '0.5ch' }}>{hud.hp}/{hud.maxHp}</span>
+        </span>
+        {hud.maxRam > 0 && (
+          <span>
+            <span style={{ color: labelColor }}>RAM </span>
+            {bar(ramPct, 8, ramColor)}
+            <span style={{ color: ramColor, marginLeft: '0.5ch' }}>{hud.ram}/{hud.maxRam}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Row 3: XP bar (full width, neon pink) */}
+      <div style={{ marginTop: '0.15rem' }}>
+        <span style={{ color: labelColor }}>XP </span>
+        {bar(xpPct, XP_W, xpColor)}
+        <span style={{ color: xpColor, marginLeft: '0.5ch' }}>
+          {hud.xp}/{hud.xpNext}
+        </span>
+      </div>
+
+      {/* Row 4: Location + Currency + Status */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5ch', marginTop: '0.15rem' }}>
+        <span style={{ color: locColor }}>
+          {hud.zoneName} — {hud.roomName}
+          {hud.isSafeZone && <span style={{ color: '#a5f3fc', marginLeft: '1ch' }}>[SAFE]</span>}
+        </span>
+        <div style={{ display: 'flex', gap: '1.5ch', alignItems: 'baseline' }}>
+          <span style={{ color: credColor }}>{hud.creds}¢</span>
+          {hud.scrip > 0 && <span style={{ color: scripColor }}>{hud.scrip}s</span>}
+          {hud.inCombat && (
+            <span style={{ color: '#ff4444', fontWeight: 'bold' }}>
+              ⚔ R{hud.combatRound} · {hud.combatAP}AP
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── TelnetConnected ───────────────────────────────────────────────────────────
 
 type Mode = 'waiting' | 'offline' | 'multi';
@@ -2005,35 +2109,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
                 &nbsp;·&nbsp;
                 <span style={{ color: '#00e5ff' }}>/help</span> for all commands
               </>
-            ) : isMudActive && mudSession?.character ? (() => {
-              const hud = getMudHUDData(mudSession);
-              if (!hud) return null;
-              const hpPct = Math.round((hud.hp / hud.maxHp) * 100);
-              const xpPct = hud.xpNext > 0 ? Math.round((hud.xp / hud.xpNext) * 100) : 100;
-              const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
-              const hpBarW = 12;
-              const hpFilled = Math.max(0, Math.round((hud.hp / hud.maxHp) * hpBarW));
-              const xpBarW = 8;
-              const xpFilled = hud.xpNext > 0 ? Math.max(0, Math.round((hud.xp / hud.xpNext) * xpBarW)) : xpBarW;
-              return (
-                <div style={{ display: 'flex', gap: '1.5ch', flexWrap: 'wrap', alignItems: 'baseline' }}>
-                  <span style={{ color: hpColor }}>
-                    HP {'█'.repeat(hpFilled)}{'░'.repeat(hpBarW - hpFilled)} {hud.hp}/{hud.maxHp}
-                  </span>
-                  {hud.inCombat && hud.ram !== undefined && (
-                    <span style={{ color: '#c084fc' }}>
-                      RAM {hud.ram}/{hud.maxRam}
-                    </span>
-                  )}
-                  <span style={{ color: 'var(--phosphor-accent)', opacity: 0.7 }}>
-                    XP {'█'.repeat(xpFilled)}{'░'.repeat(xpBarW - xpFilled)} Lv.{hud.level}
-                  </span>
-                  <span style={{ color: '#fcd34d', opacity: 0.7 }}>
-                    {hud.creds}c
-                  </span>
-                </div>
-              );
-            })() : (
+            ) : isMudActive && mudSession?.character ? null : (
               <>
                 <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
                 &nbsp;·&nbsp;
@@ -2043,6 +2119,11 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
               </>
             )}
           </div>
+
+          {/* MUD HUD Panel — renders above input when MUD is active */}
+          {isMudActive && mudSession?.character && (
+            <MudHUD session={mudSession} />
+          )}
         </div>
       )}
     </div>
