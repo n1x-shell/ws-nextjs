@@ -1577,103 +1577,153 @@ function handleSlashCommand(ctx: SlashContext): boolean {
 // ── MudHUD Panel ─────────────────────────────────────────────────────────────
 // Sits above the input bar when MUD is active. Cyberpunk dashboard aesthetic.
 
+const HudBar: React.FC<{
+  pct: number; color: string; glow?: boolean; height?: number; animate?: boolean;
+}> = ({ pct, color, glow = true, height = 5, animate = false }) => {
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (
+    <div style={{
+      flex: 1,
+      height,
+      background: 'rgba(var(--phosphor-rgb),0.08)',
+      borderRadius: 1,
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+      <div style={{
+        width: `${clamped}%`,
+        height: '100%',
+        background: color,
+        boxShadow: glow ? `0 0 6px ${color}, inset 0 0 2px rgba(255,255,255,0.15)` : undefined,
+        transition: 'width 0.4s ease',
+        animation: animate ? 'hud-pulse 1.5s ease-in-out infinite' : undefined,
+      }} />
+      {/* Segmented overlay — gives the bar a tech grid look */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'repeating-linear-gradient(90deg, transparent 0px, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)',
+        pointerEvents: 'none',
+      }} />
+    </div>
+  );
+};
+
 const MudHUD: React.FC<{ session: MudSession }> = ({ session }) => {
   const hud = getMudHUDData(session);
   if (!hud) return null;
 
-  const hpPct = hud.maxHp > 0 ? hud.hp / hud.maxHp : 0;
-  const xpPct = hud.xpNext > 0 ? hud.xp / hud.xpNext : 1;
-  const ramPct = hud.maxRam > 0 ? hud.ram / hud.maxRam : 1;
+  const hpPct = hud.maxHp > 0 ? (hud.hp / hud.maxHp) * 100 : 0;
+  const xpPct = hud.xpNext > 0 ? (hud.xp / hud.xpNext) * 100 : 100;
+  const ramPct = hud.maxRam > 0 ? (hud.ram / hud.maxRam) * 100 : 100;
 
-  const hpColor = hpPct > 0.6 ? 'var(--phosphor-green)' : hpPct > 0.25 ? '#fbbf24' : '#ff4444';
-  const xpColor = '#ff69b4'; // neon pink
+  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
+  const xpColor = '#ff69b4';
   const ramColor = '#c084fc';
-  const credColor = '#fcd34d';
-  const scripColor = '#a78bfa';
-  const locColor = 'rgba(var(--phosphor-rgb),0.7)';
-  const labelColor = 'rgba(var(--phosphor-rgb),0.5)';
-  const borderColor = hud.inCombat ? 'rgba(255,68,68,0.4)' : 'rgba(var(--phosphor-rgb),0.2)';
-
-  const BAR_W = 16;
-  const XP_W = 20;
-
-  const bar = (filled: number, total: number, color: string, bg = 'rgba(var(--phosphor-rgb),0.15)') => {
-    const f = Math.max(0, Math.round(filled * total));
-    return (
-      <span>
-        <span style={{ color }}> {'█'.repeat(f)}</span>
-        <span style={{ color: bg }}>{'░'.repeat(total - f)}</span>
-      </span>
-    );
-  };
+  const dim = 'rgba(var(--phosphor-rgb),0.45)';
+  const mid = 'rgba(var(--phosphor-rgb),0.65)';
+  const borderColor = hud.inCombat ? 'rgba(255,68,68,0.35)' : 'rgba(var(--phosphor-rgb),0.12)';
 
   return (
     <div style={{
       fontFamily: 'monospace',
       fontSize: S.base,
-      lineHeight: 1.6,
-      padding: '0.4rem 0.75rem',
+      padding: '0.45rem 0.75rem',
       borderTop: `1px solid ${borderColor}`,
       borderBottom: `1px solid ${borderColor}`,
-      background: hud.inCombat ? 'rgba(255,30,30,0.04)' : 'rgba(0,0,0,0.3)',
+      background: hud.inCombat ? 'rgba(255,20,20,0.04)' : 'rgba(0,0,0,0.2)',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      {/* Row 1: Identity + Level */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5ch' }}>
-        <div>
-          <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold', letterSpacing: '0.05em' }}>
-            {hud.subjectId}
-          </span>
-          <span style={{ color: labelColor }}> · </span>
-          <span style={{ color: 'rgba(var(--phosphor-rgb),0.6)' }}>{hud.archetype}</span>
-          <span style={{ color: labelColor }}> · </span>
-          <span style={{ color: 'rgba(var(--phosphor-rgb),0.6)' }}>{hud.combatStyle}</span>
-        </div>
-        <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold' }}>
-          Lv.{hud.level}
-        </span>
-      </div>
+      {/* Scanline overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
+        background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
+      }} />
 
-      {/* Row 2: HP + RAM */}
-      <div style={{ display: 'flex', gap: '2ch', flexWrap: 'wrap', alignItems: 'baseline', marginTop: '0.15rem' }}>
-        <span>
-          <span style={{ color: labelColor }}>HP </span>
-          {bar(hpPct, BAR_W, hpColor)}
-          <span style={{ color: hpColor, marginLeft: '0.5ch' }}>{hud.hp}/{hud.maxHp}</span>
-        </span>
-        {hud.maxRam > 0 && (
-          <span>
-            <span style={{ color: labelColor }}>RAM </span>
-            {bar(ramPct, 8, ramColor)}
-            <span style={{ color: ramColor, marginLeft: '0.5ch' }}>{hud.ram}/{hud.maxRam}</span>
-          </span>
-        )}
-      </div>
+      {/* Content */}
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
 
-      {/* Row 3: XP bar (full width, neon pink) */}
-      <div style={{ marginTop: '0.15rem' }}>
-        <span style={{ color: labelColor }}>XP </span>
-        {bar(xpPct, XP_W, xpColor)}
-        <span style={{ color: xpColor, marginLeft: '0.5ch' }}>
-          {hud.xp}/{hud.xpNext}
-        </span>
-      </div>
-
-      {/* Row 4: Location + Currency + Status */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5ch', marginTop: '0.15rem' }}>
-        <span style={{ color: locColor }}>
-          {hud.zoneName} — {hud.roomName}
-          {hud.isSafeZone && <span style={{ color: '#a5f3fc', marginLeft: '1ch' }}>[SAFE]</span>}
-        </span>
-        <div style={{ display: 'flex', gap: '1.5ch', alignItems: 'baseline' }}>
-          <span style={{ color: credColor }}>{hud.creds}¢</span>
-          {hud.scrip > 0 && <span style={{ color: scripColor }}>{hud.scrip}s</span>}
-          {hud.inCombat && (
-            <span style={{ color: '#ff4444', fontWeight: 'bold' }}>
-              ⚔ R{hud.combatRound} · {hud.combatAP}AP
+        {/* Row 1: Identity + Level */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.6ch', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold', letterSpacing: '0.04em' }}>
+              {hud.subjectId}
             </span>
+            <span style={{ color: dim }}>·</span>
+            <span style={{ color: mid, fontSize: '0.85em' }}>{hud.archetype}</span>
+            <span style={{ color: dim }}>·</span>
+            <span style={{ color: mid, fontSize: '0.85em' }}>{hud.combatStyle}</span>
+          </div>
+          <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold', textShadow: '0 0 6px var(--phosphor-accent)' }}>
+            Lv.{hud.level}
+          </span>
+        </div>
+
+        {/* Row 2: HP + RAM */}
+        <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', flex: '1 1 auto', minWidth: 0 }}>
+            <span style={{ color: dim, fontSize: '0.8em', width: '2.2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+            <HudBar pct={hpPct} color={hpColor} animate={hud.inCombat && hpPct <= 25} />
+            <span style={{ color: hpColor, fontSize: '0.8em', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+              {hud.hp}/{hud.maxHp}
+            </span>
+          </div>
+          {hud.maxRam > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', flex: '0 0 auto' }}>
+              <span style={{ color: dim, fontSize: '0.8em', flexShrink: 0 }}>RAM</span>
+              <HudBar pct={ramPct} color={ramColor} height={4} />
+              <span style={{ color: ramColor, fontSize: '0.8em', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {hud.ram}/{hud.maxRam}
+              </span>
+            </div>
           )}
         </div>
+
+        {/* Row 3: XP bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          <span style={{ color: dim, fontSize: '0.8em', width: '2.2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+          <HudBar pct={xpPct} color={xpColor} height={4} glow />
+          <span style={{ color: xpColor, fontSize: '0.8em', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {hud.xp}/{hud.xpNext}
+          </span>
+        </div>
+
+        {/* Row 4: Location · Currency · Combat */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5ch' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ color: mid, fontSize: '0.8em' }}>
+              {hud.zoneName} — {hud.roomName}
+            </span>
+            {hud.isSafeZone && (
+              <span style={{
+                color: '#a5f3fc', fontSize: '0.7em',
+                border: '1px solid rgba(165,243,252,0.3)', padding: '0 0.3em',
+                borderRadius: 2, lineHeight: 1.4,
+              }}>SAFE</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.8ch', alignItems: 'center' }}>
+            <span style={{ color: '#fcd34d', fontSize: '0.8em' }}>{hud.creds}¢</span>
+            {hud.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: '0.8em' }}>{hud.scrip}s</span>}
+            {hud.inCombat && (
+              <span style={{
+                color: '#ff4444', fontWeight: 'bold', fontSize: '0.8em',
+                textShadow: '0 0 6px rgba(255,68,68,0.5)',
+              }}>
+                ⚔ R{hud.combatRound} · {hud.combatAP}AP
+              </span>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Keyframe for low-HP pulse */}
+      <style>{`
+        @keyframes hud-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+      `}</style>
     </div>
   );
 };
