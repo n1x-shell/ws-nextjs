@@ -69,6 +69,10 @@ import {
   getAvailableQuests, getActiveQuests, startQuest, trackObjective,
   getQuestObjectiveProgress, QUEST_REGISTRY,
 } from './questEngine';
+import {
+  playNPCVoice, playSegments, parseVoiceSegments,
+  stripTagsForDisplay,
+} from './mudAudio';
 
 // ── Style constants (mirrors TelnetSession / systemCommands pattern) ────────
 
@@ -845,6 +849,13 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
       )}
     </div>
   );
+
+  // Narrator voice — read room description (fire-and-forget, non-blocking)
+  // NPC dialogue in the description (quoted text) switches to NPC voice automatically
+  const hasNPCs = room.npcs.length > 0;
+  const primaryNPC = hasNPCs ? room.npcs[0].id : 'narrator';
+  const segments = parseVoiceSegments(room.description, primaryNPC);
+  playSegments(segments);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2090,13 +2101,17 @@ export async function handleNPCDialogue(
     responses.forEach((resp, i) => {
       setTimeout(() => {
         const color = getNPCColor(resp.npcId);
+        const displayText = stripTagsForDisplay(resp.text);
         addLocalMsg(
           <div key={k(`npc-say-${resp.npcId}-${i}`)} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
             <span style={{ color, fontWeight: 'bold' }}>[{resp.name}]</span>
             <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
-            <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{resp.text}</span>
+            <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{displayText}</span>
           </div>
         );
+
+        // Play NPC voice (non-blocking — audio plays alongside text)
+        playNPCVoice(resp.text, resp.npcId);
 
         // Record interaction + small disposition bump for talking
         recordInteraction(handle, resp.npcId, `player said: "${message.slice(0, 50)}" — ${resp.name} responded`);
