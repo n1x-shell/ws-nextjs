@@ -31,11 +31,15 @@ import {
   defaultAttributes,
   CREATION_STEPS,
   generateSubjectId,
+  addXP,
 } from './character';
 import {
   saveFullSession,
   saveCharacter,
   addVisitedRoom,
+  saveCombat,
+  clearCombat,
+  loadWorld,
 } from './persistence';
 import {
   getRoom,
@@ -43,8 +47,27 @@ import {
   getVisibleExits,
   resolveExit,
   getJunctionBranches,
+  rollRoomEnemies,
 } from './worldMap';
 import { eventBus } from '@/lib/eventBus';
+import {
+  initCombat, resolvePlayerAttack, resolveQuickhack, useItemInCombat,
+  scanEnemy, attemptFlee, processEnemyTurn, advanceTurn, checkCombatEnd,
+  syncCombatToCharacter, isPlayersTurn, getEnemyById,
+  getAllLivingEnemies, getPlayerCombatant, getAvailableHacks, hpBar,
+  QUICKHACKS,
+} from './combat';
+import {
+  routeDialogue, buildDialogueRequest, recordInteraction,
+  nudgeDisposition, getNPCColor,
+} from './npcEngine';
+import {
+  getFormattedShop, getShopkeeperName, buyItem, sellItem,
+} from './shopSystem';
+import {
+  getAvailableQuests, getActiveQuests, trackObjective,
+  getQuestObjectiveProgress, QUEST_REGISTRY,
+} from './questEngine';
 
 // ── Style constants (mirrors TelnetSession / systemCommands pattern) ────────
 
@@ -69,6 +92,13 @@ const C = {
   safe:      '#a5f3fc',
   stat:      'var(--phosphor-green)',
   warning:   '#ff8c00',
+  combat:    '#ff4444',
+  combatHud: '#ff6b6b',
+  heal:      '#4ade80',
+  hack:      '#c084fc',
+  quest:     '#fbbf24',
+  questDone: '#4ade80',
+  shop:      '#fcd34d',
 };
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -814,6 +844,178 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── COMBAT HUD ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function renderCombatHUD(session: MudSession, addLocalMsg: AddLocalMsg): void {
+  const combat = session.combat;
+  const char = session.character;
+  if (!combat || !char) return;
+
+  const player = getPlayerCombatant(combat);
+  const enemies = getAllLivingEnemies(combat);
+  if (!player) return;
+
+  const isMyTurn = isPlayersTurn(combat);
+
+  addLocalMsg(
+    <div key={k('combat-hud')}>
+      <MudLine color={C.combatHud} bold>
+        ── COMBAT · Round {combat.round} {isMyTurn ? '· YOUR TURN' : ''} ──
+      </MudLine>
+      <MudSpacer />
+      <MudLine indent color={C.stat}>
+        YOU: {hpBar(player.hp, player.maxHp, 16)} {player.hp}/{player.maxHp} HP
+        {player.ram !== undefined ? ` · RAM ${player.ram}/${player.maxRam}` : ''}
+        {isMyTurn ? ` · ${player.ap} AP` : ''}
+      </MudLine>
+      {enemies.map(e => (
+        <MudLine key={k(`hud-${e.id}`)} indent color={C.enemy}>
+          {e.name}: {hpBar(e.hp, e.maxHp, 16)} {e.hp}/{e.maxHp}
+          {e.effects.length > 0 ? ` [${e.effects.map(ef => ef.name).join(', ')}]` : ''}
+        </MudLine>
+      ))}
+      {isMyTurn && (
+        <>
+          <MudSpacer />
+          <MudLine color={C.dim} opacity={0.5}>
+            /attack · /hack · /use · /scan · /flee
+          </MudLine>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Process all enemy turns after player ends turn
+function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): void {
+  const combat = session.combat;
+  const char = session.character;
+  if (!combat || !char) return;
+
+  // Advance past player's turn
+  let next = advanceTurn(combat);
+
+  // Process each enemy turn until it's the player's turn again
+  while (next.nextId !== 'player') {
+    const enemy = getEnemyById(combat, next.nextId) ?? getAllLivingEnemies(combat).find(e => e.id === next.nextId);
+    if (!enemy || enemy.hp <= 0) {
+      next = advanceTurn(combat);
+      continue;
+    }
+
+    const action = processEnemyTurn(combat, next.nextId);
+    if (action.flavorText) {
+      addLocalMsg(
+        <MudLine key={k(`enemy-act-${action.attackerId}`)} color={action.hit === false ? C.dim : C.enemy}>
+          {action.flavorText}
+          {action.crit ? ' CRITICAL!' : ''}
+        </MudLine>
+      );
+    }
+
+    // Check if player died
+    const player = getPlayerCombatant(combat);
+    if (player && player.hp <= 0) {
+      syncCombatToCharacter(combat, char);
+      return; // Player death handled by caller
+    }
+
+    next = advanceTurn(combat);
+    if (next.newRound) break; // New round = back to player
+  }
+
+  syncCombatToCharacter(combat, char);
+}
+
+// Enter combat from room enemies
+function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession: (s: MudSession) => void): void {
+  const char = session.character;
+  if (!char) return;
+
+  const room = getRoom(char.currentRoom);
+  if (!room || room.enemies.length === 0 || room.isSafeZone) return;
+
+  const spawned = rollRoomEnemies(char.currentRoom);
+  if (spawned.length === 0) return;
+
+  const combat = initCombat(char, spawned);
+  const updated = { ...session, phase: 'combat' as const, combat };
+  setSession(updated);
+  saveCombat(char.handle, combat);
+
+  // Entry announcement
+  const names = spawned.map(e => `${e.name} (Lv.${e.level})`).join(', ');
+  addLocalMsg(
+    <div key={k('combat-start')}>
+      <MudSpacer />
+      <MudLine color={C.combat} glow bold>
+        &gt;&gt; COMBAT INITIATED
+      </MudLine>
+      <MudLine color={C.enemy}>
+        hostile{spawned.length > 1 ? 's' : ''}: {names}
+      </MudLine>
+    </div>
+  );
+
+  // Show initiative order
+  const first = combat.turnOrder[0];
+  if (first === 'player') {
+    addLocalMsg(
+      <MudLine key={k('init-player')} color={C.stat} opacity={0.7}>
+        you act first.
+      </MudLine>
+    );
+  } else {
+    addLocalMsg(
+      <MudLine key={k('init-enemy')} color={C.enemy} opacity={0.7}>
+        they act first.
+      </MudLine>
+    );
+    // Process enemy turns immediately
+    processAllEnemyTurns(updated, addLocalMsg);
+    setSession({ ...updated });
+  }
+
+  setTimeout(() => renderCombatHUD(updated, addLocalMsg), 200);
+}
+
+// Handle player death
+function handleDeath(session: MudSession, addLocalMsg: AddLocalMsg, setSession: (s: MudSession) => void): void {
+  const char = session.character;
+  if (!char) return;
+
+  char.isDead = true;
+  char.deaths += 1;
+  saveCharacter(char.handle, char);
+  clearCombat(char.handle);
+
+  const updated: MudSession = { ...session, phase: 'dead', combat: null };
+  setSession(updated);
+
+  addLocalMsg(
+    <div key={k('death')}>
+      <MudSpacer />
+      <MudLine color={C.combat} glow bold>
+        &gt;&gt; FLATLINE
+      </MudLine>
+      <MudLine color={C.dim} opacity={0.7}>
+        hp reached zero. the tunnels claim another.
+      </MudLine>
+      <MudLine color={C.dim} opacity={0.5}>
+        your gear lies where you fell. permadeath is permanent.
+      </MudLine>
+      <MudSpacer />
+      <MudLine color={C.dim} opacity={0.4}>
+        ghost channel access retained. /enter to create a new character.
+      </MudLine>
+    </div>
+  );
+
+  eventBus.emit('neural:glitch-trigger', { intensity: 1.0 });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ── COMMAND ROUTER ──────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -825,8 +1027,18 @@ export function handleMudCommand(input: string, ctx: MudContext): MudCommandResu
     return handleCreationInput(input, ctx);
   }
 
-  // ── Only process /commands when MUD is active ───────────────────────────
-  if (session.phase !== 'active') {
+  // ── Dead phase — character is gone ──────────────────────────────────────
+  if (session.phase === 'dead') {
+    addLocalMsg(
+      <MudNotice key={k('dead-cmd')} error>
+        you are dead. your character is gone. /enter to start over.
+      </MudNotice>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── Only process /commands when MUD is active or in combat ────────────
+  if (session.phase !== 'active' && session.phase !== 'combat') {
     return { handled: false };
   }
 
@@ -840,6 +1052,390 @@ export function handleMudCommand(input: string, ctx: MudContext): MudCommandResu
   const char = session.character;
 
   if (!char) return { handled: false };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── COMBAT COMMANDS (only during combat phase) ───────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+
+  if (session.phase === 'combat' && session.combat) {
+    const combat = session.combat;
+    const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands'];
+
+    if (!COMBAT_CMDS.includes(cmd)) {
+      addLocalMsg(
+        <MudNotice key={k('combat-block')} error>
+          you're in combat. /attack · /hack · /use · /scan · /flee
+        </MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    if (!isPlayersTurn(combat)) {
+      addLocalMsg(
+        <MudNotice key={k('not-turn')} error>not your turn.</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── /attack [target] ────────────────────────────────────────────────
+    if (cmd === 'attack' || cmd === 'a') {
+      const enemies = getAllLivingEnemies(combat);
+      if (enemies.length === 0) {
+        addLocalMsg(<MudNotice key={k('atk-none')} error>no enemies to attack.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      // Target selection: by name or default first enemy
+      let target = enemies[0];
+      if (rest) {
+        const match = enemies.find(e => e.name.toLowerCase().includes(rest.toLowerCase()) || e.id.includes(rest));
+        if (match) target = match;
+      }
+
+      const result = resolvePlayerAttack(combat, target.id, char);
+      if ('error' in result) {
+        addLocalMsg(<MudNotice key={k('atk-err')} error>{result.error}</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      const r = result as AttackResult;
+      addLocalMsg(
+        <div key={k('atk-result')}>
+          <MudLine color={r.hit ? C.stat : C.dim}>
+            you strike at {r.targetName} —
+            roll: {r.roll} + mods = {r.attackTotal} vs {r.defenseTotal}
+          </MudLine>
+          {r.hit ? (
+            <MudLine color={r.crit ? C.combat : C.stat} bold={r.crit}>
+              &gt;&gt; {r.crit ? 'CRITICAL HIT' : 'HIT'} — {r.damage} damage.
+              {r.killed ? ` ${r.targetName} goes down.` : ''}
+            </MudLine>
+          ) : (
+            <MudLine color={C.dim} opacity={0.6}>
+              &gt;&gt; MISS — {r.flavorMiss}
+            </MudLine>
+          )}
+        </div>
+      );
+
+      syncCombatToCharacter(combat, char);
+      saveCombat(char.handle, combat);
+
+      // Check combat end
+      const endCheck = checkCombatEnd(combat, []);
+      if (endCheck.over) {
+        if (endCheck.victory) {
+          clearCombat(char.handle);
+          const xpResult = addXP(char, endCheck.xpGained);
+          saveCharacter(char.handle, char);
+          setSession({ ...session, phase: 'active', combat: null });
+          addLocalMsg(
+            <div key={k('combat-win')}>
+              <MudSpacer />
+              <MudLine color={C.stat} glow bold>&gt;&gt; COMBAT RESOLVED</MudLine>
+              <MudLine indent color={C.stat}>+{endCheck.xpGained} XP{xpResult.leveled ? ` · LEVEL UP → ${xpResult.newLevel}` : ''}</MudLine>
+              {endCheck.drops.length > 0 && (
+                <MudLine indent color={C.dim} opacity={0.6}>
+                  drops: {endCheck.drops.join(', ')}
+                </MudLine>
+              )}
+            </div>
+          );
+          // Track kills for quests
+          trackObjective(char.handle, 'kill', 'any', 1);
+        } else {
+          handleDeath(session, addLocalMsg, setSession);
+        }
+        return { handled: true, stopPropagation: true };
+      }
+
+      // If player has AP left, show HUD again
+      const player = getPlayerCombatant(combat);
+      if (player && player.ap > 0) {
+        renderCombatHUD(session, addLocalMsg);
+      } else {
+        // End of player turn — process enemy turns
+        addLocalMsg(<MudLine key={k('turn-end')} color={C.dim} opacity={0.4}>— end of your turn —</MudLine>);
+        processAllEnemyTurns(session, addLocalMsg);
+        // Check death after enemy turns
+        if (char.hp <= 0) {
+          handleDeath(session, addLocalMsg, setSession);
+          return { handled: true, stopPropagation: true };
+        }
+        saveCombat(char.handle, combat);
+        setSession({ ...session });
+        renderCombatHUD(session, addLocalMsg);
+      }
+
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── /hack [target] [hackname] ───────────────────────────────────────
+    if (cmd === 'hack' || cmd === 'h') {
+      const hacks = getAvailableHacks(char.attributes.TECH, char.combatStyle);
+      if (hacks.length === 0) {
+        addLocalMsg(
+          <MudNotice key={k('hack-none')} error>
+            {char.combatStyle !== 'SYNAPSE' ? 'quickhacking requires SYNAPSE combat style or TECH ≥ 6.' : 'no hacks available at your TECH level.'}
+          </MudNotice>
+        );
+        return { handled: true, stopPropagation: true };
+      }
+
+      const args = rest.split(/\s+/);
+      if (!rest || args.length === 0) {
+        // Show available hacks
+        addLocalMsg(
+          <div key={k('hack-list')}>
+            <MudLine color={C.hack} bold>QUICKHACKS (RAM: {char.ram}/{char.maxRam})</MudLine>
+            {hacks.map(h => (
+              <MudLine key={k(`hack-${h.id}`)} indent color={h.ramCost <= (char.ram ?? 0) ? C.hack : C.dim}>
+                /hack {h.id.replace(/_/g, ' ')} — {h.description} (RAM: {h.ramCost})
+              </MudLine>
+            ))}
+          </div>
+        );
+        return { handled: true, stopPropagation: true };
+      }
+
+      // Parse hack name from args
+      const hackName = args.join('_').toLowerCase().replace(/ /g, '_');
+      const hack = hacks.find(h => h.id.includes(hackName) || h.name.toLowerCase().includes(args.join(' ').toLowerCase()));
+      if (!hack) {
+        addLocalMsg(<MudNotice key={k('hack-nf')} error>unknown hack. type /hack to see available.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      const enemies = getAllLivingEnemies(combat);
+      const target = enemies[0];
+      if (!target) {
+        addLocalMsg(<MudNotice key={k('hack-notarget')} error>no targets.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      const result = resolveQuickhack(combat, target.id, hack.id, char);
+      if ('error' in result) {
+        addLocalMsg(<MudNotice key={k('hack-err')} error>{result.error}</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      const hr = result as HackResult;
+      char.ram = getPlayerCombatant(combat)?.ram ?? char.ram;
+
+      addLocalMsg(
+        <div key={k('hack-result')}>
+          <MudLine color={C.hack}>
+            uploading {hr.hackName} → {hr.targetName}
+            — roll: {hr.roll} + TECH = {hr.attackTotal} vs {hr.defenseTotal}
+          </MudLine>
+          {hr.hit ? (
+            <MudLine color={C.hack} bold>
+              &gt;&gt; BREACH — {hr.damage > 0 ? `${hr.damage} damage` : ''}{hr.effect ? ` · ${hr.effect}` : ''}
+              {hr.killed ? ` · ${hr.targetName} flatlines.` : ''} (RAM: {char.ram}/{char.maxRam})
+            </MudLine>
+          ) : (
+            <MudLine color={C.dim} opacity={0.6}>
+              &gt;&gt; BLOCKED — firewall held. RAM spent: {hr.ramSpent}
+            </MudLine>
+          )}
+        </div>
+      );
+
+      syncCombatToCharacter(combat, char);
+      saveCombat(char.handle, combat);
+
+      // Check end / continue
+      const endCheck = checkCombatEnd(combat, []);
+      if (endCheck.over) {
+        if (endCheck.victory) {
+          clearCombat(char.handle);
+          const xpResult = addXP(char, endCheck.xpGained);
+          saveCharacter(char.handle, char);
+          setSession({ ...session, phase: 'active', combat: null });
+          addLocalMsg(
+            <MudLine key={k('combat-win-h')} color={C.stat} glow bold>
+              &gt;&gt; COMBAT RESOLVED · +{endCheck.xpGained} XP{xpResult.leveled ? ` · LEVEL ${xpResult.newLevel}` : ''}
+            </MudLine>
+          );
+        } else {
+          handleDeath(session, addLocalMsg, setSession);
+        }
+        return { handled: true, stopPropagation: true };
+      }
+
+      const player = getPlayerCombatant(combat);
+      if (player && player.ap > 0) {
+        renderCombatHUD(session, addLocalMsg);
+      } else {
+        addLocalMsg(<MudLine key={k('turn-end-h')} color={C.dim} opacity={0.4}>— end of your turn —</MudLine>);
+        processAllEnemyTurns(session, addLocalMsg);
+        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
+        saveCombat(char.handle, combat);
+        setSession({ ...session });
+        renderCombatHUD(session, addLocalMsg);
+      }
+
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── /use [item] in combat ───────────────────────────────────────────
+    if (cmd === 'use' || cmd === 'u') {
+      if (!rest) {
+        const healables = char.inventory.filter(i => i.healAmount).map((i, idx) => `${idx}: ${i.name} (+${i.healAmount} HP)`);
+        if (healables.length === 0) {
+          addLocalMsg(<MudNotice key={k('use-none')} error>no usable items.</MudNotice>);
+        } else {
+          addLocalMsg(
+            <div key={k('use-list')}>
+              <MudLine color={C.heal}>usable items:</MudLine>
+              {healables.map((h, i) => <MudLine key={k(`use-${i}`)} indent color={C.heal}>{h}</MudLine>)}
+              <MudLine color={C.dim} opacity={0.5}>/use &lt;name or index&gt;</MudLine>
+            </div>
+          );
+        }
+        return { handled: true, stopPropagation: true };
+      }
+
+      // Find item by name or index
+      let idx = parseInt(rest, 10);
+      if (isNaN(idx)) {
+        idx = char.inventory.findIndex(i => i.name.toLowerCase().includes(rest.toLowerCase()) && i.healAmount);
+      }
+
+      const result = useItemInCombat(combat, char, idx);
+      if (result.error) {
+        addLocalMsg(<MudNotice key={k('use-err')} error>{result.error}</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      addLocalMsg(
+        <MudLine key={k('use-ok')} color={C.heal}>
+          used {result.itemName} — restored {result.healed} HP ({char.hp}/{char.maxHp})
+        </MudLine>
+      );
+
+      syncCombatToCharacter(combat, char);
+      saveCombat(char.handle, combat);
+
+      const player = getPlayerCombatant(combat);
+      if (player && player.ap > 0) {
+        renderCombatHUD(session, addLocalMsg);
+      } else {
+        processAllEnemyTurns(session, addLocalMsg);
+        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
+        saveCombat(char.handle, combat);
+        setSession({ ...session });
+        renderCombatHUD(session, addLocalMsg);
+      }
+
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── /scan [target] ──────────────────────────────────────────────────
+    if (cmd === 'scan') {
+      const enemies = getAllLivingEnemies(combat);
+      const target = rest ? enemies.find(e => e.name.toLowerCase().includes(rest.toLowerCase())) : enemies[0];
+      if (!target) {
+        addLocalMsg(<MudNotice key={k('scan-none')} error>no target to scan.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      const result = scanEnemy(combat, target.id, char);
+      if ('error' in result) {
+        addLocalMsg(<MudNotice key={k('scan-err')} error>{result.error}</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      const sr = result as ScanResult;
+      if (!sr.success) {
+        addLocalMsg(<MudLine key={k('scan-fail')} color={C.dim} opacity={0.6}>scan failed — insufficient data on {sr.targetName}.</MudLine>);
+      } else {
+        addLocalMsg(
+          <div key={k('scan-ok')}>
+            <MudLine color={C.accent} bold>SCAN: {sr.targetName}</MudLine>
+            <MudLine indent color={C.stat}>HP: {sr.hp}/{sr.maxHp}</MudLine>
+            {sr.attributes && (Object.keys(sr.attributes) as AttributeName[]).map(a => (
+              <MudLine key={k(`scan-${a}`)} indent color={C.dim}>
+                {a}: {sr.attributes![a]}
+              </MudLine>
+            ))}
+            {sr.weaknesses && sr.weaknesses.length > 0 && (
+              <MudLine indent color={C.warning}>
+                weaknesses: {sr.weaknesses.join('; ')}
+              </MudLine>
+            )}
+          </div>
+        );
+      }
+
+      saveCombat(char.handle, combat);
+      const player = getPlayerCombatant(combat);
+      if (player && player.ap > 0) renderCombatHUD(session, addLocalMsg);
+      else {
+        processAllEnemyTurns(session, addLocalMsg);
+        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
+        saveCombat(char.handle, combat);
+        setSession({ ...session });
+        renderCombatHUD(session, addLocalMsg);
+      }
+
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── /flee ───────────────────────────────────────────────────────────
+    if (cmd === 'flee' || cmd === 'run') {
+      const result = attemptFlee(combat, char);
+      if ('error' in result) {
+        addLocalMsg(<MudNotice key={k('flee-err')} error>{result.error}</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      const fr = result as FleeResult;
+      addLocalMsg(
+        <MudLine key={k('flee-result')} color={fr.success ? C.stat : C.enemy}>
+          {fr.flavorText}
+          {fr.damageTaken ? ` (${fr.damageTaken} damage)` : ''}
+        </MudLine>
+      );
+
+      syncCombatToCharacter(combat, char);
+
+      if (fr.success) {
+        clearCombat(char.handle);
+        saveCharacter(char.handle, char);
+        setSession({ ...session, phase: 'active', combat: null });
+        addLocalMsg(
+          <MudLine key={k('flee-ok')} color={C.dim} opacity={0.5}>
+            combat ended. you escaped.
+          </MudLine>
+        );
+      } else {
+        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
+        saveCombat(char.handle, combat);
+        processAllEnemyTurns(session, addLocalMsg);
+        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
+        setSession({ ...session });
+        renderCombatHUD(session, addLocalMsg);
+      }
+
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Fall through to stats/inv/save/mudhelp below
+  }
+
+  // ── Block non-combat navigation during combat ─────────────────────────
+  if (session.phase === 'combat') {
+    const allowedInCombat = ['stats', 'status', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands'];
+    if (!allowedInCombat.includes(cmd)) {
+      addLocalMsg(
+        <MudNotice key={k('combat-only')} error>
+          finish the fight first. /attack · /hack · /flee
+        </MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+  }
 
   // ── /look ─────────────────────────────────────────────────────────────
   if (cmd === 'look' || cmd === 'l') {
@@ -929,7 +1525,16 @@ export function handleMudCommand(input: string, ctx: MudContext): MudCommandResu
     }
 
     // Auto-look
-    renderLook({ ...session, character: { ...char, currentRoom: result.targetRoom } }, addLocalMsg);
+    const movedSession = { ...session, character: { ...char, currentRoom: result.targetRoom } };
+    renderLook(movedSession, addLocalMsg);
+
+    // Track room visit for quests
+    trackObjective(handle, 'go_to', result.targetRoom);
+
+    // Trigger enemy encounter if room has hostiles
+    if (targetRoom.enemies.length > 0 && !targetRoom.isSafeZone) {
+      setTimeout(() => triggerCombat(movedSession, addLocalMsg, setSession), 400);
+    }
 
     return { handled: true, stopPropagation: true };
   }
@@ -1130,40 +1735,268 @@ export function handleMudCommand(input: string, ctx: MudContext): MudCommandResu
 
   // ── /mudhelp ──────────────────────────────────────────────────────────
   if (cmd === 'mudhelp' || cmd === 'mhelp' || cmd === 'commands') {
-    const cmds: Array<{ cmd: string; desc: string }> = [
-      { cmd: '/look',              desc: 'Examine your surroundings' },
-      { cmd: '/go <dir>',          desc: 'Move in a direction or to a named room' },
-      { cmd: '/exits',             desc: 'List available exits' },
-      { cmd: '/examine <thing>',   desc: 'Inspect an object, NPC, or detail' },
-      { cmd: '/where',             desc: 'Show current zone and room' },
-      { cmd: '/stats',             desc: 'Show your character sheet' },
-      { cmd: '/inventory',         desc: 'Show carried items and gear' },
-      { cmd: '/save',              desc: 'Manual save (also auto-saves on move)' },
-      { cmd: '/mudhelp',           desc: 'Show this list' },
+    const sections: Array<{ title: string; cmds: Array<{ cmd: string; desc: string }> }> = [
+      { title: 'NAVIGATION', cmds: [
+        { cmd: '/look',              desc: 'Examine your surroundings' },
+        { cmd: '/go <dir>',          desc: 'Move to a direction or named room' },
+        { cmd: '/exits',             desc: 'List available exits' },
+        { cmd: '/examine <thing>',   desc: 'Inspect an object, NPC, or detail' },
+        { cmd: '/where',             desc: 'Show current zone and room' },
+      ]},
+      { title: 'COMBAT', cmds: [
+        { cmd: '/attack [target]',   desc: 'Melee/ranged attack (1 AP)' },
+        { cmd: '/hack [name]',       desc: 'Upload quickhack (2 AP, needs RAM)' },
+        { cmd: '/use [item]',        desc: 'Use item in combat (1 AP)' },
+        { cmd: '/scan [target]',     desc: 'Analyze enemy stats (1 AP)' },
+        { cmd: '/flee',              desc: 'Attempt escape (2 AP)' },
+      ]},
+      { title: 'SOCIAL', cmds: [
+        { cmd: '/talk <npc>',        desc: 'Address an NPC directly' },
+        { cmd: '/shop',              desc: 'Browse shop (when near vendor)' },
+        { cmd: '/buy <item>',        desc: 'Purchase from shop' },
+        { cmd: '/sell <item>',       desc: 'Sell to vendor' },
+      ]},
+      { title: 'QUEST', cmds: [
+        { cmd: '/quests',            desc: 'Show active and available quests' },
+        { cmd: '/quest <id>',        desc: 'Show quest details and progress' },
+      ]},
+      { title: 'CHARACTER', cmds: [
+        { cmd: '/stats',             desc: 'Show your character sheet' },
+        { cmd: '/inventory',         desc: 'Show carried items and gear' },
+        { cmd: '/save',              desc: 'Manual save' },
+      ]},
     ];
 
     addLocalMsg(
       <div key={k('mudhelp')}>
         <MudLine color={C.accent} bold>&gt;&gt; TUNNELCORE — COMMANDS</MudLine>
-        <MudSpacer />
-        {cmds.map(c => (
-          <div key={k(`mh-${c.cmd}`)} style={{
-            paddingLeft: '2ch',
-            display: 'flex',
-            gap: '1ch',
-            flexWrap: 'wrap',
-            fontFamily: 'monospace',
-            fontSize: S.base,
-            lineHeight: 1.8,
-          }}>
-            <span style={{ color: C.accent, minWidth: '20ch', flexShrink: 0 }}>{c.cmd}</span>
-            <span style={{ color: C.dim, opacity: 0.7 }}>{c.desc}</span>
+        {sections.map(s => (
+          <div key={k(`mh-${s.title}`)}>
+            <MudLine color={C.dim} opacity={0.5} style={{ marginTop: '0.3rem' }}>{s.title}</MudLine>
+            {s.cmds.map(c => (
+              <div key={k(`mh-${c.cmd}`)} style={{
+                paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap',
+                fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
+              }}>
+                <span style={{ color: C.accent, minWidth: '20ch', flexShrink: 0 }}>{c.cmd}</span>
+                <span style={{ color: C.dim, opacity: 0.7 }}>{c.desc}</span>
+              </div>
+            ))}
           </div>
         ))}
         <MudSpacer />
         <MudLine color={C.dim} opacity={0.4}>
-          regular chat still works — just type without / to talk OOC
+          talk to NPCs by typing without / — they'll respond if they're in the room
         </MudLine>
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /talk <npc> ───────────────────────────────────────────────────────
+  if (cmd === 'talk' || cmd === 'say') {
+    if (!rest) {
+      addLocalMsg(<MudNotice key={k('talk-err')} error>say what? /talk &lt;message&gt; or just type without /</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+    // Route through the NPC dialogue system
+    handleNPCDialogue(rest, { addLocalMsg, handle, session, setSession });
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /shop ─────────────────────────────────────────────────────────────
+  if (cmd === 'shop') {
+    const room = getRoom(char.currentRoom);
+    if (!room) return { handled: true, stopPropagation: true };
+
+    const shopkeeper = room.npcs.find(n => n.services?.includes('shop'));
+    if (!shopkeeper) {
+      addLocalMsg(<MudNotice key={k('shop-none')} error>no vendor here.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const listings = getFormattedShop(shopkeeper.id, char);
+    if (!listings) {
+      addLocalMsg(<MudNotice key={k('shop-empty')} error>this vendor has nothing to sell.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    addLocalMsg(
+      <div key={k('shop')}>
+        <MudLine color={C.shop} bold>&gt;&gt; {getShopkeeperName(shopkeeper.id).toUpperCase()}'S SHOP</MudLine>
+        <MudLine color={C.dim} opacity={0.5}>your creds: {char.currency.creds}</MudLine>
+        <MudSpacer />
+        {listings.map((item, i) => (
+          <div key={k(`shop-${i}`)} style={{
+            paddingLeft: '2ch', fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
+          }}>
+            <span style={{ color: item.price !== null ? C.shop : C.dim, minWidth: '24ch', display: 'inline-block' }}>
+              {item.name}
+            </span>
+            <span style={{ color: item.price !== null ? C.stat : C.error, minWidth: '8ch', display: 'inline-block' }}>
+              {item.price !== null ? `${item.price}c` : 'N/A'}
+            </span>
+            <span style={{ color: C.dim, opacity: 0.5 }}>
+              {item.stock === -1 ? '' : `(${item.stock} left)`}
+            </span>
+          </div>
+        ))}
+        <MudSpacer />
+        <MudLine color={C.dim} opacity={0.4}>/buy &lt;item name&gt; · /sell &lt;item name&gt;</MudLine>
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /buy <item> ───────────────────────────────────────────────────────
+  if (cmd === 'buy') {
+    if (!rest) {
+      addLocalMsg(<MudNotice key={k('buy-err')} error>buy what? /buy &lt;item name&gt;</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+    const room = getRoom(char.currentRoom);
+    const shopkeeper = room?.npcs.find(n => n.services?.includes('shop'));
+    if (!shopkeeper) {
+      addLocalMsg(<MudNotice key={k('buy-no-shop')} error>no vendor here.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const listings = getFormattedShop(shopkeeper.id, char);
+    const match = listings?.find(l => l.name.toLowerCase().includes(rest.toLowerCase()));
+    if (!match) {
+      addLocalMsg(<MudNotice key={k('buy-nf')} error>they don't sell that.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const result = buyItem(char, shopkeeper.id, match.templateId);
+    if (!result.success) {
+      addLocalMsg(<MudNotice key={k('buy-fail')} error>{result.error}</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    saveCharacter(handle, char);
+    addLocalMsg(
+      <MudLine key={k('buy-ok')} color={C.shop}>
+        purchased {result.item!.name} for {result.price}c. remaining: {char.currency.creds}c
+      </MudLine>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /sell <item> ──────────────────────────────────────────────────────
+  if (cmd === 'sell') {
+    if (!rest) {
+      addLocalMsg(<MudNotice key={k('sell-err')} error>sell what? /sell &lt;item name&gt;</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+    const room = getRoom(char.currentRoom);
+    const shopkeeper = room?.npcs.find(n => n.services?.includes('shop'));
+    if (!shopkeeper) {
+      addLocalMsg(<MudNotice key={k('sell-no-shop')} error>no vendor here.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const idx = char.inventory.findIndex(i => i.name.toLowerCase().includes(rest.toLowerCase()));
+    if (idx < 0) {
+      addLocalMsg(<MudNotice key={k('sell-nf')} error>you don't have that.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const result = sellItem(char, shopkeeper.id, idx);
+    if (!result.success) {
+      addLocalMsg(<MudNotice key={k('sell-fail')} error>{result.error}</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    saveCharacter(handle, char);
+    addLocalMsg(
+      <MudLine key={k('sell-ok')} color={C.shop}>
+        sold {result.itemName} for {result.price}c. total: {char.currency.creds}c
+      </MudLine>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /quests ───────────────────────────────────────────────────────────
+  if (cmd === 'quests') {
+    const world = loadWorld(handle);
+    const active = getActiveQuests(world);
+    const available = getAvailableQuests(char, world);
+
+    addLocalMsg(
+      <div key={k('quests')}>
+        <MudLine color={C.quest} bold>&gt;&gt; QUEST LOG</MudLine>
+        <MudSpacer />
+        {active.length > 0 ? (
+          <div>
+            <MudLine color={C.quest} opacity={0.7}>ACTIVE:</MudLine>
+            {active.map(q => {
+              const progress = getQuestObjectiveProgress(handle, q.id);
+              const done = progress?.objectives.filter(o => o.done).length ?? 0;
+              const total = progress?.objectives.length ?? 0;
+              return (
+                <MudLine key={k(`aq-${q.id}`)} indent color={C.quest}>
+                  {q.title} [{done}/{total}] — /quest {q.id}
+                </MudLine>
+              );
+            })}
+          </div>
+        ) : (
+          <MudLine color={C.dim} opacity={0.5}>no active quests.</MudLine>
+        )}
+        {available.length > 0 && (
+          <div>
+            <MudSpacer />
+            <MudLine color={C.dim} opacity={0.6}>AVAILABLE (talk to quest giver):</MudLine>
+            {available.map(q => (
+              <MudLine key={k(`avq-${q.id}`)} indent color={C.dim} opacity={0.5}>
+                {q.title} (from {q.giver}, Tier {q.tier})
+              </MudLine>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /quest <id> ───────────────────────────────────────────────────────
+  if (cmd === 'quest') {
+    if (!rest) {
+      addLocalMsg(<MudNotice key={k('quest-err')} error>which quest? /quest &lt;id&gt;</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+    const quest = QUEST_REGISTRY[rest] ?? Object.values(QUEST_REGISTRY).find(q => q.title.toLowerCase().includes(rest.toLowerCase()));
+    if (!quest) {
+      addLocalMsg(<MudNotice key={k('quest-nf')} error>quest not found.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+    const progress = getQuestObjectiveProgress(handle, quest.id);
+    const world = loadWorld(handle);
+    const isActive = world.activeQuests.includes(quest.id);
+
+    addLocalMsg(
+      <div key={k('quest-detail')}>
+        <MudLine color={C.quest} bold>{quest.title}</MudLine>
+        <MudLine color={C.dim} opacity={0.6} indent>from: {quest.giver} · tier: {quest.tier} · type: {quest.type}</MudLine>
+        <MudSpacer />
+        <MudLine color={C.green} opacity={0.85}>{quest.description}</MudLine>
+        {isActive && progress && (
+          <div>
+            <MudSpacer />
+            <MudLine color={C.quest} opacity={0.7}>OBJECTIVES:</MudLine>
+            {progress.objectives.map(o => (
+              <MudLine key={k(`qobj-${o.id}`)} indent color={o.done ? C.questDone : C.dim}>
+                {o.done ? '✓' : '○'} {o.description} ({o.current}/{o.required})
+              </MudLine>
+            ))}
+          </div>
+        )}
+        {!isActive && (
+          <MudLine color={C.dim} opacity={0.4} style={{ marginTop: '0.3rem' }}>
+            talk to {quest.giver} to start this quest.
+          </MudLine>
+        )}
       </div>
     );
     return { handled: true, stopPropagation: true };
@@ -1171,4 +2004,92 @@ export function handleMudCommand(input: string, ctx: MudContext): MudCommandResu
 
   // ── Not a MUD command — let it fall through ───────────────────────────
   return { handled: false };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── NPC DIALOGUE HANDLER (for non-/ input in rooms with NPCs) ───────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+export async function handleNPCDialogue(
+  message: string,
+  ctx: MudContext,
+): Promise<void> {
+  const { addLocalMsg, handle, session } = ctx;
+  const char = session.character;
+  if (!char) return;
+
+  const room = getRoom(char.currentRoom);
+  if (!room || room.npcs.length === 0) return;
+
+  const targets = routeDialogue(message, char.currentRoom, char);
+  if (targets.length === 0) return;
+
+  const request = buildDialogueRequest(targets, message, room.name, char);
+
+  // Show player's speech first
+  addLocalMsg(
+    <MudLine key={k('player-say')} color={C.green} opacity={0.9}>
+      <span style={{ opacity: 0.5 }}>[you]</span> {message}
+    </MudLine>
+  );
+
+  // Fire LLM request
+  try {
+    const res = await fetch('/api/mud/npc-dialogue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (!res.ok) throw new Error('npc-dialogue failed');
+    const data = await res.json();
+    const responses: Array<{ npcId: string; name: string; text: string }> = data.responses ?? [];
+
+    // Stagger NPC responses for natural feel
+    responses.forEach((resp, i) => {
+      setTimeout(() => {
+        const color = getNPCColor(resp.npcId);
+        addLocalMsg(
+          <div key={k(`npc-say-${resp.npcId}-${i}`)} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
+            <span style={{ color, fontWeight: 'bold' }}>[{resp.name}]</span>
+            <span style={{ color, opacity: 0.5, marginLeft: '0.5ch' }}>&gt;</span>
+            <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{resp.text}</span>
+          </div>
+        );
+
+        // Record interaction + small disposition bump for talking
+        recordInteraction(handle, resp.npcId, `player said: "${message.slice(0, 50)}" — ${resp.name} responded`);
+        nudgeDisposition(handle, resp.npcId, 1);
+
+        // Track talk_to for quests
+        trackObjective(handle, 'talk_to', resp.npcId);
+      }, (i + 1) * 600);
+    });
+
+    if (responses.length === 0) {
+      // No NPC chose to respond
+      setTimeout(() => {
+        addLocalMsg(
+          <MudLine key={k('npc-silent')} color={C.dim} opacity={0.4}>
+            no response.
+          </MudLine>
+        );
+      }, 400);
+    }
+  } catch {
+    // LLM failed — use fallback dialogue from NPC definition
+    targets.forEach((t, i) => {
+      setTimeout(() => {
+        const color = getNPCColor(t.npcId);
+        const fallback = t.npc.dialogue.replace(/^"|"$/g, '');
+        addLocalMsg(
+          <div key={k(`npc-fb-${t.npcId}`)} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
+            <span style={{ color, fontWeight: 'bold' }}>[{t.personality.name}]</span>
+            <span style={{ color, opacity: 0.5, marginLeft: '0.5ch' }}>&gt;</span>
+            <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{fallback}</span>
+          </div>
+        );
+      }, (i + 1) * 400);
+    });
+  }
 }
