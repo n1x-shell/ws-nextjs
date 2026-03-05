@@ -2288,9 +2288,19 @@ export interface MudHUDData {
   xpNext: number;
   level: number;
   creds: number;
+  scrip: number;
   inCombat: boolean;
-  ram?: number;
-  maxRam?: number;
+  ram: number;
+  maxRam: number;
+  subjectId: string;
+  archetype: string;
+  combatStyle: string;
+  roomName: string;
+  zoneName: string;
+  isSafeZone: boolean;
+  combatRound: number;
+  combatAP: number;
+  isDead: boolean;
 }
 
 export function getMudHUDData(session: MudSession): MudHUDData | null {
@@ -2298,6 +2308,16 @@ export function getMudHUDData(session: MudSession): MudHUDData | null {
   if (!char) return null;
 
   const nextXP = char.level < LEVEL_CAP ? xpForLevel(char.level + 1) : char.xp;
+  const room = getRoom(char.currentRoom);
+  const zone = room ? getZone(room.zone) : null;
+
+  let combatAP = 0;
+  let combatRound = 0;
+  if (session.combat) {
+    combatRound = session.combat.round;
+    const player = session.combat.combatants.find(c => c.type === 'player');
+    if (player) combatAP = player.ap;
+  }
 
   return {
     hp: char.hp,
@@ -2306,8 +2326,18 @@ export function getMudHUDData(session: MudSession): MudHUDData | null {
     xpNext: nextXP,
     level: char.level,
     creds: char.currency.creds,
+    scrip: char.currency.scrip,
     inCombat: session.phase === 'combat',
     ram: char.ram,
     maxRam: char.maxRam,
+    subjectId: char.subjectId,
+    archetype: char.archetype,
+    combatStyle: char.combatStyle === 'GHOST_STYLE' ? 'GHOST' : char.combatStyle,
+    roomName: room?.name ?? 'UNKNOWN',
+    zoneName: zone?.name ?? 'UNKNOWN',
+    isSafeZone: room?.isSafeZone ?? false,
+    combatRound,
+    combatAP,
+    isDead: char.isDead,
   };
 }
