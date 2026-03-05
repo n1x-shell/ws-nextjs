@@ -2,7 +2,7 @@
 // TUNNELCORE MUD — Shop System
 // Buy/sell items with COOL-modified prices and disposition scaling.
 
-import type { MudCharacter, Item, DispositionLabel } from './types';
+import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
 import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP } from './items';
 import type { ShopItem } from './items';

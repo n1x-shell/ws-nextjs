@@ -60,13 +60,13 @@ import {
 } from './combat';
 import {
   routeDialogue, buildDialogueRequest, recordInteraction,
-  nudgeDisposition, getNPCColor,
+  nudgeDisposition, getNPCColor, isNPCQuestGiver, detectsJobIntent,
 } from './npcEngine';
 import {
   getFormattedShop, getShopkeeperName, buyItem, sellItem,
 } from './shopSystem';
 import {
-  getAvailableQuests, getActiveQuests, trackObjective,
+  getAvailableQuests, getActiveQuests, startQuest, trackObjective,
   getQuestObjectiveProgress, QUEST_REGISTRY,
 } from './questEngine';
 
@@ -2066,6 +2066,53 @@ export async function handleNPCDialogue(
         trackObjective(handle, 'talk_to', resp.npcId);
       }, (i + 1) * 600);
     });
+
+    // ── Auto-start quest from QUESTGIVER NPCs ──────────────────────────
+    // After all dialogue renders, check if a quest giver responded and
+    // the player expressed job intent — auto-activate their first available quest
+    const questGiverResps = responses.filter(r => isNPCQuestGiver(r.npcId));
+    const isJobAsk = detectsJobIntent(message);
+
+    if (isJobAsk && questGiverResps.length > 0 && char) {
+      const world = loadWorld(handle);
+      const afterDialogueDelay = (responses.length + 1) * 600 + 300;
+
+      for (const qgResp of questGiverResps) {
+        const available = getAvailableQuests(char, world).filter(q => q.giver === qgResp.npcId);
+        if (available.length === 0) continue;
+
+        const quest = available[0];
+        const startResult = startQuest(handle, quest.id);
+        if (!startResult.success) continue;
+
+        setTimeout(() => {
+          addLocalMsg(
+            <div key={k(`quest-start-${quest.id}`)}>
+              <MudSpacer />
+              <MudLine color={C.quest} glow bold>
+                &gt;&gt; QUEST ACTIVATED: {quest.title}
+              </MudLine>
+              <MudLine color={C.green} opacity={0.85} indent>
+                {quest.description}
+              </MudLine>
+              <MudSpacer />
+              <MudLine color={C.quest} opacity={0.7}>OBJECTIVES:</MudLine>
+              {quest.objectives.map(obj => (
+                <MudLine key={k(`qobj-${obj.id}`)} indent color={C.dim}>
+                  ○ {obj.description}
+                </MudLine>
+              ))}
+              <MudSpacer />
+              <MudLine color={C.dim} opacity={0.4}>
+                /quests to track progress · /quest {quest.id} for details
+              </MudLine>
+            </div>
+          );
+        }, afterDialogueDelay);
+
+        break; // Only auto-start one quest per dialogue
+      }
+    }
 
     if (responses.length === 0) {
       // No NPC chose to respond
