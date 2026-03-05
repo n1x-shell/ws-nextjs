@@ -69,3 +69,23 @@ export function telnetSend(text: string): void {
 export function telnetDisconnect(): void {
   _disconnectFn?.();
 }
+
+// ── MUD autocomplete provider ───────────────────────────────────────────────
+// TelnetSession sets this when MUD is active.
+// ShellInterface calls getMudSuggestions() for tab-complete in telnet mode.
+
+type MudSuggestionFn = (partial: string) => string[];
+
+let _mudSuggestionFn: MudSuggestionFn | null = null;
+
+export function setMudSuggestionProvider(fn: MudSuggestionFn | null): void {
+  _mudSuggestionFn = fn;
+}
+
+export function getMudSuggestions(partial: string): string[] {
+  return _mudSuggestionFn?.(partial) ?? [];
+}
+
+export function hasMudSuggestionProvider(): boolean {
+  return _mudSuggestionFn !== null;
+}
