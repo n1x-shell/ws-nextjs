@@ -80,15 +80,15 @@ const S = {
 };
 
 const C = {
-  green:     '#c8c8c8',           // room text — light grey for readability
+  green:     '#d4d4d4',           // room text — light grey for readability
   accent:    'var(--phosphor-accent)',
-  dim:       'rgba(var(--phosphor-rgb),0.45)',
-  dimmer:    'rgba(var(--phosphor-rgb),0.25)',
+  dim:       'rgba(var(--phosphor-rgb),0.75)',   // was 0.45 — readable now
+  dimmer:    'rgba(var(--phosphor-rgb),0.55)',   // was 0.25
   error:     '#ff6b6b',
   n1x:       '#bf00ff',
   npc:       '#fcd34d',
   enemy:     '#ff6b6b',
-  object:    'rgba(var(--phosphor-rgb),0.7)',
+  object:    'rgba(var(--phosphor-rgb),0.85)',   // was 0.7
   exit:      'var(--phosphor-accent)',
   safe:      '#a5f3fc',
   stat:      'var(--phosphor-green)',
@@ -100,6 +100,9 @@ const C = {
   quest:     '#fbbf24',
   questDone: '#4ade80',
   shop:      '#fcd34d',
+  // Semantic aliases for inline use — never go below 0.6 effective
+  hint:      'rgba(var(--phosphor-rgb),0.65)',   // hints, tips, secondary info
+  label:     'rgba(var(--phosphor-rgb),0.8)',    // section headers, labels
 };
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -193,7 +196,7 @@ function MudNotice({ children, error }: { children: React.ReactNode; error?: boo
       fontSize: S.base,
       lineHeight: 1.8,
       color: error ? C.error : C.dim,
-      opacity: error ? 0.9 : 0.7,
+      opacity: error ? 0.9 : 0.85,
     }}>
       {children}
     </div>
@@ -264,7 +267,7 @@ export function startCreationFlow(ctx: MudContext): void {
     // Phase 1: Static / signal drop
     { delay: 0, node: <MudSpacer key={k('sp-entry0')} /> },
     { delay: 200, node: (
-      <MudLine key={k('entry-static')} color={C.dim} opacity={0.3}>
+      <MudLine key={k('entry-static')} color={C.dim}>
         ▓▓▓▓▓▒▒░░ SIGNAL_INTERRUPT ░░▒▒▓▓▓▓▓
       </MudLine>
     )},
@@ -333,7 +336,7 @@ export function startCreationFlow(ctx: MudContext): void {
           </div>
         ))}
         <MudSpacer />
-        <MudLine color={C.dim} opacity={0.5}>type 1, 2, or 3</MudLine>
+        <MudLine color={C.dim}>type 1, 2, or 3</MudLine>
       </div>
     )},
   ]);
@@ -413,7 +416,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
               </div>
             ))}
             <MudSpacer />
-            <MudLine color={C.dim} opacity={0.5}>type 1, 2, 3, or 4</MudLine>
+            <MudLine color={C.dim}>type 1, 2, 3, or 4</MudLine>
           </div>
         )},
       ]);
@@ -475,7 +478,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
               <N1XLine key={k(`attr-q-${i}`)}>{line || '\u00a0'}</N1XLine>
             ))}
             <MudSpacer />
-            <MudLine color={C.dim} opacity={0.6}>
+            <MudLine color={C.dim}>
               current base (with {ARCHETYPE_INFO[archetype].label} bonuses):
             </MudLine>
             {(Object.keys(withBonuses) as AttributeName[]).map(attr => {
@@ -488,10 +491,10 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
               );
             })}
             <MudSpacer />
-            <MudLine color={C.dim} opacity={0.5}>
+            <MudLine color={C.dim}>
               format: BODY 7 REFLEX 5 TECH 4 COOL 3 INT 5 GHOST 6
             </MudLine>
-            <MudLine color={C.dim} opacity={0.5}>
+            <MudLine color={C.dim}>
               or just: 7 5 4 3 5 6 (BODY/REFLEX/TECH/COOL/INT/GHOST order)
             </MudLine>
           </div>
@@ -571,13 +574,13 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
                 <span style={{ color: C.accent, fontFamily: 'monospace', fontSize: S.base, fontWeight: 'bold' }}>
                   [{i + 1}] {opt.display}
                 </span>
-                <div style={{ color: C.dim, fontFamily: 'monospace', fontSize: S.base, paddingLeft: '4ch', opacity: 0.7 }}>
+                <div style={{ color: C.dim, fontFamily: 'monospace', fontSize: S.base, paddingLeft: '4ch', }}>
                   {opt.description}
                 </div>
               </div>
             ))}
             <MudSpacer />
-            <MudLine color={C.dim} opacity={0.5}>
+            <MudLine color={C.dim}>
               {origins.length === 1 ? 'type 1 to confirm' : `type 1-${origins.length}`}
             </MudLine>
           </div>
@@ -643,7 +646,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
             <MudLine indent color={C.stat}>STYLE      {COMBAT_STYLE_INFO[combatStyle].label}</MudLine>
             <MudLine indent color={C.stat}>ORIGIN     {choice.display}</MudLine>
             <MudSpacer />
-            <MudLine indent color={C.dim} opacity={0.6}>BODY {attributes.BODY} · REFLEX {attributes.REFLEX} · TECH {attributes.TECH} · COOL {attributes.COOL} · INT {attributes.INT} · GHOST {attributes.GHOST}</MudLine>
+            <MudLine indent color={C.dim}>BODY {attributes.BODY} · REFLEX {attributes.REFLEX} · TECH {attributes.TECH} · COOL {attributes.COOL} · INT {attributes.INT} · GHOST {attributes.GHOST}</MudLine>
             <MudSpacer />
             <MudLine indent color={C.stat}>HP         {calculateMaxHp(attributes.BODY, archetype, 1)}</MudLine>
             <MudLine indent color={C.stat}>RAM        {calculateMaxRam(attributes.TECH)}</MudLine>
@@ -761,7 +764,7 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
       </MudLine>
 
       {room.isSafeZone && (
-        <MudLine color={C.safe} opacity={0.6}>[ SAFE ZONE ]</MudLine>
+        <MudLine color={C.safe} opacity={0.8}>[ SAFE ZONE ]</MudLine>
       )}
 
       <MudSpacer />
@@ -780,9 +783,9 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
         <div>
           {room.npcs.map(npc => (
             <MudLine key={k(`npc-${npc.id}`)} color={C.npc}>
-              <span style={{ opacity: 0.5 }}>[NPC] </span>
+              <span style={{ opacity: 0.75 }}>[NPC] </span>
               <span style={{ fontWeight: 'bold' }}>{npc.name}</span>
-              <span style={{ opacity: 0.6, marginLeft: '1ch' }}>— {npc.description.split('.')[0]}.</span>
+              <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— {npc.description.split('.')[0]}.</span>
             </MudLine>
           ))}
         </div>
@@ -793,9 +796,9 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
         <div>
           {room.enemies.map(enemy => (
             <MudLine key={k(`enemy-${enemy.id}`)} color={C.enemy}>
-              <span style={{ opacity: 0.5 }}>[HOSTILE] </span>
+              <span style={{ opacity: 0.75 }}>[HOSTILE] </span>
               <span style={{ fontWeight: 'bold' }}>{enemy.name}</span>
-              <span style={{ opacity: 0.6, marginLeft: '1ch' }}>— Lv.{enemy.level}</span>
+              <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— Lv.{enemy.level}</span>
             </MudLine>
           ))}
         </div>
@@ -804,7 +807,7 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
       {/* Objects */}
       {room.objects.length > 0 && (
         <div>
-          <MudLine color={C.object} opacity={0.5} style={{ marginTop: '0.15rem' }}>
+          <MudLine color={C.object} style={{ marginTop: '0.15rem' }}>
             objects: {room.objects.filter(o => !o.hidden || (o.hiddenRequirement && char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum)).map(o => o.name).join(', ')}
           </MudLine>
         </div>
@@ -813,13 +816,13 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
       <MudSpacer />
 
       {/* Exits */}
-      <MudLine color={C.dim} opacity={0.6}>EXITS:</MudLine>
+      <MudLine color={C.dim}>EXITS:</MudLine>
       {visibleExits.map(exit => (
         <MudLine key={k(`exit-${exit.direction}`)} indent color={C.exit}>
           <span style={{ fontWeight: 'bold', minWidth: '8ch', display: 'inline-block' }}>
             {exit.direction}
           </span>
-          <span style={{ opacity: 0.6, color: C.dim }}>
+          <span style={{ opacity: 0.8, color: C.dim }}>
             {exit.description.replace(/^[a-z]+ \(/, '(').replace(/\)$/, ')')}
             {exit.locked ? ' [LOCKED]' : ''}
             {exit.zoneTransition ? ' [ZONE]' : ''}
@@ -830,7 +833,7 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
       {/* Junction branches */}
       {branches.length > 0 && (
         <div>
-          <MudLine color={C.dim} opacity={0.4} style={{ marginTop: '0.15rem' }}>
+          <MudLine color={C.dim} style={{ marginTop: '0.15rem' }}>
             also reachable from here:
           </MudLine>
           {branches.map(br => (
@@ -879,7 +882,7 @@ function renderCombatHUD(session: MudSession, addLocalMsg: AddLocalMsg): void {
       {isMyTurn && (
         <>
           <MudSpacer />
-          <MudLine color={C.dim} opacity={0.5}>
+          <MudLine color={C.dim}>
             /attack · /hack · /use · /scan · /flee
           </MudLine>
         </>
@@ -1000,14 +1003,14 @@ function handleDeath(session: MudSession, addLocalMsg: AddLocalMsg, setSession: 
       <MudLine color={C.combat} glow bold>
         &gt;&gt; FLATLINE
       </MudLine>
-      <MudLine color={C.dim} opacity={0.7}>
+      <MudLine color={C.dim}>
         hp reached zero. the tunnels claim another.
       </MudLine>
-      <MudLine color={C.dim} opacity={0.5}>
+      <MudLine color={C.dim}>
         your gear lies where you fell. permadeath is permanent.
       </MudLine>
       <MudSpacer />
-      <MudLine color={C.dim} opacity={0.4}>
+      <MudLine color={C.dim}>
         ghost channel access retained. /enter to create a new character.
       </MudLine>
     </div>
@@ -1112,7 +1115,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
               {r.killed ? ` ${r.targetName} goes down.` : ''}
             </MudLine>
           ) : (
-            <MudLine color={C.dim} opacity={0.6}>
+            <MudLine color={C.dim}>
               &gt;&gt; MISS — {r.flavorMiss}
             </MudLine>
           )}
@@ -1136,7 +1139,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
               <MudLine color={C.stat} glow bold>&gt;&gt; COMBAT RESOLVED</MudLine>
               <MudLine indent color={C.stat}>+{endCheck.xpGained} XP{xpResult.leveled ? ` · LEVEL UP → ${xpResult.newLevel}` : ''}</MudLine>
               {endCheck.drops.length > 0 && (
-                <MudLine indent color={C.dim} opacity={0.6}>
+                <MudLine indent color={C.dim}>
                   drops: {endCheck.drops.join(', ')}
                 </MudLine>
               )}
@@ -1156,7 +1159,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         renderCombatHUD(session, addLocalMsg);
       } else {
         // End of player turn — process enemy turns
-        addLocalMsg(<MudLine key={k('turn-end')} color={C.dim} opacity={0.4}>— end of your turn —</MudLine>);
+        addLocalMsg(<MudLine key={k('turn-end')} color={C.dim}>— end of your turn —</MudLine>);
         processAllEnemyTurns(session, addLocalMsg);
         // Check death after enemy turns
         if (char.hp <= 0) {
@@ -1235,7 +1238,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
               {hr.killed ? ` · ${hr.targetName} flatlines.` : ''} (RAM: {char.ram}/{char.maxRam})
             </MudLine>
           ) : (
-            <MudLine color={C.dim} opacity={0.6}>
+            <MudLine color={C.dim}>
               &gt;&gt; BLOCKED — firewall held. RAM spent: {hr.ramSpent}
             </MudLine>
           )}
@@ -1268,7 +1271,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       if (player && player.ap > 0) {
         renderCombatHUD(session, addLocalMsg);
       } else {
-        addLocalMsg(<MudLine key={k('turn-end-h')} color={C.dim} opacity={0.4}>— end of your turn —</MudLine>);
+        addLocalMsg(<MudLine key={k('turn-end-h')} color={C.dim}>— end of your turn —</MudLine>);
         processAllEnemyTurns(session, addLocalMsg);
         if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
         saveCombat(char.handle, combat);
@@ -1290,7 +1293,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             <div key={k('use-list')}>
               <MudLine color={C.heal}>usable items:</MudLine>
               {healables.map((h, i) => <MudLine key={k(`use-${i}`)} indent color={C.heal}>{h}</MudLine>)}
-              <MudLine color={C.dim} opacity={0.5}>/use &lt;name or index&gt;</MudLine>
+              <MudLine color={C.dim}>/use &lt;name or index&gt;</MudLine>
             </div>
           );
         }
@@ -1349,7 +1352,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
       const sr = result as ScanResult;
       if (!sr.success) {
-        addLocalMsg(<MudLine key={k('scan-fail')} color={C.dim} opacity={0.6}>scan failed — insufficient data on {sr.targetName}.</MudLine>);
+        addLocalMsg(<MudLine key={k('scan-fail')} color={C.dim}>scan failed — insufficient data on {sr.targetName}.</MudLine>);
       } else {
         addLocalMsg(
           <div key={k('scan-ok')}>
@@ -1406,7 +1409,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         saveCharacter(char.handle, char);
         setSession({ ...session, phase: 'active', combat: null });
         addLocalMsg(
-          <MudLine key={k('flee-ok')} color={C.dim} opacity={0.5}>
+          <MudLine key={k('flee-ok')} color={C.dim}>
             combat ended. you escaped.
           </MudLine>
         );
@@ -1457,7 +1460,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
     addLocalMsg(
       <div key={k('exits')}>
-        <MudLine color={C.dim} opacity={0.6}>EXITS from {room?.name ?? 'unknown'}:</MudLine>
+        <MudLine color={C.dim}>EXITS from {room?.name ?? 'unknown'}:</MudLine>
         {visibleExits.map(exit => (
           <MudLine key={k(`exit-${exit.direction}`)} indent color={C.exit}>
             {exit.direction} — {exit.description}
@@ -1467,7 +1470,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         {char.currentRoom === 'z08_r03' && (
           <>
             <MudSpacer />
-            <MudLine color={C.dim} opacity={0.4}>
+            <MudLine color={C.dim}>
               tip: from the junction, use /go &lt;room name&gt; to reach branch rooms
             </MudLine>
           </>
@@ -1614,7 +1617,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             &quot;{npc.dialogue.replace(/^"/, '').replace(/"$/, '')}&quot;
           </MudLine>
           {npc.services && npc.services.length > 0 && (
-            <MudLine color={C.dim} opacity={0.5} style={{ marginTop: '0.15rem' }}>
+            <MudLine color={C.dim} style={{ marginTop: '0.15rem' }}>
               services: {npc.services.join(', ')}
             </MudLine>
           )}
@@ -1639,7 +1642,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         <MudLine color={C.accent} bold>
           {zone?.name ?? 'UNKNOWN'} — {room?.name ?? 'UNKNOWN'}
         </MudLine>
-        <MudLine color={C.dim} opacity={0.5}>
+        <MudLine color={C.dim}>
           room: {char.currentRoom} · level range: {zone?.levelRange.join('-') ?? '?'} · depth: {zone?.depth ?? '?'}
         </MudLine>
       </div>
@@ -1668,7 +1671,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
           </MudLine>
         ))}
         <MudSpacer />
-        <MudLine indent color={C.dim} opacity={0.5}>
+        <MudLine indent color={C.dim}>
           creds: {char.currency.creds} · scrip: {char.currency.scrip}
         </MudLine>
       </div>
@@ -1687,7 +1690,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
         {gearEntries.length > 0 && (
           <div>
-            <MudLine color={C.dim} opacity={0.6}>EQUIPPED:</MudLine>
+            <MudLine color={C.dim}>EQUIPPED:</MudLine>
             {gearEntries.map(([slot, item]) => (
               <MudLine key={k(`gear-${slot}`)} indent color={C.stat}>
                 [{slot.replace(/_/g, ' ')}] {item!.name}
@@ -1701,25 +1704,25 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
         {char.inventory.length > 0 ? (
           <div>
-            <MudLine color={C.dim} opacity={0.6}>CARRYING:</MudLine>
+            <MudLine color={C.dim}>CARRYING:</MudLine>
             {char.inventory.map((item, i) => (
               <MudLine key={k(`inv-${i}`)} indent color={C.green} opacity={0.8}>
                 {item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
-                <span style={{ color: C.dim, opacity: 0.5, marginLeft: '1ch' }}>({item.tier})</span>
+                <span style={{ color: C.dim, marginLeft: '1ch' }}>({item.tier})</span>
               </MudLine>
             ))}
           </div>
         ) : (
-          <MudLine color={C.dim} opacity={0.5}>nothing in your pockets.</MudLine>
+          <MudLine color={C.dim}>nothing in your pockets.</MudLine>
         )}
 
         {char.cyberware.length > 0 && (
           <div>
             <MudSpacer />
-            <MudLine color={C.dim} opacity={0.6}>INSTALLED CYBERWARE:</MudLine>
+            <MudLine color={C.dim}>INSTALLED CYBERWARE:</MudLine>
             {char.cyberware.map((cw, i) => (
               <MudLine key={k(`cw-${i}`)} indent color={C.accent}>
-                {cw.name} <span style={{ opacity: 0.5 }}>(T{cw.cyberwareTier})</span>
+                {cw.name} <span style={{ opacity: 0.75 }}>(T{cw.cyberwareTier})</span>
               </MudLine>
             ))}
           </div>
@@ -1779,20 +1782,20 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         <MudLine color={C.accent} bold>&gt;&gt; TUNNELCORE — COMMANDS</MudLine>
         {sections.map(s => (
           <div key={k(`mh-${s.title}`)}>
-            <MudLine color={C.dim} opacity={0.5} style={{ marginTop: '0.3rem' }}>{s.title}</MudLine>
+            <MudLine color={C.dim} style={{ marginTop: '0.3rem' }}>{s.title}</MudLine>
             {s.cmds.map(c => (
               <div key={k(`mh-${c.cmd}`)} style={{
                 paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap',
                 fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
               }}>
                 <span style={{ color: C.accent, minWidth: '20ch', flexShrink: 0 }}>{c.cmd}</span>
-                <span style={{ color: C.dim, opacity: 0.7 }}>{c.desc}</span>
+                <span style={{ color: C.dim, }}>{c.desc}</span>
               </div>
             ))}
           </div>
         ))}
         <MudSpacer />
-        <MudLine color={C.dim} opacity={0.4}>
+        <MudLine color={C.dim}>
           talk to NPCs by typing without / — they'll respond if they're in the room
         </MudLine>
       </div>
@@ -1831,7 +1834,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     addLocalMsg(
       <div key={k('shop')}>
         <MudLine color={C.shop} bold>&gt;&gt; {getShopkeeperName(shopkeeper.id).toUpperCase()}'S SHOP</MudLine>
-        <MudLine color={C.dim} opacity={0.5}>your creds: {char.currency.creds}</MudLine>
+        <MudLine color={C.dim}>your creds: {char.currency.creds}</MudLine>
         <MudSpacer />
         {listings.map((item, i) => (
           <div key={k(`shop-${i}`)} style={{
@@ -1843,13 +1846,13 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             <span style={{ color: item.price !== null ? C.stat : C.error, minWidth: '8ch', display: 'inline-block' }}>
               {item.price !== null ? `${item.price}c` : 'N/A'}
             </span>
-            <span style={{ color: C.dim, opacity: 0.5 }}>
+            <span style={{ color: C.dim, }}>
               {item.stock === -1 ? '' : `(${item.stock} left)`}
             </span>
           </div>
         ))}
         <MudSpacer />
-        <MudLine color={C.dim} opacity={0.4}>/buy &lt;item name&gt; · /sell &lt;item name&gt;</MudLine>
+        <MudLine color={C.dim}>/buy &lt;item name&gt; · /sell &lt;item name&gt;</MudLine>
       </div>
     );
     return { handled: true, stopPropagation: true };
@@ -1949,14 +1952,14 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             })}
           </div>
         ) : (
-          <MudLine color={C.dim} opacity={0.5}>no active quests.</MudLine>
+          <MudLine color={C.dim}>no active quests.</MudLine>
         )}
         {available.length > 0 && (
           <div>
             <MudSpacer />
-            <MudLine color={C.dim} opacity={0.6}>AVAILABLE (talk to quest giver):</MudLine>
+            <MudLine color={C.dim}>AVAILABLE (talk to quest giver):</MudLine>
             {available.map(q => (
-              <MudLine key={k(`avq-${q.id}`)} indent color={C.dim} opacity={0.5}>
+              <MudLine key={k(`avq-${q.id}`)} indent color={C.dim}>
                 {q.title} (from {q.giver}, Tier {q.tier})
               </MudLine>
             ))}
@@ -1985,7 +1988,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     addLocalMsg(
       <div key={k('quest-detail')}>
         <MudLine color={C.quest} bold>{quest.title}</MudLine>
-        <MudLine color={C.dim} opacity={0.6} indent>from: {quest.giver} · tier: {quest.tier} · type: {quest.type}</MudLine>
+        <MudLine color={C.dim} indent>from: {quest.giver} · tier: {quest.tier} · type: {quest.type}</MudLine>
         <MudSpacer />
         <MudLine color={C.green} opacity={0.85}>{quest.description}</MudLine>
         {isActive && progress && (
@@ -2000,7 +2003,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
           </div>
         )}
         {!isActive && (
-          <MudLine color={C.dim} opacity={0.4} style={{ marginTop: '0.3rem' }}>
+          <MudLine color={C.dim} style={{ marginTop: '0.3rem' }}>
             talk to {quest.giver} to start this quest.
           </MudLine>
         )}
@@ -2048,7 +2051,7 @@ export async function handleNPCDialogue(
   // Show player's speech first
   addLocalMsg(
     <MudLine key={k('player-say')} color={C.green} opacity={0.9}>
-      <span style={{ opacity: 0.5 }}>[you]</span> {message}
+      <span style={{ opacity: 0.75 }}>[you]</span> {message}
     </MudLine>
   );
 
@@ -2071,7 +2074,7 @@ export async function handleNPCDialogue(
         addLocalMsg(
           <div key={k(`npc-say-${resp.npcId}-${i}`)} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
             <span style={{ color, fontWeight: 'bold' }}>[{resp.name}]</span>
-            <span style={{ color, opacity: 0.5, marginLeft: '0.5ch' }}>&gt;</span>
+            <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
             <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{resp.text}</span>
           </div>
         );
@@ -2121,7 +2124,7 @@ export async function handleNPCDialogue(
                 </MudLine>
               ))}
               <MudSpacer />
-              <MudLine color={C.dim} opacity={0.4}>
+              <MudLine color={C.dim}>
                 /quests to track progress · /quest {quest.id} for details
               </MudLine>
             </div>
@@ -2136,7 +2139,7 @@ export async function handleNPCDialogue(
       // No NPC chose to respond
       setTimeout(() => {
         addLocalMsg(
-          <MudLine key={k('npc-silent')} color={C.dim} opacity={0.4}>
+          <MudLine key={k('npc-silent')} color={C.dim}>
             no response.
           </MudLine>
         );
@@ -2151,7 +2154,7 @@ export async function handleNPCDialogue(
         addLocalMsg(
           <div key={k(`npc-fb-${t.npcId}`)} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
             <span style={{ color, fontWeight: 'bold' }}>[{t.personality.name}]</span>
-            <span style={{ color, opacity: 0.5, marginLeft: '0.5ch' }}>&gt;</span>
+            <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
             <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{fallback}</span>
           </div>
         );
