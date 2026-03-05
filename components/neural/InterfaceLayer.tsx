@@ -6,7 +6,7 @@ import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
 import ShellInterface from '../shell/ShellInterface';
 import { eventBus } from '@/lib/eventBus';
-import { deactivateTelnet } from '@/lib/telnetBridge';
+import { deactivateTelnet, telnetSend } from '@/lib/telnetBridge';
 
 // Parse processorLoad from context (may be "42", "42%", or a number) into 0–100
 function seedLoad(raw: number | string): number {
@@ -56,6 +56,23 @@ export default function InterfaceLayer() {
   const [screenEffect, setScreenEffect] = useState<'whiteout-flash' | 'desync-tear' | null>(null);
   const tabLockRef    = useRef(false);
   const screenLockRef = useRef(false);
+
+  // ── MUD mode state ────────────────────────────────────────────────────────
+  const [mudMode, setMudMode] = useState<'off' | 'explore' | 'combat'>('off');
+
+  useEffect(() => {
+    const onMudActive = (data?: { phase?: string; inCombat?: boolean }) => {
+      setMudMode(data?.inCombat ? 'combat' : 'explore');
+    };
+    const onMudExit = () => setMudMode('off');
+
+    eventBus.on('mud:active', onMudActive);
+    eventBus.on('mud:exit', onMudExit);
+    return () => {
+      eventBus.off('mud:active', onMudActive);
+      eventBus.off('mud:exit', onMudExit);
+    };
+  }, []);
 
   const fireTabEffect = useCallback((effect: 'channel-switch' | 'static-burst', duration: number, swapFn: () => void) => {
     if (tabLockRef.current) return;
@@ -387,6 +404,73 @@ export default function InterfaceLayer() {
               }}
             >
               {/* Tab nav */}
+              {mudMode !== 'off' ? (
+                /* ── MUD Action Panel ──────────────────────────────────── */
+                <nav
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.35rem',
+                    padding: '0.5rem 0.75rem',
+                    flexShrink: 0,
+                    borderBottom: `1px solid rgba(${mudMode === 'combat' ? '255,68,68' : 'var(--phosphor-rgb)'},0.3)`,
+                    background: mudMode === 'combat' ? 'rgba(255,30,30,0.03)' : undefined,
+                  }}
+                >
+                  {(mudMode === 'combat' ? [
+                    { label: 'ATTACK',  cmd: '/attack' },
+                    { label: 'HACK',    cmd: '/hack' },
+                    { label: 'USE',     cmd: '/use' },
+                    { label: 'SCAN',    cmd: '/scan' },
+                    { label: 'FLEE',    cmd: '/flee' },
+                  ] : [
+                    { label: 'LOOK',    cmd: '/look' },
+                    { label: 'EXITS',   cmd: '/exits' },
+                    { label: 'STATS',   cmd: '/stats' },
+                    { label: 'INV',     cmd: '/inventory' },
+                    { label: 'SHOP',    cmd: '/shop' },
+                    { label: 'HELP',    cmd: '/help' },
+                    { label: 'QUIT',    cmd: '/q' },
+                  ]).map((action) => {
+                    const isCombat = mudMode === 'combat';
+                    const isDanger = action.label === 'FLEE' || action.label === 'QUIT';
+                    const btnColor = isDanger ? '#ff6b6b' : isCombat ? '#ff4444' : 'var(--phosphor-green)';
+                    const btnBorder = isDanger ? 'rgba(255,107,107,0.5)' : isCombat ? 'rgba(255,68,68,0.5)' : 'var(--phosphor-green)';
+                    return (
+                      <button
+                        key={action.label}
+                        className="tab-btn"
+                        style={{
+                          padding: '0.2rem 0.55rem',
+                          fontSize: 'var(--text-header)',
+                          fontFamily: 'inherit',
+                          background: 'transparent',
+                          color: btnColor,
+                          border: `1px solid ${btnBorder}`,
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          transition: 'background 0.15s, box-shadow 0.15s',
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.target as HTMLElement).style.background = isCombat ? 'rgba(255,68,68,0.1)' : 'rgba(var(--phosphor-rgb),0.1)';
+                          handleHover();
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.target as HTMLElement).style.background = 'transparent';
+                        }}
+                        onTouchStart={handleHover}
+                        onClick={() => {
+                          telnetSend(action.cmd);
+                        }}
+                      >
+                        {action.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              ) : (
+                /* ── Normal Tab Panel ──────────────────────────────────── */
               <nav
                 style={{
                   display: 'flex',
@@ -441,6 +525,7 @@ export default function InterfaceLayer() {
                   </button>
                 ))}
               </nav>
+              )}
 
               {/* Shell */}
               <div
