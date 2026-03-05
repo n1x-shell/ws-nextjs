@@ -56,6 +56,7 @@ import {
   syncCombatToCharacter, isPlayersTurn, getEnemyById,
   getAllLivingEnemies, getPlayerCombatant, getAvailableHacks, hpBar,
   QUICKHACKS,
+  type AttackResult, type HackResult, type ScanResult, type FleeResult,
 } from './combat';
 import {
   routeDialogue, buildDialogueRequest, recordInteraction,
