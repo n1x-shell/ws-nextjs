@@ -112,7 +112,7 @@ export interface MudContext {
   setSession:   (s: MudSession) => void;
 }
 
-export type MudCommandResult = {
+export type MudRouteResult = {
   handled: boolean;
   stopPropagation?: boolean; // prevent OOC send
 };
@@ -342,7 +342,7 @@ export function startCreationFlow(ctx: MudContext): void {
   setSession({ ...session });
 }
 
-export function handleCreationInput(input: string, ctx: MudContext): MudCommandResult {
+export function handleCreationInput(input: string, ctx: MudContext): MudRouteResult {
   const { addLocalMsg, handle, session, setSession } = ctx;
   const creation = session.creation;
   if (!creation) return { handled: false };
@@ -1019,7 +1019,7 @@ function handleDeath(session: MudSession, addLocalMsg: AddLocalMsg, setSession: 
 // ── COMMAND ROUTER ──────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-export function handleMudCommand(input: string, ctx: MudContext): MudCommandResult {
+export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult {
   const { addLocalMsg, handle, session, setSession } = ctx;
 
   // ── During character creation, intercept ALL input ───────────────────────
