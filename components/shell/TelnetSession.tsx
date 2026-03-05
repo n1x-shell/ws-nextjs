@@ -1601,26 +1601,9 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   // Keep a stable ref to isAdmin so sendWithSlash always reads latest value
   const isAdminRef     = useRef(false);
 
-  // ── MUD session state ──────────────────────────────────────────────────
+  // ── MUD session state (refs declared here, callbacks after addLocalMsg) ──
   const [mudSession, setMudSessionState] = useState<MudSession | null>(null);
   const mudSessionRef = useRef<MudSession | null>(null);
-
-  const setMudSession = useCallback((s: MudSession | null) => {
-    mudSessionRef.current = s;
-    setMudSessionState(s);
-  }, []);
-
-  // Stable MUD context builder (avoids stale closures)
-  const getMudCtx = useCallback((): MudContext | null => {
-    const s = mudSessionRef.current;
-    if (!s) return null;
-    return {
-      addLocalMsg,
-      handle,
-      session: s,
-      setSession: setMudSession,
-    };
-  }, [addLocalMsg, handle, setMudSession]);
 
   // ── Sync isAdmin ref ──────────────────────────────────────────────────────
   useEffect(() => { isAdminRef.current = isAdmin; }, [isAdmin]);
@@ -1651,6 +1634,25 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     setLocalMsgs(prev => [...prev, entry]);
     eventBus.emit('shell:request-scroll');
   }, []);
+
+  // ── MUD session callbacks (after addLocalMsg is declared) ─────────────
+
+  const setMudSession = useCallback((s: MudSession | null) => {
+    mudSessionRef.current = s;
+    setMudSessionState(s);
+  }, []);
+
+  // Stable MUD context builder (avoids stale closures)
+  const getMudCtx = useCallback((): MudContext | null => {
+    const s = mudSessionRef.current;
+    if (!s) return null;
+    return {
+      addLocalMsg,
+      handle,
+      session: s,
+      setSession: setMudSession,
+    };
+  }, [addLocalMsg, handle, setMudSession]);
 
   // ── Mod event listeners ───────────────────────────────────────────────────
   // mod:kicked — received by ablyClient when this client is kicked
