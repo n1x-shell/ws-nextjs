@@ -6,6 +6,7 @@ import { useNeuralState } from '@/contexts/NeuralContext';
 import { useEventBus } from '@/hooks/useEventBus';
 import ShellInterface from '../shell/ShellInterface';
 import { eventBus } from '@/lib/eventBus';
+import type { NeuralEvent } from '@/types/neural.types';
 import { deactivateTelnet, telnetSend } from '@/lib/telnetBridge';
 
 // Parse processorLoad from context (may be "42", "42%", or a number) into 0–100
@@ -61,10 +62,10 @@ export default function InterfaceLayer() {
   const [mudMode, setMudMode] = useState<'off' | 'explore' | 'combat'>('off');
 
   useEffect(() => {
-    const onMudActive = (data?: { phase?: string; inCombat?: boolean }) => {
-      setMudMode(data?.inCombat ? 'combat' : 'explore');
+    const onMudActive = (event: NeuralEvent) => {
+      setMudMode(event.payload?.inCombat ? 'combat' : 'explore');
     };
-    const onMudExit = () => setMudMode('off');
+    const onMudExit = (_event: NeuralEvent) => setMudMode('off');
 
     eventBus.on('mud:active', onMudActive);
     eventBus.on('mud:exit', onMudExit);
