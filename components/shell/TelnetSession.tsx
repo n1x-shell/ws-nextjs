@@ -11,8 +11,9 @@ import {
 import { incrementSession, loadARGState, getPlayerSigil } from '@/lib/argState';
 import type { MudSession } from '@/lib/mud/types';
 import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
-import { handleMudCommand, startCreationFlow, handleCreationInput } from '@/lib/mud/mudCommands';
+import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue } from '@/lib/mud/mudCommands';
 import type { MudContext } from '@/lib/mud/mudCommands';
+import { getRoom } from '@/lib/mud/worldMap';
 
 // ── Style constants ───────────────────────────────────────────────────────────
 
@@ -1762,6 +1763,44 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       const result = handleMudCommand(text, ctx);
       if (result.handled) return; // consumed by MUD — do not send to Ably
       // If not handled, fall through to regular slash command processing
+    }
+
+    // ── MUD interception: combat phase routes /commands ──────────────────
+    if (ms && ms.phase === 'combat' && text.startsWith('/')) {
+      const ctx: MudContext = {
+        addLocalMsg,
+        handle,
+        session: ms,
+        setSession: setMudSession,
+      };
+      const result = handleMudCommand(text, ctx);
+      if (result.handled) return;
+    }
+
+    // ── MUD interception: non-/ input → NPC dialogue if NPCs present ────
+    if (ms && ms.phase === 'active' && !text.startsWith('/') && ms.character) {
+      const room = getRoom(ms.character.currentRoom);
+      if (room && room.npcs.length > 0) {
+        const ctx: MudContext = {
+          addLocalMsg,
+          handle,
+          session: ms,
+          setSession: setMudSession,
+        };
+        handleNPCDialogue(text, ctx);
+        return; // consumed — do not send to Ably
+      }
+    }
+
+    // ── MUD interception: in combat, block non-/ input ──────────────────
+    if (ms && ms.phase === 'combat' && !text.startsWith('/')) {
+      addLocalMsg(
+        React.createElement('div', {
+          key: `combat-block-${Date.now()}`,
+          style: { fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: '#ff6b6b', opacity: 0.85, fontStyle: 'italic' },
+        }, 'you\'re in combat. use /attack, /hack, /use, /scan, or /flee.')
+      );
+      return;
     }
 
     // ── Regular slash command handling ───────────────────────────────────
