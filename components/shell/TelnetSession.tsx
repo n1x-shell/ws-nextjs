@@ -10,7 +10,7 @@ import {
 } from '@/lib/telnetBridge';
 import { incrementSession, loadARGState, getPlayerSigil } from '@/lib/argState';
 import type { MudSession } from '@/lib/mud/types';
-import { loadFullSession, saveFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
+import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
 import { handleMudCommand, startCreationFlow, handleCreationInput } from '@/lib/mud/mudCommands';
 import type { MudContext } from '@/lib/mud/mudCommands';
 
@@ -1602,7 +1602,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   const isAdminRef     = useRef(false);
 
   // ── MUD session state (refs declared here, callbacks after addLocalMsg) ──
-  const [mudSession, setMudSessionState] = useState<MudSession | null>(null);
+  const [, setMudSessionState] = useState<MudSession | null>(null);
   const mudSessionRef = useRef<MudSession | null>(null);
 
   // ── Sync isAdmin ref ──────────────────────────────────────────────────────
@@ -1641,18 +1641,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     mudSessionRef.current = s;
     setMudSessionState(s);
   }, []);
-
-  // Stable MUD context builder (avoids stale closures)
-  const getMudCtx = useCallback((): MudContext | null => {
-    const s = mudSessionRef.current;
-    if (!s) return null;
-    return {
-      addLocalMsg,
-      handle,
-      session: s,
-      setSession: setMudSession,
-    };
-  }, [addLocalMsg, handle, setMudSession]);
 
   // ── Mod event listeners ───────────────────────────────────────────────────
   // mod:kicked — received by ablyClient when this client is kicked
@@ -1732,6 +1720,20 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
         setSession: setMudSession,
       };
       startCreationFlow(ctx);
+    } else if (session.phase === 'active') {
+      // Resume — auto-fire /look after a short delay for the welcome message to render
+      setTimeout(() => {
+        const ms = mudSessionRef.current;
+        if (ms && ms.phase === 'active') {
+          const ctx: MudContext = {
+            addLocalMsg,
+            handle,
+            session: ms,
+            setSession: setMudSession,
+          };
+          handleMudCommand('/look', ctx);
+        }
+      }, 600);
     }
   }, [addLocalMsg, handle, setMudSession]);
 
