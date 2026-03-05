@@ -80,7 +80,7 @@ const S = {
 };
 
 const C = {
-  green:     'var(--phosphor-green)',
+  green:     '#c8c8c8',           // room text — light grey for readability
   accent:    'var(--phosphor-accent)',
   dim:       'rgba(var(--phosphor-rgb),0.45)',
   dimmer:    'rgba(var(--phosphor-rgb),0.25)',
@@ -1060,7 +1060,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   if (session.phase === 'combat' && session.combat) {
     const combat = session.combat;
-    const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands'];
+    const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'help', '?'];
 
     if (!COMBAT_CMDS.includes(cmd)) {
       addLocalMsg(
@@ -1436,6 +1436,12 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       );
       return { handled: true, stopPropagation: true };
     }
+  }
+
+  // ── /help /? — redirect to mudhelp when in MUD ─────────────────────────
+  if (cmd === 'help' || cmd === '?') {
+    // Re-route to mudhelp handler
+    return handleMudCommand('/mudhelp', ctx);
   }
 
   // ── /look ─────────────────────────────────────────────────────────────
@@ -2003,8 +2009,20 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     return { handled: true, stopPropagation: true };
   }
 
-  // ── Not a MUD command — let it fall through ───────────────────────────
-  return { handled: false };
+  // ── /q — allow disconnect to pass through ──────────────────────────────
+  if (cmd === 'q') {
+    return { handled: false }; // Let ghost channel handler process /q
+  }
+
+  // ── Block all non-MUD commands ────────────────────────────────────────
+  // Don't let ghost channel commands (/who, /trust, /fragments, /me, etc.)
+  // work during MUD. Everything is routed through MUD commands.
+  addLocalMsg(
+    <MudNotice key={k('unknown-mud')} error>
+      unknown command: /{cmd} — type /help for available commands
+    </MudNotice>
+  );
+  return { handled: true, stopPropagation: true };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2140,4 +2158,153 @@ export async function handleNPCDialogue(
       }, (i + 1) * 400);
     });
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── MUD AUTOCOMPLETE SUGGESTIONS ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const MUD_COMMANDS = [
+  '/look', '/go', '/exits', '/examine', '/where', '/stats', '/inventory',
+  '/save', '/help', '/attack', '/hack', '/use', '/scan', '/flee',
+  '/talk', '/shop', '/buy', '/sell', '/quests', '/quest', '/mudhelp', '/q',
+];
+
+export function getMudSuggestions(partial: string, session: MudSession): string[] {
+  if (!partial) return [];
+  const lower = partial.toLowerCase();
+
+  // Command completion: /lo → /look
+  if (lower.startsWith('/')) {
+    const cmdPart = lower;
+    const parts = cmdPart.split(/\s+/);
+
+    if (parts.length === 1) {
+      // Still typing command name
+      return MUD_COMMANDS.filter(c => c.startsWith(cmdPart));
+    }
+
+    // Argument completion based on command
+    const cmd = parts[0];
+    const argPartial = parts.slice(1).join(' ').toLowerCase();
+    const char = session.character;
+    if (!char) return [];
+
+    const room = getRoom(char.currentRoom);
+    if (!room) return [];
+
+    // /go → exit directions + room names
+    if (cmd === '/go') {
+      const exits = getVisibleExits(char.currentRoom, char).map(e => e.direction);
+      // Add junction branch names
+      if (char.currentRoom === 'z08_r03') {
+        const branches = getJunctionBranches(char);
+        exits.push(...branches.map(b => b.name.toLowerCase()));
+      }
+      return exits.filter(e => e.startsWith(argPartial)).map(e => `/go ${e}`);
+    }
+
+    // /examine → objects + NPCs in room
+    if (cmd === '/examine' || cmd === '/x') {
+      const things = [
+        ...room.objects.filter(o => {
+          if (!o.hidden) return true;
+          if (!o.hiddenRequirement) return false;
+          return char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum;
+        }).map(o => o.name.toLowerCase()),
+        ...room.npcs.map(n => n.name.toLowerCase()),
+      ];
+      return things.filter(t => t.includes(argPartial)).map(t => `/examine ${t}`);
+    }
+
+    // /attack → enemy names
+    if (cmd === '/attack' || cmd === '/a') {
+      if (session.combat) {
+        const enemies = getAllLivingEnemies(session.combat);
+        return enemies.map(e => e.name.toLowerCase()).filter(n => n.includes(argPartial)).map(n => `/attack ${n}`);
+      }
+    }
+
+    // /hack → quickhack names
+    if (cmd === '/hack' || cmd === '/h') {
+      const hacks = getAvailableHacks(char.attributes.TECH, char.combatStyle);
+      return hacks.map(h => h.name.toLowerCase()).filter(n => n.includes(argPartial)).map(n => `/hack ${n}`);
+    }
+
+    // /use → usable items
+    if (cmd === '/use' || cmd === '/u') {
+      const items = char.inventory.filter(i => i.healAmount).map(i => i.name.toLowerCase());
+      return items.filter(n => n.includes(argPartial)).map(n => `/use ${n}`);
+    }
+
+    // /buy → shop items
+    if (cmd === '/buy') {
+      const shopkeeper = room.npcs.find(n => n.services?.includes('shop'));
+      if (shopkeeper) {
+        const listings = getFormattedShop(shopkeeper.id, char);
+        if (listings) {
+          return listings.map(l => l.name.toLowerCase()).filter(n => n.includes(argPartial)).map(n => `/buy ${n}`);
+        }
+      }
+    }
+
+    // /sell → inventory items
+    if (cmd === '/sell') {
+      const items = char.inventory.filter(i => !i.questItem).map(i => i.name.toLowerCase());
+      return items.filter(n => n.includes(argPartial)).map(n => `/sell ${n}`);
+    }
+
+    // /talk → NPC names
+    if (cmd === '/talk') {
+      const npcs = room.npcs.map(n => n.name.toLowerCase());
+      return npcs.filter(n => n.includes(argPartial)).map(n => `/talk ${n}`);
+    }
+
+    // /quest → quest IDs
+    if (cmd === '/quest') {
+      const ids = Object.keys(QUEST_REGISTRY);
+      return ids.filter(id => id.includes(argPartial)).map(id => `/quest ${id}`);
+    }
+
+    // /scan → enemies
+    if (cmd === '/scan' && session.combat) {
+      const enemies = getAllLivingEnemies(session.combat);
+      return enemies.map(e => e.name.toLowerCase()).filter(n => n.includes(argPartial)).map(n => `/scan ${n}`);
+    }
+  }
+
+  return [];
+}
+
+// ── MUD HUD data for bottom bar ─────────────────────────────────────────────
+
+export interface MudHUDData {
+  hp: number;
+  maxHp: number;
+  xp: number;
+  xpNext: number;
+  level: number;
+  creds: number;
+  inCombat: boolean;
+  ram?: number;
+  maxRam?: number;
+}
+
+export function getMudHUDData(session: MudSession): MudHUDData | null {
+  const char = session.character;
+  if (!char) return null;
+
+  const nextXP = char.level < LEVEL_CAP ? xpForLevel(char.level + 1) : char.xp;
+
+  return {
+    hp: char.hp,
+    maxHp: char.maxHp,
+    xp: char.xp,
+    xpNext: nextXP,
+    level: char.level,
+    creds: char.currency.creds,
+    inCombat: session.phase === 'combat',
+    ram: char.ram,
+    maxRam: char.maxRam,
+  };
 }
