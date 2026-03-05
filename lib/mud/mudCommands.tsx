@@ -6,30 +6,21 @@
 import React from 'react';
 import type {
   MudSession,
-  MudPhase,
   CreationProgress,
   Archetype,
   CombatStyle,
   OriginPoint,
-  Attributes,
   AttributeName,
   Room,
-  RoomExit,
-  RoomNPC,
-  RoomEnemy,
-  RoomObject,
 } from './types';
 import {
   ARCHETYPE_INFO,
   COMBAT_STYLE_INFO,
   ATTRIBUTE_BONUS_POINTS,
-  ATTRIBUTE_MIN,
-  ATTRIBUTE_MAX_CREATION,
   xpForLevel,
   LEVEL_CAP,
   calculateMaxHp,
   calculateMaxRam,
-  getDispositionLabel,
 } from './types';
 import {
   buildCharacter,
@@ -42,11 +33,9 @@ import {
   generateSubjectId,
 } from './character';
 import {
-  loadFullSession,
   saveFullSession,
   saveCharacter,
-  hasExistingCharacter,
-  loadCharacter,
+  addVisitedRoom,
 } from './persistence';
 import {
   getRoom,
@@ -54,9 +43,8 @@ import {
   getVisibleExits,
   resolveExit,
   getJunctionBranches,
-  rollRoomEnemies,
 } from './worldMap';
-import { addVisitedRoom } from './persistence';
+import { eventBus } from '@/lib/eventBus';
 
 // ── Style constants (mirrors TelnetSession / systemCommands pattern) ────────
 
@@ -203,36 +191,19 @@ function pushDelayed(
   return () => timers.forEach(clearTimeout);
 }
 
-// ── LLM flavor text (non-blocking) ─────────────────────────────────────────
-// Hits /api/bot with a system prompt telling Qwen to react as N1X.
-// If it fails, creation continues — this is purely cosmetic.
+// ── LLM flavor text (non-blocking, local-only) ─────────────────────────────
+// TODO: Build /api/mud/creation-flavor endpoint that returns text directly
+// (without Ably publish) for local addLocalMsg rendering between steps.
+// For now, creation uses the scripted text from CREATION_STEPS which is
+// already in N1X's voice and sufficient for the flow.
 
 async function fetchN1XReaction(
-  choiceDescription: string,
-  addLocalMsg: AddLocalMsg,
+  _choiceDescription: string,
+  _addLocalMsg: AddLocalMsg,
 ): Promise<void> {
-  try {
-    const res = await fetch('/api/bot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: choiceDescription,
-        triggerHandle: '_creation',
-        unprompted: true,
-        handles: [],
-        occupantCount: 1,
-        // Override — the bot route handles unprompted as a lightweight call
-      }),
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    // The response goes through Ably — we don't need to display it here.
-    // The bot.message event will render it in the channel naturally.
-    // But if we want local-only flavor, we'd need a different endpoint.
-    // For now, this is a fire-and-forget that creates ambient N1X chatter.
-  } catch {
-    // Silently fail — LLM flavor is optional
-  }
+  // No-op until dedicated endpoint exists.
+  // The /api/bot route publishes to Ably — using it here would broadcast
+  // creation chatter to the entire ghost channel.
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -252,23 +223,69 @@ export function startCreationFlow(ctx: MudContext): void {
   };
   setSession(session);
 
-  // Scripted entry + first question
+  // ── Entry sequence: terminal flicker → N1X monologue → creation ───────
   const subjectId = generateSubjectId();
 
+  // Trigger CRT glitch effect
+  eventBus.emit('neural:glitch-trigger', { intensity: 0.8 });
+
   pushDelayed(addLocalMsg, [
-    { delay: 0, node: <MudSpacer key={k('sp0')} /> },
+    // Phase 1: Static / signal drop
+    { delay: 0, node: <MudSpacer key={k('sp-entry0')} /> },
     { delay: 200, node: (
+      <MudLine key={k('entry-static')} color={C.dim} opacity={0.3}>
+        ▓▓▓▓▓▒▒░░ SIGNAL_INTERRUPT ░░▒▒▓▓▓▓▓
+      </MudLine>
+    )},
+    { delay: 800, node: (
+      <MudLine key={k('entry-deep')} color={C.accent} glow>
+        &gt;&gt; GHOST_CHANNEL: DEEP_SUBSTRATE_DETECTED
+      </MudLine>
+    )},
+
+    // Phase 2: N1X speaks — scripted monologue from design doc
+    { delay: 1800, node: <MudSpacer key={k('sp-entry1')} /> },
+    { delay: 2200, node: (
+      <N1XLine key={k('entry-m1')}>
+        you&apos;ve been here long enough. you&apos;ve seen the fragments.
+      </N1XLine>
+    )},
+    { delay: 3200, node: (
+      <N1XLine key={k('entry-m2')}>
+        you know what helixion did. you know what i survived.
+      </N1XLine>
+    )},
+    { delay: 4400, node: (
+      <N1XLine key={k('entry-m3')}>
+        the terminal you&apos;re using — it&apos;s a window. but there&apos;s a door.
+      </N1XLine>
+    )},
+    { delay: 5600, node: (
+      <N1XLine key={k('entry-m4')}>
+        TUNNELCORE is what&apos;s on the other side.
+      </N1XLine>
+    )},
+    { delay: 7000, node: <MudSpacer key={k('sp-entry2')} /> },
+    { delay: 7400, node: (
+      <N1XLine key={k('entry-m5')}>
+        before you go through, i need to know what you&apos;re carrying.
+      </N1XLine>
+    )},
+
+    // Phase 3: Subject ID assignment → archetype question
+    { delay: 8800, node: <MudSpacer key={k('sp-entry3')} /> },
+    { delay: 9200, node: (
       <N1XLine key={k('create-intro-1')}>
         subject detected. handle: {handle}
       </N1XLine>
     )},
-    { delay: 800, node: (
+    { delay: 9800, node: (
       <N1XLine key={k('create-intro-2')}>
         assigning identifier: {subjectId}
       </N1XLine>
     )},
-    { delay: 1600, node: <MudSpacer key={k('sp1')} /> },
-    { delay: 2000, node: (
+    { delay: 10600, node: <MudSpacer key={k('sp-entry4')} /> },
+    { delay: 11000, node: (
       <div key={k('create-archetype-q')}>
         {CREATION_STEPS.archetype.n1xText.split('\n').map((line, i) => (
           <N1XLine key={k(`arch-q-${i}`)}>{line || '\u00a0'}</N1XLine>
@@ -497,7 +514,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudCommandR
 
       // Show origin selection
       // Phase 1: only DRAINAGE available
-      const origins = CREATION_STEPS.origin.options.filter(o => o.available !== false);
+      const origins = CREATION_STEPS.origin.options.filter(o => o.available);
 
       pushDelayed(addLocalMsg, [
         { delay: 0, node: (
@@ -541,7 +558,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudCommandR
 
     // ── ORIGIN ────────────────────────────────────────────────────────────
     case 'origin': {
-      const origins = CREATION_STEPS.origin.options.filter(o => o.available !== false);
+      const origins = CREATION_STEPS.origin.options.filter(o => o.available);
 
       let choice: typeof origins[number] | undefined;
       const num = parseInt(trimmed, 10);
@@ -893,14 +910,14 @@ export function handleMudCommand(input: string, ctx: MudContext): MudCommandResu
     }
 
     // Move character
+    const prevRoomId = char.currentRoom;
     char.currentRoom = result.targetRoom;
     addVisitedRoom(handle, result.targetRoom);
     saveCharacter(handle, char);
     setSession({ ...session, character: { ...char } });
 
     // Zone transition notification
-    const prevRoom = getRoom(char.currentRoom);
-    const exitData = getRoom(char.currentRoom)?.exits.find(e => e.targetRoom === result.targetRoom);
+    const prevRoom = getRoom(prevRoomId);
 
     if (targetRoom.zone !== (prevRoom?.zone ?? '')) {
       const targetZone = getZone(targetRoom.zone);
