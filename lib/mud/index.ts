@@ -12,3 +12,4 @@ export * from './questEngine';
 export * from './shopSystem';
 export * from './mudCommands';
 export * from './mudAudio';
+export * from './mudHUD';
