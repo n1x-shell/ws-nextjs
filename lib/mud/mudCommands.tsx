@@ -1418,9 +1418,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     }
 
     if (!isPlayersTurn(combat)) {
-      addLocalMsg(
-        <MudNotice key={k('not-turn')} error>not your turn.</MudNotice>
-      );
+      // Silently swallow — PlayerCard already shows turn state ("COMBAT" vs "⚔ YOUR TURN")
       return { handled: true, stopPropagation: true };
     }
 

@@ -690,7 +690,8 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
 
   return (
     <div style={{
-      borderLeft: '2px solid rgba(255,68,68,0.35)',
+      border: '1px solid rgba(255,68,68,0.2)',
+      borderLeft: '3px solid rgba(255,68,68,0.5)',
       background: 'rgba(255,30,30,0.05)',
       padding: compact ? '0.25rem 0.4rem' : '0.35rem 0.5rem',
       borderRadius: '0 2px 2px 0',
@@ -750,9 +751,11 @@ function PlayerCard({ data }: { data: PanelData }) {
 
   return (
     <div style={{
-      borderLeft: '2px solid rgba(var(--phosphor-rgb),0.3)',
+      border: '1px solid rgba(var(--phosphor-rgb),0.2)',
+      borderLeft: '3px solid var(--phosphor-green)',
       background: 'rgba(var(--phosphor-rgb),0.03)',
-      padding: '0.3rem 0.5rem',
+      padding: '0.35rem 0.5rem',
+      borderRadius: '0 2px 2px 0',
     }}>
       {/* Title: turn indicator + identity */}
       <div style={{
@@ -834,6 +837,7 @@ function CombatPanels({ data }: { data: PanelData }) {
       flexShrink: 0,
       background: BG_COMBAT,
       borderBottom: `1px solid ${BORDER_COMBAT}`,
+      touchAction: 'none',
     }}>
       {/* Combat header */}
       <div style={{
@@ -852,15 +856,15 @@ function CombatPanels({ data }: { data: PanelData }) {
 
       {/* Enemy cards — stacked or 2-col grid for 4+ */}
       <div style={{
-        padding: '0.3rem 0.4rem',
+        padding: '0.35rem 0.4rem',
         ...(useGrid ? {
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '0.25rem',
+          gap: '0.35rem',
         } : {
           display: 'flex',
           flexDirection: 'column' as const,
-          gap: '0.25rem',
+          gap: '0.4rem',
         }),
       }}>
         {data.enemies.map(enemy => (
@@ -1279,6 +1283,7 @@ export function MudHUDContainer({ session, children }: {
           borderTop: `1px solid ${BORDER_COMBAT}`,
           background: BG_COMBAT,
           padding: '0.2rem 0.4rem',
+          touchAction: 'none',
         }}>
           <PlayerCard data={data} />
         </div>
