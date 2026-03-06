@@ -15,6 +15,7 @@ import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
 import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue, getMudSuggestions, getMudHUDData, collapseMudPanels } from '@/lib/mud/mudCommands';
 import type { MudContext } from '@/lib/mud/mudCommands';
 import { getRoom } from '@/lib/mud/worldMap';
+import { MudPanelSystem, MudStatusBar } from '@/lib/mud/mudHUD';
 
 // ── Style constants ───────────────────────────────────────────────────────────
 
@@ -2156,8 +2157,13 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       )}
 
       {!showBoot && mode === 'multi' && (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <ChannelStats occupantCount={occupantCount} handle={handle} roomName={roomName} />
+
+          {/* ── MUD Panel System — persistent panels above chat ── */}
+          {isMudActive && mudSession?.character && mudSession.phase !== 'character_creation' && (
+            <MudPanelSystem session={mudSession} />
+          )}
 
           {messages.length === 0 && localMsgs.length === 0 && (
             <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
@@ -2165,6 +2171,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
             </div>
           )}
 
+          {/* ── Chat / Narrative scroll area ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
             {[
               ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
@@ -2198,9 +2205,9 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
             )}
           </div>
 
-          {/* MUD HUD Panel — renders above input when MUD is active */}
-          {isMudActive && mudSession?.character && (
-            <MudHUD session={mudSession} />
+          {/* ── MUD Status Bar — compact bottom bar replaces old MudHUD ── */}
+          {isMudActive && mudSession?.character && mudSession.phase !== 'character_creation' && (
+            <MudStatusBar session={mudSession} />
           )}
         </div>
       )}
