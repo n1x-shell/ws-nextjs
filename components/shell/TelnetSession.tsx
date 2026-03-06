@@ -1820,6 +1820,13 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     }
   }, [mudSession]);
 
+  // ── MUD HUD visibility — hides InterfaceLayer nav when HUD is on screen ──
+  useEffect(() => {
+    const visible = !!(mudSession && mudSession.character && mudSession.phase !== 'character_creation'
+      && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'dead'));
+    eventBus.emit('mud:hud-visible', { visible });
+  }, [mudSession]);
+
   // ── Mod event listeners ───────────────────────────────────────────────────
   // mod:kicked — received by ablyClient when this client is kicked
   // mod:suppressed — received when this client tries to send while muted
