@@ -1237,13 +1237,17 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
     const action = processEnemyTurn(combat, next.nextId);
     if (action.flavorText) {
       addLocalMsg(
-        <div key={k(`enemy-act-${action.attackerId}`)} style={{ marginBottom: '0.3rem' }}>
+        <div key={k(`enemy-act-${action.attackerId}`)} style={{ marginBottom: '0.5rem' }}>
           <MudLine color={action.hit === false ? C.dim : C.enemy}>
             {action.flavorText}
             {action.crit ? <span style={{ color: '#ff4444', fontWeight: 'bold' }}> CRITICAL!</span> : ''}
           </MudLine>
         </div>
       );
+      // CRT feedback when player takes damage
+      if (action.hit && action.damage && action.damage > 0) {
+        eventBus.emit('crt:glitch-tier', { tier: action.crit ? 2 : 1, duration: action.crit ? 200 : 100 });
+      }
     }
 
     // Check if player died
@@ -1298,9 +1302,11 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
   addLocalMsg(
     <div key={k('combat-start')}>
       <MudSpacer />
+      <MudSpacer />
       <MudLine color={C.combat} glow bold>
         &gt;&gt; COMBAT INITIATED
       </MudLine>
+      <MudSpacer />
       <MudLine color={C.enemy}>
         hostile{spawned.length > 1 ? 's' : ''}: {names}
       </MudLine>
@@ -1445,7 +1451,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
       const r = result as AttackResult;
       addLocalMsg(
-        <div key={k('atk-result')} style={{ marginBottom: '0.4rem' }}>
+        <div key={k('atk-result')} style={{ marginBottom: '0.6rem', marginTop: '0.3rem' }}>
           <MudLine color={r.hit ? C.stat : C.dim}>
             you strike at {r.targetName} —
             roll: {r.roll} + mods = {r.attackTotal} vs {r.defenseTotal}
@@ -1463,6 +1469,11 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         </div>
       );
 
+      // CRT feedback on hit/crit
+      if (r.hit) {
+        eventBus.emit('crt:glitch-tier', { tier: r.crit ? 2 : 1, duration: r.crit ? 250 : 120 });
+      }
+
       syncCombatToCharacter(combat, char);
       saveCombat(char.handle, combat);
 
@@ -1474,6 +1485,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
           const xpResult = addXP(char, endCheck.xpGained);
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
+          eventBus.emit('crt:glitch-tier', { tier: 2, duration: 300 });
           addLocalMsg(
             <div key={k('combat-win')}>
               <MudSpacer />
@@ -1567,7 +1579,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       char.ram = getPlayerCombatant(combat)?.ram ?? char.ram;
 
       addLocalMsg(
-        <div key={k('hack-result')} style={{ marginBottom: '0.4rem' }}>
+        <div key={k('hack-result')} style={{ marginBottom: '0.6rem', marginTop: '0.3rem' }}>
           <MudLine color={C.hack}>
             uploading {hr.hackName} → {hr.targetName}
             — roll: {hr.roll} + TECH = {hr.attackTotal} vs {hr.defenseTotal}
@@ -1584,6 +1596,11 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
           )}
         </div>
       );
+
+      // CRT feedback on hack
+      if (hr.hit) {
+        eventBus.emit('crt:glitch-tier', { tier: hr.killed ? 2 : 1, duration: 180 });
+      }
 
       syncCombatToCharacter(combat, char);
       saveCombat(char.handle, combat);

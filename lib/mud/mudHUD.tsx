@@ -62,6 +62,57 @@ const BG_COMBAT = '#0d0808';
 const BORDER = 'rgba(var(--phosphor-rgb),0.15)';
 const BORDER_COMBAT = 'rgba(255,68,68,0.25)';
 
+// ── Combat FX Keyframes ─────────────────────────────────────────────────────
+
+function CombatFXStyles() {
+  return (
+    <style>{`
+      @keyframes mud-pulse-red {
+        0%, 100% { border-left-color: rgba(255,68,68,0.5); box-shadow: inset 2px 0 8px rgba(255,30,30,0.05); }
+        50% { border-left-color: rgba(255,68,68,0.85); box-shadow: inset 2px 0 12px rgba(255,30,30,0.12); }
+      }
+      @keyframes mud-pulse-green {
+        0%, 100% { border-left-color: var(--phosphor-green); box-shadow: inset 2px 0 8px rgba(var(--phosphor-rgb),0.05); }
+        50% { border-left-color: var(--phosphor-accent); box-shadow: inset 2px 0 14px rgba(var(--phosphor-rgb),0.12); }
+      }
+      @keyframes mud-slide-in {
+        from { opacity: 0; transform: translateX(-6px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes mud-bar-flash {
+        0% { filter: brightness(1); }
+        30% { filter: brightness(1.8); }
+        100% { filter: brightness(1); }
+      }
+      @keyframes mud-header-pulse {
+        0%, 100% { text-shadow: 0 0 6px rgba(255,68,68,0.4); }
+        50% { text-shadow: 0 0 14px rgba(255,68,68,0.7), 0 0 3px rgba(255,68,68,0.3); }
+      }
+      @keyframes mud-turn-glow {
+        0%, 100% { text-shadow: 0 0 5px var(--phosphor-accent); }
+        50% { text-shadow: 0 0 12px var(--phosphor-accent), 0 0 20px rgba(var(--phosphor-rgb),0.3); }
+      }
+      .mud-btn-combat {
+        transition: all 0.15s ease !important;
+      }
+      .mud-btn-combat:hover {
+        transform: scale(1.06) !important;
+        filter: brightness(1.15) !important;
+      }
+      .mud-btn-combat:active {
+        transform: scale(0.95) !important;
+        filter: brightness(0.9) !important;
+      }
+      .mud-enemy-card {
+        animation: mud-slide-in 0.25s ease-out both;
+      }
+      .mud-player-card {
+        animation: mud-slide-in 0.3s ease-out 0.1s both;
+      }
+    `}</style>
+  );
+}
+
 // ── Panel mode type ─────────────────────────────────────────────────────────
 
 export type PanelMode = 'default' | 'inventory' | 'shop';
@@ -234,35 +285,47 @@ function Btn({ label, command, color, borderColor, small }: {
 }) {
   return (
     <button
+      className="mud-btn-combat"
       onClick={(e) => { e.stopPropagation(); eventBus.emit('mud:execute-command', { command }); }}
       style={{
         fontFamily: 'monospace', fontSize: 'var(--text-base)', lineHeight: 1,
-        padding: small ? '0.15rem 0.3rem' : '0.2rem 0.4rem',
-        minHeight: small ? 24 : 28, background: 'transparent',
+        padding: small ? '0.2rem 0.45rem' : '0.3rem 0.6rem',
+        minHeight: small ? 26 : 30, background: 'transparent',
         border: `1px solid ${borderColor}`, color, cursor: 'pointer',
-        textTransform: 'uppercase', letterSpacing: '0.04em',
-        transition: 'background 0.12s', touchAction: 'manipulation', whiteSpace: 'nowrap',
+        textTransform: 'uppercase', letterSpacing: '0.06em',
+        touchAction: 'manipulation', whiteSpace: 'nowrap',
+        boxShadow: `0 0 4px ${borderColor}`,
       }}
-      onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(var(--phosphor-rgb),0.08)'; }}
-      onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+      onMouseEnter={(e) => {
+        const el = e.target as HTMLElement;
+        el.style.background = 'rgba(var(--phosphor-rgb),0.1)';
+        el.style.boxShadow = `0 0 10px ${borderColor}, inset 0 0 6px ${borderColor}`;
+      }}
+      onMouseLeave={(e) => {
+        const el = e.target as HTMLElement;
+        el.style.background = 'transparent';
+        el.style.boxShadow = `0 0 4px ${borderColor}`;
+      }}
     >
       {label}
     </button>
   );
 }
 
-function Bar({ pct, color, width = '100%', height = 3 }: {
+function Bar({ pct, color, width = '100%', height = 5 }: {
   pct: number; color: string; width?: string; height?: number;
 }) {
   return (
     <div style={{
-      width, height, background: 'rgba(var(--phosphor-rgb),0.08)',
+      width, height, background: 'rgba(var(--phosphor-rgb),0.06)',
       borderRadius: 1, overflow: 'hidden', flexShrink: 0,
+      border: '1px solid rgba(var(--phosphor-rgb),0.06)',
     }}>
       <div style={{
         width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%',
-        background: color, boxShadow: `0 0 4px ${color}`,
-        transition: 'width 0.4s ease',
+        background: color,
+        boxShadow: `0 0 6px ${color}, 0 0 2px ${color}`,
+        transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       }} />
     </div>
   );
@@ -315,24 +378,24 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
         <TitleBar color={C.combat} borderColor={BORDER_COMBAT}>
           {isPlayerTurn ? '\u2694 YOUR TURN' : '\u2694 COMBAT'}
         </TitleBar>
-        <div style={{ padding: '0.25rem 0.35rem' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginBottom: '0.2rem' }}>
+        <div style={{ padding: '0.4rem 0.5rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.35rem' }}>
             <Btn label="ATTACK" command="/attack" color={C.enemy} borderColor="rgba(255,107,107,0.5)" />
             {hasRam && <Btn label="HACK" command="/hack" color={C.hack} borderColor="rgba(192,132,252,0.5)" />}
             <Btn label="SCAN" command="/scan" color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.35)" />
             <Btn label="FLEE" command="/flee" color={C.dimmer} borderColor="rgba(var(--phosphor-rgb),0.25)" />
           </div>
           {hasRam && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', marginBottom: '0.15rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.25rem' }}>
               <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack, flexShrink: 0 }}>RAM</span>
-              <Bar pct={(playerRam / playerMaxRam) * 100} color={C.hack} />
+              <Bar pct={(playerRam / playerMaxRam) * 100} color={C.hack} height={5} />
               <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack, flexShrink: 0 }}>
                 {playerRam}/{playerMaxRam}
               </span>
             </div>
           )}
           {consumables.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.1rem' }}>
               {consumables.map(item => (
                 <Btn key={item.id}
                   label={`${item.name}${item.quantity > 1 ? ' \u00d7' + item.quantity : ''}`}
@@ -584,26 +647,27 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
     return (
       <div>
         <TitleBar color={C.enemy} borderColor={BORDER_COMBAT}>HOSTILES</TitleBar>
-        <div style={{ padding: '0.2rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <div style={{ padding: '0.3rem 0.4rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
           {enemies.map(e => {
             const hpPct = e.maxHp && e.maxHp > 0 ? ((e.hp ?? 0) / e.maxHp) * 100 : 100;
             return (
               <div key={e.id}>
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                  marginBottom: '0.15rem',
                 }}>
                   <span style={{ color: C.enemy, fontWeight: 'bold' }}>{e.name}</span>
                   <span style={{ color: C.enemy, fontSize: 'var(--text-base)' }}>
                     {e.hp !== undefined ? `${e.hp}/${e.maxHp}` : '???'}
                   </span>
                 </div>
-                <Bar pct={hpPct} color="#ff4444" />
+                <Bar pct={hpPct} color="#ff4444" height={5} />
                 {e.effects && e.effects.length > 0 && (
                   <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack }}>
                     [{e.effects.join(', ')}]
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '0.2rem', marginTop: '0.1rem' }}>
+                <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.2rem' }}>
                   <Btn label="ATK" command={`/attack ${e.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.4)" small />
                   <Btn label="SCAN" command={`/scan ${e.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.3)" small />
                 </div>
@@ -687,22 +751,29 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
 function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: boolean; compact?: boolean }) {
   const hpKnown = enemy.hp !== undefined && enemy.maxHp !== undefined;
   const hpPct = hpKnown && enemy.maxHp! > 0 ? ((enemy.hp ?? 0) / enemy.maxHp!) * 100 : 0;
+  const isLow = hpPct < 30 && hpPct > 0;
 
   return (
-    <div style={{
-      border: '1px solid rgba(255,68,68,0.2)',
+    <div className="mud-enemy-card" style={{
+      border: '1px solid rgba(255,68,68,0.15)',
       borderLeft: '3px solid rgba(255,68,68,0.5)',
-      background: 'rgba(255,30,30,0.05)',
-      padding: compact ? '0.25rem 0.4rem' : '0.35rem 0.5rem',
-      borderRadius: '0 2px 2px 0',
+      background: isLow ? 'rgba(255,30,30,0.08)' : 'rgba(255,30,30,0.03)',
+      padding: compact ? '0.5rem 0.6rem' : '0.6rem 0.75rem',
+      borderRadius: '0 3px 3px 0',
+      animation: 'mud-pulse-red 3s ease-in-out infinite',
     }}>
-      {/* Title: name + level */}
+      {/* Title row */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontFamily: 'monospace', fontSize: 'var(--text-base)',
-        marginBottom: '0.1rem',
+        marginBottom: '0.35rem',
+        paddingBottom: '0.25rem',
+        borderBottom: '1px solid rgba(255,68,68,0.1)',
       }}>
-        <span style={{ color: C.enemy, fontWeight: 'bold', letterSpacing: '0.04em' }}>
+        <span style={{
+          color: C.enemy, fontWeight: 'bold', letterSpacing: '0.06em',
+          textShadow: isLow ? '0 0 8px rgba(255,68,68,0.5)' : 'none',
+        }}>
           {enemy.name}
         </span>
         <span style={{ color: C.faint, fontSize: compact ? '0.8em' : 'var(--text-base)' }}>
@@ -710,30 +781,46 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
         </span>
       </div>
 
-      {/* HP bar or ??? */}
+      {/* HP bar */}
       {hpKnown ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', marginBottom: '0.35rem' }}>
           <span style={{ color: C.faint, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-          <div style={{ flex: 1 }}><Bar pct={hpPct} color="#ff4444" height={4} /></div>
-          <span style={{ color: C.enemy, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          <div style={{ flex: 1 }}><Bar pct={hpPct} color="#ff4444" height={6} /></div>
+          <span style={{
+            color: isLow ? '#ff6b6b' : C.enemy, fontSize: 'var(--text-base)',
+            flexShrink: 0, minWidth: '5ch', textAlign: 'right',
+            fontWeight: isLow ? 'bold' : 'normal',
+          }}>
             {enemy.hp}/{enemy.maxHp}
           </span>
         </div>
       ) : (
-        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.15rem' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.35rem' }}>
           HP ???
         </div>
       )}
 
       {/* Effects */}
       {enemy.effects && enemy.effects.length > 0 && (
-        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.15rem' }}>
-          {enemy.effects.map(eff => `[${eff.toUpperCase()}]`).join(' ')}
+        <div style={{
+          fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.35rem',
+          display: 'flex', gap: '0.4ch', flexWrap: 'wrap',
+        }}>
+          {enemy.effects.map((eff, i) => (
+            <span key={i} style={{
+              padding: '0.1rem 0.3rem',
+              border: '1px solid rgba(192,132,252,0.25)',
+              borderRadius: 2,
+              background: 'rgba(192,132,252,0.06)',
+            }}>
+              {eff.toUpperCase()}
+            </span>
+          ))}
         </div>
       )}
 
-      {/* Per-enemy action buttons */}
-      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
         <Btn label="ATK" command={`/attack ${enemy.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.5)" small />
         {hasRam && <Btn label="HACK" command={`/hack short_circuit`} color={C.hack} borderColor="rgba(192,132,252,0.5)" small />}
         <Btn label="SCAN" command={`/scan ${enemy.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.35)" small />
@@ -750,63 +837,72 @@ function PlayerCard({ data }: { data: PanelData }) {
   const ramPct = hasRam ? (data.playerRam / data.playerMaxRam) * 100 : 0;
 
   return (
-    <div style={{
-      border: '1px solid rgba(var(--phosphor-rgb),0.2)',
-      borderLeft: '3px solid var(--phosphor-green)',
-      background: 'rgba(var(--phosphor-rgb),0.03)',
-      padding: '0.35rem 0.5rem',
-      borderRadius: '0 2px 2px 0',
+    <div className="mud-player-card" style={{
+      border: '1px solid rgba(var(--phosphor-rgb),0.15)',
+      borderLeft: data.isPlayerTurn ? '3px solid var(--phosphor-green)' : '3px solid rgba(var(--phosphor-rgb),0.25)',
+      background: data.isPlayerTurn ? 'rgba(var(--phosphor-rgb),0.04)' : 'rgba(var(--phosphor-rgb),0.02)',
+      padding: '0.6rem 0.75rem',
+      borderRadius: '0 3px 3px 0',
+      animation: data.isPlayerTurn ? 'mud-pulse-green 2.5s ease-in-out infinite' : 'none',
     }}>
       {/* Title: turn indicator + identity */}
       <div style={{
         fontFamily: 'monospace', fontSize: 'var(--text-base)',
-        fontWeight: 'bold', marginBottom: '0.2rem',
+        fontWeight: 'bold',
+        marginBottom: '0.4rem',
+        paddingBottom: '0.3rem',
+        borderBottom: `1px solid ${data.isPlayerTurn ? 'rgba(var(--phosphor-rgb),0.15)' : 'rgba(var(--phosphor-rgb),0.08)'}`,
         color: data.isPlayerTurn ? 'var(--phosphor-accent)' : C.dim,
-        textShadow: data.isPlayerTurn ? '0 0 6px var(--phosphor-accent)' : 'none',
-        letterSpacing: '0.04em',
+        letterSpacing: '0.06em',
+        animation: data.isPlayerTurn ? 'mud-turn-glow 2s ease-in-out infinite' : 'none',
       }} className={data.isPlayerTurn ? S.glow : undefined}>
         {data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle} ({data.subjectId})
       </div>
 
-      {/* HP bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
-        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={4} /></div>
-        <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-          {data.hp}/{data.maxHp}
-        </span>
-        <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
-        <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
-          Lv.{data.level}
-        </span>
-      </div>
-
-      {/* XP bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
-        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={3} /></div>
-        <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-          {data.xp}/{data.xpNext}
-        </span>
-      </div>
-
-      {/* RAM bar (only if has RAM) */}
-      {hasRam && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>RM</span>
-          <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={3} /></div>
-          <span style={{ color: C.hack, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-            {data.playerRam}/{data.playerMaxRam}
+      {/* Stat bars with consistent spacing */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        {/* HP bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
+          <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {data.hp}/{data.maxHp}
+          </span>
+          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
+          <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
+            Lv.{data.level}
           </span>
         </div>
-      )}
 
-      {/* Bottom row: currency + FLEE */}
+        {/* XP bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
+          <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {data.xp}/{data.xpNext}
+          </span>
+        </div>
+
+        {/* RAM bar */}
+        {hasRam && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+            <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>RM</span>
+            <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={5} /></div>
+            <span style={{ color: C.hack, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+              {data.playerRam}/{data.playerMaxRam}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Divider before actions */}
       <div style={{
+        borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+        marginTop: '0.4rem', paddingTop: '0.4rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginTop: '0.15rem', gap: '0.5rem',
+        gap: '0.5rem',
       }}>
-        <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
+        <div style={{ display: 'flex', gap: '0.6ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
           <span style={{ color: '#fcd34d' }}>{data.creds}{'\u00a2'}</span>
           {data.scrip > 0 && <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>}
         </div>
@@ -815,7 +911,10 @@ function PlayerCard({ data }: { data: PanelData }) {
 
       {/* Consumables */}
       {data.consumables.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem', marginTop: '0.2rem' }}>
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.35rem',
+          paddingTop: '0.3rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.06)',
+        }}>
           {data.consumables.map(item => (
             <Btn key={item.id}
               label={`${item.name}${item.quantity > 1 ? ' \u00d7' + item.quantity : ''}`}
@@ -839,35 +938,46 @@ function CombatPanels({ data }: { data: PanelData }) {
       borderBottom: `1px solid ${BORDER_COMBAT}`,
       touchAction: 'none',
     }}>
+      <CombatFXStyles />
+
       {/* Combat header */}
       <div style={{
-        padding: '0.2rem 0.5rem',
+        padding: '0.4rem 0.6rem',
         borderBottom: `1px solid ${BORDER_COMBAT}`,
         background: 'rgba(255,20,20,0.06)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
         <span style={{
           fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
-          color: C.combat, letterSpacing: '0.06em',
-          textShadow: '0 0 8px rgba(255,68,68,0.4)',
+          color: C.combat, letterSpacing: '0.08em',
+          animation: 'mud-header-pulse 2.5s ease-in-out infinite',
         }} className={S.glow}>
           {'\u2694'} COMBAT {'\u2014'} Round {data.combatRound}
         </span>
+        <span style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          color: data.isPlayerTurn ? 'var(--phosphor-accent)' : C.faint,
+          letterSpacing: '0.04em',
+          animation: data.isPlayerTurn ? 'mud-turn-glow 2s ease-in-out infinite' : 'none',
+        }}>
+          {data.isPlayerTurn ? 'YOUR MOVE' : 'WAITING...'}
+        </span>
       </div>
 
-      {/* Enemy cards — stacked or 2-col grid for 4+ */}
+      {/* Enemy cards */}
       <div style={{
-        padding: '0.35rem 0.4rem',
+        padding: '0.5rem 0.5rem',
         ...(useGrid ? {
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '0.35rem',
+          gap: '0.5rem',
         } : {
           display: 'flex',
           flexDirection: 'column' as const,
-          gap: '0.4rem',
+          gap: '0.6rem',
         }),
       }}>
-        {data.enemies.map(enemy => (
+        {data.enemies.map((enemy) => (
           <EnemyCard key={enemy.id} enemy={enemy} hasRam={hasRam} compact={useGrid} />
         ))}
       </div>
@@ -994,7 +1104,7 @@ function StatusBar({ data }: { data: PanelData }) {
   return (
     <div style={{
       fontFamily: 'monospace', fontSize: S.base,
-      padding: '0.2rem 0.5rem',
+      padding: '0.35rem 0.6rem',
       borderTop: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
       background: data.inCombat ? BG_COMBAT : BG_PANEL,
       position: 'relative',
@@ -1005,11 +1115,11 @@ function StatusBar({ data }: { data: PanelData }) {
         background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
       }} />
 
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         {/* Row 1: HP + level */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={4} /></div>
+          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
           <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.hp}/{data.maxHp}
           </span>
@@ -1020,9 +1130,9 @@ function StatusBar({ data }: { data: PanelData }) {
         </div>
 
         {/* Row 2: XP + Currency + Combat */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={4} /></div>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
           <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.xp}/{data.xpNext}
           </span>
@@ -1282,7 +1392,7 @@ export function MudHUDContainer({ session, children }: {
           flexShrink: 0,
           borderTop: `1px solid ${BORDER_COMBAT}`,
           background: BG_COMBAT,
-          padding: '0.2rem 0.4rem',
+          padding: '0.4rem 0.5rem',
           touchAction: 'none',
         }}>
           <PlayerCard data={data} />
