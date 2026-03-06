@@ -1207,60 +1207,14 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
 // ── COMBAT HUD ──────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function renderCombatHUD(session: MudSession, addLocalMsg: AddLocalMsg): void {
-  const combat = session.combat;
-  const char = session.character;
-  if (!combat || !char) return;
-
-  const player = getPlayerCombatant(combat);
-  const enemies = getAllLivingEnemies(combat);
-  if (!player) return;
-
-  const isMyTurn = isPlayersTurn(combat);
-
-  const CSSBar = ({ pct, color, w = '10ch' }: { pct: number; color: string; w?: string }) => (
-    <span style={{ display: 'inline-block', width: w, height: 5, background: 'rgba(var(--phosphor-rgb),0.1)', borderRadius: 1, overflow: 'hidden', verticalAlign: 'middle', margin: '0 0.4ch' }}>
-      <span style={{ display: 'block', width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', background: color, boxShadow: `0 0 4px ${color}`, transition: 'width 0.3s' }} />
-    </span>
-  );
-
-  const playerHpPct = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
-  const playerHpColor = playerHpPct > 60 ? 'var(--phosphor-green)' : playerHpPct > 25 ? '#fbbf24' : '#ff4444';
-
-  addLocalMsg(
-    <div key={k('combat-hud')} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
-      <MudLine color={C.combatHud} bold>
-        ── COMBAT · Round {combat.round} {isMyTurn ? '· YOUR TURN' : ''} ──
-      </MudLine>
-      <MudSpacer />
-      <MudLine indent color={C.stat}>
-        YOU:
-        <CSSBar pct={playerHpPct} color={playerHpColor} />
-        {player.hp}/{player.maxHp} HP
-        {player.ram !== undefined ? ` · RAM ${player.ram}/${player.maxRam}` : ''}
-        {isMyTurn ? ` · ${player.ap} AP` : ''}
-      </MudLine>
-      {enemies.map(e => {
-        const ePct = e.maxHp > 0 ? (e.hp / e.maxHp) * 100 : 0;
-        return (
-          <MudLine key={k(`hud-${e.id}`)} indent color={C.enemy}>
-            {e.name}:
-            <CSSBar pct={ePct} color="#ff4444" />
-            {e.hp}/{e.maxHp}
-            {e.effects.length > 0 ? ` [${e.effects.map(ef => ef.name).join(', ')}]` : ''}
-          </MudLine>
-        );
-      })}
-      {isMyTurn && (
-        <>
-          <MudSpacer />
-          <MudLine color={C.dim}>
-            /attack · /hack · /use · /scan · /flee
-          </MudLine>
-        </>
-      )}
-    </div>
-  );
+// renderCombatHUD — REMOVED (v3)
+// The MudHUDContainer panels now display all combat state persistently:
+// - Left panel: YOUR TURN / COMBAT with action buttons, RAM bar, consumables
+// - Right panel: HOSTILES with HP bars, ATK/SCAN buttons, effects
+// - Status bar: HP, XP, level, currency, combat round indicator
+// No need to dump a text snapshot into chat after every action.
+function renderCombatHUD(_session: MudSession, _addLocalMsg: AddLocalMsg): void {
+  // no-op — kept as function to avoid dead call site errors during transition
 }
 
 // Process all enemy turns after player ends turn
@@ -1356,8 +1310,6 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
     processAllEnemyTurns(updated, addLocalMsg);
     setSession({ ...updated });
   }
-
-  setTimeout(() => renderCombatHUD(updated, addLocalMsg), 200);
 }
 
 // Handle player death
@@ -1529,10 +1481,10 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
-      // If player has AP left, show HUD again
+      // If player has AP left, refresh HUD panels
       const player = getPlayerCombatant(combat);
       if (player && player.ap > 0) {
-        renderCombatHUD(session, addLocalMsg);
+        setSession({ ...session });
       } else {
         // End of player turn — process enemy turns
         addLocalMsg(<MudLine key={k('turn-end')} color={C.dim}>— end of your turn —</MudLine>);
@@ -1544,7 +1496,6 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         }
         saveCombat(char.handle, combat);
         setSession({ ...session });
-        renderCombatHUD(session, addLocalMsg);
       }
 
       return { handled: true, stopPropagation: true };
@@ -1645,14 +1596,13 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
       const player = getPlayerCombatant(combat);
       if (player && player.ap > 0) {
-        renderCombatHUD(session, addLocalMsg);
+        setSession({ ...session });
       } else {
         addLocalMsg(<MudLine key={k('turn-end-h')} color={C.dim}>— end of your turn —</MudLine>);
         processAllEnemyTurns(session, addLocalMsg);
         if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
         saveCombat(char.handle, combat);
         setSession({ ...session });
-        renderCombatHUD(session, addLocalMsg);
       }
 
       return { handled: true, stopPropagation: true };
@@ -1699,13 +1649,12 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
       const player = getPlayerCombatant(combat);
       if (player && player.ap > 0) {
-        renderCombatHUD(session, addLocalMsg);
+        setSession({ ...session });
       } else {
         processAllEnemyTurns(session, addLocalMsg);
         if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
         saveCombat(char.handle, combat);
         setSession({ ...session });
-        renderCombatHUD(session, addLocalMsg);
       }
 
       return { handled: true, stopPropagation: true };
@@ -1750,13 +1699,12 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
       saveCombat(char.handle, combat);
       const player = getPlayerCombatant(combat);
-      if (player && player.ap > 0) renderCombatHUD(session, addLocalMsg);
+      if (player && player.ap > 0) setSession({ ...session });
       else {
         processAllEnemyTurns(session, addLocalMsg);
         if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
         saveCombat(char.handle, combat);
         setSession({ ...session });
-        renderCombatHUD(session, addLocalMsg);
       }
 
       return { handled: true, stopPropagation: true };
@@ -1795,7 +1743,6 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         processAllEnemyTurns(session, addLocalMsg);
         if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
         setSession({ ...session });
-        renderCombatHUD(session, addLocalMsg);
       }
 
       return { handled: true, stopPropagation: true };
