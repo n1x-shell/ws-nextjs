@@ -684,34 +684,34 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
 // ── Combat Cards — Full-width card layout for combat mode ───────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function EnemyCard({ enemy, hasRam }: { enemy: PanelEnemy; hasRam: boolean }) {
+function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: boolean; compact?: boolean }) {
   const hpKnown = enemy.hp !== undefined && enemy.maxHp !== undefined;
   const hpPct = hpKnown && enemy.maxHp! > 0 ? ((enemy.hp ?? 0) / enemy.maxHp!) * 100 : 0;
 
   return (
     <div style={{
-      borderLeft: '2px solid rgba(255,68,68,0.4)',
-      background: 'rgba(255,20,20,0.04)',
-      padding: '0.3rem 0.5rem',
-      marginBottom: '0.2rem',
+      borderLeft: '2px solid rgba(255,68,68,0.35)',
+      background: 'rgba(255,30,30,0.05)',
+      padding: compact ? '0.25rem 0.4rem' : '0.35rem 0.5rem',
+      borderRadius: '0 2px 2px 0',
     }}>
       {/* Title: name + level */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontFamily: 'monospace', fontSize: 'var(--text-base)',
-        marginBottom: '0.15rem',
+        marginBottom: '0.1rem',
       }}>
         <span style={{ color: C.enemy, fontWeight: 'bold', letterSpacing: '0.04em' }}>
           {enemy.name}
         </span>
-        <span style={{ color: C.faint }}>
+        <span style={{ color: C.faint, fontSize: compact ? '0.8em' : 'var(--text-base)' }}>
           {enemy.level > 0 ? `Lv.${enemy.level}` : ''}
         </span>
       </div>
 
       {/* HP bar or ??? */}
       {hpKnown ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
           <span style={{ color: C.faint, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
           <div style={{ flex: 1 }}><Bar pct={hpPct} color="#ff4444" height={4} /></div>
           <span style={{ color: C.enemy, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
@@ -719,14 +719,14 @@ function EnemyCard({ enemy, hasRam }: { enemy: PanelEnemy; hasRam: boolean }) {
           </span>
         </div>
       ) : (
-        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.2rem' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.15rem' }}>
           HP ???
         </div>
       )}
 
       {/* Effects */}
       {enemy.effects && enemy.effects.length > 0 && (
-        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.2rem' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.15rem' }}>
           {enemy.effects.map(eff => `[${eff.toUpperCase()}]`).join(' ')}
         </div>
       )}
@@ -827,6 +827,7 @@ function PlayerCard({ data }: { data: PanelData }) {
 
 function CombatPanels({ data }: { data: PanelData }) {
   const hasRam = data.playerMaxRam > 0;
+  const useGrid = data.enemies.length >= 4;
 
   return (
     <div style={{
@@ -849,19 +850,22 @@ function CombatPanels({ data }: { data: PanelData }) {
         </span>
       </div>
 
-      {/* Enemy cards — full width, stacked */}
-      <div style={{ padding: '0.25rem 0.35rem 0.1rem' }}>
-        {data.enemies.map(enemy => (
-          <EnemyCard key={enemy.id} enemy={enemy} hasRam={hasRam} />
-        ))}
-      </div>
-
-      {/* Player card */}
+      {/* Enemy cards — stacked or 2-col grid for 4+ */}
       <div style={{
-        padding: '0.1rem 0.35rem 0.25rem',
-        borderTop: `1px solid ${BORDER_COMBAT}`,
+        padding: '0.3rem 0.4rem',
+        ...(useGrid ? {
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '0.25rem',
+        } : {
+          display: 'flex',
+          flexDirection: 'column' as const,
+          gap: '0.25rem',
+        }),
       }}>
-        <PlayerCard data={data} />
+        {data.enemies.map(enemy => (
+          <EnemyCard key={enemy.id} enemy={enemy} hasRam={hasRam} compact={useGrid} />
+        ))}
       </div>
     </div>
   );
@@ -1268,8 +1272,19 @@ export function MudHUDContainer({ session, children }: {
         {children}
       </div>
 
-      {/* Status bar — hidden in combat (player card covers it) */}
-      {!data.inCombat && <StatusBar data={data} />}
+      {/* Bottom bar — PlayerCard in combat, StatusBar in explore */}
+      {data.inCombat ? (
+        <div style={{
+          flexShrink: 0,
+          borderTop: `1px solid ${BORDER_COMBAT}`,
+          background: BG_COMBAT,
+          padding: '0.2rem 0.4rem',
+        }}>
+          <PlayerCard data={data} />
+        </div>
+      ) : (
+        <StatusBar data={data} />
+      )}
     </div>
   );
 }
