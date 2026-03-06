@@ -12,6 +12,8 @@ import type {
   OriginPoint,
   AttributeName,
   Room,
+  RoomExit,
+  RoomObject,
 } from './types';
 import {
   ARCHETYPE_INFO,
@@ -74,7 +76,276 @@ import {
   stripTagsForDisplay, replayAudio, stopAllAndReset, getActiveAudioId,
 } from './mudAudio';
 
-// ── Style constants (mirrors TelnetSession / systemCommands pattern) ────────
+// ── ActionGlyph — tappable command button for entity panels ─────────────────
+
+interface ActionGlyphProps {
+  label: string;
+  command: string;
+  variant?: 'combat' | 'social' | 'info';
+  ariaLabel?: string;
+}
+
+function ActionGlyph({ label, command, variant = 'info', ariaLabel }: ActionGlyphProps) {
+  const borderColors = {
+    combat: 'rgba(255,107,107,0.5)',
+    social: 'rgba(252,211,77,0.5)',
+    info: 'rgba(var(--phosphor-rgb),0.35)',
+  };
+  const textColors = {
+    combat: '#ff6b6b',
+    social: '#fcd34d',
+    info: 'rgba(var(--phosphor-rgb),0.7)',
+  };
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        eventBus.emit('mud:execute-command', { command });
+      }}
+      aria-label={ariaLabel ?? `${label.toLowerCase()}`}
+      style={{
+        fontFamily: 'monospace',
+        fontSize: '0.75em',
+        lineHeight: 1,
+        padding: '0.25rem 0.5rem',
+        minHeight: 28,
+        minWidth: 28,
+        background: 'transparent',
+        border: `1px solid ${borderColors[variant]}`,
+        color: textColors[variant],
+        cursor: 'pointer',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        transition: 'background 0.12s, box-shadow 0.12s',
+        touchAction: 'manipulation',
+      }}
+      onMouseEnter={(e) => {
+        (e.target as HTMLElement).style.background =
+          variant === 'combat' ? 'rgba(255,68,68,0.1)' : 'rgba(var(--phosphor-rgb),0.08)';
+      }}
+      onMouseLeave={(e) => {
+        (e.target as HTMLElement).style.background = 'transparent';
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ── TouchableEntity — expandable room element with action panel ─────────────
+// Uses window-level state for cross-instance coordination since these render
+// inside addLocalMsg and don't share React tree context.
+
+let _expandedEntityId: string | null = null;
+
+function emitPanelState(id: string | null): void {
+  _expandedEntityId = id;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mud:panel-state', { detail: { expandedId: id } }));
+  }
+}
+
+// Collapse all panels (called on new input)
+export function collapseMudPanels(): void {
+  emitPanelState(null);
+}
+
+interface EntityPanelContent {
+  title: string;
+  description: string;
+  titleColor: string;
+  borderColor: string;
+  bgColor: string;
+  glyphs: ActionGlyphProps[];
+  hpBar?: React.ReactNode;
+  playGlyph?: React.ReactNode;
+}
+
+function TouchableEntity({
+  entityId,
+  children,
+  panelContent,
+}: {
+  entityId: string;
+  children: React.ReactNode;
+  panelContent: EntityPanelContent;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setExpanded(detail?.expandedId === entityId);
+    };
+    window.addEventListener('mud:panel-state', handler);
+    return () => window.removeEventListener('mud:panel-state', handler);
+  }, [entityId]);
+
+  const toggle = () => {
+    if (_expandedEntityId === entityId) {
+      emitPanelState(null);
+    } else {
+      emitPanelState(entityId);
+    }
+  };
+
+  return (
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={toggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+        aria-expanded={expanded}
+        style={{ cursor: 'pointer', userSelect: 'none' }}
+      >
+        {children}
+      </div>
+      {expanded && (
+        <div style={{
+          padding: '0.35rem 0.5rem 0.25rem 2ch',
+          marginTop: '0.1rem',
+          marginBottom: '0.2rem',
+          borderLeft: `2px solid ${panelContent.borderColor}`,
+          background: panelContent.bgColor,
+          animation: 'panel-expand 150ms ease-out',
+        }}>
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: S.base,
+            color: panelContent.titleColor,
+            fontWeight: 'bold',
+            marginBottom: '0.15rem',
+          }}>
+            {panelContent.title}
+          </div>
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: '0.85em',
+            color: 'rgba(var(--phosphor-rgb),0.65)',
+            lineHeight: 1.6,
+            marginBottom: '0.3rem',
+          }}>
+            {panelContent.description}
+          </div>
+          {panelContent.hpBar}
+          <div style={{
+            display: 'flex',
+            gap: '0.4rem',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            paddingTop: '0.15rem',
+          }}>
+            {panelContent.glyphs.map(g => (
+              <ActionGlyph key={g.label} {...g} />
+            ))}
+            {panelContent.playGlyph}
+          </div>
+        </div>
+      )}
+      <style>{`
+        @keyframes panel-expand {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── TappableExit — clickable exit that fires /go directly ───────────────────
+
+function TappableExit({ exit }: { exit: RoomExit }) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (exit.locked) {
+      // Show inline locked message instead of moving
+      eventBus.emit('mud:execute-command', { command: `/examine ${exit.direction}` });
+    } else {
+      eventBus.emit('mud:execute-command', { command: `/go ${exit.direction}` });
+    }
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleClick(e as unknown as React.MouseEvent); }}
+      style={{
+        cursor: 'pointer',
+        paddingLeft: '2ch',
+        fontFamily: 'monospace',
+        fontSize: S.base,
+        lineHeight: 1.8,
+        display: 'flex',
+        alignItems: 'baseline',
+        touchAction: 'manipulation',
+      }}
+    >
+      <span style={{
+        fontWeight: 'bold',
+        minWidth: '8ch',
+        display: 'inline-block',
+        color: C.exit,
+        textDecoration: 'none',
+        borderBottom: '1px solid transparent',
+        transition: 'border-color 0.15s',
+      }}
+        onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = C.exit; }}
+        onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = 'transparent'; }}
+      >
+        {exit.direction}
+      </span>
+      <span style={{ opacity: 0.8, color: C.dim }}>
+        {exit.description.replace(/^[a-z]+ \(/, '(').replace(/\)$/, ')')}
+        {exit.locked ? ' [LOCKED]' : ''}
+        {exit.zoneTransition ? ' [ZONE]' : ''}
+      </span>
+    </div>
+  );
+}
+
+// ── TappableObject — individual object name that expands to action panel ────
+
+function TappableObject({ obj, entityId }: { obj: RoomObject; entityId: string }) {
+  const glyphs: ActionGlyphProps[] = [
+    { label: 'EXAMINE', command: `/examine ${obj.name}`, variant: 'info', ariaLabel: `examine ${obj.name}` },
+  ];
+  if (obj.lootable) {
+    glyphs.push({ label: 'TAKE', command: `/take ${obj.name}`, variant: 'info', ariaLabel: `take ${obj.name}` });
+  }
+  if (obj.interactable) {
+    glyphs.push({ label: 'USE', command: `/use ${obj.name}`, variant: 'info', ariaLabel: `use ${obj.name}` });
+  }
+
+  return (
+    <TouchableEntity
+      entityId={entityId}
+      panelContent={{
+        title: obj.name.toUpperCase(),
+        description: obj.examineText.split('.')[0] + '.',
+        titleColor: C.object,
+        borderColor: 'rgba(var(--phosphor-rgb),0.15)',
+        bgColor: 'rgba(var(--phosphor-rgb),0.03)',
+        glyphs,
+      }}
+    >
+      <span style={{
+        color: C.object,
+        cursor: 'pointer',
+        borderBottom: '1px solid transparent',
+        transition: 'border-color 0.15s',
+      }}
+        onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = C.object; }}
+        onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = 'transparent'; }}
+      >
+        {obj.name}
+      </span>
+    </TouchableEntity>
+  );
+}
 
 const S = {
   base:   'var(--text-base)',
@@ -849,68 +1120,142 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
 
       <MudSpacer />
 
-      {/* NPCs */}
+      {/* NPCs — tappable with action panel */}
       {room.npcs.length > 0 && (
         <div>
-          {room.npcs.map(npc => (
-            <MudLine key={k(`npc-${npc.id}`)} color={C.npc}>
-              <span style={{ opacity: 0.75 }}>[NPC] </span>
-              <span style={{ fontWeight: 'bold' }}>{npc.name}</span>
-              <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— {npc.description.split('.')[0]}.</span>
-            </MudLine>
-          ))}
+          {room.npcs.map(npc => {
+            const npcGlyphs: ActionGlyphProps[] = [
+              { label: 'TALK', command: `/talk hello`, variant: 'social', ariaLabel: `talk to ${npc.name}` },
+              { label: 'EXAMINE', command: `/examine ${npc.name}`, variant: 'info', ariaLabel: `examine ${npc.name}` },
+            ];
+            if (npc.services?.includes('shop')) {
+              npcGlyphs.splice(1, 0, { label: 'SHOP', command: '/shop', variant: 'social', ariaLabel: `browse ${npc.name}'s shop` });
+            }
+            return (
+              <TouchableEntity
+                key={k(`npc-touch-${npc.id}`)}
+                entityId={`npc:${npc.id}`}
+                panelContent={{
+                  title: `${npc.name.toUpperCase()} — ${npc.type === 'QUESTGIVER' ? 'Quest Giver' : npc.type === 'SHOPKEEPER' ? 'Trader' : npc.description.split('.')[0]}`,
+                  description: npc.dialogue.replace(/^"|"$/g, ''),
+                  titleColor: C.npc,
+                  borderColor: 'rgba(252,211,77,0.2)',
+                  bgColor: 'rgba(var(--phosphor-rgb),0.04)',
+                  glyphs: npcGlyphs,
+                  playGlyph: <PlayGlyph audioId={`npc-intro:${npc.id}`} ttsText={npc.dialogue} voiceKey={npc.id} />,
+                }}
+              >
+                <MudLine color={C.npc}>
+                  <span style={{ opacity: 0.75 }}>[NPC] </span>
+                  <span style={{ fontWeight: 'bold' }}>{npc.name}</span>
+                  <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— {npc.description.split('.')[0]}.</span>
+                </MudLine>
+              </TouchableEntity>
+            );
+          })}
         </div>
       )}
 
-      {/* Enemies (show if any are present, based on spawn data — actual combat spawn is separate) */}
+      {/* Enemies — tappable with combat glyphs during combat, info-only otherwise */}
       {room.enemies.length > 0 && (
         <div>
-          {room.enemies.map(enemy => (
-            <MudLine key={k(`enemy-${enemy.id}`)} color={C.enemy}>
-              <span style={{ opacity: 0.75 }}>[HOSTILE] </span>
-              <span style={{ fontWeight: 'bold' }}>{enemy.name}</span>
-              <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— Lv.{enemy.level}</span>
-            </MudLine>
-          ))}
+          {room.enemies.map(enemy => {
+            const inCombat = session.phase === 'combat';
+            const enemyGlyphs: ActionGlyphProps[] = inCombat ? [
+              { label: 'ATTACK', command: `/attack ${enemy.name}`, variant: 'combat', ariaLabel: `attack ${enemy.name}` },
+              { label: 'SCAN', command: `/scan ${enemy.name}`, variant: 'combat', ariaLabel: `scan ${enemy.name}` },
+              { label: 'HACK', command: '/hack', variant: 'combat', ariaLabel: 'quickhack' },
+              { label: 'FLEE', command: '/flee', variant: 'combat', ariaLabel: 'flee combat' },
+            ] : [
+              { label: 'EXAMINE', command: `/examine ${enemy.name}`, variant: 'info', ariaLabel: `examine ${enemy.name}` },
+            ];
+
+            return (
+              <TouchableEntity
+                key={k(`enemy-touch-${enemy.id}`)}
+                entityId={`enemy:${enemy.id}`}
+                panelContent={{
+                  title: `${enemy.name.toUpperCase()} — Lv.${enemy.level}`,
+                  description: enemy.description,
+                  titleColor: C.enemy,
+                  borderColor: 'rgba(255,68,68,0.2)',
+                  bgColor: inCombat ? 'rgba(255,30,30,0.03)' : 'rgba(var(--phosphor-rgb),0.03)',
+                  glyphs: enemyGlyphs,
+                  hpBar: inCombat ? (
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.8em', color: C.dim, marginBottom: '0.2rem' }}>
+                      HP ???
+                    </div>
+                  ) : undefined,
+                }}
+              >
+                <MudLine color={C.enemy}>
+                  <span style={{ opacity: 0.75 }}>[HOSTILE] </span>
+                  <span style={{ fontWeight: 'bold' }}>{enemy.name}</span>
+                  <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— Lv.{enemy.level}</span>
+                </MudLine>
+              </TouchableEntity>
+            );
+          })}
         </div>
       )}
 
-      {/* Objects */}
-      {room.objects.length > 0 && (
-        <div>
-          <MudLine color={C.object} style={{ marginTop: '0.15rem' }}>
-            objects: {room.objects.filter(o => !o.hidden || (o.hiddenRequirement && char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum)).map(o => o.name).join(', ')}
-          </MudLine>
-        </div>
-      )}
+      {/* Objects — each name individually tappable */}
+      {room.objects.length > 0 && (() => {
+        const visibleObjects = room.objects.filter(o =>
+          !o.hidden || (o.hiddenRequirement && char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum)
+        );
+        if (visibleObjects.length === 0) return null;
+        return (
+          <div style={{ marginTop: '0.15rem' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: S.base, color: C.object }}>
+              objects:{' '}
+            </span>
+            {visibleObjects.map((obj, i) => (
+              <React.Fragment key={k(`obj-touch-${obj.id}`)}>
+                {i > 0 && <span style={{ color: C.dim }}>, </span>}
+                <TappableObject obj={obj} entityId={`obj:${obj.id}`} />
+              </React.Fragment>
+            ))}
+          </div>
+        );
+      })()}
 
       <MudSpacer />
 
-      {/* Exits */}
+      {/* Exits — tappable, fires /go directly */}
       <MudLine color={C.dim}>EXITS:</MudLine>
       {visibleExits.map(exit => (
-        <MudLine key={k(`exit-${exit.direction}`)} indent color={C.exit}>
-          <span style={{ fontWeight: 'bold', minWidth: '8ch', display: 'inline-block' }}>
-            {exit.direction}
-          </span>
-          <span style={{ opacity: 0.8, color: C.dim }}>
-            {exit.description.replace(/^[a-z]+ \(/, '(').replace(/\)$/, ')')}
-            {exit.locked ? ' [LOCKED]' : ''}
-            {exit.zoneTransition ? ' [ZONE]' : ''}
-          </span>
-        </MudLine>
+        <TappableExit key={k(`exit-tap-${exit.direction}`)} exit={exit} />
       ))}
 
-      {/* Junction branches */}
+      {/* Junction branches — also tappable */}
       {branches.length > 0 && (
         <div>
           <MudLine color={C.dim} style={{ marginTop: '0.15rem' }}>
             also reachable from here:
           </MudLine>
           {branches.map(br => (
-            <MudLine key={k(`branch-${br.id}`)} indent color={C.exit} opacity={0.7}>
+            <div
+              key={k(`branch-tap-${br.id}`)}
+              role="button"
+              tabIndex={0}
+              onClick={() => eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` })}
+              onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` }); }}
+              style={{
+                paddingLeft: '2ch',
+                fontFamily: 'monospace',
+                fontSize: S.base,
+                lineHeight: 1.8,
+                color: C.exit,
+                opacity: 0.7,
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+              }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.textDecoration = 'underline'; }}
+              onMouseLeave={(e) => { (e.target as HTMLElement).style.textDecoration = 'none'; }}
+            >
               {br.name.toLowerCase()}
-            </MudLine>
+            </div>
           ))}
         </div>
       )}
