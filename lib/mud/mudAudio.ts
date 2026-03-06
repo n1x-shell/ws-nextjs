@@ -55,7 +55,134 @@ export interface AudioSegment {
   voice: string;
   ttsText: string;
   displayText: string;
+  segType?: 'narration' | 'speech'; // for dual-color rendering
 }
+
+// ── NPC Dialogue Formatter ──────────────────────────────────────────────────
+// Transforms raw LLM output into proper third-person prose with name prepend,
+// pronoun awareness, and narration/speech segmentation.
+
+// Future: import getNPCGender from './npcEngine' for mid-sentence pronoun repair
+
+const POSSESSIVE_STARTERS = new Set([
+  'eyes', 'hands', 'voice', 'jaw', 'gaze', 'shoulders', 'posture',
+  'fingers', 'head', 'face', 'mouth', 'lips', 'brow', 'expression',
+  'tone', 'arm', 'arms', 'leg', 'legs', 'body', 'back', 'throat',
+  'chest', 'breath', 'breathing', 'sigh', 'smile', 'frown', 'smirk',
+  'grin', 'scowl', 'nod', 'shrug', 'hand', 'finger', 'foot', 'feet',
+  'stance', 'weight', 'chin', 'nose', 'ear', 'ears', 'neck',
+]);
+
+const ACTION_VERBS = new Set([
+  'looks', 'turns', 'leans', 'stands', 'sits', 'pauses', 'waits',
+  'nods', 'shakes', 'sighs', 'laughs', 'scoffs', 'shrugs', 'crosses',
+  'steps', 'glances', 'stares', 'watches', 'moves', 'reaches', 'pulls',
+  'pushes', 'drops', 'picks', 'grabs', 'points', 'gestures', 'motions',
+  'stops', 'starts', 'continues', 'speaks', 'says', 'mutters', 'whispers',
+  'growls', 'hisses', 'snaps', 'tilts', 'raises', 'lowers', 'taps',
+  'drums', 'folds', 'unfolds', 'adjusts', 'shifts', 'settles', 'exhales',
+  'inhales', 'coughs', 'clears', 'straightens', 'slumps', 'flexes',
+  'clenches', 'unclenches', 'narrows', 'widens', 'squints', 'blinks',
+]);
+
+/**
+ * Format raw NPC dialogue into proper third-person prose.
+ * Prepends NPC name with possessive or subject form as needed.
+ * Returns formatted text + split segments for dual-color rendering and TTS.
+ */
+export interface FormattedDialogue {
+  segments: AudioSegment[];
+  fullText: string;       // complete formatted text for display
+  fullTTS: string;        // complete text with performance tags for TTS
+  npcName: string;
+}
+
+export function formatNPCDialogue(rawText: string, npcName: string, npcId: string): FormattedDialogue {
+  let text = rawText.trim();
+
+  // Strip any [Name]> prefix the LLM may have added
+  const prefixRe = new RegExp(`^\\[?${npcName}\\]?\\s*[>:]+\\s*`, 'i');
+  text = text.replace(prefixRe, '');
+
+  // Strip name at start if LLM echoed it (e.g., "Cole leans back...")
+  const nameStartRe = new RegExp(`^${npcName}\\s+`, 'i');
+  text = text.replace(nameStartRe, '');
+
+  // If starts with a quote, leave it — NPC is speaking directly
+  if (!text.startsWith('"')) {
+    const firstWord = text.split(/[\s.,!?]/)[0].toLowerCase();
+
+    if (POSSESSIVE_STARTERS.has(firstWord)) {
+      // "eyes flick up" → "Cole's eyes flick up"
+      text = `${npcName}'s ${text}`;
+    } else if (ACTION_VERBS.has(firstWord)) {
+      // "leans back" → "Cole leans back"
+      text = `${npcName} ${text}`;
+    } else {
+      // Unknown start — prepend name with action form
+      text = `${npcName} ${text}`;
+    }
+  }
+
+  // Capitalize first letter after name prepend
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+
+  // Capitalize first letter of quoted speech
+  text = text.replace(/"([a-z])/g, (_, c) => `"${c.toUpperCase()}`);
+
+  // Now split into narration/speech segments
+  const segments: AudioSegment[] = [];
+  const quoteRe = /"([^"]+)"/g;
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = quoteRe.exec(text)) !== null) {
+    const before = text.slice(lastIdx, match.index).trim();
+    if (before) {
+      segments.push({
+        voice: 'narrator',
+        ttsText: before,
+        displayText: stripTagsForDisplay(before),
+        segType: 'narration',
+      });
+    }
+    const inner = match[1];
+    segments.push({
+      voice: npcId,
+      ttsText: injectTags(inner, npcId),
+      displayText: `"${stripTagsForDisplay(inner)}"`,
+      segType: 'speech',
+    });
+    lastIdx = match.index + match[0].length;
+  }
+
+  const after = text.slice(lastIdx).trim();
+  if (after) {
+    segments.push({
+      voice: 'narrator',
+      ttsText: after,
+      displayText: stripTagsForDisplay(after),
+      segType: 'narration',
+    });
+  }
+
+  // If no segments (edge case), treat entire text as speech
+  if (segments.length === 0) {
+    segments.push({
+      voice: npcId,
+      ttsText: injectTags(text, npcId),
+      displayText: stripTagsForDisplay(text),
+      segType: 'speech',
+    });
+  }
+
+  const fullText = segments.map(s => s.displayText).join(' ');
+  const fullTTS = segments.map(s => s.ttsText).join(' ');
+
+  return { segments, fullText, fullTTS, npcName };
+}
+
+// ── Original parsers (kept for room descriptions) ───────────────────────────
 
 export function parseVoiceSegments(text: string, npcId: string = 'narrator'): AudioSegment[] {
   const segments: AudioSegment[] = [];
@@ -66,27 +193,27 @@ export function parseVoiceSegments(text: string, npcId: string = 'narrator'): Au
   while ((m = re.exec(text)) !== null) {
     const before = text.slice(last, m.index).trim();
     if (before) {
-      segments.push({ voice: 'narrator', ttsText: before, displayText: stripTagsForDisplay(before) });
+      segments.push({ voice: 'narrator', ttsText: before, displayText: stripTagsForDisplay(before), segType: 'narration' });
     }
     const inner = m[1];
-    segments.push({ voice: npcId, ttsText: injectTags(inner, npcId), displayText: `"${stripTagsForDisplay(inner)}"` });
+    segments.push({ voice: npcId, ttsText: injectTags(inner, npcId), displayText: `"${stripTagsForDisplay(inner)}"`, segType: 'speech' });
     last = m.index + m[0].length;
   }
 
   const after = text.slice(last).trim();
   if (after) {
-    segments.push({ voice: 'narrator', ttsText: after, displayText: stripTagsForDisplay(after) });
+    segments.push({ voice: 'narrator', ttsText: after, displayText: stripTagsForDisplay(after), segType: 'narration' });
   }
 
   if (segments.length === 0) {
-    segments.push({ voice: npcId, ttsText: injectTags(text, npcId), displayText: stripTagsForDisplay(text) });
+    segments.push({ voice: npcId, ttsText: injectTags(text, npcId), displayText: stripTagsForDisplay(text), segType: 'speech' });
   }
 
   return segments;
 }
 
 export function parseNPCDialogue(text: string, npcId: string): AudioSegment {
-  return { voice: npcId, ttsText: injectTags(text, npcId), displayText: stripTagsForDisplay(text) };
+  return { voice: npcId, ttsText: injectTags(text, npcId), displayText: stripTagsForDisplay(text), segType: 'speech' };
 }
 
 // ── Persistent Audio Element (iOS Safari) ───────────────────────────────────

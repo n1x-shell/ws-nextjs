@@ -339,13 +339,20 @@ your disposition toward this person: ${dispLabel} (${disposition}/100)
 ${disposition <= -11 ? 'you are unfriendly or hostile. short answers. may refuse to help.' : ''}
 ${disposition >= 11 ? 'you are warm toward them. more willing to share information and help.' : ''}
 
-${recentInteractions.length > 0 ? `recent interactions with this person:\n${recentInteractions.slice(-5).join('\n')}` : 'you have not met this person before.'}
+${recentInteractions.length > 0 ? `recent interactions with this person:\n${recentInteractions.slice(-5).join('\n')}` : 'you have not met this person before.'}${getLastEmoteContext()}
 ${knowledgeBlock}${worldBlock}${jobBlock}
 
 CRITICAL RULES:
-- respond in 1-3 sentences. terse. lowercase. in-character always.
+- respond in 1-4 sentences. terse. lowercase. in-character always.
 - never break character. never mention you are an AI or NPC.
 - never use emojis or markdown formatting.
+- you may include physical actions and body language alongside your dialogue.
+- write actions in lowercase prose WITHOUT brackets or asterisks.
+- put spoken words in double quotes.
+- example: leans back and studies you for a long moment. "i've heard worse excuses." fingers tap the table. "but not many."
+- DO NOT prefix your response with your own name.
+- DO NOT use [action] brackets or *asterisks* for actions.
+- mix action prose and quoted speech naturally.
 - NEVER claim a named NPC is dead, missing, captured, or has changed role unless the knowledge above explicitly states it.
 - NEVER invent events, deaths, betrayals, or status changes for named NPCs.
 - if asked about someone you don't know, say "don't know them" or "never heard of them" in character. do NOT make up information.
@@ -397,6 +404,21 @@ export function isNPCQuestGiver(npcId: string): boolean {
   return NPC_PERSONALITIES[npcId]?.isQuestGiver ?? false;
 }
 
+// ── Last Player Emote (for NPC context awareness) ───────────────────────────
+
+let _lastEmote: { handle: string; text: string; timestamp: number } | null = null;
+
+export function setLastEmote(handle: string, text: string): void {
+  _lastEmote = { handle, text, timestamp: Date.now() };
+}
+
+export function getLastEmoteContext(): string {
+  if (!_lastEmote) return '';
+  // Only use if within last 60 seconds
+  if (Date.now() - _lastEmote.timestamp > 60_000) return '';
+  return `\nthe player just performed an action: [${_lastEmote.handle} ${_lastEmote.text}]`;
+}
+
 // ── Disposition Updates ─────────────────────────────────────────────────────
 
 export function recordInteraction(handle: string, npcId: string, summary: string): void {
@@ -426,4 +448,29 @@ export function getNPCColor(npcId: string): string {
     case 'parish_residents': return '#9ca3af';
     default: return '#fcd34d';
   }
+}
+
+// ── NPC Gender Registry (for pronoun selection in dialogue formatting) ──────
+
+export interface NPCGender {
+  subject: string;    // he / she / they
+  object: string;     // him / her / them
+  possessive: string; // his / her / their
+  reflexive: string;  // himself / herself / themselves
+}
+
+const NPC_GENDERS: Record<string, NPCGender> = {
+  mara:             { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
+  cole:             { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
+  ren:              { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
+  doss:             { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
+  parish_residents: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
+};
+
+export function getNPCGender(npcId: string): NPCGender {
+  return NPC_GENDERS[npcId] ?? { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' };
+}
+
+export function getNPCDisplayName(npcId: string): string {
+  return NPC_PERSONALITIES[npcId]?.name ?? npcId;
 }

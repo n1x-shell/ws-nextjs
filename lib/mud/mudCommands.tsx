@@ -63,6 +63,7 @@ import {
 import {
   routeDialogue, buildDialogueRequest, recordInteraction,
   nudgeDisposition, getNPCColor, isNPCQuestGiver, detectsJobIntent,
+  setLastEmote,
 } from './npcEngine';
 import {
   getFormattedShop, getShopkeeperName, buyItem, sellItem,
@@ -72,8 +73,9 @@ import {
   getQuestObjectiveProgress, QUEST_REGISTRY,
 } from './questEngine';
 import {
-  playNPCVoice, playSegments, parseVoiceSegments,
-  stripTagsForDisplay, replayAudio, stopAllAndReset, getActiveAudioId,
+  playSegments, parseVoiceSegments,
+  replayAudio, stopAllAndReset, getActiveAudioId,
+  formatNPCDialogue,
 } from './mudAudio';
 
 // ── ActionGlyph — tappable command button for entity panels ─────────────────
@@ -2184,6 +2186,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       ]},
       { title: 'SOCIAL', cmds: [
         { cmd: '/talk <npc>',        desc: 'Address an NPC directly' },
+        { cmd: '/me <action>',       desc: 'Perform an emote (NPCs notice)' },
         { cmd: '/shop',              desc: 'Browse shop (when near vendor)' },
         { cmd: '/buy <item>',        desc: 'Purchase from shop' },
         { cmd: '/sell <item>',       desc: 'Sell to vendor' },
@@ -2434,6 +2437,27 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     return { handled: true, stopPropagation: true };
   }
 
+  // ── /me <action> — player emote ─────────────────────────────────────────
+  if (cmd === 'me' || cmd === 'emote') {
+    if (!rest) {
+      addLocalMsg(<MudNotice key={k('me-err')} error>/me &lt;action&gt; — describe what you do</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    addLocalMsg(
+      <div key={k('emote')} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
+        <span style={{ color: C.accent }}>*</span>
+        <span style={{ color: C.accent, fontWeight: 'bold' }}> {handle}</span>
+        <span style={{ color: '#d4d4d4', fontStyle: 'italic' }}> {rest}</span>
+      </div>
+    );
+
+    // Store emote for NPC context awareness
+    setLastEmote(handle, rest);
+
+    return { handled: true, stopPropagation: true };
+  }
+
   // ── /q /quit /leave — exit MUD, save state, return to ghost channel ────
   if (cmd === 'q' || cmd === 'quit' || cmd === 'leave') {
     if (session.character) {
@@ -2513,20 +2537,31 @@ export async function handleNPCDialogue(
       const npcAudioId = `npc:${resp.npcId}:${Date.now()}-${i}`;
       setTimeout(() => {
         const color = getNPCColor(resp.npcId);
-        const displayText = stripTagsForDisplay(resp.text);
+        const formatted = formatNPCDialogue(resp.text, resp.name, resp.npcId);
+
         addLocalMsg(
           <div key={k(`npc-say-${resp.npcId}-${i}`)}>
+            {/* NPC name attribution */}
+            <span style={{ color, opacity: 0.5, fontSize: '0.8em', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {resp.name}
+            </span>
+            {/* Dual-color dialogue: narration in grey, speech in NPC color */}
             <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
-              <span style={{ color, fontWeight: 'bold' }}>[{resp.name}]</span>
-              <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
-              <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{displayText}</span>
+              {formatted.segments.map((seg, si) => (
+                <span key={si} style={{
+                  color: seg.segType === 'narration' ? '#d4d4d4' : color,
+                  ...(seg.segType === 'narration' ? { fontStyle: 'italic' as const } : {}),
+                }}>
+                  {seg.displayText}{' '}
+                </span>
+              ))}
             </div>
-            <PlayGlyph audioId={npcAudioId} ttsText={resp.text} voiceKey={resp.npcId} />
+            <PlayGlyph audioId={npcAudioId} ttsText={formatted.fullTTS} voiceKey={resp.npcId} />
           </div>
         );
 
-        // Play NPC voice (non-blocking — stops any current playback first)
-        playNPCVoice(resp.text, resp.npcId, npcAudioId);
+        // Play voice segments (narrator + NPC switching)
+        playSegments(formatted.segments, npcAudioId);
 
         // Record interaction + small disposition bump for talking
         recordInteraction(handle, resp.npcId, `player said: "${message.slice(0, 50)}" — ${resp.name} responded`);
@@ -2601,17 +2636,26 @@ export async function handleNPCDialogue(
       setTimeout(() => {
         const color = getNPCColor(t.npcId);
         const fallback = t.npc.dialogue.replace(/^"|"$/g, '');
+        const formatted = formatNPCDialogue(fallback, t.personality.name, t.npcId);
         addLocalMsg(
           <div key={k(`npc-fb-${t.npcId}`)}>
+            <span style={{ color, opacity: 0.5, fontSize: '0.8em', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {t.personality.name}
+            </span>
             <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
-              <span style={{ color, fontWeight: 'bold' }}>[{t.personality.name}]</span>
-              <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
-              <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{fallback}</span>
+              {formatted.segments.map((seg, si) => (
+                <span key={si} style={{
+                  color: seg.segType === 'narration' ? '#d4d4d4' : color,
+                  ...(seg.segType === 'narration' ? { fontStyle: 'italic' as const } : {}),
+                }}>
+                  {seg.displayText}{' '}
+                </span>
+              ))}
             </div>
-            <PlayGlyph audioId={fbAudioId} ttsText={fallback} voiceKey={t.npcId} />
+            <PlayGlyph audioId={fbAudioId} ttsText={formatted.fullTTS} voiceKey={t.npcId} />
           </div>
         );
-        playNPCVoice(fallback, t.npcId, fbAudioId);
+        playSegments(formatted.segments, fbAudioId);
       }, (i + 1) * 400);
     });
   }
@@ -2624,7 +2668,7 @@ export async function handleNPCDialogue(
 const MUD_COMMANDS = [
   '/look', '/go', '/exits', '/examine', '/where', '/stats', '/inventory',
   '/save', '/help', '/attack', '/hack', '/use', '/scan', '/flee',
-  '/talk', '/shop', '/buy', '/sell', '/quests', '/quest', '/mudhelp', '/q',
+  '/talk', '/shop', '/buy', '/sell', '/quests', '/quest', '/me', '/mudhelp', '/q',
 ];
 
 export function getMudSuggestions(partial: string, session: MudSession): string[] {
