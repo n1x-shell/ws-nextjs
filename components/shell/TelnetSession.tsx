@@ -1821,9 +1821,14 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   }, [mudSession]);
 
   // ── MUD HUD visibility — hides InterfaceLayer nav when HUD is on screen ──
+  // Also hides during character creation (explore buttons don't work there)
   useEffect(() => {
-    const visible = !!(mudSession && mudSession.character && mudSession.phase !== 'character_creation'
-      && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'dead'));
+    const visible = !!(mudSession && (
+      // HUD is active (has character, in gameplay phase)
+      (mudSession.character && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'dead'))
+      // Or in character creation (nav buttons don't work, hide them)
+      || mudSession.phase === 'character_creation'
+    ));
     eventBus.emit('mud:hud-visible', { visible });
   }, [mudSession]);
 
