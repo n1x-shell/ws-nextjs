@@ -62,7 +62,7 @@ export interface AudioSegment {
 // Transforms raw LLM output into proper third-person prose with name prepend,
 // pronoun awareness, and narration/speech segmentation.
 
-// Future: import getNPCGender from './npcEngine' for mid-sentence pronoun repair
+import { getNPCGender } from './npcEngine';
 
 const POSSESSIVE_STARTERS = new Set([
   'eyes', 'hands', 'voice', 'jaw', 'gaze', 'shoulders', 'posture',
@@ -83,7 +83,47 @@ const ACTION_VERBS = new Set([
   'drums', 'folds', 'unfolds', 'adjusts', 'shifts', 'settles', 'exhales',
   'inhales', 'coughs', 'clears', 'straightens', 'slumps', 'flexes',
   'clenches', 'unclenches', 'narrows', 'widens', 'squints', 'blinks',
+  'wipes', 'rubs', 'scratches', 'flicks', 'sets', 'places', 'holds',
+  'takes', 'gives', 'offers', 'opens', 'closes', 'slides', 'lifts',
+  'presses', 'touches', 'traces', 'runs', 'walks', 'kneels', 'crouches',
 ]);
+
+/**
+ * Repair a single sentence: if it starts with a bare verb or body part
+ * (no subject), prepend the appropriate pronoun or name+possessive.
+ * isFirst controls whether we use the NPC name or a pronoun.
+ */
+function repairSubject(sentence: string, npcName: string, npcId: string, isFirst: boolean): string {
+  const trimmed = sentence.trim();
+  if (!trimmed) return trimmed;
+
+  // Already starts with a name, pronoun, or quote — leave it
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith(npcName.toLowerCase())) return trimmed;
+  if (/^(he|she|they|his|her|their|it|the|a|an|")/i.test(trimmed)) return trimmed;
+
+  const firstWord = lower.split(/[\s.,!?'"]/)[0];
+  const gender = getNPCGender(npcId);
+
+  if (POSSESSIVE_STARTERS.has(firstWord)) {
+    // "eyes flick up" → "Cole's eyes" (first) or "His eyes" (subsequent)
+    if (isFirst) return `${npcName}'s ${trimmed}`;
+    const pron = gender.possessive.charAt(0).toUpperCase() + gender.possessive.slice(1);
+    return `${pron} ${trimmed}`;
+  }
+
+  if (ACTION_VERBS.has(firstWord)) {
+    // "wipes a scalpel" → "Cole wipes" (first) or "He wipes" (subsequent)
+    if (isFirst) return `${npcName} ${trimmed}`;
+    const pron = gender.subject.charAt(0).toUpperCase() + gender.subject.slice(1);
+    return `${pron} ${trimmed}`;
+  }
+
+  // Unknown word — prepend pronoun to be safe
+  if (isFirst) return `${npcName} ${trimmed}`;
+  const pron = gender.subject.charAt(0).toUpperCase() + gender.subject.slice(1);
+  return `${pron} ${trimmed}`;
+}
 
 /**
  * Format raw NPC dialogue into proper third-person prose.
@@ -105,75 +145,62 @@ export function formatNPCDialogue(rawText: string, npcName: string, npcId: strin
   text = text.replace(prefixRe, '');
 
   // Strip name at start if LLM echoed it (e.g., "Cole leans back...")
-  const nameStartRe = new RegExp(`^${npcName}\\s+`, 'i');
+  const nameStartRe = new RegExp(`^${npcName}'?s?\\s+`, 'i');
   text = text.replace(nameStartRe, '');
-
-  // If starts with a quote, leave it — NPC is speaking directly
-  if (!text.startsWith('"')) {
-    const firstWord = text.split(/[\s.,!?]/)[0].toLowerCase();
-
-    if (POSSESSIVE_STARTERS.has(firstWord)) {
-      // "eyes flick up" → "Cole's eyes flick up"
-      text = `${npcName}'s ${text}`;
-    } else if (ACTION_VERBS.has(firstWord)) {
-      // "leans back" → "Cole leans back"
-      text = `${npcName} ${text}`;
-    } else {
-      // Unknown start — prepend name with action form
-      text = `${npcName} ${text}`;
-    }
-  }
-
-  // Capitalize first letter after name prepend
-  text = text.charAt(0).toUpperCase() + text.slice(1);
 
   // Capitalize first letter of quoted speech
   text = text.replace(/"([a-z])/g, (_, c) => `"${c.toUpperCase()}`);
 
-  // Now split into narration/speech segments
-  const segments: AudioSegment[] = [];
+  // Split into narration/speech segments FIRST (before subject repair)
+  const rawSegments: Array<{ type: 'narration' | 'speech'; text: string }> = [];
   const quoteRe = /"([^"]+)"/g;
   let lastIdx = 0;
   let match: RegExpExecArray | null;
 
   while ((match = quoteRe.exec(text)) !== null) {
     const before = text.slice(lastIdx, match.index).trim();
-    if (before) {
+    if (before) rawSegments.push({ type: 'narration', text: before });
+    rawSegments.push({ type: 'speech', text: match[0] }); // keep quotes
+    lastIdx = match.index + match[0].length;
+  }
+  const after = text.slice(lastIdx).trim();
+  if (after) rawSegments.push({ type: 'narration', text: after });
+
+  // If no segments, treat entire text as speech
+  if (rawSegments.length === 0) {
+    rawSegments.push({ type: 'speech', text: text.startsWith('"') ? text : `"${text}"` });
+  }
+
+  // Now repair subjects in EACH narration segment.
+  // Split narration on sentence boundaries, repair each sentence individually.
+  let isFirstNarration = true;
+  const segments: AudioSegment[] = [];
+
+  for (const raw of rawSegments) {
+    if (raw.type === 'speech') {
+      const inner = raw.text.replace(/^"|"$/g, '');
+      segments.push({
+        voice: npcId,
+        ttsText: injectTags(inner, npcId),
+        displayText: `"${stripTagsForDisplay(inner)}"`,
+        segType: 'speech',
+      });
+    } else {
+      // Split narration into sentences, repair each
+      const sentences = raw.text.split(/(?<=\.)\s+/);
+      const repairedSentences = sentences.map(s => {
+        const repaired = repairSubject(s, npcName, npcId, isFirstNarration);
+        isFirstNarration = false; // only first narration sentence gets the full name
+        return repaired;
+      });
+      const fullNarration = repairedSentences.join(' ');
       segments.push({
         voice: 'narrator',
-        ttsText: before,
-        displayText: stripTagsForDisplay(before),
+        ttsText: fullNarration,
+        displayText: stripTagsForDisplay(fullNarration),
         segType: 'narration',
       });
     }
-    const inner = match[1];
-    segments.push({
-      voice: npcId,
-      ttsText: injectTags(inner, npcId),
-      displayText: `"${stripTagsForDisplay(inner)}"`,
-      segType: 'speech',
-    });
-    lastIdx = match.index + match[0].length;
-  }
-
-  const after = text.slice(lastIdx).trim();
-  if (after) {
-    segments.push({
-      voice: 'narrator',
-      ttsText: after,
-      displayText: stripTagsForDisplay(after),
-      segType: 'narration',
-    });
-  }
-
-  // If no segments (edge case), treat entire text as speech
-  if (segments.length === 0) {
-    segments.push({
-      voice: npcId,
-      ttsText: injectTags(text, npcId),
-      displayText: stripTagsForDisplay(text),
-      segType: 'speech',
-    });
   }
 
   const fullText = segments.map(s => s.displayText).join(' ');
