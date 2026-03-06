@@ -1,311 +1,225 @@
 // lib/mud/mudAudio.ts
 // TUNNELCORE MUD — Audio Engine
-// Multi-voice TTS with narrator/NPC switching, performance tag injection,
-// SFX playback, ambient loops, and Vercel Blob asset loading.
-//
-// Text flow:
-//   Raw text with [tags] and "quoted speech"
-//     → parser splits into segments (narrator vs NPC voice)
-//     → display text has [tags] stripped
-//     → TTS text keeps [tags] for ElevenLabs performance
-//     → audio segments play sequentially
+// Single persistent Audio element for iOS compatibility.
+// Centralized queue — all TTS goes through one pipeline.
+// Performance tags injected for ElevenLabs, stripped from display.
 
 // ── Voice Registry ──────────────────────────────────────────────────────────
-// Voice IDs are set via environment or config. Placeholder IDs below —
-// replace with actual ElevenLabs voice IDs after generation.
 
 export interface VoiceConfig {
   voiceId: string;
-  model?: string;       // defaults to eleven_flash_v2_5
-  stability?: number;   // 0-1, default 0.5
-  similarity?: number;  // 0-1, default 0.75
-  speed?: number;       // 0.7-1.2, default 1.0
+  stability: number;
+  similarity: number;
+  speed: number;
 }
 
 const VOICE_REGISTRY: Record<string, VoiceConfig> = {
-  narrator: {
-    voiceId: process.env.NEXT_PUBLIC_VOICE_NARRATOR ?? '32ZDVYWQ6mhlrJhjZFvn',
-    stability: 0.65,
-    similarity: 0.8,
-    speed: 0.95,
-  },
-  mara: {
-    voiceId: process.env.NEXT_PUBLIC_VOICE_MARA ?? '8WUhtoiYalGE0wuI1VMo',
-    stability: 0.6,
-    similarity: 0.75,
-    speed: 0.9,
-  },
-  cole: {
-    voiceId: process.env.NEXT_PUBLIC_VOICE_COLE ?? 'VYIIUxwX5Kc4wBrXeJk7',
-    stability: 0.6,
-    similarity: 0.75,
-    speed: 0.85,
-  },
-  ren: {
-    voiceId: process.env.NEXT_PUBLIC_VOICE_REN ?? 'b6RPds6ITpZn9YqVUTF3',
-    stability: 0.55,
-    similarity: 0.75,
-    speed: 1.05,
-  },
-  doss: {
-    voiceId: process.env.NEXT_PUBLIC_VOICE_DOSS ?? 'elzpSHzTbqdPLTr5iM0m',
-    stability: 0.7,
-    similarity: 0.8,
-    speed: 0.85,
-  },
-  parish_residents: {
-    voiceId: process.env.NEXT_PUBLIC_VOICE_PARISH ?? '3h6v5PGyG3yTSkhgO9Vu',
-    stability: 0.5,
-    similarity: 0.7,
-    speed: 1.0,
-  },
+  narrator:         { voiceId: '32ZDVYWQ6mhlrJhjZFvn', stability: 0.65, similarity: 0.8,  speed: 0.95 },
+  mara:             { voiceId: '8WUhtoiYalGE0wuI1VMo', stability: 0.6,  similarity: 0.75, speed: 0.9  },
+  cole:             { voiceId: 'VYIIUxwX5Kc4wBrXeJk7', stability: 0.6,  similarity: 0.75, speed: 0.85 },
+  ren:              { voiceId: 'b6RPds6ITpZn9YqVUTF3', stability: 0.55, similarity: 0.75, speed: 1.05 },
+  doss:             { voiceId: 'elzpSHzTbqdPLTr5iM0m', stability: 0.7,  similarity: 0.8,  speed: 0.85 },
+  parish_residents: { voiceId: '3h6v5PGyG3yTSkhgO9Vu', stability: 0.5,  similarity: 0.7,  speed: 1.0  },
 };
 
-export function getVoiceConfig(npcId: string): VoiceConfig {
-  return VOICE_REGISTRY[npcId] ?? VOICE_REGISTRY.narrator;
+export function getVoiceConfig(key: string): VoiceConfig {
+  return VOICE_REGISTRY[key] ?? VOICE_REGISTRY.narrator;
 }
 
 // ── Performance Tags ────────────────────────────────────────────────────────
-// Tags that ElevenLabs v3 recognizes for performance direction.
-// These are SENT to TTS but STRIPPED from display text.
 
-const PERFORMANCE_TAG_RE = /\[(sighs?|laughs?|whispers?|shouts?|quietly|softly|angrily|sadly|pause|long pause|short pause|sharp breath|scoffs?|gasps?|groans?|coughs?|clears throat|chuckles?|mutters?|hisses?|exhales?|inhales?|yells?|screams?|crying|sobbing|whimpering|nervously|hesitantly|firmly|coldly|warmly|gently|urgently|sarcastically|bitterly)\]/gi;
+const PERF_TAG = /\[(sighs?|laughs?|whispers?|shouts?|quietly|softly|angrily|sadly|pause|long pause|short pause|sharp breath|scoffs?|gasps?|groans?|coughs?|clears throat|chuckles?|mutters?|hisses?|exhales?|inhales?|yells?|screams?|crying|sobbing|whimpering|nervously|hesitantly|firmly|coldly|warmly|gently|urgently|sarcastically|bitterly|flatly)\]/gi;
+const DIR_TAG = /\[(with .*?|in a .*?|speaking .*?|voice .*?|tone: .*?)\]/gi;
 
-// Additional narrative direction tags we inject but never display
-const DIRECTION_TAG_RE = /\[(with .*?|in a .*?|speaking .*?|voice .*?|tone: .*?)\]/gi;
-
-/**
- * Strip all performance/direction tags from text for display.
- * The user sees clean dialogue; ElevenLabs gets the full performance text.
- */
 export function stripTagsForDisplay(text: string): string {
-  return text
-    .replace(PERFORMANCE_TAG_RE, '')
-    .replace(DIRECTION_TAG_RE, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  return text.replace(PERF_TAG, '').replace(DIR_TAG, '').replace(/\s{2,}/g, ' ').trim();
 }
 
-/**
- * Inject performance tags into NPC dialogue based on NPC personality.
- * Called before sending to TTS — adds emotional direction the LLM may not have included.
- */
-export function injectPerformanceTags(text: string, npcId: string): string {
-  // Don't double-inject if tags already present
-  if (PERFORMANCE_TAG_RE.test(text)) return text;
-
+function injectTags(text: string, npcId: string): string {
+  if (PERF_TAG.test(text)) return text;
+  PERF_TAG.lastIndex = 0; // reset after test
+  const add = (t: string, tag: string, chance: number) =>
+    t.replace(/\.\s+(?=[A-Z])/g, m => Math.random() < chance ? `. ${tag} ` : m);
   switch (npcId) {
-    case 'mara':
-      // Flat, dry — add sighs at periods, scoffs at dismissals
-      return text
-        .replace(/\.\s+(?=[A-Z])/g, (m) => Math.random() > 0.7 ? '. [sighs] ' : m)
-        .replace(/\b(don't|won't|can't)\b/gi, (m) => Math.random() > 0.6 ? `[flatly] ${m}` : m);
-    case 'cole':
-      // Quiet, exhausted — whispers occasionally, sighs
-      return text
-        .replace(/\.\s+(?=[A-Z])/g, (m) => Math.random() > 0.6 ? '. [quietly] ' : m);
-    case 'ren':
-      // Sharp, fast — sharp breaths, clipped
-      return text
-        .replace(/\.\s+(?=[A-Z])/g, (m) => Math.random() > 0.8 ? '. [sharp breath] ' : m);
-    case 'doss':
-      // Patient, pauses — long pauses, deliberate
-      return text
-        .replace(/\.\s+(?=[A-Z])/g, (m) => Math.random() > 0.5 ? '. [pause] ' : m);
-    default:
-      return text;
+    case 'mara': return add(text, '[sighs]', 0.3);
+    case 'cole': return add(text, '[quietly]', 0.4);
+    case 'ren': return add(text, '[sharp breath]', 0.2);
+    case 'doss': return add(text, '[pause]', 0.5);
+    default: return text;
   }
 }
 
-// ── Text Segment Parser ─────────────────────────────────────────────────────
-// Splits mixed narrator/NPC text into voice-tagged segments.
-//
-// Input: 'A woman sits behind a desk. "I don\'t do charity." She goes back to sorting.'
-// Output: [
-//   { voice: 'narrator', ttsText: 'A woman sits behind a desk.', displayText: 'A woman sits behind a desk.' },
-//   { voice: 'mara', ttsText: '[flatly] "I don\'t do charity."', displayText: '"I don\'t do charity."' },
-//   { voice: 'narrator', ttsText: 'She goes back to sorting.', displayText: 'She goes back to sorting.' },
-// ]
+// ── Segment Parser ──────────────────────────────────────────────────────────
 
 export interface AudioSegment {
-  voice: string;          // NPC ID or 'narrator'
-  ttsText: string;        // full text with performance tags — sent to ElevenLabs
-  displayText: string;    // clean text — shown to player
+  voice: string;
+  ttsText: string;
+  displayText: string;
 }
 
-/**
- * Parse mixed text into narrator and NPC voice segments.
- * Quoted text ("...") is assigned to the specified NPC.
- * Everything else is narrator.
- */
-export function parseVoiceSegments(
-  text: string,
-  npcId: string = 'narrator',
-): AudioSegment[] {
+export function parseVoiceSegments(text: string, npcId: string = 'narrator'): AudioSegment[] {
   const segments: AudioSegment[] = [];
-  // Match quoted strings (double quotes)
-  const quoteRe = /"([^"]+)"/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  const re = /"([^"]+)"/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
 
-  while ((match = quoteRe.exec(text)) !== null) {
-    // Narrator segment before the quote
-    const before = text.slice(lastIndex, match.index).trim();
+  while ((m = re.exec(text)) !== null) {
+    const before = text.slice(last, m.index).trim();
     if (before) {
-      segments.push({
-        voice: 'narrator',
-        ttsText: before,
-        displayText: stripTagsForDisplay(before),
-      });
+      segments.push({ voice: 'narrator', ttsText: before, displayText: stripTagsForDisplay(before) });
     }
-
-    // NPC spoken segment (the quoted part)
-    const spoken = match[0]; // includes quotes
-    const spokenInner = match[1];
-    const ttsText = injectPerformanceTags(spokenInner, npcId);
-    segments.push({
-      voice: npcId,
-      ttsText,
-      displayText: `"${stripTagsForDisplay(spokenInner)}"`,
-    });
-
-    lastIndex = match.index + match[0].length;
+    const inner = m[1];
+    segments.push({ voice: npcId, ttsText: injectTags(inner, npcId), displayText: `"${stripTagsForDisplay(inner)}"` });
+    last = m.index + m[0].length;
   }
 
-  // Remaining narrator text after last quote
-  const after = text.slice(lastIndex).trim();
+  const after = text.slice(last).trim();
   if (after) {
-    segments.push({
-      voice: 'narrator',
-      ttsText: after,
-      displayText: stripTagsForDisplay(after),
-    });
+    segments.push({ voice: 'narrator', ttsText: after, displayText: stripTagsForDisplay(after) });
   }
 
-  // If no quotes found, entire text is one segment
   if (segments.length === 0) {
-    segments.push({
-      voice: npcId,
-      ttsText: injectPerformanceTags(text, npcId),
-      displayText: stripTagsForDisplay(text),
-    });
+    segments.push({ voice: npcId, ttsText: injectTags(text, npcId), displayText: stripTagsForDisplay(text) });
   }
 
   return segments;
 }
 
-/**
- * Parse NPC dialogue response — entire text is NPC voice, with tags injected.
- * Used for LLM dialogue responses where the NPC is speaking directly.
- */
-export function parseNPCDialogue(
-  text: string,
-  npcId: string,
-): AudioSegment {
-  const ttsText = injectPerformanceTags(text, npcId);
-  return {
-    voice: npcId,
-    ttsText,
-    displayText: stripTagsForDisplay(text),
-  };
+export function parseNPCDialogue(text: string, npcId: string): AudioSegment {
+  return { voice: npcId, ttsText: injectTags(text, npcId), displayText: stripTagsForDisplay(text) };
 }
 
-// ── Audio Playback Engine ───────────────────────────────────────────────────
+// ── Persistent Audio Element (iOS Safari) ───────────────────────────────────
+// iOS requires audio.play() from a user gesture to "unlock" the element.
+// After that, changing src and calling play() works without gesture context.
 
+let _audio: HTMLAudioElement | null = null;
+let _unlocked = false;
 let _muted = false;
 let _volume = 0.8;
-let _currentAudio: HTMLAudioElement | null = null;
-let _playQueue: Array<{ url: string; onEnd?: () => void }> = [];
-let _isPlaying = false;
-let _ambientAudio: HTMLAudioElement | null = null;
 
-// Persist mute state
 if (typeof window !== 'undefined') {
   _muted = localStorage.getItem('n1x_mud_muted') === 'true';
-  const savedVol = localStorage.getItem('n1x_mud_volume');
-  if (savedVol) _volume = parseFloat(savedVol);
+  const v = localStorage.getItem('n1x_mud_volume');
+  if (v) _volume = parseFloat(v);
 }
 
-export function setMuted(muted: boolean): void {
-  _muted = muted;
-  if (typeof window !== 'undefined') localStorage.setItem('n1x_mud_muted', String(muted));
-  if (_currentAudio) _currentAudio.muted = muted;
-  if (_ambientAudio) _ambientAudio.muted = muted;
+function getAudio(): HTMLAudioElement {
+  if (!_audio && typeof window !== 'undefined') {
+    _audio = new Audio();
+    _audio.volume = _volume;
+  }
+  return _audio!;
 }
 
+/** Call from any user gesture handler to unlock audio on iOS. */
+export function unlockAudio(): void {
+  if (_unlocked || typeof window === 'undefined') return;
+  const a = getAudio();
+  if (!a) return;
+  // Silent MP3 — shortest valid frame
+  a.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//tQxBQAAADSAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+  a.play().then(() => { _unlocked = true; a.pause(); a.src = ''; }).catch(() => {});
+}
+
+// Auto-register unlock on interactions
+if (typeof window !== 'undefined') {
+  const handlers = ['click', 'keydown', 'touchstart'] as const;
+  const tryUnlock = () => {
+    unlockAudio();
+    if (_unlocked) handlers.forEach(e => window.removeEventListener(e, tryUnlock));
+  };
+  handlers.forEach(e => window.addEventListener(e, tryUnlock, { passive: true }));
+}
+
+// ── Volume / Mute ───────────────────────────────────────────────────────────
+
+export function setMuted(m: boolean): void {
+  _muted = m;
+  if (typeof window !== 'undefined') localStorage.setItem('n1x_mud_muted', String(m));
+  if (_audio) _audio.muted = m;
+}
 export function isMuted(): boolean { return _muted; }
 
-export function setVolume(vol: number): void {
-  _volume = Math.max(0, Math.min(1, vol));
+export function setVolume(v: number): void {
+  _volume = Math.max(0, Math.min(1, v));
   if (typeof window !== 'undefined') localStorage.setItem('n1x_mud_volume', String(_volume));
-  if (_currentAudio) _currentAudio.volume = _volume;
-  if (_ambientAudio) _ambientAudio.volume = _volume * 0.3; // ambient is quieter
+  if (_audio) _audio.volume = _volume;
 }
-
 export function getVolume(): number { return _volume; }
 
-/**
- * Play an audio URL. Returns a promise that resolves when playback ends.
- */
-function playAudioUrl(url: string): Promise<void> {
-  return new Promise((resolve) => {
-    if (_muted) { resolve(); return; }
-    const audio = new Audio(url);
-    audio.volume = _volume;
-    _currentAudio = audio;
-    audio.onended = () => { _currentAudio = null; resolve(); };
-    audio.onerror = () => { _currentAudio = null; resolve(); };
-    audio.play().catch(() => resolve());
+// ── Centralized Playback Queue ──────────────────────────────────────────────
+// ALL TTS goes through this queue. One audio plays at a time.
+// Prevents race conditions between narrator and NPC voice.
+
+interface QueueItem {
+  url: string;
+  label: string; // for debug logging
+  resolve: () => void;
+}
+
+const _queue: QueueItem[] = [];
+let _playing = false;
+
+function enqueue(url: string, label: string): Promise<void> {
+  return new Promise(resolve => {
+    _queue.push({ url, label, resolve });
+    if (!_playing) drain();
   });
 }
 
-/**
- * Queue and play audio segments sequentially.
- * Each segment is fetched from TTS API then played in order.
- */
-export async function playSegments(segments: AudioSegment[]): Promise<void> {
-  if (_muted || segments.length === 0) return;
-
-  for (const seg of segments) {
-    if (_muted) break;
-    try {
-      const audioUrl = await fetchTTS(seg.ttsText, seg.voice);
-      if (audioUrl) {
-        await playAudioUrl(audioUrl);
-      }
-    } catch {
-      // TTS failed for this segment — skip, continue with next
-    }
-  }
+function drain(): void {
+  if (_queue.length === 0) { _playing = false; return; }
+  _playing = true;
+  const item = _queue.shift()!;
+  playOne(item.url, item.label).then(() => { item.resolve(); drain(); });
 }
 
-/**
- * Play a single NPC dialogue response with voice.
- */
-export async function playNPCVoice(text: string, npcId: string): Promise<void> {
-  if (_muted) return;
-  const segment = parseNPCDialogue(text, npcId);
-  try {
-    const audioUrl = await fetchTTS(segment.ttsText, segment.voice);
-    if (audioUrl) await playAudioUrl(audioUrl);
-  } catch {
-    // Silently fail — voice is optional
-  }
+function playOne(url: string, label: string): Promise<void> {
+  return new Promise(resolve => {
+    if (_muted || !url) { resolve(); return; }
+    const a = getAudio();
+    if (!a) { resolve(); return; }
+
+    const done = () => {
+      a.onended = null;
+      a.onerror = null;
+      resolve();
+    };
+
+    a.onended = done;
+    a.onerror = (e) => {
+      console.warn(`[MUD_AUDIO] playback error for ${label}:`, e);
+      done();
+    };
+    a.volume = _volume;
+    a.src = url;
+    a.play().catch(err => {
+      console.warn(`[MUD_AUDIO] play() rejected for ${label}:`, err.message ?? err);
+      done();
+    });
+  });
 }
 
-// ── TTS API Call ────────────────────────────────────────────────────────────
-// Calls our proxy endpoint which forwards to ElevenLabs.
-// Returns an object URL for the audio blob.
+/** Cancel all queued audio and stop current playback. */
+export function stopAll(): void {
+  _queue.length = 0;
+  _playing = false;
+  if (_audio) { _audio.pause(); _audio.src = ''; }
+}
 
-const _ttsCache = new Map<string, string>();
+// ── TTS Fetch ───────────────────────────────────────────────────────────────
+
+const _cache = new Map<string, string>();
 
 async function fetchTTS(text: string, voiceKey: string): Promise<string | null> {
   if (!text.trim()) return null;
 
-  // Check cache
-  const cacheKey = `${voiceKey}:${text}`;
-  const cached = _ttsCache.get(cacheKey);
-  if (cached) return cached;
+  const key = `${voiceKey}:${text}`;
+  const cached = _cache.get(key);
+  if (cached) { console.log(`[MUD_AUDIO] cache hit: ${voiceKey}`); return cached; }
+
+  console.log(`[MUD_AUDIO] fetching TTS: voice=${voiceKey}, text="${text.slice(0, 60)}..."`);
 
   try {
     const res = await fetch('/api/mud/tts', {
@@ -314,106 +228,152 @@ async function fetchTTS(text: string, voiceKey: string): Promise<string | null> 
       body: JSON.stringify({ text, voiceKey }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.error(`[MUD_AUDIO] TTS API ${res.status}: ${errBody}`);
+      return null;
+    }
 
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    // Cache (limit cache size to 100 entries)
-    if (_ttsCache.size > 100) {
-      const firstKey = _ttsCache.keys().next().value;
-      if (firstKey) {
-        const oldUrl = _ttsCache.get(firstKey);
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
-        _ttsCache.delete(firstKey);
-      }
+    if (blob.size < 100) {
+      console.warn(`[MUD_AUDIO] TTS response suspiciously small (${blob.size} bytes) for ${voiceKey}`);
+      return null;
     }
-    _ttsCache.set(cacheKey, url);
+
+    const url = URL.createObjectURL(blob);
+    console.log(`[MUD_AUDIO] TTS OK: ${voiceKey}, ${blob.size} bytes`);
+
+    // Cache with LRU eviction
+    if (_cache.size > 100) {
+      const first = _cache.keys().next().value;
+      if (first) { URL.revokeObjectURL(_cache.get(first)!); _cache.delete(first); }
+    }
+    _cache.set(key, url);
     return url;
-  } catch {
+  } catch (err) {
+    console.error(`[MUD_AUDIO] fetch error for ${voiceKey}:`, err);
     return null;
   }
 }
 
-// ── SFX Playback ────────────────────────────────────────────────────────────
-// Static audio files served from Vercel Blob.
+// ── Public API ──────────────────────────────────────────────────────────────
 
-const _sfxCache = new Map<string, HTMLAudioElement>();
+// Active playback tracking — React components subscribe via eventBus
+let _activeAudioId: string | null = null;
 
-export async function playSFX(sfxId: string, blobBaseUrl?: string): Promise<void> {
-  if (_muted) return;
-  const base = blobBaseUrl ?? (process.env.NEXT_PUBLIC_BLOB_AUDIO_URL ?? '');
-  const url = `${base}/mud/sfx/${sfxId}.mp3`;
+/** Get the currently playing audio ID (null if silent). */
+export function getActiveAudioId(): string | null { return _activeAudioId; }
 
-  let audio = _sfxCache.get(sfxId);
-  if (!audio) {
-    audio = new Audio(url);
-    audio.preload = 'auto';
-    _sfxCache.set(sfxId, audio);
+function emitPlayState(audioId: string | null): void {
+  _activeAudioId = audioId;
+  if (typeof window !== 'undefined') {
+    // Use a custom event — avoids importing eventBus (circular dep risk)
+    window.dispatchEvent(new CustomEvent('mud:audio-state', { detail: { audioId } }));
   }
-  audio.volume = _volume;
-  audio.currentTime = 0;
-  try { await audio.play(); } catch { /* user hasn't interacted yet */ }
 }
 
-// ── Ambient Loops ───────────────────────────────────────────────────────────
+/**
+ * Play multiple voice segments sequentially (narrator + NPC mixed).
+ * Stops any currently playing audio first.
+ * Returns the audioId for glyph binding.
+ */
+export async function playSegments(segments: AudioSegment[], audioId?: string): Promise<string> {
+  const id = audioId ?? `segments:${Date.now()}`;
+  if (_muted || segments.length === 0) return id;
 
-export function startAmbient(ambientId: string, blobBaseUrl?: string): void {
+  // Stop current playback before starting new
+  stopAll();
+  emitPlayState(id);
+
+  for (const seg of segments) {
+    if (_muted || _activeAudioId !== id) break; // stopped by another play call
+    const url = await fetchTTS(seg.ttsText, seg.voice);
+    if (url) await enqueue(url, `segment:${seg.voice}`);
+  }
+
+  if (_activeAudioId === id) emitPlayState(null);
+  return id;
+}
+
+/**
+ * Play a single NPC dialogue line. Stops current audio first.
+ * Returns the audioId for glyph binding.
+ */
+export async function playNPCVoice(text: string, npcId: string, audioId?: string): Promise<string> {
+  const id = audioId ?? `npc:${npcId}:${Date.now()}`;
+  if (_muted) return id;
+
+  // Stop current playback
+  stopAll();
+  emitPlayState(id);
+
+  const seg = parseNPCDialogue(text, npcId);
+  const url = await fetchTTS(seg.ttsText, seg.voice);
+  if (url && _activeAudioId === id) {
+    await enqueue(url, `npc:${npcId}`);
+  }
+
+  if (_activeAudioId === id) emitPlayState(null);
+  return id;
+}
+
+/**
+ * Replay audio for a given audioId using cached TTS data.
+ * Called by PlayGlyph when user clicks to re-hear a line.
+ */
+export async function replayAudio(audioId: string, ttsText: string, voiceKey: string): Promise<void> {
+  if (_muted) return;
+  stopAll();
+  emitPlayState(audioId);
+
+  const url = await fetchTTS(ttsText, voiceKey);
+  if (url && _activeAudioId === audioId) {
+    await enqueue(url, `replay:${voiceKey}`);
+  }
+
+  if (_activeAudioId === audioId) emitPlayState(null);
+}
+
+/** Stop everything and clear state. */
+export function stopAllAndReset(): void {
+  stopAll();
+  emitPlayState(null);
+}
+
+// ── SFX (future — Vercel Blob) ──────────────────────────────────────────────
+
+export async function playSFX(sfxId: string): Promise<void> {
+  if (_muted) return;
+  const base = process.env.NEXT_PUBLIC_BLOB_AUDIO_URL ?? '';
+  if (!base) return;
+  const url = `${base}/mud/sfx/${sfxId}.mp3`;
+  await enqueue(url, `sfx:${sfxId}`);
+}
+
+// ── Ambient (future — Vercel Blob) ──────────────────────────────────────────
+
+let _ambient: HTMLAudioElement | null = null;
+
+export function startAmbient(id: string): void {
   if (_muted) return;
   stopAmbient();
-  const base = blobBaseUrl ?? (process.env.NEXT_PUBLIC_BLOB_AUDIO_URL ?? '');
-  const url = `${base}/mud/ambient/${ambientId}.mp3`;
-  _ambientAudio = new Audio(url);
-  _ambientAudio.loop = true;
-  _ambientAudio.volume = _volume * 0.3;
-  _ambientAudio.play().catch(() => {});
+  const base = process.env.NEXT_PUBLIC_BLOB_AUDIO_URL ?? '';
+  if (!base) return;
+  _ambient = new Audio(`${base}/mud/ambient/${id}.mp3`);
+  _ambient.loop = true;
+  _ambient.volume = _volume * 0.3;
+  _ambient.play().catch(() => {});
 }
 
 export function stopAmbient(): void {
-  if (_ambientAudio) {
-    _ambientAudio.pause();
-    _ambientAudio.src = '';
-    _ambientAudio = null;
-  }
-}
-
-export function crossfadeAmbient(newAmbientId: string, durationMs: number = 1500, blobBaseUrl?: string): void {
-  if (_muted) { stopAmbient(); startAmbient(newAmbientId, blobBaseUrl); return; }
-  const old = _ambientAudio;
-  if (!old) { startAmbient(newAmbientId, blobBaseUrl); return; }
-
-  const base = blobBaseUrl ?? (process.env.NEXT_PUBLIC_BLOB_AUDIO_URL ?? '');
-  const url = `${base}/mud/ambient/${newAmbientId}.mp3`;
-  const next = new Audio(url);
-  next.loop = true;
-  next.volume = 0;
-  _ambientAudio = next;
-  next.play().catch(() => {});
-
-  const steps = 20;
-  const interval = durationMs / steps;
-  let step = 0;
-  const fade = setInterval(() => {
-    step++;
-    const pct = step / steps;
-    old.volume = Math.max(0, (_volume * 0.3) * (1 - pct));
-    next.volume = (_volume * 0.3) * pct;
-    if (step >= steps) {
-      clearInterval(fade);
-      old.pause();
-      old.src = '';
-    }
-  }, interval);
+  if (_ambient) { _ambient.pause(); _ambient.src = ''; _ambient = null; }
 }
 
 // ── Cleanup ─────────────────────────────────────────────────────────────────
 
 export function destroyAudio(): void {
+  stopAll();
   stopAmbient();
-  if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
-  _playQueue = [];
-  _isPlaying = false;
-  // Revoke cached blob URLs
-  _ttsCache.forEach(url => URL.revokeObjectURL(url));
-  _ttsCache.clear();
+  _cache.forEach(u => URL.revokeObjectURL(u));
+  _cache.clear();
 }

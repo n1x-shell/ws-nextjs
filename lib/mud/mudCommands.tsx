@@ -71,7 +71,7 @@ import {
 } from './questEngine';
 import {
   playNPCVoice, playSegments, parseVoiceSegments,
-  stripTagsForDisplay,
+  stripTagsForDisplay, replayAudio, stopAllAndReset, getActiveAudioId,
 } from './mudAudio';
 
 // ── Style constants (mirrors TelnetSession / systemCommands pattern) ────────
@@ -82,6 +82,72 @@ const S = {
   glow:   'text-glow',
   accent: 'var(--phosphor-accent)',
 };
+
+// ── PlayGlyph — floating play/stop control for voiced text ──────────────────
+// Attaches to playable text blocks (room descriptions, NPC dialogue).
+// Listens for audio state via CustomEvent on window.
+
+interface PlayGlyphProps {
+  audioId: string;
+  ttsText: string;
+  voiceKey: string;
+}
+
+function PlayGlyph({ audioId, ttsText, voiceKey }: PlayGlyphProps) {
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setIsPlaying(detail?.audioId === audioId);
+    };
+    window.addEventListener('mud:audio-state', handler);
+    // Check if already playing on mount
+    setIsPlaying(getActiveAudioId() === audioId);
+    return () => window.removeEventListener('mud:audio-state', handler);
+  }, [audioId]);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPlaying) {
+      stopAllAndReset();
+    } else {
+      replayAudio(audioId, ttsText, voiceKey);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        padding: '0.15rem 0.3rem',
+        marginTop: '0.2rem',
+        fontFamily: 'monospace',
+        fontSize: '0.75em',
+        lineHeight: 1,
+        color: isPlaying ? '#ff69b4' : 'rgba(var(--phosphor-rgb),0.4)',
+        textShadow: isPlaying ? '0 0 8px #ff69b4, 0 0 16px rgba(255,105,180,0.4)' : 'none',
+        transition: 'color 0.2s, text-shadow 0.3s',
+        animation: isPlaying ? 'glyph-pulse 1.5s ease-in-out infinite' : 'none',
+      }}
+      title={isPlaying ? 'stop' : 'play'}
+    >
+      {isPlaying ? '■ STOP' : '▶ PLAY'}
+      <style>{`
+        @keyframes glyph-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+      `}</style>
+    </button>
+  );
+}
 
 const C = {
   green:     '#d4d4d4',           // room text — light grey for readability
@@ -779,6 +845,7 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
           {line || '\u00a0'}
         </MudLine>
       ))}
+      <PlayGlyph audioId={`room:${char.currentRoom}`} ttsText={room.description} voiceKey="narrator" />
 
       <MudSpacer />
 
@@ -851,11 +918,10 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
   );
 
   // Narrator voice — read room description (fire-and-forget, non-blocking)
-  // NPC dialogue in the description (quoted text) switches to NPC voice automatically
   const hasNPCs = room.npcs.length > 0;
   const primaryNPC = hasNPCs ? room.npcs[0].id : 'narrator';
   const segments = parseVoiceSegments(room.description, primaryNPC);
-  playSegments(segments);
+  playSegments(segments, `room:${char.currentRoom}`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2099,19 +2165,23 @@ export async function handleNPCDialogue(
 
     // Stagger NPC responses for natural feel
     responses.forEach((resp, i) => {
+      const npcAudioId = `npc:${resp.npcId}:${Date.now()}-${i}`;
       setTimeout(() => {
         const color = getNPCColor(resp.npcId);
         const displayText = stripTagsForDisplay(resp.text);
         addLocalMsg(
-          <div key={k(`npc-say-${resp.npcId}-${i}`)} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
-            <span style={{ color, fontWeight: 'bold' }}>[{resp.name}]</span>
-            <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
-            <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{displayText}</span>
+          <div key={k(`npc-say-${resp.npcId}-${i}`)}>
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
+              <span style={{ color, fontWeight: 'bold' }}>[{resp.name}]</span>
+              <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
+              <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{displayText}</span>
+            </div>
+            <PlayGlyph audioId={npcAudioId} ttsText={resp.text} voiceKey={resp.npcId} />
           </div>
         );
 
-        // Play NPC voice (non-blocking — audio plays alongside text)
-        playNPCVoice(resp.text, resp.npcId);
+        // Play NPC voice (non-blocking — stops any current playback first)
+        playNPCVoice(resp.text, resp.npcId, npcAudioId);
 
         // Record interaction + small disposition bump for talking
         recordInteraction(handle, resp.npcId, `player said: "${message.slice(0, 50)}" — ${resp.name} responded`);
@@ -2182,16 +2252,21 @@ export async function handleNPCDialogue(
   } catch {
     // LLM failed — use fallback dialogue from NPC definition
     targets.forEach((t, i) => {
+      const fbAudioId = `npc-fb:${t.npcId}:${Date.now()}-${i}`;
       setTimeout(() => {
         const color = getNPCColor(t.npcId);
         const fallback = t.npc.dialogue.replace(/^"|"$/g, '');
         addLocalMsg(
-          <div key={k(`npc-fb-${t.npcId}`)} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
-            <span style={{ color, fontWeight: 'bold' }}>[{t.personality.name}]</span>
-            <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
-            <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{fallback}</span>
+          <div key={k(`npc-fb-${t.npcId}`)}>
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
+              <span style={{ color, fontWeight: 'bold' }}>[{t.personality.name}]</span>
+              <span style={{ color, opacity: 0.75, marginLeft: '0.5ch' }}>&gt;</span>
+              <span style={{ color, opacity: 0.9, marginLeft: '0.5ch' }}>{fallback}</span>
+            </div>
+            <PlayGlyph audioId={fbAudioId} ttsText={fallback} voiceKey={t.npcId} />
           </div>
         );
+        playNPCVoice(fallback, t.npcId, fbAudioId);
       }, (i + 1) * 400);
     });
   }
