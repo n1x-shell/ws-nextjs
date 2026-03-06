@@ -56,7 +56,7 @@ import {
   initCombat, resolvePlayerAttack, resolveQuickhack, useItemInCombat,
   scanEnemy, attemptFlee, processEnemyTurn, advanceTurn, checkCombatEnd,
   syncCombatToCharacter, isPlayersTurn, getEnemyById,
-  getAllLivingEnemies, getPlayerCombatant, getAvailableHacks, hpBar,
+  getAllLivingEnemies, getPlayerCombatant, getAvailableHacks,
   QUICKHACKS,
   type AttackResult, type HackResult, type ScanResult, type FleeResult,
 } from './combat';
@@ -168,10 +168,12 @@ function TouchableEntity({
   entityId,
   children,
   panelContent,
+  inline = false,
 }: {
   entityId: string;
   children: React.ReactNode;
   panelContent: EntityPanelContent;
+  inline?: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(false);
 
@@ -192,18 +194,20 @@ function TouchableEntity({
     }
   };
 
+  const Wrapper = inline ? 'span' : 'div';
+
   return (
-    <div>
-      <div
+    <Wrapper style={inline ? { display: 'inline' } : undefined}>
+      <Wrapper
         role="button"
         tabIndex={0}
         onClick={toggle}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+        onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
         aria-expanded={expanded}
-        style={{ cursor: 'pointer', userSelect: 'none' }}
+        style={{ cursor: 'pointer', userSelect: 'none', ...(inline ? { display: 'inline' } : {}) }}
       >
         {children}
-      </div>
+      </Wrapper>
       {expanded && (
         <div style={{
           padding: '0.35rem 0.5rem 0.25rem 2ch',
@@ -248,11 +252,78 @@ function TouchableEntity({
       )}
       <style>{`
         @keyframes panel-expand {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; max-height: 0; transform: translateX(-8px); }
+          to { opacity: 1; max-height: 300px; transform: translateX(0); }
         }
       `}</style>
-    </div>
+    </Wrapper>
+  );
+}
+
+// ── TypeWriter — reveals text character by character ────────────────────────
+// Mounts with full text hidden, reveals at ~25ms per char.
+// Faster than real typing but gives the impression of live generation.
+
+function TypeWriter({
+  segments,
+  npcColor,
+  speed = 20,
+}: {
+  segments: Array<{ segType?: string; displayText: string }>;
+  npcColor: string;
+  speed?: number;
+}) {
+  const fullText = segments.map(s => s.displayText).join(' ');
+  const [revealed, setRevealed] = React.useState(0);
+
+  React.useEffect(() => {
+    if (revealed >= fullText.length) return;
+    const timer = setTimeout(() => setRevealed(r => r + 1), speed);
+    return () => clearTimeout(timer);
+  }, [revealed, fullText.length, speed]);
+
+  // Map revealed character count back to segments
+  let charCount = 0;
+  return (
+    <>
+      {segments.map((seg, si) => {
+        const segText = seg.displayText + (si < segments.length - 1 ? ' ' : '');
+        const segStart = charCount;
+        charCount += segText.length;
+
+        if (segStart >= revealed) return null; // not revealed yet
+
+        const visibleChars = Math.min(segText.length, revealed - segStart);
+        const visible = segText.slice(0, visibleChars);
+        const isNarration = seg.segType === 'narration';
+
+        return (
+          <span key={si} style={{
+            color: isNarration ? '#d4d4d4' : npcColor,
+            ...(isNarration ? { fontStyle: 'italic' as const } : {}),
+          }}>
+            {visible}
+            {visibleChars < segText.length && visibleChars === revealed - segStart && (
+              <span style={{
+                display: 'inline-block',
+                width: '0.5ch',
+                height: '1em',
+                background: npcColor,
+                verticalAlign: 'text-bottom',
+                opacity: 0.8,
+                animation: 'cursor-blink 0.6s step-end infinite',
+              }} />
+            )}
+          </span>
+        );
+      })}
+      <style>{`
+        @keyframes cursor-blink {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 0; }
+        }
+      `}</style>
+    </>
   );
 }
 
@@ -266,6 +337,7 @@ function TappableExit({ exit }: { exit: RoomExit }) {
       eventBus.emit('mud:execute-command', { command: `/examine ${exit.direction}` });
     } else {
       eventBus.emit('mud:execute-command', { command: `/go ${exit.direction}` });
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 });
     }
   };
 
@@ -325,6 +397,7 @@ function TappableObject({ obj, entityId }: { obj: RoomObject; entityId: string }
   return (
     <TouchableEntity
       entityId={entityId}
+      inline
       panelContent={{
         title: obj.name.toUpperCase(),
         description: obj.examineText.split('.')[0] + '.',
@@ -337,11 +410,11 @@ function TappableObject({ obj, entityId }: { obj: RoomObject; entityId: string }
       <span style={{
         color: C.object,
         cursor: 'pointer',
-        borderBottom: '1px solid transparent',
+        borderBottom: '1px dotted rgba(var(--phosphor-rgb),0.3)',
         transition: 'border-color 0.15s',
       }}
         onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = C.object; }}
-        onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = 'transparent'; }}
+        onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = 'rgba(var(--phosphor-rgb),0.3)'; }}
       >
         {obj.name}
       </span>
@@ -1112,11 +1185,15 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
 
       <MudSpacer />
 
-      {/* Room description */}
-      {room.description.split('\n').map((line, i) => (
-        <MudLine key={k(`desc-${i}`)} color={C.green} opacity={0.85}>
-          {line || '\u00a0'}
-        </MudLine>
+      {/* Room description — flowing paragraphs */}
+      {room.description.split('\n\n').map((para, pi) => (
+        <div key={k(`desc-p-${pi}`)} style={{
+          fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
+          color: C.green, opacity: 0.85,
+          marginBottom: '0.4rem',
+        }}>
+          {para.replace(/\n/g, ' ')}
+        </div>
       ))}
       <PlayGlyph audioId={`room:${char.currentRoom}`} ttsText={room.description} voiceKey="narrator" />
 
@@ -1286,23 +1363,39 @@ function renderCombatHUD(session: MudSession, addLocalMsg: AddLocalMsg): void {
 
   const isMyTurn = isPlayersTurn(combat);
 
+  const CSSBar = ({ pct, color, w = '10ch' }: { pct: number; color: string; w?: string }) => (
+    <span style={{ display: 'inline-block', width: w, height: 5, background: 'rgba(var(--phosphor-rgb),0.1)', borderRadius: 1, overflow: 'hidden', verticalAlign: 'middle', margin: '0 0.4ch' }}>
+      <span style={{ display: 'block', width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', background: color, boxShadow: `0 0 4px ${color}`, transition: 'width 0.3s' }} />
+    </span>
+  );
+
+  const playerHpPct = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
+  const playerHpColor = playerHpPct > 60 ? 'var(--phosphor-green)' : playerHpPct > 25 ? '#fbbf24' : '#ff4444';
+
   addLocalMsg(
-    <div key={k('combat-hud')}>
+    <div key={k('combat-hud')} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
       <MudLine color={C.combatHud} bold>
         ── COMBAT · Round {combat.round} {isMyTurn ? '· YOUR TURN' : ''} ──
       </MudLine>
       <MudSpacer />
       <MudLine indent color={C.stat}>
-        YOU: {hpBar(player.hp, player.maxHp, 16)} {player.hp}/{player.maxHp} HP
+        YOU:
+        <CSSBar pct={playerHpPct} color={playerHpColor} />
+        {player.hp}/{player.maxHp} HP
         {player.ram !== undefined ? ` · RAM ${player.ram}/${player.maxRam}` : ''}
         {isMyTurn ? ` · ${player.ap} AP` : ''}
       </MudLine>
-      {enemies.map(e => (
-        <MudLine key={k(`hud-${e.id}`)} indent color={C.enemy}>
-          {e.name}: {hpBar(e.hp, e.maxHp, 16)} {e.hp}/{e.maxHp}
-          {e.effects.length > 0 ? ` [${e.effects.map(ef => ef.name).join(', ')}]` : ''}
-        </MudLine>
-      ))}
+      {enemies.map(e => {
+        const ePct = e.maxHp > 0 ? (e.hp / e.maxHp) * 100 : 0;
+        return (
+          <MudLine key={k(`hud-${e.id}`)} indent color={C.enemy}>
+            {e.name}:
+            <CSSBar pct={ePct} color="#ff4444" />
+            {e.hp}/{e.maxHp}
+            {e.effects.length > 0 ? ` [${e.effects.map(ef => ef.name).join(', ')}]` : ''}
+          </MudLine>
+        );
+      })}
       {isMyTurn && (
         <>
           <MudSpacer />
@@ -1373,6 +1466,7 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
   saveCombat(char.handle, combat);
 
   // Entry announcement
+  eventBus.emit('crt:glitch-tier', { tier: 2, duration: 350 });
   const names = spawned.map(e => `${e.name} (Lv.${e.level})`).join(', ');
   addLocalMsg(
     <div key={k('combat-start')}>
@@ -1949,7 +2043,11 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     // Zone transition notification
     const prevRoom = getRoom(prevRoomId);
 
-    if (targetRoom.zone !== (prevRoom?.zone ?? '')) {
+    // CRT transition effect
+    const isZoneChange = targetRoom.zone !== (prevRoom?.zone ?? '');
+    eventBus.emit('crt:glitch-tier', { tier: isZoneChange ? 2 : 1, duration: isZoneChange ? 300 : 180 });
+
+    if (isZoneChange) {
       const targetZone = getZone(targetRoom.zone);
       addLocalMsg(
         <MudLine key={k('zone-change')} color={C.warning} glow>
@@ -2545,16 +2643,9 @@ export async function handleNPCDialogue(
             <span style={{ color, opacity: 0.5, fontSize: '0.8em', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {resp.name}
             </span>
-            {/* Dual-color dialogue: narration in grey, speech in NPC color */}
+            {/* Typewriter dialogue: narration in grey, speech in NPC color */}
             <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
-              {formatted.segments.map((seg, si) => (
-                <span key={si} style={{
-                  color: seg.segType === 'narration' ? '#d4d4d4' : color,
-                  ...(seg.segType === 'narration' ? { fontStyle: 'italic' as const } : {}),
-                }}>
-                  {seg.displayText}{' '}
-                </span>
-              ))}
+              <TypeWriter segments={formatted.segments} npcColor={color} speed={20} />
             </div>
             <PlayGlyph audioId={npcAudioId} ttsText={formatted.fullTTS} voiceKey={resp.npcId} />
           </div>
@@ -2643,14 +2734,7 @@ export async function handleNPCDialogue(
               {t.personality.name}
             </span>
             <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
-              {formatted.segments.map((seg, si) => (
-                <span key={si} style={{
-                  color: seg.segType === 'narration' ? '#d4d4d4' : color,
-                  ...(seg.segType === 'narration' ? { fontStyle: 'italic' as const } : {}),
-                }}>
-                  {seg.displayText}{' '}
-                </span>
-              ))}
+              <TypeWriter segments={formatted.segments} npcColor={color} speed={20} />
             </div>
             <PlayGlyph audioId={fbAudioId} ttsText={formatted.fullTTS} voiceKey={t.npcId} />
           </div>
