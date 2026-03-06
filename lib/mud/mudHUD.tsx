@@ -50,7 +50,7 @@ const C = {
   safe:      '#a5f3fc',
   combat:    '#ff4444',
   heal:      '#4ade80',
-  hack:      '#c084fc',
+  hack:      '#d8b4fe',  // brighter neon purple
   quest:     '#fbbf24',
   shop:      '#fcd34d',
   label:     'rgba(var(--phosphor-rgb),0.8)',
@@ -223,9 +223,9 @@ function Btn({ label, command, color, borderColor, small }: {
     <button
       onClick={(e) => { e.stopPropagation(); eventBus.emit('mud:execute-command', { command }); }}
       style={{
-        fontFamily: 'monospace', fontSize: small ? '0.6em' : '0.65em', lineHeight: 1,
-        padding: small ? '0.12rem 0.25rem' : '0.18rem 0.35rem',
-        minHeight: small ? 20 : 24, background: 'transparent',
+        fontFamily: 'monospace', fontSize: 'var(--text-base)', lineHeight: 1,
+        padding: small ? '0.15rem 0.3rem' : '0.2rem 0.4rem',
+        minHeight: small ? 24 : 28, background: 'transparent',
         border: `1px solid ${borderColor}`, color, cursor: 'pointer',
         textTransform: 'uppercase', letterSpacing: '0.04em',
         transition: 'background 0.12s', touchAction: 'manipulation', whiteSpace: 'nowrap',
@@ -267,7 +267,7 @@ function TitleBar({ children, color, borderColor, rightSlot }: {
       borderBottom: `1px solid ${borderColor}`,
     }}>
       <span style={{
-        fontFamily: 'monospace', fontSize: '0.6em', fontWeight: 'bold',
+        fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
         color, letterSpacing: '0.1em', textTransform: 'uppercase',
       }}>
         {children}
@@ -280,7 +280,7 @@ function TitleBar({ children, color, borderColor, rightSlot }: {
 function Empty({ text }: { text: string }) {
   return (
     <div style={{
-      fontFamily: 'monospace', fontSize: '0.65em', color: C.faint,
+      fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint,
       fontStyle: 'italic', padding: '0.15rem 0.35rem',
     }}>
       {text}
@@ -312,9 +312,9 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
           </div>
           {hasRam && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', marginBottom: '0.15rem' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '0.6em', color: C.hack, flexShrink: 0 }}>RAM</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack, flexShrink: 0 }}>RAM</span>
               <Bar pct={(playerRam / playerMaxRam) * 100} color={C.hack} />
-              <span style={{ fontFamily: 'monospace', fontSize: '0.6em', color: C.hack, flexShrink: 0 }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack, flexShrink: 0 }}>
                 {playerRam}/{playerMaxRam}
               </span>
             </div>
@@ -348,11 +348,11 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
             const iconColor = npc.type === 'QUESTGIVER' ? C.quest : npc.type === 'SHOPKEEPER' ? C.shop : C.npc;
             return (
               <div key={npc.id}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', fontFamily: 'monospace', fontSize: '0.7em' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
                   <span style={{ color: iconColor, fontWeight: 'bold', width: '1.2ch', textAlign: 'center' }}>{icon}</span>
                   <span style={{ color: C.npc, fontWeight: 'bold' }}>{npc.name}</span>
                   {npc.disposition !== 'NEUTRAL' && (
-                    <span style={{ color: C.faint, fontSize: '0.85em' }}>[{npc.disposition}]</span>
+                    <span style={{ color: C.faint, fontSize: '9px' }}>[{npc.disposition}]</span>
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '0.2rem', paddingLeft: '1.6ch', marginTop: '0.05rem', flexWrap: 'wrap' }}>
@@ -387,7 +387,7 @@ function ObjectsPanel({ objects }: { objects: PanelObject[] }) {
               onClick={() => eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` })}
               onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` }); }}
               style={{
-                fontFamily: 'monospace', fontSize: '0.65em', color: C.object,
+                fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.object,
                 cursor: 'pointer', touchAction: 'manipulation',
                 padding: '0.05rem 0', transition: 'color 0.12s',
               }}
@@ -395,7 +395,7 @@ function ObjectsPanel({ objects }: { objects: PanelObject[] }) {
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.object; }}
             >
               {obj.name}
-              {obj.lootable && <span style={{ color: C.quest, marginLeft: '0.3ch', fontSize: '0.9em' }}>{'\u2b21'}</span>}
+              {obj.lootable && <span style={{ color: C.quest, marginLeft: '0.3ch' }}>{'\u2b21'}</span>}
             </div>
           ))}
         </div>
@@ -423,16 +423,16 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
             return (
               <div key={e.id}>
                 <div style={{
-                  display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: '0.65em',
+                  display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
                 }}>
                   <span style={{ color: C.enemy, fontWeight: 'bold' }}>{e.name}</span>
-                  <span style={{ color: C.enemy, fontSize: '0.9em' }}>
+                  <span style={{ color: C.enemy, fontSize: 'var(--text-base)' }}>
                     {e.hp !== undefined ? `${e.hp}/${e.maxHp}` : '???'}
                   </span>
                 </div>
                 <Bar pct={hpPct} color="#ff4444" />
                 {e.effects && e.effects.length > 0 && (
-                  <div style={{ fontFamily: 'monospace', fontSize: '0.55em', color: C.hack }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack }}>
                     [{e.effects.join(', ')}]
                   </div>
                 )}
@@ -453,14 +453,14 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
     return (
       <div>
         <TitleBar color={C.shop} borderColor={BORDER} rightSlot={
-          <span style={{ fontFamily: 'monospace', fontSize: '0.55em', color: '#fcd34d' }}>{creds}{'\u00a2'}</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fcd34d' }}>{creds}{'\u00a2'}</span>
         }>
           SHOP
         </TitleBar>
         <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.05rem' }}>
           {shopItems.slice(0, 5).map(item => (
             <div key={item.templateId} style={{
-              display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: '0.6em',
+              display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
             }}>
               <span
                 role="button" tabIndex={0}
@@ -483,7 +483,7 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
             <div role="button" tabIndex={0}
               onClick={() => eventBus.emit('mud:execute-command', { command: '/shop' })}
               onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/shop' }); }}
-              style={{ fontFamily: 'monospace', fontSize: '0.55em', color: C.faint, cursor: 'pointer', fontStyle: 'italic' }}
+              style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, cursor: 'pointer', fontStyle: 'italic' }}
             >
               +{shopItems.length - 5} more...
             </div>
@@ -501,7 +501,7 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
         <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.05rem' }}>
           {enemies.map(e => (
             <div key={e.id} style={{
-              display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: '0.65em',
+              display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
             }}>
               <span style={{ color: C.enemy }}>{e.name}</span>
               <span style={{ color: C.faint }}>Lv.{e.level}</span>
@@ -531,7 +531,7 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
   const hasVertical = exitSet.has('up') || exitSet.has('down');
   const hasInOut = exitSet.has('in') || exitSet.has('out');
 
-  const SZ = 22;
+  const SZ = 28;
 
   function ExitBtn({ dir }: { dir: Direction }) {
     const available = exitSet.has(dir);
@@ -552,7 +552,7 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
         }}
         title={exitData ? `${dir}: ${exitData.label}${locked ? ' [LOCKED]' : ''}` : dir}
         style={{
-          fontFamily: 'monospace', fontSize: '0.55em', fontWeight: 'bold', lineHeight: 1,
+          fontFamily: 'monospace', fontSize: 'var(--text-base)', fontWeight: 'bold', lineHeight: 1,
           width: (dir === 'up' || dir === 'down' || dir === 'in' || dir === 'out') ? SZ + 6 : SZ,
           height: SZ, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: available
@@ -593,7 +593,7 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
         <ExitBtn dir="west" />
         <div style={{
           width: SZ, height: SZ, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'monospace', fontSize: '0.5em', color: 'rgba(var(--phosphor-rgb),0.15)',
+          fontFamily: 'monospace', fontSize: '8px', color: 'rgba(var(--phosphor-rgb),0.15)',
         }}>{'\u25c6'}</div>
         <ExitBtn dir="east" />
         <div />
@@ -611,7 +611,7 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
       )}
 
       <div style={{
-        fontFamily: 'monospace', fontSize: '0.55em', color: C.faint,
+        fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint,
         maxWidth: '35%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>
         {exits.filter(e => !e.locked).length} exit{exits.filter(e => !e.locked).length !== 1 ? 's' : ''}
@@ -645,13 +645,13 @@ function StatusBar({ data }: { data: PanelData }) {
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
         {/* Row 1: HP + level */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-          <span style={{ color: C.dim, fontSize: '0.7em', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
           <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={4} /></div>
-          <span style={{ color: hpColor, fontSize: '0.7em', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.hp}/{data.maxHp}
           </span>
-          <span style={{ color: C.faint, fontSize: '0.65em' }}>{'\u00b7'}</span>
-          <span style={{ color: 'var(--phosphor-accent)', fontSize: '0.7em', fontWeight: 'bold', flexShrink: 0 }}>
+          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
+          <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
             Lv.{data.level}
           </span>
         </div>
@@ -659,16 +659,16 @@ function StatusBar({ data }: { data: PanelData }) {
         {/* Row 2: Location + Currency */}
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3ch' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', overflow: 'hidden' }}>
-            <span style={{ color: C.faint, fontSize: '0.65em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ color: C.faint, fontSize: 'var(--text-base)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {data.zoneName} {'\u2014'} {data.roomName}
             </span>
           </div>
           <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fcd34d', fontSize: '0.7em' }}>{data.creds}{'\u00a2'}</span>
-            {data.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: '0.7em' }}>{data.scrip}s</span>}
+            <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)' }}>{data.creds}{'\u00a2'}</span>
+            {data.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)' }}>{data.scrip}s</span>}
             {data.inCombat && (
               <span style={{
-                color: '#ff4444', fontWeight: 'bold', fontSize: '0.7em',
+                color: '#ff4444', fontWeight: 'bold', fontSize: 'var(--text-base)',
                 textShadow: '0 0 6px rgba(255,68,68,0.5)',
               }}>{'\u2694'} R{data.combatRound}</span>
             )}
@@ -708,7 +708,7 @@ export function MudPanelSystem({ session }: { session: MudSession }) {
         background: data.inCombat ? 'rgba(255,20,20,0.06)' : 'rgba(var(--phosphor-rgb),0.03)',
       }}>
         <span style={{
-          fontFamily: 'monospace', fontSize: '0.7em', fontWeight: 'bold',
+          fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
           color: data.inCombat ? C.combat : 'var(--phosphor-accent)',
           letterSpacing: '0.04em',
         }} className={S.glow}>
@@ -717,7 +717,7 @@ export function MudPanelSystem({ session }: { session: MudSession }) {
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
           {data.isSafeZone && (
             <span style={{
-              fontFamily: 'monospace', fontSize: '0.55em', color: C.safe,
+              fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.safe,
               border: '1px solid rgba(165,243,252,0.3)', padding: '0 0.25em',
               borderRadius: 2, lineHeight: 1.3,
             }}>SAFE</span>
@@ -727,7 +727,7 @@ export function MudPanelSystem({ session }: { session: MudSession }) {
               onClick={() => eventBus.emit('mud:execute-command', { command: '/quests' })}
               onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/quests' }); }}
               style={{
-                fontFamily: 'monospace', fontSize: '0.55em', color: C.quest,
+                fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.quest,
                 border: '1px solid rgba(251,191,36,0.35)', padding: '0 0.25em',
                 borderRadius: 2, cursor: 'pointer', touchAction: 'manipulation',
               }}
