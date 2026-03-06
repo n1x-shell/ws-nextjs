@@ -15,7 +15,7 @@ import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
 import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue, getMudSuggestions, getMudHUDData, collapseMudPanels } from '@/lib/mud/mudCommands';
 import type { MudContext } from '@/lib/mud/mudCommands';
 import { getRoom } from '@/lib/mud/worldMap';
-import { MudPanelSystem, MudStatusBar } from '@/lib/mud/mudHUD';
+import { MudPanelSystem, MudStatusBar, MudHUDContainer } from '@/lib/mud/mudHUD';
 
 // ── Style constants ───────────────────────────────────────────────────────────
 
@@ -2161,34 +2161,49 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <ChannelStats occupantCount={occupantCount} handle={handle} roomName={roomName} />
 
-          {/* ── MUD Panel System — persistent panels above chat ── */}
-          {isMudHUDVisible && (
-            <MudPanelSystem session={mudSession} />
-          )}
+          {/* ── MUD HUD Container — self-contained scroll region ── */}
+          {isMudHUDVisible ? (
+            <MudHUDContainer session={mudSession}>
+              {messages.length === 0 && localMsgs.length === 0 && (
+                <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
+                  channel open. transmit to begin.
+                </div>
+              )}
 
-          {messages.length === 0 && localMsgs.length === 0 && (
-            <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
-              channel open. transmit to begin.
-            </div>
-          )}
+              {[
+                ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
+                ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
+              ]
+                .sort((a, b) => a.ts - b.ts)
+                .map(item => {
+                  if (item.kind === 'local') return <React.Fragment key={item.id}>{item.node}</React.Fragment>;
+                  return renderMessage(item.msg);
+                })
+              }
+            </MudHUDContainer>
+          ) : (
+            <>
+              {messages.length === 0 && localMsgs.length === 0 && (
+                <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
+                  channel open. transmit to begin.
+                </div>
+              )}
 
-          {/* ── Chat / Narrative scroll area ── */}
-          {/* min-height ensures sticky bottom status bar has scroll anchor */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: '0',
-            ...(isMudHUDVisible ? { minHeight: '30vh', padding: '0.35rem 0' } : {}),
-          }}>
-            {[
-              ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
-              ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
-            ]
-              .sort((a, b) => a.ts - b.ts)
-              .map(item => {
-                if (item.kind === 'local') return <React.Fragment key={item.id}>{item.node}</React.Fragment>;
-                return renderMessage(item.msg);
-              })
-            }
-          </div>
+              {/* ── Chat / Ghost Channel scroll area ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                {[
+                  ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
+                  ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
+                ]
+                  .sort((a, b) => a.ts - b.ts)
+                  .map(item => {
+                    if (item.kind === 'local') return <React.Fragment key={item.id}>{item.node}</React.Fragment>;
+                    return renderMessage(item.msg);
+                  })
+                }
+              </div>
+            </>
+          )}
 
           <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
             {roomName === 'mancave' ? (
@@ -2210,10 +2225,6 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
             )}
           </div>
 
-          {/* ── MUD Status Bar — compact bottom bar ── */}
-          {isMudHUDVisible && (
-            <MudStatusBar session={mudSession} />
-          )}
         </div>
       )}
     </div>
