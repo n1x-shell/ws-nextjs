@@ -12,7 +12,7 @@ import {
 import { incrementSession, loadARGState, getPlayerSigil } from '@/lib/argState';
 import type { MudSession } from '@/lib/mud/types';
 import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
-import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue, getMudSuggestions, getMudHUDData } from '@/lib/mud/mudCommands';
+import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue, getMudSuggestions, getMudHUDData, collapseMudPanels } from '@/lib/mud/mudCommands';
 import type { MudContext } from '@/lib/mud/mudCommands';
 import { getRoom } from '@/lib/mud/worldMap';
 
@@ -1915,6 +1915,9 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   }, [addLocalMsg, handle, setMudSession]);
 
   const sendWithSlash = useCallback((text: string) => {
+    // Collapse any open entity panels on new input
+    collapseMudPanels();
+
     // ── MUD interception: creation phase captures ALL input ──────────────
     const ms = mudSessionRef.current;
     if (ms && ms.phase === 'character_creation' && ms.creation) {
@@ -1995,6 +1998,21 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     });
     if (!handled) send(text);
   }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect, roomName, setMudSession, onMudSessionEntry]);
+
+  // ── MUD entity command listener ─────────────────────────────────────────
+  // TouchableEntity and ActionGlyph emit this event to fire commands
+  // from inside addLocalMsg-rendered JSX (outside React tree context).
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (event: any) => {
+      const cmd = event?.payload?.command;
+      if (cmd && typeof cmd === 'string') {
+        sendWithSlash(cmd);
+      }
+    };
+    eventBus.on('mud:execute-command', handler);
+    return () => eventBus.off('mud:execute-command', handler);
+  }, [sendWithSlash]);
 
   // ── Boot helpers ──────────────────────────────────────────────────────────
 
