@@ -2124,6 +2124,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   // ── Message renderer ──────────────────────────────────────────────────────
 
   const isMudActive = mudSession && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'character_creation' || mudSession.phase === 'dead');
+  const isMudHUDVisible = isMudActive && !!mudSession?.character && mudSession.phase !== 'character_creation';
 
   function renderMessage(msg: RoomMsg): React.ReactNode {
     // Suppress bot messages when MUD is active
@@ -2161,7 +2162,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
           <ChannelStats occupantCount={occupantCount} handle={handle} roomName={roomName} />
 
           {/* ── MUD Panel System — persistent panels above chat ── */}
-          {isMudActive && mudSession?.character && mudSession.phase !== 'character_creation' && (
+          {isMudHUDVisible && (
             <MudPanelSystem session={mudSession} />
           )}
 
@@ -2172,7 +2173,11 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
           )}
 
           {/* ── Chat / Narrative scroll area ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+          {/* min-height ensures sticky bottom status bar has scroll anchor */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: '0',
+            ...(isMudHUDVisible ? { minHeight: '30vh', padding: '0.35rem 0' } : {}),
+          }}>
             {[
               ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
               ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
@@ -2194,7 +2199,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
                 &nbsp;·&nbsp;
                 <span style={{ color: '#00e5ff' }}>/help</span> for all commands
               </>
-            ) : isMudActive && mudSession?.character ? null : (
+            ) : isMudHUDVisible ? null : (
               <>
                 <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
                 &nbsp;·&nbsp;
@@ -2205,8 +2210,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
             )}
           </div>
 
-          {/* ── MUD Status Bar — compact bottom bar replaces old MudHUD ── */}
-          {isMudActive && mudSession?.character && mudSession.phase !== 'character_creation' && (
+          {/* ── MUD Status Bar — compact bottom bar ── */}
+          {isMudHUDVisible && (
             <MudStatusBar session={mudSession} />
           )}
         </div>
