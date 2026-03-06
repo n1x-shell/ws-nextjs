@@ -1164,14 +1164,11 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
   }
 
   const zone = getZone(room.zone);
-  const visibleExits = getVisibleExits(char.currentRoom, char);
 
-  // Junction branches
-  let branches: Room[] = [];
-  if (char.currentRoom === 'z08_r03') {
-    branches = getJunctionBranches(char);
-  }
+  // Reset panel mode to default on /look (exits inventory/shop view)
+  eventBus.emit('mud:panel-mode', { mode: 'default' });
 
+  // Narrative-only output — NPCs, enemies, objects, exits are in the HUD panels
   addLocalMsg(
     <div key={k('look')}>
       {/* Zone + room header */}
@@ -1196,148 +1193,6 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
         </div>
       ))}
       <PlayGlyph audioId={`room:${char.currentRoom}`} ttsText={room.description} voiceKey="narrator" />
-
-      <MudSpacer />
-
-      {/* NPCs — tappable with action panel */}
-      {room.npcs.length > 0 && (
-        <div>
-          {room.npcs.map(npc => {
-            const npcGlyphs: ActionGlyphProps[] = [
-              { label: 'TALK', command: `/talk hello`, variant: 'social', ariaLabel: `talk to ${npc.name}` },
-              { label: 'EXAMINE', command: `/examine ${npc.name}`, variant: 'info', ariaLabel: `examine ${npc.name}` },
-            ];
-            if (npc.services?.includes('shop')) {
-              npcGlyphs.splice(1, 0, { label: 'SHOP', command: '/shop', variant: 'social', ariaLabel: `browse ${npc.name}'s shop` });
-            }
-            return (
-              <TouchableEntity
-                key={k(`npc-touch-${npc.id}`)}
-                entityId={`npc:${npc.id}`}
-                panelContent={{
-                  title: `${npc.name.toUpperCase()} — ${npc.type === 'QUESTGIVER' ? 'Quest Giver' : npc.type === 'SHOPKEEPER' ? 'Trader' : npc.description.split('.')[0]}`,
-                  description: npc.dialogue.replace(/^"|"$/g, ''),
-                  titleColor: C.npc,
-                  borderColor: 'rgba(252,211,77,0.2)',
-                  bgColor: 'rgba(var(--phosphor-rgb),0.04)',
-                  glyphs: npcGlyphs,
-                  playGlyph: <PlayGlyph audioId={`npc-intro:${npc.id}`} ttsText={npc.dialogue} voiceKey={npc.id} />,
-                }}
-              >
-                <MudLine color={C.npc}>
-                  <span style={{ opacity: 0.75 }}>[NPC] </span>
-                  <span style={{ fontWeight: 'bold' }}>{npc.name}</span>
-                  <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— {npc.description.split('.')[0]}.</span>
-                </MudLine>
-              </TouchableEntity>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Enemies — tappable with combat glyphs during combat, info-only otherwise */}
-      {room.enemies.length > 0 && (
-        <div>
-          {room.enemies.map(enemy => {
-            const inCombat = session.phase === 'combat';
-            const enemyGlyphs: ActionGlyphProps[] = inCombat ? [
-              { label: 'ATTACK', command: `/attack ${enemy.name}`, variant: 'combat', ariaLabel: `attack ${enemy.name}` },
-              { label: 'SCAN', command: `/scan ${enemy.name}`, variant: 'combat', ariaLabel: `scan ${enemy.name}` },
-              { label: 'HACK', command: '/hack', variant: 'combat', ariaLabel: 'quickhack' },
-              { label: 'FLEE', command: '/flee', variant: 'combat', ariaLabel: 'flee combat' },
-            ] : [
-              { label: 'EXAMINE', command: `/examine ${enemy.name}`, variant: 'info', ariaLabel: `examine ${enemy.name}` },
-            ];
-
-            return (
-              <TouchableEntity
-                key={k(`enemy-touch-${enemy.id}`)}
-                entityId={`enemy:${enemy.id}`}
-                panelContent={{
-                  title: `${enemy.name.toUpperCase()} — Lv.${enemy.level}`,
-                  description: enemy.description,
-                  titleColor: C.enemy,
-                  borderColor: 'rgba(255,68,68,0.2)',
-                  bgColor: inCombat ? 'rgba(255,30,30,0.03)' : 'rgba(var(--phosphor-rgb),0.03)',
-                  glyphs: enemyGlyphs,
-                  hpBar: inCombat ? (
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.8em', color: C.dim, marginBottom: '0.2rem' }}>
-                      HP ???
-                    </div>
-                  ) : undefined,
-                }}
-              >
-                <MudLine color={C.enemy}>
-                  <span style={{ opacity: 0.75 }}>[HOSTILE] </span>
-                  <span style={{ fontWeight: 'bold' }}>{enemy.name}</span>
-                  <span style={{ opacity: 0.8, marginLeft: '1ch' }}>— Lv.{enemy.level}</span>
-                </MudLine>
-              </TouchableEntity>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Objects — each name individually tappable */}
-      {room.objects.length > 0 && (() => {
-        const visibleObjects = room.objects.filter(o =>
-          !o.hidden || (o.hiddenRequirement && char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum)
-        );
-        if (visibleObjects.length === 0) return null;
-        return (
-          <div style={{ marginTop: '0.15rem' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: S.base, color: C.object }}>
-              objects:{' '}
-            </span>
-            {visibleObjects.map((obj, i) => (
-              <React.Fragment key={k(`obj-touch-${obj.id}`)}>
-                {i > 0 && <span style={{ color: C.dim }}>, </span>}
-                <TappableObject obj={obj} entityId={`obj:${obj.id}`} />
-              </React.Fragment>
-            ))}
-          </div>
-        );
-      })()}
-
-      <MudSpacer />
-
-      {/* Exits — tappable, fires /go directly */}
-      <MudLine color={C.dim}>EXITS:</MudLine>
-      {visibleExits.map(exit => (
-        <TappableExit key={k(`exit-tap-${exit.direction}`)} exit={exit} />
-      ))}
-
-      {/* Junction branches — also tappable */}
-      {branches.length > 0 && (
-        <div>
-          <MudLine color={C.dim} style={{ marginTop: '0.15rem' }}>
-            also reachable from here:
-          </MudLine>
-          {branches.map(br => (
-            <div
-              key={k(`branch-tap-${br.id}`)}
-              role="button"
-              tabIndex={0}
-              onClick={() => eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` })}
-              onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` }); }}
-              style={{
-                paddingLeft: '2ch',
-                fontFamily: 'monospace',
-                fontSize: S.base,
-                lineHeight: 1.8,
-                color: C.exit,
-                opacity: 0.7,
-                cursor: 'pointer',
-                touchAction: 'manipulation',
-              }}
-              onMouseEnter={(e) => { (e.target as HTMLElement).style.textDecoration = 'underline'; }}
-              onMouseLeave={(e) => { (e.target as HTMLElement).style.textDecoration = 'none'; }}
-            >
-              {br.name.toLowerCase()}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 
@@ -1464,6 +1319,9 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
   const updated = { ...session, phase: 'combat' as const, combat };
   setSession(updated);
   saveCombat(char.handle, combat);
+
+  // Reset panel mode on combat start
+  eventBus.emit('mud:panel-mode', { mode: 'default' });
 
   // Entry announcement
   eventBus.emit('crt:glitch-tier', { tier: 2, duration: 350 });
@@ -2040,6 +1898,9 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     saveCharacter(handle, char);
     setSession({ ...session, character: { ...char } });
 
+    // Reset panel mode on room change (exit inventory/shop view)
+    eventBus.emit('mud:panel-mode', { mode: 'default' });
+
     // Zone transition notification
     const prevRoom = getRoom(prevRoomId);
 
@@ -2203,53 +2064,12 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── /inventory /inv ───────────────────────────────────────────────────
   if (cmd === 'inventory' || cmd === 'inv' || cmd === 'i') {
-    const gearEntries = Object.entries(char.gear).filter(([_, item]) => item != null);
-
+    // Switch right-top panel to inventory view
+    eventBus.emit('mud:panel-mode', { mode: 'inventory' });
     addLocalMsg(
-      <div key={k('inv')}>
-        <MudLine color={C.accent} bold>&gt;&gt; INVENTORY</MudLine>
-        <MudSpacer />
-
-        {gearEntries.length > 0 && (
-          <div>
-            <MudLine color={C.dim}>EQUIPPED:</MudLine>
-            {gearEntries.map(([slot, item]) => (
-              <MudLine key={k(`gear-${slot}`)} indent color={C.stat}>
-                [{slot.replace(/_/g, ' ')}] {item!.name}
-                {item!.damage ? ` (dmg: ${item!.damage})` : ''}
-                {item!.armorValue ? ` (armor: ${item!.armorValue})` : ''}
-              </MudLine>
-            ))}
-            <MudSpacer />
-          </div>
-        )}
-
-        {char.inventory.length > 0 ? (
-          <div>
-            <MudLine color={C.dim}>CARRYING:</MudLine>
-            {char.inventory.map((item, i) => (
-              <MudLine key={k(`inv-${i}`)} indent color={C.green} opacity={0.8}>
-                {item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
-                <span style={{ color: C.dim, marginLeft: '1ch' }}>({item.tier})</span>
-              </MudLine>
-            ))}
-          </div>
-        ) : (
-          <MudLine color={C.dim}>nothing in your pockets.</MudLine>
-        )}
-
-        {char.cyberware.length > 0 && (
-          <div>
-            <MudSpacer />
-            <MudLine color={C.dim}>INSTALLED CYBERWARE:</MudLine>
-            {char.cyberware.map((cw, i) => (
-              <MudLine key={k(`cw-${i}`)} indent color={C.accent}>
-                {cw.name} <span style={{ opacity: 0.75 }}>(T{cw.cyberwareTier})</span>
-              </MudLine>
-            ))}
-          </div>
-        )}
-      </div>
+      <MudLine key={k('inv-ack')} color={C.dim} opacity={0.6}>
+        inventory panel open.
+      </MudLine>
     );
     return { handled: true, stopPropagation: true };
   }
@@ -2354,29 +2174,12 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
+    // Switch to shop panel mode — left shows stock, right-top shows player items
+    eventBus.emit('mud:panel-mode', { mode: 'shop', npcId: shopkeeper.id });
     addLocalMsg(
-      <div key={k('shop')}>
-        <MudLine color={C.shop} bold>&gt;&gt; {getShopkeeperName(shopkeeper.id).toUpperCase()}'S SHOP</MudLine>
-        <MudLine color={C.dim}>your creds: {char.currency.creds}</MudLine>
-        <MudSpacer />
-        {listings.map((item, i) => (
-          <div key={k(`shop-${i}`)} style={{
-            paddingLeft: '2ch', fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
-          }}>
-            <span style={{ color: item.price !== null ? C.shop : C.dim, minWidth: '24ch', display: 'inline-block' }}>
-              {item.name}
-            </span>
-            <span style={{ color: item.price !== null ? C.stat : C.error, minWidth: '8ch', display: 'inline-block' }}>
-              {item.price !== null ? `${item.price}c` : 'N/A'}
-            </span>
-            <span style={{ color: C.dim, }}>
-              {item.stock === -1 ? '' : `(${item.stock} left)`}
-            </span>
-          </div>
-        ))}
-        <MudSpacer />
-        <MudLine color={C.dim}>/buy &lt;item name&gt; · /sell &lt;item name&gt;</MudLine>
-      </div>
+      <MudLine key={k('shop-ack')} color={C.shop}>
+        browsing {getShopkeeperName(shopkeeper.id)}&apos;s shop. /buy &lt;item&gt; · /sell &lt;item&gt; · /look to close.
+      </MudLine>
     );
     return { handled: true, stopPropagation: true };
   }

@@ -1,10 +1,10 @@
 // lib/mud/mudHUD.tsx
-// TUNNELCORE MUD — Persistent HUD Panel System (v2)
-// Sticky panels that pin to scroll viewport edges.
+// TUNNELCORE MUD — Persistent HUD Panel System (v3)
+// Self-contained flex container that owns its own scroll region.
 // Layout: room header → 2-col grid (2/3 + 1/3) → compass → [chat scrolls here] → status bar.
-// Panels use opaque backgrounds so chat content scrolls behind them.
+// No position:sticky — the container fills the viewport and manages internal scroll.
 
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   MudSession,
   Direction,
@@ -50,18 +50,21 @@ const C = {
   safe:      '#a5f3fc',
   combat:    '#ff4444',
   heal:      '#4ade80',
-  hack:      '#d8b4fe',  // brighter neon purple
+  hack:      '#d8b4fe',
   quest:     '#fbbf24',
   shop:      '#fcd34d',
   label:     'rgba(var(--phosphor-rgb),0.8)',
+  xp:        '#ff69b4',
 };
 
-// Opaque backgrounds — critical for sticky positioning.
-// Content scrolls behind these; transparency would show chat text bleeding through.
 const BG_PANEL = '#0a0a0a';
 const BG_COMBAT = '#0d0808';
 const BORDER = 'rgba(var(--phosphor-rgb),0.15)';
 const BORDER_COMBAT = 'rgba(255,68,68,0.25)';
+
+// ── Panel mode type ─────────────────────────────────────────────────────────
+
+export type PanelMode = 'default' | 'inventory' | 'shop';
 
 // ── Panel data extraction ───────────────────────────────────────────────────
 
@@ -124,6 +127,8 @@ interface PanelData {
   scrip: number;
   subjectId: string;
   combatStyle: string;
+  inventory: Item[];
+  gear: Array<{ slot: string; item: Item }>;
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -196,6 +201,10 @@ export function getMudPanelData(session: MudSession): PanelData | null {
   const activeQuestCount = world ? getActiveQuests(world).length : 0;
   const nextXP = char.level < LEVEL_CAP ? xpForLevel(char.level + 1) : char.xp;
 
+  const gearEntries = Object.entries(char.gear)
+    .filter(([_, item]) => item != null)
+    .map(([slot, item]) => ({ slot, item: item! }));
+
   return {
     roomName: room.name, zoneName: zone?.name ?? 'UNKNOWN', isSafeZone: room.isSafeZone,
     npcs, enemies, objects, exits,
@@ -209,6 +218,8 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     creds: char.currency.creds, scrip: char.currency.scrip,
     subjectId: char.subjectId,
     combatStyle: char.combatStyle === 'GHOST_STYLE' ? 'GHOST' : char.combatStyle,
+    inventory: char.inventory,
+    gear: gearEntries,
   };
 }
 
@@ -255,7 +266,6 @@ function Bar({ pct, color, width = '100%', height = 3 }: {
   );
 }
 
-// Panel title bar — clear bordered header for each panel section
 function TitleBar({ children, color, borderColor, rightSlot }: {
   children: React.ReactNode; color: string; borderColor: string; rightSlot?: React.ReactNode;
 }) {
@@ -370,7 +380,52 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Right-Top: Objects ──────────────────────────────────────────────────────
+// ── Left Panel: Shop Mode — Shopkeeper Stock ────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ShopStockPanel({ shopItems, shopkeeperName, creds }: {
+  shopItems: ShopListing[]; shopkeeperName: string; creds: number;
+}) {
+  return (
+    <div>
+      <TitleBar color={C.shop} borderColor={BORDER} rightSlot={
+        <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fcd34d' }}>{creds}{'\u00a2'}</span>
+      }>
+        {shopkeeperName.toUpperCase()}&apos;S STOCK
+      </TitleBar>
+      {shopItems.length === 0 ? (
+        <Empty text="nothing for sale" />
+      ) : (
+        <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.05rem' }}>
+          {shopItems.map(item => (
+            <div key={item.templateId} style={{
+              display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            }}>
+              <span
+                role="button" tabIndex={0}
+                onClick={() => eventBus.emit('mud:execute-command', { command: `/buy ${item.name.toLowerCase()}` })}
+                onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/buy ${item.name.toLowerCase()}` }); }}
+                style={{
+                  color: creds >= (item.price ?? 0) ? C.shop : C.faint,
+                  cursor: 'pointer', touchAction: 'manipulation',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '68%',
+                }}
+              >
+                {item.name}
+              </span>
+              <span style={{ color: C.faint, flexShrink: 0 }}>
+                {item.price !== null ? `${item.price}\u00a2` : '\u2014'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Right-Top: Objects (default mode) ───────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 function ObjectsPanel({ objects }: { objects: PanelObject[] }) {
@@ -405,6 +460,117 @@ function ObjectsPanel({ objects }: { objects: PanelObject[] }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── Right-Top: Inventory Panel ──────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function InventoryPanel({ inventory, gear }: {
+  inventory: Item[]; gear: Array<{ slot: string; item: Item }>;
+}) {
+  const totalItems = inventory.reduce((sum, i) => sum + i.quantity, 0) + gear.length;
+
+  return (
+    <div>
+      <TitleBar color={C.accent} borderColor={BORDER}>
+        INVENTORY <span style={{ opacity: 0.5, fontWeight: 'normal' }}>({totalItems})</span>
+      </TitleBar>
+      <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.1rem', maxHeight: '30vh', overflowY: 'auto' }}>
+        {gear.length > 0 && gear.map(({ slot, item }) => (
+          <div key={slot} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          }}>
+            <span style={{ color: C.accent, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+              {item.name}
+            </span>
+            <span style={{ color: C.faint, fontSize: '9px', flexShrink: 0 }}>EQP</span>
+          </div>
+        ))}
+        {inventory.length === 0 && gear.length === 0 ? (
+          <Empty text="empty" />
+        ) : (
+          inventory.map(item => {
+            const isConsumable = item.category === 'consumable';
+            const isEquipment = item.slot !== undefined;
+            const isQuest = item.questItem;
+            return (
+              <div key={item.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              }}>
+                <span
+                  role="button" tabIndex={0}
+                  onClick={() => eventBus.emit('mud:execute-command', { command: `/examine ${item.name}` })}
+                  onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/examine ${item.name}` }); }}
+                  style={{
+                    color: isQuest ? C.quest : 'rgba(var(--phosphor-rgb),0.8)',
+                    cursor: 'pointer', touchAction: 'manipulation',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%',
+                  }}
+                >
+                  {item.name}{item.quantity > 1 ? ` \u00d7${item.quantity}` : ''}
+                </span>
+                <div style={{ display: 'flex', gap: '0.2rem', flexShrink: 0 }}>
+                  {isQuest && <span style={{ color: C.quest, fontSize: '9px' }}>QUEST</span>}
+                  {isConsumable && (
+                    <Btn label="USE" command={`/use ${item.name}`}
+                      color={C.heal} borderColor="rgba(74,222,128,0.3)" small />
+                  )}
+                  {isEquipment && !isQuest && (
+                    <Btn label="EQUIP" command={`/equip ${item.name}`}
+                      color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.3)" small />
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Right-Top: Player Items (shop mode — sellable inventory) ────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ShopPlayerPanel({ inventory }: { inventory: Item[] }) {
+  const sellable = inventory.filter(i => !i.questItem && !i.loreItem);
+
+  return (
+    <div>
+      <TitleBar color={C.accent} borderColor={BORDER}>YOUR ITEMS</TitleBar>
+      {sellable.length === 0 ? (
+        <Empty text="nothing to sell" />
+      ) : (
+        <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.05rem' }}>
+          {sellable.map(item => (
+            <div key={item.id} style={{
+              display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            }}>
+              <span
+                role="button" tabIndex={0}
+                onClick={() => eventBus.emit('mud:execute-command', { command: `/sell ${item.name.toLowerCase()}` })}
+                onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/sell ${item.name.toLowerCase()}` }); }}
+                style={{
+                  color: 'rgba(var(--phosphor-rgb),0.8)',
+                  cursor: 'pointer', touchAction: 'manipulation',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '68%',
+                }}
+              >
+                {item.name}{item.quantity > 1 ? ` \u00d7${item.quantity}` : ''}
+              </span>
+              <span style={{ color: C.faint, flexShrink: 0 }}>
+                {item.sellPrice ? `${item.sellPrice}\u00a2` : '\u2014'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ── Right-Bottom: Hostiles / Shop / Combat Enemies ──────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -412,7 +578,6 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
   enemies: PanelEnemy[]; shopItems: ShopListing[];
   shopkeeper: string | null; inCombat: boolean; creds: number;
 }) {
-  // Combat: enemy HP bars
   if (inCombat && enemies.length > 0) {
     return (
       <div>
@@ -448,7 +613,6 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
     );
   }
 
-  // Shop mode
   if (shopkeeper && shopItems.length > 0 && !inCombat) {
     return (
       <div>
@@ -493,7 +657,6 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
     );
   }
 
-  // Explore: hostile presence
   if (enemies.length > 0) {
     return (
       <div>
@@ -621,12 +784,15 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Status Bar (sticky bottom) ──────────────────────────────────────────────
+// ── Status Bar ──────────────────────────────────────────────────────────────
+// Row 1: HP [bar] val · Lv.N
+// Row 2: XP [bar] val · creds scrip · combat
 // ══════════════════════════════════════════════════════════════════════════════
 
 function StatusBar({ data }: { data: PanelData }) {
   const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
   const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
+  const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
 
   return (
     <div style={{
@@ -635,8 +801,8 @@ function StatusBar({ data }: { data: PanelData }) {
       borderTop: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
       background: data.inCombat ? BG_COMBAT : BG_PANEL,
       position: 'relative',
+      flexShrink: 0,
     }}>
-      {/* Scanline */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
         background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
@@ -656,23 +822,22 @@ function StatusBar({ data }: { data: PanelData }) {
           </span>
         </div>
 
-        {/* Row 2: Location + Currency */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3ch' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', overflow: 'hidden' }}>
-            <span style={{ color: C.faint, fontSize: 'var(--text-base)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {data.zoneName} {'\u2014'} {data.roomName}
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)' }}>{data.creds}{'\u00a2'}</span>
-            {data.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)' }}>{data.scrip}s</span>}
-            {data.inCombat && (
-              <span style={{
-                color: '#ff4444', fontWeight: 'bold', fontSize: 'var(--text-base)',
-                textShadow: '0 0 6px rgba(255,68,68,0.5)',
-              }}>{'\u2694'} R{data.combatRound}</span>
-            )}
-          </div>
+        {/* Row 2: XP + Currency + Combat */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={4} /></div>
+          <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {data.xp}/{data.xpNext}
+          </span>
+          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
+          <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)', flexShrink: 0 }}>{data.creds}{'\u00a2'}</span>
+          {data.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)', flexShrink: 0 }}>{data.scrip}s</span>}
+          {data.inCombat && (
+            <span style={{
+              color: '#ff4444', fontWeight: 'bold', fontSize: 'var(--text-base)',
+              textShadow: '0 0 6px rgba(255,68,68,0.5)',
+            }}>{'\u2694'} R{data.combatRound}</span>
+          )}
         </div>
       </div>
     </div>
@@ -680,27 +845,27 @@ function StatusBar({ data }: { data: PanelData }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Exports ─────────────────────────────────────────────────────────────────
+// ── Top Panels (room header + grid + compass) ───────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-export function MudPanelSystem({ session }: { session: MudSession }) {
-  const data = getMudPanelData(session);
-  if (!data) return null;
+function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode }) {
+  const isShopMode = panelMode === 'shop' && !data.inCombat;
+  const isInvMode = panelMode === 'inventory' && !data.inCombat;
 
   const showRightTop = !data.inCombat;
-  const showRightBottom = data.inCombat || data.enemies.length > 0 || (data.shopkeeper !== null && data.shopItems.length > 0);
+  const showRightBottom = !isShopMode && (
+    data.inCombat || data.enemies.length > 0 ||
+    (data.shopkeeper !== null && data.shopItems.length > 0 && panelMode === 'default')
+  );
   const showRight = showRightTop || showRightBottom;
 
   return (
     <div style={{
-      position: 'sticky',
-      top: 0,
-      zIndex: 10,
+      flexShrink: 0,
       background: data.inCombat ? BG_COMBAT : BG_PANEL,
       borderBottom: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
-      flexShrink: 0,
     }}>
-      {/* ── Room header ── */}
+      {/* Room header */}
       <div style={{
         padding: '0.15rem 0.5rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -738,27 +903,41 @@ export function MudPanelSystem({ session }: { session: MudSession }) {
         </div>
       </div>
 
-      {/* ── Panel grid (2fr + 1fr) ── */}
+      {/* Panel grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: showRight ? '2fr 1fr' : '1fr',
         background: data.inCombat ? BG_COMBAT : BG_PANEL,
       }}>
-        {/* Left */}
-        <LeftPanel
-          npcs={data.npcs} inCombat={data.inCombat}
-          consumables={data.consumables}
-          playerRam={data.playerRam} playerMaxRam={data.playerMaxRam}
-          isPlayerTurn={data.isPlayerTurn}
-        />
+        {isShopMode ? (
+          <ShopStockPanel
+            shopItems={data.shopItems}
+            shopkeeperName={data.npcs.find(n => n.hasShop)?.name ?? 'VENDOR'}
+            creds={data.creds}
+          />
+        ) : (
+          <LeftPanel
+            npcs={data.npcs} inCombat={data.inCombat}
+            consumables={data.consumables}
+            playerRam={data.playerRam} playerMaxRam={data.playerMaxRam}
+            isPlayerTurn={data.isPlayerTurn}
+          />
+        )}
 
-        {/* Right column */}
         {showRight && (
           <div style={{
             display: 'flex', flexDirection: 'column',
             borderLeft: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
           }}>
-            {showRightTop && <ObjectsPanel objects={data.objects} />}
+            {showRightTop && (
+              isInvMode ? (
+                <InventoryPanel inventory={data.inventory} gear={data.gear} />
+              ) : isShopMode ? (
+                <ShopPlayerPanel inventory={data.inventory} />
+              ) : (
+                <ObjectsPanel objects={data.objects} />
+              )
+            )}
             {showRightTop && showRightBottom && (
               <div style={{ borderTop: `1px solid ${BORDER}` }} />
             )}
@@ -773,22 +952,143 @@ export function MudPanelSystem({ session }: { session: MudSession }) {
         )}
       </div>
 
-      {/* ── Compass Rose ── */}
       <CompassRose exits={data.exits} inCombat={data.inCombat} />
     </div>
   );
 }
 
-export function MudStatusBar({ session }: { session: MudSession }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// ── MudHUDContainer — Self-contained scroll region ──────────────────────────
+// Measures scroll parent to fill available viewport. Chat area scrolls
+// independently; panels and status bar are fixed in place.
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function MudHUDContainer({ session, children }: {
+  session: MudSession;
+  children: React.ReactNode;
+}) {
   const data = getMudPanelData(session);
-  if (!data) return null;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const [availableHeight, setAvailableHeight] = useState<number>(0);
+  const [panelMode, setPanelMode] = useState<PanelMode>('default');
+
+  // Measure scroll parent to fill viewport
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const scrollParent = el.closest('.shell-output') as HTMLElement;
+    if (!scrollParent) return;
+
+    const measure = () => setAvailableHeight(scrollParent.clientHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(scrollParent);
+    return () => ro.disconnect();
+  }, []);
+
+  // Listen for panel mode changes from mudCommands
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (event: any) => {
+      const mode = event?.payload?.mode as PanelMode | undefined;
+      if (mode) setPanelMode(mode);
+    };
+    eventBus.on('mud:panel-mode', handler);
+    return () => eventBus.off('mud:panel-mode', handler);
+  }, []);
+
+  // Reset panel mode on combat start
+  useEffect(() => {
+    if (session.phase === 'combat') {
+      setPanelMode('default');
+    }
+  }, [session.phase]);
+
+  // Auto-scroll chat area to bottom
+  const scrollChatToBottom = useCallback(() => {
+    const el = chatRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }, []);
+
+  // MutationObserver for auto-scroll
+  useEffect(() => {
+    const el = chatRef.current;
+    if (!el) return;
+
+    const observer = new MutationObserver(() => {
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      if (isNearBottom) {
+        scrollChatToBottom();
+      }
+    });
+
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [scrollChatToBottom]);
+
+  // Listen for shell:request-scroll events
+  useEffect(() => {
+    const handler = () => scrollChatToBottom();
+    eventBus.on('shell:request-scroll', handler);
+    return () => eventBus.off('shell:request-scroll', handler);
+  }, [scrollChatToBottom]);
+
+  // Scroll HUD into view on mount
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
+  if (!data) return <>{children}</>;
+
   return (
-    <div style={{
-      position: 'sticky',
-      bottom: 0,
-      zIndex: 10,
-    }}>
+    <div
+      ref={containerRef}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: availableHeight || '100dvh',
+        overflow: 'hidden',
+        background: data.inCombat ? BG_COMBAT : BG_PANEL,
+      }}
+    >
+      <TopPanels data={data} panelMode={panelMode} />
+
+      <div
+        ref={chatRef}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
+          padding: '0.35rem 0.5rem',
+        }}
+      >
+        {children}
+      </div>
+
       <StatusBar data={data} />
     </div>
   );
+}
+
+// ── Legacy exports (kept for import compat — now no-ops) ────────────────────
+
+export function MudPanelSystem({ session }: { session: MudSession }) {
+  void session;
+  return null;
+}
+
+export function MudStatusBar({ session }: { session: MudSession }) {
+  void session;
+  return null;
 }
