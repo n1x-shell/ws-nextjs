@@ -127,6 +127,7 @@ interface PanelData {
   scrip: number;
   subjectId: string;
   combatStyle: string;
+  handle: string;
   inventory: Item[];
   gear: Array<{ slot: string; item: Item }>;
 }
@@ -218,6 +219,7 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     creds: char.currency.creds, scrip: char.currency.scrip,
     subjectId: char.subjectId,
     combatStyle: char.combatStyle === 'GHOST_STYLE' ? 'GHOST' : char.combatStyle,
+    handle: char.handle,
     inventory: char.inventory,
     gear: gearEntries,
   };
@@ -679,6 +681,193 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── Combat Cards — Full-width card layout for combat mode ───────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function EnemyCard({ enemy, hasRam }: { enemy: PanelEnemy; hasRam: boolean }) {
+  const hpKnown = enemy.hp !== undefined && enemy.maxHp !== undefined;
+  const hpPct = hpKnown && enemy.maxHp! > 0 ? ((enemy.hp ?? 0) / enemy.maxHp!) * 100 : 0;
+
+  return (
+    <div style={{
+      borderLeft: '2px solid rgba(255,68,68,0.4)',
+      background: 'rgba(255,20,20,0.04)',
+      padding: '0.3rem 0.5rem',
+      marginBottom: '0.2rem',
+    }}>
+      {/* Title: name + level */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        marginBottom: '0.15rem',
+      }}>
+        <span style={{ color: C.enemy, fontWeight: 'bold', letterSpacing: '0.04em' }}>
+          {enemy.name}
+        </span>
+        <span style={{ color: C.faint }}>
+          {enemy.level > 0 ? `Lv.${enemy.level}` : ''}
+        </span>
+      </div>
+
+      {/* HP bar or ??? */}
+      {hpKnown ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.2rem' }}>
+          <span style={{ color: C.faint, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+          <div style={{ flex: 1 }}><Bar pct={hpPct} color="#ff4444" height={4} /></div>
+          <span style={{ color: C.enemy, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {enemy.hp}/{enemy.maxHp}
+          </span>
+        </div>
+      ) : (
+        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.2rem' }}>
+          HP ???
+        </div>
+      )}
+
+      {/* Effects */}
+      {enemy.effects && enemy.effects.length > 0 && (
+        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.2rem' }}>
+          {enemy.effects.map(eff => `[${eff.toUpperCase()}]`).join(' ')}
+        </div>
+      )}
+
+      {/* Per-enemy action buttons */}
+      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+        <Btn label="ATK" command={`/attack ${enemy.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.5)" small />
+        {hasRam && <Btn label="HACK" command={`/hack short_circuit`} color={C.hack} borderColor="rgba(192,132,252,0.5)" small />}
+        <Btn label="SCAN" command={`/scan ${enemy.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.35)" small />
+      </div>
+    </div>
+  );
+}
+
+function PlayerCard({ data }: { data: PanelData }) {
+  const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
+  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
+  const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
+  const hasRam = data.playerMaxRam > 0;
+  const ramPct = hasRam ? (data.playerRam / data.playerMaxRam) * 100 : 0;
+
+  return (
+    <div style={{
+      borderLeft: '2px solid rgba(var(--phosphor-rgb),0.3)',
+      background: 'rgba(var(--phosphor-rgb),0.03)',
+      padding: '0.3rem 0.5rem',
+    }}>
+      {/* Title: turn indicator + identity */}
+      <div style={{
+        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        fontWeight: 'bold', marginBottom: '0.2rem',
+        color: data.isPlayerTurn ? 'var(--phosphor-accent)' : C.dim,
+        textShadow: data.isPlayerTurn ? '0 0 6px var(--phosphor-accent)' : 'none',
+        letterSpacing: '0.04em',
+      }} className={data.isPlayerTurn ? S.glow : undefined}>
+        {data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle} ({data.subjectId})
+      </div>
+
+      {/* HP bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
+        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={4} /></div>
+        <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          {data.hp}/{data.maxHp}
+        </span>
+        <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
+        <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
+          Lv.{data.level}
+        </span>
+      </div>
+
+      {/* XP bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
+        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={3} /></div>
+        <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          {data.xp}/{data.xpNext}
+        </span>
+      </div>
+
+      {/* RAM bar (only if has RAM) */}
+      {hasRam && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.15rem' }}>
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>RM</span>
+          <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={3} /></div>
+          <span style={{ color: C.hack, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {data.playerRam}/{data.playerMaxRam}
+          </span>
+        </div>
+      )}
+
+      {/* Bottom row: currency + FLEE */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginTop: '0.15rem', gap: '0.5rem',
+      }}>
+        <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
+          <span style={{ color: '#fcd34d' }}>{data.creds}{'\u00a2'}</span>
+          {data.scrip > 0 && <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>}
+        </div>
+        <Btn label="FLEE" command="/flee" color={C.dimmer} borderColor="rgba(var(--phosphor-rgb),0.25)" small />
+      </div>
+
+      {/* Consumables */}
+      {data.consumables.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem', marginTop: '0.2rem' }}>
+          {data.consumables.map(item => (
+            <Btn key={item.id}
+              label={`${item.name}${item.quantity > 1 ? ' \u00d7' + item.quantity : ''}`}
+              command={`/use ${item.name}`}
+              color={C.heal} borderColor="rgba(74,222,128,0.4)" small />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CombatPanels({ data }: { data: PanelData }) {
+  const hasRam = data.playerMaxRam > 0;
+
+  return (
+    <div style={{
+      flexShrink: 0,
+      background: BG_COMBAT,
+      borderBottom: `1px solid ${BORDER_COMBAT}`,
+    }}>
+      {/* Combat header */}
+      <div style={{
+        padding: '0.2rem 0.5rem',
+        borderBottom: `1px solid ${BORDER_COMBAT}`,
+        background: 'rgba(255,20,20,0.06)',
+      }}>
+        <span style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+          color: C.combat, letterSpacing: '0.06em',
+          textShadow: '0 0 8px rgba(255,68,68,0.4)',
+        }} className={S.glow}>
+          {'\u2694'} COMBAT {'\u2014'} Round {data.combatRound}
+        </span>
+      </div>
+
+      {/* Enemy cards — full width, stacked */}
+      <div style={{ padding: '0.25rem 0.35rem 0.1rem' }}>
+        {data.enemies.map(enemy => (
+          <EnemyCard key={enemy.id} enemy={enemy} hasRam={hasRam} />
+        ))}
+      </div>
+
+      {/* Player card */}
+      <div style={{
+        padding: '0.1rem 0.35rem 0.25rem',
+        borderTop: `1px solid ${BORDER_COMBAT}`,
+      }}>
+        <PlayerCard data={data} />
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ── Compass Rose ────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -849,6 +1038,9 @@ function StatusBar({ data }: { data: PanelData }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode }) {
+  // Combat mode — completely different layout
+  if (data.inCombat) return <CombatPanels data={data} />;
+
   const isShopMode = panelMode === 'shop' && !data.inCombat;
   const isInvMode = panelMode === 'inventory' && !data.inCombat;
 
@@ -1076,7 +1268,8 @@ export function MudHUDContainer({ session, children }: {
         {children}
       </div>
 
-      <StatusBar data={data} />
+      {/* Status bar — hidden in combat (player card covers it) */}
+      {!data.inCombat && <StatusBar data={data} />}
     </div>
   );
 }

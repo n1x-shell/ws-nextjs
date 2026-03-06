@@ -1237,10 +1237,12 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
     const action = processEnemyTurn(combat, next.nextId);
     if (action.flavorText) {
       addLocalMsg(
-        <MudLine key={k(`enemy-act-${action.attackerId}`)} color={action.hit === false ? C.dim : C.enemy}>
-          {action.flavorText}
-          {action.crit ? ' CRITICAL!' : ''}
-        </MudLine>
+        <div key={k(`enemy-act-${action.attackerId}`)} style={{ marginBottom: '0.3rem' }}>
+          <MudLine color={action.hit === false ? C.dim : C.enemy}>
+            {action.flavorText}
+            {action.crit ? <span style={{ color: '#ff4444', fontWeight: 'bold' }}> CRITICAL!</span> : ''}
+          </MudLine>
+        </div>
       );
     }
 
@@ -1256,6 +1258,19 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
   }
 
   syncCombatToCharacter(combat, char);
+
+  // Round divider — visual breath between rounds
+  addLocalMsg(
+    <div key={k('round-div')} style={{
+      fontFamily: 'monospace', fontSize: 'var(--text-base)',
+      color: 'rgba(var(--phosphor-rgb),0.2)',
+      margin: '0.3rem 0',
+      overflow: 'hidden',
+      whiteSpace: 'nowrap',
+    }}>
+      {'\u2500'.repeat(40)}
+    </div>
+  );
 }
 
 // Enter combat from room enemies
@@ -1432,7 +1447,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
       const r = result as AttackResult;
       addLocalMsg(
-        <div key={k('atk-result')}>
+        <div key={k('atk-result')} style={{ marginBottom: '0.4rem' }}>
           <MudLine color={r.hit ? C.stat : C.dim}>
             you strike at {r.targetName} —
             roll: {r.roll} + mods = {r.attackTotal} vs {r.defenseTotal}
@@ -1554,7 +1569,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       char.ram = getPlayerCombatant(combat)?.ram ?? char.ram;
 
       addLocalMsg(
-        <div key={k('hack-result')}>
+        <div key={k('hack-result')} style={{ marginBottom: '0.4rem' }}>
           <MudLine color={C.hack}>
             uploading {hr.hackName} → {hr.targetName}
             — roll: {hr.roll} + TECH = {hr.attackTotal} vs {hr.defenseTotal}
@@ -1679,18 +1694,21 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       if (!sr.success) {
         addLocalMsg(<MudLine key={k('scan-fail')} color={C.dim}>scan failed — insufficient data on {sr.targetName}.</MudLine>);
       } else {
+        // Compact scan: name + HP, attributes on one line, weaknesses on one line
+        const attrLine = sr.attributes
+          ? (Object.keys(sr.attributes) as AttributeName[]).map(a => `${a} ${sr.attributes![a]}`).join(' \u00b7 ')
+          : '';
         addLocalMsg(
-          <div key={k('scan-ok')}>
-            <MudLine color={C.accent} bold>SCAN: {sr.targetName}</MudLine>
-            <MudLine indent color={C.stat}>HP: {sr.hp}/{sr.maxHp}</MudLine>
-            {sr.attributes && (Object.keys(sr.attributes) as AttributeName[]).map(a => (
-              <MudLine key={k(`scan-${a}`)} indent color={C.dim}>
-                {a}: {sr.attributes![a]}
-              </MudLine>
-            ))}
+          <div key={k('scan-ok')} style={{ marginBottom: '0.4rem' }}>
+            <MudLine color={C.accent} bold>
+              SCAN: {sr.targetName} {'\u2014'} HP {sr.hp}/{sr.maxHp}
+            </MudLine>
+            {attrLine && (
+              <MudLine indent color={C.dim}>{attrLine}</MudLine>
+            )}
             {sr.weaknesses && sr.weaknesses.length > 0 && (
               <MudLine indent color={C.warning}>
-                weaknesses: {sr.weaknesses.join('; ')}
+                weak: {sr.weaknesses.join('; ')}
               </MudLine>
             )}
           </div>
