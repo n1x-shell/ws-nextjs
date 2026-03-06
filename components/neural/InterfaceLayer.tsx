@@ -60,18 +60,24 @@ export default function InterfaceLayer() {
 
   // ── MUD mode state ────────────────────────────────────────────────────────
   const [mudMode, setMudMode] = useState<'off' | 'explore' | 'combat'>('off');
+  const [mudHudVisible, setMudHudVisible] = useState(false);
 
   useEffect(() => {
     const onMudActive = (event: NeuralEvent) => {
       setMudMode(event.payload?.inCombat ? 'combat' : 'explore');
     };
     const onMudExit = (_event: NeuralEvent) => setMudMode('off');
+    const onHudVisible = (event: NeuralEvent) => {
+      setMudHudVisible(!!event.payload?.visible);
+    };
 
     eventBus.on('mud:active', onMudActive);
     eventBus.on('mud:exit', onMudExit);
+    eventBus.on('mud:hud-visible', onHudVisible);
     return () => {
       eventBus.off('mud:active', onMudActive);
       eventBus.off('mud:exit', onMudExit);
+      eventBus.off('mud:hud-visible', onHudVisible);
     };
   }, []);
 
@@ -404,8 +410,8 @@ export default function InterfaceLayer() {
                 overflow: 'hidden',
               }}
             >
-              {/* Tab nav */}
-              {mudMode !== 'off' ? (
+              {/* Tab nav — hidden when MUD HUD owns the UI */}
+              {mudHudVisible ? null : mudMode !== 'off' ? (
                 /* ── MUD Action Panel ──────────────────────────────────── */
                 <nav
                   style={{
