@@ -1366,7 +1366,7 @@ export default function ShellInterface() {
                 <span className="cursor" />
               </div>
             </form>
-          ) : isEnterMode ? null : (
+          ) : (isEnterMode && !isTelnetActive()) ? null : (
             /* Normal input line — fish-style prompt or neural bus prompt */
             <form
               onSubmit={handleSubmit}
