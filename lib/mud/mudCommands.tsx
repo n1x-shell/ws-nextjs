@@ -1165,8 +1165,8 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
 
   const zone = getZone(room.zone);
 
-  // Reset panel mode to default on /look (exits inventory/shop view)
-  eventBus.emit('mud:panel-mode', { mode: 'default' });
+  // Reset panel mode to default on /look (exits inventory/shop view, keeps map)
+  eventBus.emit('mud:panel-mode-reset-non-map');
 
   // Narrative-only output — NPCs, enemies, objects, exits are in the HUD panels
   addLocalMsg(
@@ -1836,6 +1836,13 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     return { handled: true, stopPropagation: true };
   }
 
+  // ── /map ────────────────────────────────────────────────────────────
+  if (cmd === 'map') {
+    eventBus.emit('mud:panel-mode', { mode: 'map' });
+    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+    return { handled: true, stopPropagation: true };
+  }
+
   // ── /go <direction> ───────────────────────────────────────────────────
   if (cmd === 'go' || cmd === 'move' || cmd === 'walk') {
     if (!rest) {
@@ -1878,8 +1885,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     saveCharacter(handle, char);
     setSession({ ...session, character: { ...char } });
 
-    // Reset panel mode on room change (exit inventory/shop view)
-    eventBus.emit('mud:panel-mode', { mode: 'default' });
+    // Reset panel mode on room change (exit inventory/shop view, but keep map open)
+    eventBus.emit('mud:panel-mode-reset-non-map');
 
     // Zone transition notification
     const prevRoom = getRoom(prevRoomId);

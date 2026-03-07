@@ -31,6 +31,7 @@ import { getNPCRelation } from './persistence';
 import { getActiveQuests } from './questEngine';
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
+import { MapPanel } from './mudMap';
 
 // ── Style constants ─────────────────────────────────────────────────────────
 
@@ -152,7 +153,7 @@ function HUDFXStyles() {
 
 // ── Panel mode type ─────────────────────────────────────────────────────────
 
-export type PanelMode = 'default' | 'inventory' | 'shop';
+export type PanelMode = 'default' | 'inventory' | 'shop' | 'map';
 
 // ── Panel data extraction ───────────────────────────────────────────────────
 
@@ -216,6 +217,7 @@ interface PanelData {
   subjectId: string;
   combatStyle: string;
   handle: string;
+  currentRoomId: string;
   inventory: Item[];
   gear: Array<{ slot: string; item: Item }>;
 }
@@ -308,6 +310,7 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     subjectId: char.subjectId,
     combatStyle: char.combatStyle === 'GHOST_STYLE' ? 'GHOST' : char.combatStyle,
     handle: char.handle,
+    currentRoomId: char.currentRoom,
     inventory: char.inventory,
     gear: gearEntries,
   };
@@ -1103,7 +1106,7 @@ const ACTION_BUTTONS = [
   { label: 'HELP',      command: '/mudhelp' },
 ];
 
-function ActionBar({ inCombat }: { inCombat: boolean }) {
+function ActionBar({ inCombat, panelMode }: { inCombat: boolean; panelMode: PanelMode }) {
   if (inCombat) return null;
 
   return (
@@ -1113,28 +1116,41 @@ function ActionBar({ inCombat }: { inCombat: boolean }) {
       background: 'rgba(var(--phosphor-rgb),0.02)',
       flexShrink: 0,
     }}>
-      {ACTION_BUTTONS.map((btn, i) => (
-        <button
-          key={btn.label}
-          className="mud-action-btn"
-          onClick={() => {
-            eventBus.emit('mud:execute-command', { command: btn.command });
-            eventBus.emit('crt:glitch-tier', { tier: 1, duration: 80 });
-          }}
-          style={{
-            flex: 1,
-            fontFamily: 'monospace', fontSize: 'var(--text-base)',
-            color: C.dim, background: 'transparent',
-            border: 'none',
-            borderRight: i < ACTION_BUTTONS.length - 1 ? `1px solid ${BORDER}` : 'none',
-            padding: '0.4rem 0.2rem',
-            cursor: 'pointer', touchAction: 'manipulation',
-            letterSpacing: '0.06em', textTransform: 'uppercase',
-          }}
-        >
-          {btn.label}
-        </button>
-      ))}
+      {ACTION_BUTTONS.map((btn, i) => {
+        const isMapBtn = btn.label === 'MAP';
+        const isActive = isMapBtn && panelMode === 'map';
+
+        return (
+          <button
+            key={btn.label}
+            className="mud-action-btn"
+            onClick={() => {
+              if (isMapBtn) {
+                eventBus.emit('mud:panel-mode', {
+                  mode: panelMode === 'map' ? 'default' : 'map',
+                });
+              } else {
+                eventBus.emit('mud:execute-command', { command: btn.command });
+              }
+              eventBus.emit('crt:glitch-tier', { tier: 1, duration: 80 });
+            }}
+            style={{
+              flex: 1,
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: isActive ? 'var(--phosphor-accent)' : C.dim,
+              background: isActive ? 'rgba(var(--phosphor-rgb),0.08)' : 'transparent',
+              border: 'none',
+              borderRight: i < ACTION_BUTTONS.length - 1 ? `1px solid ${BORDER}` : 'none',
+              borderBottom: isActive ? '2px solid var(--phosphor-accent)' : '2px solid transparent',
+              padding: '0.4rem 0.2rem',
+              cursor: 'pointer', touchAction: 'manipulation',
+              letterSpacing: '0.06em', textTransform: 'uppercase',
+            }}
+          >
+            {btn.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1216,6 +1232,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
 
   const isShopMode = panelMode === 'shop' && !data.inCombat;
   const isInvMode = panelMode === 'inventory' && !data.inCombat;
+  const isMapMode = panelMode === 'map' && !data.inCombat;
 
   const showRightTop = !data.inCombat;
   const showRightBottom = !isShopMode && (
@@ -1274,7 +1291,9 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         gridTemplateColumns: showRight ? '2fr 1fr' : '1fr',
         background: data.inCombat ? BG_COMBAT : BG_PANEL,
       }}>
-        {isShopMode ? (
+        {isMapMode ? (
+          <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
+        ) : isShopMode ? (
           <ShopStockPanel
             shopItems={data.shopItems}
             shopkeeperName={data.npcs.find(n => n.hasShop)?.name ?? 'VENDOR'}
@@ -1359,8 +1378,16 @@ export function MudHUDContainer({ session, children }: {
       const mode = event?.payload?.mode as PanelMode | undefined;
       if (mode) setPanelMode(mode);
     };
+    // Reset non-map modes on room change (shop/inventory close, map stays)
+    const resetHandler = () => {
+      setPanelMode(prev => prev === 'map' ? 'map' : 'default');
+    };
     eventBus.on('mud:panel-mode', handler);
-    return () => eventBus.off('mud:panel-mode', handler);
+    eventBus.on('mud:panel-mode-reset-non-map', resetHandler);
+    return () => {
+      eventBus.off('mud:panel-mode', handler);
+      eventBus.off('mud:panel-mode-reset-non-map', resetHandler);
+    };
   }, []);
 
   // Reset panel mode on combat start
@@ -1455,7 +1482,7 @@ export function MudHUDContainer({ session, children }: {
         </div>
       ) : (
         <>
-          <ActionBar inCombat={data.inCombat} />
+          <ActionBar inCombat={data.inCombat} panelMode={panelMode} />
           <BottomBar data={data} />
         </>
       )}
