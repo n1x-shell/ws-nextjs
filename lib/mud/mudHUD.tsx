@@ -581,7 +581,7 @@ function InventoryPanel({ inventory, gear }: {
       <TitleBar color={C.accent} borderColor={BORDER}>
         INVENTORY <span style={{ opacity: 0.5, fontWeight: 'normal' }}>({totalItems})</span>
       </TitleBar>
-      <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.1rem', maxHeight: '30vh', overflowY: 'auto' }}>
+      <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.1rem', maxHeight: '30vh', overflowY: 'auto', overscrollBehavior: 'contain' }}>
         {gear.length > 0 && gear.map(({ slot, item }) => (
           <div key={slot} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -1115,6 +1115,7 @@ function ActionBar({ inCombat, panelMode }: { inCombat: boolean; panelMode: Pane
       borderTop: `1px solid ${BORDER}`,
       background: 'rgba(var(--phosphor-rgb),0.02)',
       flexShrink: 0,
+      touchAction: 'none',
     }}>
       {ACTION_BUTTONS.map((btn, i) => {
         const isMapBtn = btn.label === 'MAP';
@@ -1171,6 +1172,7 @@ function BottomBar({ data }: { data: PanelData }) {
       background: BG_PANEL,
       flexShrink: 0,
       position: 'relative',
+      touchAction: 'none',
     }}>
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
@@ -1357,18 +1359,26 @@ export function MudHUDContainer({ session, children }: {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
   const [panelMode, setPanelMode] = useState<PanelMode>('default');
 
-  // Measure scroll parent to fill viewport
+  // Measure scroll parent to fill viewport + lock its scroll
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const scrollParent = el.closest('.shell-output') as HTMLElement;
     if (!scrollParent) return;
 
+    // Lock the scroll parent — HUD owns the viewport now.
+    // Chat area inside the HUD has its own overflow:auto.
+    const prevOverflow = scrollParent.style.overflowY;
+    scrollParent.style.overflowY = 'hidden';
+
     const measure = () => setAvailableHeight(scrollParent.clientHeight);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(scrollParent);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      scrollParent.style.overflowY = prevOverflow;
+    };
   }, []);
 
   // Listen for panel mode changes from mudCommands
