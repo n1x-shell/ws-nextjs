@@ -1513,28 +1513,32 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
             TUNNELCORE
           </div>
           <div style={{
-            fontFamily: 'monospace',
-            fontSize: 'clamp(10px, 2vw, 14px)',
-            fontWeight: 700,
-            letterSpacing: '0.15em',
-            color: 'rgba(255,255,255,0.5)',
-            textShadow: '0 0 12px rgba(255,255,255,0.2)',
-            marginBottom: '2rem',
-            textTransform: 'lowercase',
             opacity: subOpacity,
+            marginBottom: '2rem',
           }}>
-            a text-based mmorpg
+            <span style={{
+              fontFamily: 'monospace',
+              fontSize: 'clamp(10px, 2vw, 14px)',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              color: '#000',
+              background: 'var(--phosphor-green)',
+              padding: '2px 8px',
+              textTransform: 'lowercase',
+            }}>a text-based mmorpg</span>
           </div>
           <div style={{
-            fontFamily: 'monospace',
-            fontSize: 'clamp(10px, 1.8vw, 13px)',
-            fontWeight: 400,
-            letterSpacing: '0.12em',
-            color: 'rgba(255,255,255,0.35)',
-            textShadow: '0 0 10px rgba(255,255,255,0.1)',
             opacity: bylineOpacity,
           }}>
-            by N1X.sh
+            <span style={{
+              fontFamily: 'monospace',
+              fontSize: 'clamp(10px, 1.8vw, 13px)',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              color: '#000',
+              background: 'var(--phosphor-green)',
+              padding: '2px 8px',
+            }}>by N1X.sh</span>
           </div>
         </div>
       )}
