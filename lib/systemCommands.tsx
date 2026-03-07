@@ -565,6 +565,155 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
 // Holds on black for 4s after text fades so the shell never flashes through.
 // Calls onComplete() when the full sequence (including hold) finishes.
 
+// ── Substrate Tendril System ──────────────────────────────
+// Living organism — grows, breathes, retracts, unravels, regrows.
+// Canvas 2D. Pure math, pure glow. Zone 14 energy.
+
+// Perlin noise
+const _PERM = new Uint8Array(512);
+const _GRAD = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+(function initNoise() {
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [p[i], p[j]] = [p[j], p[i]]; }
+  for (let i = 0; i < 512; i++) _PERM[i] = p[i & 255];
+})();
+function _fade(t: number) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function _lerp(a: number, b: number, t: number) { return a + t * (b - a); }
+function _dot2(g: number[], x: number, y: number) { return g[0] * x + g[1] * y; }
+function _noise2D(x: number, y: number) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+  const xf = x - Math.floor(x), yf = y - Math.floor(y);
+  const u = _fade(xf), v = _fade(yf);
+  const aa = _PERM[_PERM[X] + Y], ab = _PERM[_PERM[X] + Y + 1];
+  const ba = _PERM[_PERM[X + 1] + Y], bb = _PERM[_PERM[X + 1] + Y + 1];
+  return _lerp(
+    _lerp(_dot2(_GRAD[aa & 7], xf, yf), _dot2(_GRAD[ba & 7], xf - 1, yf), u),
+    _lerp(_dot2(_GRAD[ab & 7], xf, yf - 1), _dot2(_GRAD[bb & 7], xf - 1, yf - 1), u), v
+  );
+}
+function _fbm(x: number, y: number, octaves = 4) {
+  let val = 0, amp = 0.5, freq = 1;
+  for (let i = 0; i < octaves; i++) { val += amp * _noise2D(x * freq, y * freq); amp *= 0.5; freq *= 2; }
+  return val;
+}
+
+// Glyphs
+const _GLYPHS = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ⌬⏣⎔⟁◬⟐∿≋⊛⊜⋈⋉⌖⍟⎈⏚⏛'.split('');
+const _SIGILS = '◈◇◆⬡⬢⏣⎔⟁∿≋⊛⍟⌬'.split('');
+function _randGlyph() { return _GLYPHS[(_GLYPHS.length * Math.random()) | 0]; }
+function _randSigil() { return _SIGILS[(_SIGILS.length * Math.random()) | 0]; }
+
+// Substrate config
+const SC = {
+  TENDRIL_COUNT: 24, GROW_SPEED: 1.3, SEGMENT_LEN: 6, MAX_SEGMENTS: 110,
+  SIN_FREQ: 0.04, SIN_AMP: 18, BRANCH_CHANCE: 0.007, BRANCH_MAX_DEPTH: 3,
+  PHASE_GROW_MIN: 180, PHASE_GROW_MAX: 400, PHASE_HOLD_MIN: 60, PHASE_HOLD_MAX: 200,
+  PHASE_SHRINK_MIN: 120, PHASE_SHRINK_MAX: 350, PHASE_DISSOLVE: 60,
+  SHRINK_RATE: 0.6, UNRAVEL_FREQ_MULT: 3.0, UNRAVEL_AMP_MULT: 2.5, UNRAVEL_DRIFT: 1.8,
+  BREATH_PERIOD: 280, BREATH_STRENGTH: 0.7, BREATH_VERTICAL: 12, BREATH_HORIZONTAL: 8,
+  SPORE_COUNT: 220, SPORE_DRIFT: 0.35, SPORE_SIZE_MIN: 0.5, SPORE_SIZE_MAX: 2.5,
+  SPORE_SWIRL_RADIUS: 30, SPORE_SWIRL_SPEED: 0.015,
+  VEIN_COUNT: 5, VEIN_THICKNESS: 2, GLYPH_COLUMN_COUNT: 8, GLYPH_MUTATE_RATE: 0.03,
+  DRIFT_SPEED: 0.0003, DRIFT_AMP: 12,
+  BIO_GREEN: [0, 255, 180] as number[], BIO_BLUE: [0, 180, 255] as number[],
+  BIO_VIOLET: [120, 60, 255] as number[], TIP_WHITE: [220, 255, 245] as number[],
+  VEIN_GLOW: [0, 200, 160] as number[],
+  PULSE_SPEED: Math.PI * 2 * (33 / 60),
+};
+
+// Lifecycle phases
+const LP = { GROW: 0, HOLD: 1, SHRINK: 2, DISSOLVE: 3 } as const;
+
+// Types
+type SSeg = { x: number; y: number; ox: number; oy: number };
+type STendril = {
+  segments: SSeg[]; phase: number; freqMod: number; ampMod: number; speed: number;
+  depth: number; lifecycle: number; lifecycleTimer: number;
+  growDuration: number; holdDuration: number; shrinkDuration: number;
+  age: number; glyphInterval: number; glyph: string; glyphTimer: number;
+  opacity: number; children: STendril[]; sigil: string | null;
+  unravelProgress: number; shrinkAccum: number;
+};
+type SSpore = {
+  x: number; y: number; size: number; drift: number; speed: number;
+  phase: number; brightness: number; noiseOffX: number; noiseOffY: number;
+  swirlAngle: number; swirlRadius: number; swirlSpeed: number;
+  _drawX: number; _drawY: number;
+};
+type SVein = { y: number; phase: number; amplitude: number; frequency: number; speed: number; thickness: number };
+type SGlyphCol = { x: number; chars: { char: string; y: number; opacity: number; mutateTimer: number }[]; drift: number; speed: number };
+type SState = { tendrils: STendril[]; spores: SSpore[]; glyphColumns: SGlyphCol[]; veins: SVein[]; time: number; driftX: number; driftY: number; w: number; h: number };
+type SBreath = { bx: number; by: number; intensity: number };
+
+// Factory functions
+function _createTendril(x: number, y: number, depth = 0, parentPhase = 0): STendril {
+  return {
+    segments: [{ x, y, ox: 0, oy: 0 }], phase: parentPhase + Math.random() * Math.PI * 2,
+    freqMod: 0.8 + Math.random() * 0.5, ampMod: 0.6 + Math.random() * 0.8,
+    speed: SC.GROW_SPEED * (1 - depth * 0.2) * (0.7 + Math.random() * 0.6),
+    depth, lifecycle: LP.GROW, lifecycleTimer: 0,
+    growDuration: SC.PHASE_GROW_MIN + Math.random() * (SC.PHASE_GROW_MAX - SC.PHASE_GROW_MIN),
+    holdDuration: SC.PHASE_HOLD_MIN + Math.random() * (SC.PHASE_HOLD_MAX - SC.PHASE_HOLD_MIN),
+    shrinkDuration: SC.PHASE_SHRINK_MIN + Math.random() * (SC.PHASE_SHRINK_MAX - SC.PHASE_SHRINK_MIN),
+    age: 0, glyphInterval: 8 + (Math.random() * 12) | 0, glyph: _randGlyph(), glyphTimer: 0,
+    opacity: 1.0 - depth * 0.2, children: [],
+    sigil: depth === 0 && Math.random() < 0.3 ? _randSigil() : null,
+    unravelProgress: 0, shrinkAccum: 0,
+  };
+}
+function _createSpore(w: number, h: number): SSpore {
+  return {
+    x: Math.random() * w, y: h + Math.random() * 60,
+    size: SC.SPORE_SIZE_MIN + Math.random() * (SC.SPORE_SIZE_MAX - SC.SPORE_SIZE_MIN),
+    drift: (Math.random() - 0.5) * 0.5, speed: SC.SPORE_DRIFT * (0.3 + Math.random() * 0.7),
+    phase: Math.random() * Math.PI * 2, brightness: 0.2 + Math.random() * 0.6,
+    noiseOffX: Math.random() * 1000, noiseOffY: Math.random() * 1000,
+    swirlAngle: Math.random() * Math.PI * 2,
+    swirlRadius: SC.SPORE_SWIRL_RADIUS * (0.3 + Math.random()),
+    swirlSpeed: SC.SPORE_SWIRL_SPEED * (0.5 + Math.random() * 1.5) * (Math.random() > 0.5 ? 1 : -1),
+    _drawX: 0, _drawY: 0,
+  };
+}
+function _createGlyphCol(w: number, h: number): SGlyphCol {
+  const x = 40 + Math.random() * (w - 80);
+  const count = 6 + (Math.random() * 14) | 0;
+  const chars = [];
+  for (let i = 0; i < count; i++) chars.push({ char: _randGlyph(), y: h - i * 16 - Math.random() * 40, opacity: 0.05 + Math.random() * 0.15, mutateTimer: Math.random() * 100 });
+  return { x, chars, drift: (Math.random() - 0.5) * 0.1, speed: 0.15 + Math.random() * 0.25 };
+}
+function _getBreath(time: number): SBreath {
+  const cycle = (time % SC.BREATH_PERIOD) / SC.BREATH_PERIOD;
+  let intensity: number;
+  if (cycle < 0.6) { intensity = Math.sin((cycle / 0.6) * Math.PI) * SC.BREATH_STRENGTH; }
+  else { intensity = -Math.sin(((cycle - 0.6) / 0.4) * Math.PI) * SC.BREATH_STRENGTH * 0.7; }
+  const secondary = Math.sin(time * 0.007) * 0.2;
+  return {
+    bx: Math.sin(time * 0.003 + 1.5) * SC.BREATH_HORIZONTAL * (intensity + secondary),
+    by: (intensity) * SC.BREATH_VERTICAL,
+    intensity: intensity + secondary,
+  };
+}
+function _initSubstrateState(w: number, h: number): SState {
+  const tendrils: STendril[] = [];
+  for (let i = 0; i < SC.TENDRIL_COUNT; i++) {
+    const t = _createTendril(w * 0.1 + Math.random() * w * 0.8, h + 10, 0);
+    t.lifecycleTimer = Math.random() * t.growDuration * 0.8;
+    tendrils.push(t);
+  }
+  const spores: SSpore[] = [];
+  for (let i = 0; i < SC.SPORE_COUNT; i++) spores.push(_createSpore(w, h));
+  const glyphColumns: SGlyphCol[] = [];
+  for (let i = 0; i < SC.GLYPH_COLUMN_COUNT; i++) glyphColumns.push(_createGlyphCol(w, h));
+  const veins: SVein[] = [];
+  for (let i = 0; i < SC.VEIN_COUNT; i++) veins.push({
+    y: h - 10 - Math.random() * 30, phase: Math.random() * Math.PI * 2,
+    amplitude: 2 + Math.random() * 4, frequency: 0.005 + Math.random() * 0.01,
+    speed: 0.02 + Math.random() * 0.03, thickness: SC.VEIN_THICKNESS + Math.random() * 2,
+  });
+  return { tendrils, spores, glyphColumns, veins, time: 0, driftX: 0, driftY: 0, w, h };
+}
+
 const TC_LINES: { text: string; startDelay: number }[] = [
   { text: 'wake up, citizen.',                                                          startDelay: 1200  },
   { text: "you've been sleeping inside a system\nthat was never designed to let you out.", startDelay: 4000  },
@@ -584,6 +733,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const completedRef = useRef(false);
   const animFrameRef = useRef<number>(0);
+  const substrateRef = useRef<SState | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [currentLine, setCurrentLine] = useState(-1);
   const [revealedChars, setRevealedChars] = useState(0);
@@ -701,335 +851,322 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     requestAnimationFrame(animate);
   }, [fadingOut]);
 
-  // ── Substrate tendril system — 2D canvas ──────────────────────────────
-  // Three depth tiers, organic twist, FogExp2 alpha, Perlin-like spore
-  // turbulence, bioluminescent ground veins, slow camera-like drift.
+  // ── Substrate tendril system — breathing organism ─────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const resize = () => {
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = window.innerWidth + 'px';
-      canvas.style.height = window.innerHeight + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      substrateRef.current = _initSubstrateState(w, h);
     };
     resize();
     window.addEventListener('resize', resize);
 
-    const GLYPHS = [...'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ⌇⏣◬◭◮⌬⍟⏚⌁∿≋⋈⋇⋆⟐⟡∰⌖⌗'];
-    const cW = () => window.innerWidth;
-    const cH = () => window.innerHeight;
+    // ── Tendril update ──────────────────────────────────────
+    function updateTendril(t: STendril, state: SState, breath: SBreath) {
+      t.age++;
+      t.lifecycleTimer++;
 
-    // ── Depth tiers — far=dim/slow/small, near=bright/fast/large ────────
-    const TIERS = [
-      { fs: 10, speed: 0.25, amp: 8,  alpha: 0.25, branchProb: 0.01, count: 12, color: [0, 100, 30] },  // far
-      { fs: 13, speed: 0.5,  amp: 20, alpha: 0.55, branchProb: 0.025, count: 10, color: [0, 160, 45] },  // mid
-      { fs: 16, speed: 0.8,  amp: 35, alpha: 0.9,  branchProb: 0.035, count: 8,  color: [0, 220, 60] },  // near
-    ];
+      // Phase transitions
+      if (t.lifecycle === LP.GROW && t.lifecycleTimer > t.growDuration) {
+        t.lifecycle = LP.HOLD; t.lifecycleTimer = 0;
+      } else if (t.lifecycle === LP.HOLD && t.lifecycleTimer > t.holdDuration) {
+        t.lifecycle = LP.SHRINK; t.lifecycleTimer = 0; t.unravelProgress = 0;
+      } else if (t.lifecycle === LP.SHRINK && t.lifecycleTimer > t.shrinkDuration) {
+        t.lifecycle = LP.DISSOLVE; t.lifecycleTimer = 0;
+      }
 
-    // ── Simple pseudo-Perlin noise (sine octaves) ───────────────────────
-    function noise2D(x: number, y: number): number {
-      return (
-        Math.sin(x * 1.2 + y * 0.9) * 0.5 +
-        Math.sin(x * 2.5 - y * 1.8) * 0.3 +
-        Math.sin(x * 4.1 + y * 3.2) * 0.2
-      );
-    }
+      // GROW
+      if (t.lifecycle === LP.GROW && t.segments.length < SC.MAX_SEGMENTS) {
+        const last = t.segments[t.segments.length - 1];
+        const sinD = Math.sin(t.segments.length * SC.SIN_FREQ * t.freqMod + t.phase) * SC.SIN_AMP * t.ampMod;
+        const nv = _fbm(last.x * 0.003 + state.time * 0.0005, last.y * 0.003, 3);
+        const nx = last.x + sinD * 0.15 + nv * 6 + breath.bx * 0.1;
+        const ny = last.y - SC.SEGMENT_LEN * t.speed + breath.intensity * 1.5;
+        t.segments.push({ x: nx, y: ny, ox: 0, oy: 0 });
 
-    // ── Tendril data ────────────────────────────────────────
-    type TGlyph = { y: number; char: string; brightness: number; age: number; mutTimer: number };
-    type TTendril = {
-      x: number; height: number; maxH: number; speed: number;
-      twistPhase: number; twistFreq: number; twistAmp: number;
-      glyphs: TGlyph[]; nextGlyphAt: number; spacing: number;
-      delay: number; elapsed: number; branches: TTendril[];
-      tier: number; baseAlpha: number; fs: number;
-      color: number[];
-    };
+        t.glyphTimer++;
+        if (t.glyphTimer >= t.glyphInterval) { t.glyph = _randGlyph(); t.glyphTimer = 0; }
 
-    function makeTendril(x: number, delay: number, maxH: number, tierIdx: number): TTendril {
-      const tier = TIERS[tierIdx];
-      return {
-        x, height: 0, maxH: maxH * (0.5 + Math.random() * 0.8),
-        speed: tier.speed * (0.6 + Math.random() * 0.8),
-        twistPhase: Math.random() * Math.PI * 2,
-        // Higher twist frequency for more organic curves
-        twistFreq: 0.025 + Math.random() * 0.04,
-        twistAmp: tier.amp * (0.6 + Math.random() * 0.8),
-        glyphs: [], nextGlyphAt: 0,
-        spacing: tier.fs * (0.85 + Math.random() * 0.3),
-        delay, elapsed: 0, branches: [],
-        tier: tierIdx, baseAlpha: tier.alpha, fs: tier.fs,
-        color: tier.color,
-      };
-    }
-
-    function getTendrilX(t: TTendril, y: number, globalTime: number): number {
-      const progress = Math.min(1, y / t.maxH);
-      // Multi-frequency twist for organic irregular movement
-      const primary = Math.sin(y * t.twistFreq + t.twistPhase + t.elapsed * 0.15);
-      const secondary = Math.sin(y * t.twistFreq * 2.3 + t.twistPhase * 1.7 + globalTime * 0.08) * 0.3;
-      const tertiary = Math.sin(y * t.twistFreq * 0.4 + t.twistPhase * 0.5 + globalTime * 0.03) * 0.5;
-      return t.x + (primary + secondary + tertiary) * t.twistAmp * progress;
-    }
-
-    function updateTendril(t: TTendril, dt: number, globalTime: number) {
-      t.elapsed += dt;
-      if (t.elapsed < t.delay) return;
-      t.height += t.speed * dt * 60;
-
-      const tier = TIERS[t.tier];
-
-      while (t.height > t.nextGlyphAt) {
-        t.glyphs.push({
-          y: t.nextGlyphAt,
-          char: GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
-          brightness: 1.0, age: 0,
-          mutTimer: 0.3 + Math.random() * 1.5,
-        });
-        t.nextGlyphAt += t.spacing;
-
-        // Branch — probability varies by tier
-        if (t.branches.length < 3 && Math.random() < tier.branchProb && t.nextGlyphAt > t.fs * 5) {
-          const bx = getTendrilX(t, t.nextGlyphAt, globalTime) + (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random() * t.twistAmp * 0.8);
-          const branch = makeTendril(bx, 0, t.maxH - t.height + Math.random() * cH() * 0.15, t.tier);
-          branch.twistAmp *= 1.6;
-          branch.speed *= 0.55;
-          branch.twistFreq *= 1.4;
-          t.branches.push(branch);
+        if (t.depth < SC.BRANCH_MAX_DEPTH && t.segments.length > 20 && Math.random() < SC.BRANCH_CHANCE) {
+          const bp = t.phase + (Math.random() > 0.5 ? 1 : -1) * (Math.PI * 0.3 + Math.random() * 0.5);
+          const child = _createTendril(nx, ny, t.depth + 1, bp);
+          child.ampMod = t.ampMod * (0.5 + Math.random() * 0.3);
+          child.growDuration = t.growDuration * 0.4;
+          child.holdDuration = t.holdDuration * 0.3;
+          child.shrinkDuration = t.shrinkDuration * 0.5;
+          t.children.push(child);
+          state.tendrils.push(child);
         }
       }
 
-      for (const g of t.glyphs) {
-        g.age += dt;
-        const distFromTip = t.height - g.y;
-        g.brightness = distFromTip < t.fs * 2 ? 1.0 : Math.max(0.04, Math.exp(-distFromTip * 0.005));
-        g.mutTimer -= dt;
-        if (g.mutTimer <= 0) {
-          g.char = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-          g.mutTimer = (distFromTip < t.fs * 3 ? 0.08 : 0.6) + Math.random() * 1.2;
+      // HOLD — sway with breath
+      if (t.lifecycle === LP.HOLD) {
+        for (let i = 1; i < t.segments.length; i++) {
+          const p = i / t.segments.length;
+          t.segments[i].ox = breath.bx * p * 0.3;
+          t.segments[i].oy = breath.by * p * 0.15;
         }
       }
 
-      if (t.height > t.maxH + cH() * 0.12) {
-        t.height = 0; t.glyphs = []; t.nextGlyphAt = 0;
-        t.twistPhase = Math.random() * Math.PI * 2;
-        t.maxH = cH() * (0.5 + Math.random() * 0.8);
-        t.x += (Math.random() - 0.5) * 30;
-        // Keep x in bounds
-        if (t.x < -50) t.x = Math.random() * cW() * 0.3;
-        if (t.x > cW() + 50) t.x = cW() - Math.random() * cW() * 0.3;
-        t.branches = [];
+      // SHRINK — retract from base, unravel twist
+      if (t.lifecycle === LP.SHRINK) {
+        const sp = t.lifecycleTimer / t.shrinkDuration;
+        t.unravelProgress = sp;
+        t.shrinkAccum += SC.SHRINK_RATE * (0.5 + sp);
+        while (t.shrinkAccum >= 1 && t.segments.length > 2) { t.segments.shift(); t.shrinkAccum -= 1; }
+        for (let i = 0; i < t.segments.length; i++) {
+          const segP = i / t.segments.length;
+          const ua = t.phase + i * 0.3 + state.time * 0.02;
+          const us = sp * segP;
+          t.segments[i].ox = Math.sin(ua) * SC.UNRAVEL_DRIFT * us * 15 + breath.bx * segP * 0.5;
+          t.segments[i].oy = Math.cos(ua * 0.7) * SC.UNRAVEL_DRIFT * us * 8 + breath.by * segP * 0.3;
+        }
+        t.opacity = Math.max(0, (1 - sp * 0.7)) * (1 - t.depth * 0.2);
       }
 
-      for (const b of t.branches) updateTendril(b, dt, globalTime);
+      // DISSOLVE
+      if (t.lifecycle === LP.DISSOLVE) {
+        t.opacity *= 0.94;
+        for (const seg of t.segments) { seg.ox += (Math.random() - 0.5) * 2; seg.oy += (Math.random() - 0.5) * 1.5; }
+      }
     }
 
-    function drawTendril(t: TTendril, globalTime: number, driftX: number, driftY: number) {
-      if (!ctx) return;
-      ctx.font = `${t.fs}px monospace`;
-      const h = cH();
+    // ── Tendril draw ────────────────────────────────────────
+    function drawTendril(t: STendril, state: SState) {
+      const segs = t.segments;
+      if (segs.length < 2) return;
+      const pulse33 = Math.sin(state.time * SC.PULSE_SPEED * 0.02) * 0.5 + 0.5;
+      const depthFade = Math.pow(0.85, t.depth);
 
-      for (const g of t.glyphs) {
-        const rawX = getTendrilX(t, g.y, globalTime);
-        // Apply camera drift
-        const screenX = rawX + driftX;
-        const screenY = h - g.y + driftY;
-        if (screenY < -t.fs * 2 || screenY > h + t.fs) continue;
+      for (let i = 1; i < segs.length; i++) {
+        const progress = i / segs.length;
+        const fadeFromBase = Math.pow(1 - progress, 0.4);
 
-        // FogExp2-style distance fade (from bottom of screen)
-        const distFromBottom = g.y / h;
-        const fogAlpha = Math.pow(Math.max(0, 1 - distFromBottom * 0.7), 2.5);
-        const layerAlpha = t.baseAlpha * fogAlpha;
-        if (layerAlpha < 0.02) continue;
-
-        const distFromTip = t.height - g.y;
-
-        if (distFromTip < t.fs * 1.5) {
-          // Tip: white-hot glow — brightest on near tier
-          const tipBright = (0.6 + 0.4 * Math.sin(g.age * 8)) * layerAlpha;
-          ctx.fillStyle = `rgba(255, 255, 255, ${tipBright})`;
-          ctx.fillText(g.char, screenX, screenY);
-          // Glow halo
-          ctx.fillStyle = `rgba(180, 255, 200, ${tipBright * 0.35})`;
-          ctx.fillText(g.char, screenX - 0.5, screenY);
-          ctx.fillText(g.char, screenX + 0.5, screenY);
+        let r: number, g: number, b: number;
+        if (progress < 0.15) {
+          const t2 = progress / 0.15;
+          r = _lerp(SC.BIO_VIOLET[0], SC.BIO_BLUE[0], t2);
+          g = _lerp(SC.BIO_VIOLET[1], SC.BIO_BLUE[1], t2);
+          b = _lerp(SC.BIO_VIOLET[2], SC.BIO_BLUE[2], t2);
+        } else if (progress < 0.85) {
+          const t2 = (progress - 0.15) / 0.7;
+          r = _lerp(SC.BIO_BLUE[0], SC.BIO_GREEN[0], t2);
+          g = _lerp(SC.BIO_BLUE[1], SC.BIO_GREEN[1], t2);
+          b = _lerp(SC.BIO_BLUE[2], SC.BIO_GREEN[2], t2);
         } else {
-          // Trail: tier-colored, exponential fade + pulse
-          const pulse = 0.8 + 0.2 * Math.sin(g.age * 3 + g.y * 0.015);
-          const a = g.brightness * pulse * layerAlpha;
-          const [r, green, b] = t.color;
-          const gBright = Math.floor(green + (255 - green) * g.brightness * 0.3);
-          ctx.fillStyle = `rgba(${r}, ${gBright}, ${b + Math.floor(20 * g.brightness)}, ${a})`;
-          ctx.fillText(g.char, screenX, screenY);
+          const t2 = (progress - 0.85) / 0.15;
+          r = _lerp(SC.BIO_GREEN[0], SC.TIP_WHITE[0], t2);
+          g = _lerp(SC.BIO_GREEN[1], SC.TIP_WHITE[1], t2);
+          b = _lerp(SC.BIO_GREEN[2], SC.TIP_WHITE[2], t2);
+        }
+
+        if (t.unravelProgress > 0.3) {
+          const dT = (t.unravelProgress - 0.3) / 0.7;
+          r = _lerp(r, SC.BIO_VIOLET[0], dT * 0.4);
+          g = _lerp(g, SC.BIO_VIOLET[1], dT * 0.4);
+          b = _lerp(b, SC.BIO_VIOLET[2], dT * 0.4);
+        }
+
+        const tipGlow = progress > 0.9 ? Math.pow((progress - 0.9) / 0.1, 0.5) : 0;
+        const baseAlpha = (0.15 + fadeFromBase * 0.5 + tipGlow * 0.35) * (0.7 + pulse33 * 0.3) * t.opacity * depthFade;
+        if (baseAlpha < 0.01) continue;
+
+        const x1 = (segs[i - 1].x + segs[i - 1].ox + state.driftX) * dpr;
+        const y1 = (segs[i - 1].y + segs[i - 1].oy + state.driftY) * dpr;
+        const x2 = (segs[i].x + segs[i].ox + state.driftX) * dpr;
+        const y2 = (segs[i].y + segs[i].oy + state.driftY) * dpr;
+        const unravelThin = 1 - t.unravelProgress * 0.5;
+        const lw = (1 + (1 - progress) * 1.5 + tipGlow * 2) * depthFade * dpr * unravelThin;
+
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `rgba(${r | 0},${g | 0},${b | 0},${baseAlpha})`;
+        ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.stroke();
+
+        if (progress > 0.5) {
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+          ctx.strokeStyle = `rgba(${r | 0},${g | 0},${b | 0},${baseAlpha * 0.2})`;
+          ctx.lineWidth = lw * 3; ctx.stroke();
+        }
+
+        if (i === segs.length - 1 && t.lifecycle !== LP.DISSOLVE) {
+          const bs = 12 * (1 - t.unravelProgress * 0.6);
+          const grad = ctx.createRadialGradient(x2, y2, 0, x2, y2, bs * dpr);
+          grad.addColorStop(0, `rgba(${SC.TIP_WHITE[0]},${SC.TIP_WHITE[1]},${SC.TIP_WHITE[2]},${0.6 * (0.7 + pulse33 * 0.3) * depthFade * t.opacity})`);
+          grad.addColorStop(0.4, `rgba(${SC.BIO_GREEN[0]},${SC.BIO_GREEN[1]},${SC.BIO_GREEN[2]},${0.2 * depthFade * t.opacity})`);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(x2 - bs * dpr, y2 - bs * dpr, bs * 2 * dpr, bs * 2 * dpr);
         }
       }
-      for (const b of t.branches) drawTendril(b, globalTime, driftX, driftY);
-    }
 
-    // ── Create tendrils across all three tiers ──────────────
-    const tendrils: TTendril[] = [];
-    for (let tierIdx = 0; tierIdx < TIERS.length; tierIdx++) {
-      const tier = TIERS[tierIdx];
-      for (let i = 0; i < tier.count; i++) {
-        const x = (i / tier.count) * cW() + (Math.random() - 0.5) * (cW() / tier.count);
-        tendrils.push(makeTendril(x, Math.random() * 2.5, cH() * (0.5 + Math.random() * 0.6), tierIdx));
+      if (t.sigil && t.depth === 0 && segs.length > 5 && t.lifecycle !== LP.DISSOLVE) {
+        const base = segs[0];
+        ctx.font = `${14 * dpr}px monospace`;
+        ctx.fillStyle = `rgba(${SC.BIO_VIOLET[0]},${SC.BIO_VIOLET[1]},${SC.BIO_VIOLET[2]},${0.3 * pulse33 * t.opacity})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(t.sigil, (base.x + base.ox + state.driftX) * dpr, (base.y + base.oy + state.driftY) * dpr + 16 * dpr);
+      }
+
+      if (segs.length > 10 && t.lifecycle !== LP.DISSOLVE) {
+        const tip = segs[segs.length - 1];
+        ctx.font = `${10 * dpr}px monospace`;
+        ctx.fillStyle = `rgba(${SC.TIP_WHITE[0]},${SC.TIP_WHITE[1]},${SC.TIP_WHITE[2]},${0.5 * depthFade * t.opacity})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(t.glyph, (tip.x + tip.ox + state.driftX) * dpr + 8 * dpr, (tip.y + tip.oy + state.driftY) * dpr);
       }
     }
 
-    // Pre-grow so tendrils are visible immediately
-    for (let step = 0; step < 200; step++) {
-      for (const t of tendrils) updateTendril(t, 1/60, step / 60);
+    // ── Spore update + draw ─────────────────────────────────
+    function updateSpore(s: SSpore, state: SState, breath: SBreath) {
+      const turb = _fbm(s.noiseOffX + state.time * 0.001, s.noiseOffY + state.time * 0.0008, 3);
+      s.swirlAngle += s.swirlSpeed * (1 + breath.intensity * 0.8);
+      const swirlX = Math.cos(s.swirlAngle) * s.swirlRadius * (1 + breath.intensity * 0.4);
+      const swirlY = Math.sin(s.swirlAngle) * s.swirlRadius * 0.6;
+      s.x += s.drift + turb * 1.2 + breath.bx * (0.3 + Math.abs(breath.intensity) * 0.5);
+      s.y -= s.speed * (1 + breath.intensity * 0.6);
+      s.phase += 0.02;
+      s._drawX = s.x + swirlX;
+      s._drawY = s.y + swirlY + breath.by * 0.4;
+      if (s.y < -40 || s.x < -60 || s.x > state.w + 60) {
+        s.x = Math.random() * state.w; s.y = state.h + Math.random() * 40;
+        s.brightness = 0.2 + Math.random() * 0.6; s.swirlAngle = Math.random() * Math.PI * 2;
+      }
+    }
+    function drawSpore(s: SSpore, state: SState, breath: SBreath) {
+      const breathGlow = 0.7 + breath.intensity * 0.4;
+      const pulse = Math.sin(s.phase + state.time * 0.03) * 0.3 + breathGlow;
+      const heightFade = 1 - Math.max(0, (state.h - s.y) / state.h);
+      const alpha = s.brightness * pulse * (0.3 + heightFade * 0.5);
+      const x = (s._drawX + state.driftX) * dpr;
+      const y = (s._drawY + state.driftY) * dpr;
+      const r = s.size * dpr * (1 + breath.intensity * 0.15);
+
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+      grad.addColorStop(0, `rgba(${SC.BIO_GREEN[0]},${SC.BIO_GREEN[1]},${SC.BIO_GREEN[2]},${alpha})`);
+      grad.addColorStop(0.5, `rgba(${SC.BIO_BLUE[0]},${SC.BIO_BLUE[1]},${SC.BIO_BLUE[2]},${alpha * 0.3})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
+      ctx.beginPath();
+      ctx.arc(x, y, r * (0.4 + breath.intensity * 0.15), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${SC.TIP_WHITE[0]},${SC.TIP_WHITE[1]},${SC.TIP_WHITE[2]},${alpha * 0.8})`;
+      ctx.fill();
     }
 
-    // ── Spore particles with Perlin-like turbulence ─────────
-    type TSpore = { x: number; y: number; size: number; alpha: number; phase: number; freq: number; tier: number };
-    const SPORE_COUNT = 280;
-    const spores: TSpore[] = [];
-    for (let i = 0; i < SPORE_COUNT; i++) {
-      const tier = Math.floor(Math.random() * 3);
-      spores.push({
-        x: Math.random() * cW(), y: Math.random() * cH(),
-        size: (tier === 2 ? 1.5 : tier === 1 ? 1.0 : 0.6) + Math.random() * (tier === 2 ? 2 : 1),
-        alpha: TIERS[tier].alpha * (0.15 + Math.random() * 0.3),
-        phase: Math.random() * Math.PI * 2,
-        freq: 0.5 + Math.random() * 2,
-        tier,
-      });
+    // ── Veins, glyph columns, ground glow, fog ──────────────
+    function drawVeins(state: SState, breath: SBreath) {
+      const pulse33 = Math.sin(state.time * SC.PULSE_SPEED * 0.02) * 0.5 + 0.5;
+      for (const v of state.veins) {
+        ctx.beginPath();
+        const yBase = (v.y + state.driftY + breath.by * 0.2) * dpr;
+        for (let x = 0; x < state.w; x += 2) {
+          const sinY = Math.sin((x + state.time * v.speed * 60) * v.frequency + v.phase) * v.amplitude;
+          const nY = _fbm(x * 0.005 + state.time * 0.0003, v.y * 0.01, 2) * 4;
+          const bw = breath.intensity * Math.sin(x * 0.01 + state.time * 0.005) * 3;
+          const px = (x + state.driftX + breath.bx * 0.15) * dpr;
+          const py = yBase + (sinY + nY + bw) * dpr;
+          if (x === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        const va = (0.15 + pulse33 * 0.25) * (0.7 + breath.intensity * 0.3);
+        ctx.strokeStyle = `rgba(${SC.VEIN_GLOW[0]},${SC.VEIN_GLOW[1]},${SC.VEIN_GLOW[2]},${va})`;
+        ctx.lineWidth = v.thickness * dpr; ctx.lineCap = 'round'; ctx.stroke();
+        ctx.strokeStyle = `rgba(${SC.VEIN_GLOW[0]},${SC.VEIN_GLOW[1]},${SC.VEIN_GLOW[2]},${va * 0.15})`;
+        ctx.lineWidth = v.thickness * 6 * dpr; ctx.stroke();
+      }
     }
-
-    // ── Ground vein offscreen canvas (drawn once, composited per frame) ──
-    const veinCanvas = document.createElement('canvas');
-    veinCanvas.width = cW();
-    veinCanvas.height = 120;
-    const vCtx = veinCanvas.getContext('2d');
-    function drawVeinsToOffscreen(time: number) {
-      if (!vCtx) return;
-      vCtx.clearRect(0, 0, veinCanvas.width, veinCanvas.height);
-      const veinCount = 12;
-      for (let i = 0; i < veinCount; i++) {
-        const baseX = (i / veinCount) * veinCanvas.width;
-        const phase = time * 0.2 + i * 1.3;
-        const brightness = 0.03 + 0.025 * Math.sin(time * 0.33 * 6.28 + i * 0.8);
-        vCtx.strokeStyle = `rgba(0, 100, 25, ${brightness})`;
-        vCtx.lineWidth = 0.8 + Math.sin(time * 0.5 + i) * 0.4;
-        vCtx.beginPath();
-        vCtx.moveTo(baseX + Math.sin(phase) * 15, veinCanvas.height);
-        // Multi-point bezier for more organic shape
-        const cp1x = baseX + Math.sin(phase * 1.3) * 30;
-        const cp1y = veinCanvas.height * 0.65;
-        const cp2x = baseX + Math.sin(phase * 0.7 + 1) * 45;
-        const cp2y = veinCanvas.height * 0.3;
-        const endX = baseX + Math.sin(phase * 0.4 + 2) * 50;
-        const endY = Math.random() * 10;
-        vCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
-        vCtx.stroke();
-
-        // Secondary thinner branch off each vein
-        if (i % 2 === 0) {
-          vCtx.strokeStyle = `rgba(0, 70, 18, ${brightness * 0.6})`;
-          vCtx.lineWidth = 0.5;
-          vCtx.beginPath();
-          vCtx.moveTo(cp1x, cp1y);
-          vCtx.quadraticCurveTo(
-            cp1x + (Math.random() > 0.5 ? 20 : -20),
-            cp1y - 15,
-            cp1x + Math.sin(phase * 2) * 30,
-            cp1y - 30
-          );
-          vCtx.stroke();
+    function drawGlyphCols(state: SState, breath: SBreath) {
+      const pulse33 = Math.sin(state.time * SC.PULSE_SPEED * 0.02) * 0.5 + 0.5;
+      for (const col of state.glyphColumns) {
+        col.x += col.drift + breath.bx * 0.02;
+        for (const ch of col.chars) {
+          ch.y -= col.speed + breath.intensity * 0.1;
+          ch.mutateTimer++;
+          if (ch.mutateTimer > 60 / SC.GLYPH_MUTATE_RATE && Math.random() < SC.GLYPH_MUTATE_RATE) { ch.char = _randGlyph(); ch.mutateTimer = 0; }
+          if (ch.y < -20) { ch.y = state.h + 20; ch.char = _randGlyph(); }
+          ctx.font = `${11 * dpr}px monospace`;
+          ctx.fillStyle = `rgba(${SC.BIO_GREEN[0]},${SC.BIO_GREEN[1]},${SC.BIO_GREEN[2]},${ch.opacity * (0.6 + pulse33 * 0.4)})`;
+          ctx.textAlign = 'center';
+          ctx.fillText(ch.char, (col.x + state.driftX) * dpr, (ch.y + state.driftY + breath.by * 0.1) * dpr);
         }
       }
     }
+    function drawGroundGlow(state: SState, breath: SBreath) {
+      const pulse33 = Math.sin(state.time * SC.PULSE_SPEED * 0.02) * 0.5 + 0.5;
+      const bg = 1 + breath.intensity * 0.3;
+      const glowH = 80 * dpr;
+      const y = (state.h + state.driftY) * dpr;
+      const grad = ctx.createLinearGradient(0, y - glowH, 0, y);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.5, `rgba(${SC.BIO_VIOLET[0]},${SC.BIO_VIOLET[1]},${SC.BIO_VIOLET[2]},${(0.04 + pulse33 * 0.04) * bg})`);
+      grad.addColorStop(1, `rgba(${SC.BIO_VIOLET[0]},${SC.BIO_VIOLET[1]},${SC.BIO_VIOLET[2]},${(0.12 + pulse33 * 0.08) * bg})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, y - glowH, state.w * dpr, glowH + 10 * dpr);
+    }
+    function drawFog(state: SState) {
+      const fogH = state.h * 0.35 * dpr;
+      const grad = ctx.createLinearGradient(0, 0, 0, fogH);
+      grad.addColorStop(0, 'rgba(2,3,8,0.95)');
+      grad.addColorStop(0.5, 'rgba(2,3,8,0.5)');
+      grad.addColorStop(1, 'rgba(2,3,8,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, state.w * dpr, fogH);
+    }
 
-    let elapsed = 0;
-    let lastVeinDraw = -1;
-
-    const draw = () => {
+    // ── Render loop ─────────────────────────────────────────
+    function frame() {
       if (completedRef.current) return;
-      const dt = 1 / 60;
-      elapsed += dt;
+      const state = substrateRef.current;
+      if (!state) { animFrameRef.current = requestAnimationFrame(frame); return; }
+      state.time++;
 
-      // Slow camera-like drift
-      const driftX = Math.sin(elapsed * 0.05) * 8 + Math.sin(elapsed * 0.02) * 4;
-      const driftY = Math.cos(elapsed * 0.04) * 5;
+      const breath = _getBreath(state.time);
+      state.driftX = Math.sin(state.time * SC.DRIFT_SPEED) * SC.DRIFT_AMP + breath.bx * 0.3;
+      state.driftY = Math.cos(state.time * SC.DRIFT_SPEED * 0.7) * SC.DRIFT_AMP * 0.5 + breath.by * 0.15;
 
-      // Fade trails — very slow for dense, persistent organic look
-      ctx.fillStyle = 'rgba(0, 2, 1, 0.06)';
-      ctx.fillRect(0, 0, cW(), cH());
+      ctx.fillStyle = 'rgba(2,3,8,1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Ground bioluminescent pulse (gradient)
-      const pulse33 = 0.8 + 0.2 * Math.sin(elapsed * 0.33 * 6.28); // 33hz visual ref
-      const pulseAlpha = 0.035 * pulse33;
-      const groundGrad = ctx.createLinearGradient(0, cH(), 0, cH() * 0.65);
-      groundGrad.addColorStop(0, `rgba(0, 50, 12, ${pulseAlpha * 1.5})`);
-      groundGrad.addColorStop(0.5, `rgba(0, 30, 8, ${pulseAlpha * 0.7})`);
-      groundGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = groundGrad;
-      ctx.fillRect(0, cH() * 0.65, cW(), cH() * 0.35);
+      drawGroundGlow(state, breath);
+      drawVeins(state, breath);
+      drawGlyphCols(state, breath);
 
-      // Redraw veins to offscreen every ~4 frames for perf
-      const veinFrame = Math.floor(elapsed * 15);
-      if (veinFrame !== lastVeinDraw) {
-        drawVeinsToOffscreen(elapsed);
-        lastVeinDraw = veinFrame;
+      for (const s of state.spores) { updateSpore(s, state, breath); drawSpore(s, state, breath); }
+
+      const deadIdx: number[] = [];
+      for (let i = 0; i < state.tendrils.length; i++) {
+        const t = state.tendrils[i];
+        updateTendril(t, state, breath);
+        drawTendril(t, state);
+        if (t.lifecycle === LP.DISSOLVE && t.opacity < 0.01) deadIdx.push(i);
       }
-      // Composite veins at bottom
-      ctx.drawImage(veinCanvas, driftX * 0.3, cH() - 120 + driftY * 0.5);
-
-      // Draw tendrils — far tier first (painter's algorithm)
-      for (const t of tendrils) updateTendril(t, dt, elapsed);
-      for (let tierIdx = 0; tierIdx < TIERS.length; tierIdx++) {
-        for (const t of tendrils) {
-          if (t.tier === tierIdx) drawTendril(t, elapsed, driftX * (tierIdx === 0 ? 0.3 : tierIdx === 1 ? 0.6 : 1.0), driftY * (tierIdx === 0 ? 0.2 : tierIdx === 1 ? 0.5 : 1.0));
-        }
+      for (let i = deadIdx.length - 1; i >= 0; i--) state.tendrils.splice(deadIdx[i], 1);
+      if (state.tendrils.filter(t => t.depth === 0).length < SC.TENDRIL_COUNT && Math.random() < 0.015) {
+        state.tendrils.push(_createTendril(state.w * 0.1 + Math.random() * state.w * 0.8, state.h + 10, 0));
       }
 
-      // Spores with Perlin-like turbulence
-      for (const s of spores) {
-        // Noise-driven displacement
-        const nx = noise2D(s.x * 0.003 + elapsed * 0.2, s.y * 0.003) * 60;
-        const ny = noise2D(s.x * 0.003, s.y * 0.003 + elapsed * 0.15) * 30;
+      drawFog(state);
 
-        s.x += nx * dt;
-        s.y += (-20 - s.freq * 15 + ny) * dt; // upward with noise
+      // Vignette
+      const vg = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.width * 0.25, canvas.width / 2, canvas.height / 2, canvas.width * 0.7);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.4)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Wind gust
-        const gust = Math.sin(elapsed * 0.12 + s.x * 0.004);
-        if (gust > 0.6) s.x += gust * 50 * dt;
+      animFrameRef.current = requestAnimationFrame(frame);
+    }
 
-        const flicker = 0.5 + 0.5 * Math.sin(elapsed * s.freq * 3 + s.phase);
-        const fogFade = Math.pow(Math.max(0, 1 - (cH() - s.y) / cH() * 0.8), 2);
-        const drawAlpha = s.alpha * flicker * fogFade;
-
-        if (drawAlpha > 0.01) {
-          const tierDriftX = driftX * (s.tier === 0 ? 0.3 : s.tier === 1 ? 0.6 : 1.0);
-          const tierDriftY = driftY * (s.tier === 0 ? 0.2 : s.tier === 1 ? 0.5 : 1.0);
-          const sx = s.x + tierDriftX;
-          const sy = s.y + tierDriftY;
-          const [, green, blue] = TIERS[s.tier].color;
-          ctx.beginPath();
-          ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(0, ${Math.floor(green * (0.7 + 0.3 * flicker))}, ${Math.floor(blue * (0.6 + 0.4 * flicker))}, ${drawAlpha})`;
-          ctx.fill();
-        }
-
-        // Respawn
-        if (s.y < -15 || s.x < -30 || s.x > cW() + 30) {
-          s.x = Math.random() * cW();
-          s.y = cH() + Math.random() * 30;
-        }
-      }
-
-      animFrameRef.current = requestAnimationFrame(draw);
-    };
-
-    animFrameRef.current = requestAnimationFrame(draw);
+    animFrameRef.current = requestAnimationFrame(frame);
 
     return () => {
       cancelAnimationFrame(animFrameRef.current);
@@ -1068,7 +1205,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: '#000',
+        background: '#020308',
         cursor: 'pointer',
       }}
     >
@@ -1080,7 +1217,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           inset: 0,
           width: '100%',
           height: '100%',
-          opacity: matrixOpacity * 0.7 * overlayOpacity,
+          opacity: matrixOpacity * 0.85 * overlayOpacity,
           transition: 'opacity 0.5s',
         }}
       />
