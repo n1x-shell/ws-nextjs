@@ -1983,18 +1983,22 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         const push = (output: React.ReactNode) =>
           eventBus.emit('shell:push-output', { command: '', output });
 
-        push(
-          <TunnelcoreCinematic onComplete={() => {
-            if (!_requestPrompt) {
-              push(<TelnetSession host="n1x.sh" handle="citizen" mudDirect />);
-              return;
-            }
-            _requestPrompt('handle:', (input: string) => {
-              const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
-              push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
-            }, 'text');
-          }} />
-        );
+        // Delay push so the cinematic is added AFTER clearScreen wipes history.
+        // Without this, React batches both setState calls and clear wins.
+        setTimeout(() => {
+          push(
+            <TunnelcoreCinematic onComplete={() => {
+              if (!_requestPrompt) {
+                push(<TelnetSession host="n1x.sh" handle="citizen" mudDirect />);
+                return;
+              }
+              _requestPrompt('handle:', (input: string) => {
+                const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
+                push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
+              }, 'text');
+            }} />
+          );
+        }, 50);
 
         return { output: null, clearScreen: true };
       },
