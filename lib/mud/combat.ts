@@ -130,6 +130,7 @@ export function initCombat(character: MudCharacter, enemies: RoomEnemy[]): Comba
     currentTurn: 0,
     round: 1,
     log: [],
+    sourceEnemies: enemies,
   };
 }
 
@@ -526,7 +527,7 @@ export function advanceTurn(combat: CombatState): { nextId: string; newRound: bo
 
 export type CombatEnd = { over: false } | { over: true; victory: boolean; xpGained: number; drops: string[] };
 
-export function checkCombatEnd(combat: CombatState, enemies: RoomEnemy[]): CombatEnd {
+export function checkCombatEnd(combat: CombatState, _enemies?: RoomEnemy[]): CombatEnd {
   const player = getPlayer(combat);
   if (!player || player.hp <= 0) {
     return { over: true, victory: false, xpGained: 0, drops: [] };
@@ -534,7 +535,8 @@ export function checkCombatEnd(combat: CombatState, enemies: RoomEnemy[]): Comba
 
   const living = getLivingEnemies(combat);
   if (living.length === 0) {
-    // Calculate XP and drops
+    // Use stored sourceEnemies (falls back to legacy param for compat)
+    const enemies = combat.sourceEnemies ?? _enemies ?? [];
     let xp = 0;
     const drops: string[] = [];
     for (const e of enemies) {

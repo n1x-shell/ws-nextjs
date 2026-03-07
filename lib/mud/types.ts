@@ -237,6 +237,7 @@ export interface CombatState {
   currentTurn: number;       // index into turnOrder
   round: number;
   log: string[];             // combat event log
+  sourceEnemies: RoomEnemy[]; // original room enemies for XP/drops on victory
 }
 
 // ── Room System ─────────────────────────────────────────────────────────────
