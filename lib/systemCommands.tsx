@@ -924,20 +924,21 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     const container = threeRef.current;
     if (!container) return;
 
-    const w = container.clientWidth || window.innerWidth;
-    const h = container.clientHeight || window.innerHeight;
+    const rect = container.getBoundingClientRect();
+    const w = rect.width || window.innerWidth;
+    const h = rect.height || window.innerHeight;
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000a02, 0.025);
 
     const camera = new THREE.PerspectiveCamera(65, w / h, 0.1, 200);
-    camera.position.set(0, 8, 18);
-    camera.lookAt(0, 12, 0);
+    camera.position.set(0, 6, 22);
+    camera.lookAt(0, 10, -4);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
+    renderer.setClearColor(0x000a02);
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -956,6 +957,13 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       );
       t.atlasTotal = atlas.total;
       tendrils.push(t);
+    }
+
+    // Pre-simulate 4 seconds so tendrils are already visible on mount
+    const PRE_SIM_STEPS = 240; // ~4s at 60fps
+    const PRE_DT = 1 / 60;
+    for (let step = 0; step < PRE_SIM_STEPS; step++) {
+      for (const t of tendrils) t.update(PRE_DT);
     }
 
     // Glyph particle system
@@ -994,7 +1002,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       sPos[i * 3] = (Math.random() - 0.5) * sp;
       sPos[i * 3 + 1] = Math.random() * SUB_CFG.maxHeight * 1.2;
       sPos[i * 3 + 2] = zB + (Math.random() - 0.5) * 8;
-      sSiz[i] = 0.03 + Math.random() * 0.08;
+      sSiz[i] = 0.15 + Math.random() * 0.35;
       sAlp[i] = 0.1 + Math.random() * 0.5;
       sVel.push({ vx: (Math.random() - 0.5) * SUB_CFG.sporeDrift, vy: SUB_CFG.sporeSpeed * (0.3 + Math.random()), vz: (Math.random() - 0.5) * SUB_CFG.sporeDrift * 0.5, phase: Math.random() * Math.PI * 2, freq: 0.5 + Math.random() * 2, turbPhase: Math.random() * Math.PI * 2, dl, zB, sp });
     }
@@ -1078,10 +1086,10 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
 
       // Slow camera orbit
       camAngle += 0.03 * dt;
-      camera.position.x = Math.sin(camAngle) * 3;
-      camera.position.z = 18 + Math.cos(camAngle) * 0.9;
-      camera.position.y = 10 + Math.sin(elapsed * 0.1) * 1.5;
-      camera.lookAt(0, 14 + Math.sin(elapsed * 0.08) * 2, -4);
+      camera.position.x = Math.sin(camAngle) * 4;
+      camera.position.z = 22 + Math.cos(camAngle) * 1.2;
+      camera.position.y = 6 + Math.sin(elapsed * 0.1) * 1.5;
+      camera.lookAt(0, 10 + Math.sin(elapsed * 0.08) * 2, -4);
 
       renderer.render(scene, camera);
     };
@@ -1089,8 +1097,9 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     animFrameRef.current = requestAnimationFrame(animate);
 
     const onResize = () => {
-      const nw = container.clientWidth || window.innerWidth;
-      const nh = container.clientHeight || window.innerHeight;
+      const r = container.getBoundingClientRect();
+      const nw = r.width || window.innerWidth;
+      const nh = r.height || window.innerHeight;
       camera.aspect = nw / nh;
       camera.updateProjectionMatrix();
       renderer.setSize(nw, nh);
@@ -1151,6 +1160,8 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           height: '100%',
           opacity: matrixOpacity * 0.7 * overlayOpacity,
           transition: 'opacity 0.5s',
+          pointerEvents: 'none',
+          overflow: 'hidden',
         }}
       />
 
