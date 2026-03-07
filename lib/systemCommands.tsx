@@ -5,7 +5,6 @@ import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
 import { TelnetSession } from '@/components/shell/TelnetSession';
-import * as THREE from 'three';
 
 const SESSION_START = Date.now();
 
@@ -559,223 +558,8 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
   );
 };
 
-// ── Substrate Tendril System ──────────────────────────────
-// Three.js fungal neural tendrils for TunnelcoreCinematic background.
-// Grows upward with glyph-spore particles, replaces matrix rain.
-
-const SUBSTRATE_GLYPHS = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ⌇⏣◬◭◮⌬⍟⏚⌁∿≋⋈⋇⋆⟐⟡∰⌖⌗';
-
-const SUB_CFG = {
-  tendrilCount: 24,
-  maxHeight: 38,
-  growthSpeed: 0.013,
-  twistFrequency: 0.8,
-  twistAmplitude: 1.2,
-  branchProb: 0.03,
-  maxBranches: 3,
-  sporeCount: 400,
-  sporeSpeed: 0.3,
-  sporeDrift: 2.5,
-  sporeTurb: 0.4,
-  depthLayers: 3,
-  baseColor: [0.0, 1.0, 0.33] as [number, number, number],
-  tipColor: [0.8, 1.0, 0.95] as [number, number, number],
-  sporeColor: [0.0, 0.85, 0.25] as [number, number, number],
-};
-
-function createSubstrateAtlas() {
-  const size = 512;
-  const cols = 12;
-  const cellSize = size / cols;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, size, size);
-  const glyphs = [...SUBSTRATE_GLYPHS];
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `${cellSize * 0.7}px "Courier New", monospace`;
-  for (let i = 0; i < glyphs.length && i < cols * cols; i++) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(glyphs[i], (i % cols) * cellSize + cellSize / 2, Math.floor(i / cols) * cellSize + cellSize / 2);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestFilter;
-  return { texture, cols, total: Math.min(glyphs.length, cols * cols) };
-}
-
-class SubstrateTendril {
-  baseX: number; baseZ: number; depth: number; height: number;
-  maxHeight: number; speed: number; twistPhase: number; twistFreq: number;
-  twistAmp: number; glyphs: { y: number; glyphIdx: number; brightness: number; age: number; changeRate: number }[];
-  glyphSpacing: number; nextGlyphAt: number; delay: number; elapsed: number;
-  branches: SubstrateTendril[]; branchCount: number; atlasTotal: number;
-
-  constructor(x: number, z: number, depthLayer: number, delay: number, maxH: number) {
-    this.baseX = x; this.baseZ = z; this.depth = depthLayer;
-    this.height = 0;
-    this.maxHeight = maxH * (0.6 + Math.random() * 0.8);
-    this.speed = SUB_CFG.growthSpeed * (0.5 + Math.random() * 1.0) * (depthLayer === 0 ? 1.0 : depthLayer === 1 ? 0.7 : 0.5);
-    this.twistPhase = Math.random() * Math.PI * 2;
-    this.twistFreq = SUB_CFG.twistFrequency * (0.6 + Math.random() * 0.8);
-    this.twistAmp = SUB_CFG.twistAmplitude * (0.5 + Math.random() * 1.0);
-    this.glyphs = []; this.glyphSpacing = 0.45 + Math.random() * 0.15;
-    this.nextGlyphAt = 0; this.delay = delay; this.elapsed = 0;
-    this.branches = []; this.branchCount = 0; this.atlasTotal = 0;
-  }
-
-  getPos(y: number) {
-    const t = y * this.twistFreq + this.twistPhase + this.elapsed * 0.3;
-    return {
-      x: this.baseX + Math.sin(t) * this.twistAmp * (y / this.maxHeight),
-      z: this.baseZ + Math.cos(t * 0.7) * this.twistAmp * 0.6 * (y / this.maxHeight),
-    };
-  }
-
-  update(dt: number) {
-    this.elapsed += dt;
-    if (this.elapsed < this.delay) return;
-    this.height += this.speed * dt * 60;
-    while (this.height > this.nextGlyphAt) {
-      const y = this.nextGlyphAt;
-      this.glyphs.push({ y, glyphIdx: Math.floor(Math.random() * this.atlasTotal), brightness: 1.0, age: 0, changeRate: 0.02 + Math.random() * 0.04 });
-      this.nextGlyphAt += this.glyphSpacing;
-      if (this.branchCount < SUB_CFG.maxBranches && Math.random() < SUB_CFG.branchProb && y > 3) {
-        const pos = this.getPos(y);
-        const b = new SubstrateTendril(pos.x + (Math.random() - 0.5) * 2, pos.z + (Math.random() - 0.5) * 2, this.depth, 0, this.maxHeight - y + Math.random() * 5);
-        b.atlasTotal = this.atlasTotal; b.twistAmp *= 1.5; b.speed *= 0.7;
-        this.branches.push(b); this.branchCount++;
-      }
-    }
-    for (const g of this.glyphs) {
-      g.age += dt;
-      const d = this.height - g.y;
-      g.brightness = d < 2.0 ? 1.0 : Math.max(0.08, Math.exp(-d * 0.08));
-      if (Math.random() < g.changeRate * dt * 60) g.glyphIdx = Math.floor(Math.random() * this.atlasTotal);
-    }
-    if (this.height > this.maxHeight + 10) this.respawn();
-    for (const b of this.branches) b.update(dt);
-  }
-
-  respawn() {
-    this.height = 0; this.glyphs = []; this.nextGlyphAt = 0;
-    this.twistPhase = Math.random() * Math.PI * 2;
-    this.maxHeight = SUB_CFG.maxHeight * (0.6 + Math.random() * 0.8);
-    this.branches = []; this.branchCount = 0;
-    this.baseX += (Math.random() - 0.5) * 2;
-  }
-
-  collect(out: { x: number; y: number; z: number; glyphIdx: number; brightness: number; depth: number; age: number }[]) {
-    for (const g of this.glyphs) {
-      const p = this.getPos(g.y);
-      out.push({ x: p.x, y: g.y, z: p.z, glyphIdx: g.glyphIdx, brightness: g.brightness, depth: this.depth / (SUB_CFG.depthLayers - 1), age: g.age });
-    }
-    for (const b of this.branches) b.collect(out);
-  }
-}
-
-const SUBSTRATE_GLYPH_VERT = `
-  attribute float glyphIndex;
-  attribute float brightness;
-  attribute float depth;
-  attribute float age;
-  varying vec2 vUv;
-  varying float vBrightness;
-  varying float vDepth;
-  varying float vAge;
-  uniform float uCols;
-  uniform float uTotal;
-  void main() {
-    float idx = mod(glyphIndex, uTotal);
-    float col = mod(idx, uCols);
-    float row = floor(idx / uCols);
-    vUv = vec2(col / uCols, row / uCols);
-    vBrightness = brightness;
-    vDepth = depth;
-    vAge = age;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    float scale = 180.0 * (1.0 + depth * 0.5);
-    gl_PointSize = scale / -mvPosition.z;
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const SUBSTRATE_GLYPH_FRAG = `
-  varying vec2 vUv;
-  varying float vBrightness;
-  varying float vDepth;
-  varying float vAge;
-  uniform sampler2D uAtlas;
-  uniform float uCols;
-  uniform float uTime;
-  uniform vec3 uBaseColor;
-  uniform vec3 uTipColor;
-  void main() {
-    float cellSize = 1.0 / uCols;
-    vec2 uv = vUv + gl_PointCoord * cellSize;
-    vec4 glyph = texture2D(uAtlas, uv);
-    float alpha = glyph.r * vBrightness;
-    if (alpha < 0.05) discard;
-    float pulse = 0.85 + 0.15 * sin(uTime * 2.07 + vAge * 6.28);
-    vec3 color = mix(uBaseColor, uTipColor, vBrightness * vBrightness) * pulse;
-    color *= (1.0 - vDepth * 0.4);
-    color += uTipColor * smoothstep(0.7, 1.0, vBrightness) * 0.4 * pulse;
-    gl_FragColor = vec4(color, alpha * (0.6 + 0.4 * vBrightness));
-  }
-`;
-
-const SUBSTRATE_SPORE_VERT = `
-  attribute float size;
-  attribute float alpha;
-  varying float vAlpha;
-  void main() {
-    vAlpha = alpha;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = size * (150.0 / -mvPosition.z);
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const SUBSTRATE_SPORE_FRAG = `
-  varying float vAlpha;
-  uniform vec3 uColor;
-  uniform float uTime;
-  void main() {
-    float d = length(gl_PointCoord - 0.5) * 2.0;
-    float circle = 1.0 - smoothstep(0.0, 1.0, d);
-    float alpha = circle * vAlpha;
-    if (alpha < 0.01) discard;
-    float pulse = 0.8 + 0.2 * sin(uTime * 3.3 + gl_PointCoord.x * 12.56);
-    vec3 color = uColor * pulse + vec3(0.2, 0.8, 0.3) * (1.0 - d) * 0.3 * vAlpha;
-    gl_FragColor = vec4(color, alpha * 0.7);
-  }
-`;
-
-const SUBSTRATE_GROUND_VERT = `
-  varying vec2 vUv;
-  void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-`;
-
-const SUBSTRATE_GROUND_FRAG = `
-  varying vec2 vUv;
-  uniform float uTime;
-  void main() {
-    float d = length(vUv - 0.5) * 2.0;
-    float glow = exp(-d * d * 2.0) * 0.15;
-    float pulse = 0.8 + 0.2 * sin(uTime * 0.33 * 6.28);
-    vec3 color = vec3(0.0, 0.3, 0.08) * glow * pulse;
-    float v1 = smoothstep(0.01, 0.0, abs(sin(vUv.x * 30.0 + uTime * 0.2) * 0.02 + vUv.y * 0.5 - 0.25));
-    float v2 = smoothstep(0.01, 0.0, abs(sin(vUv.x * 20.0 - uTime * 0.15) * 0.03 + vUv.y * 0.5 - 0.3));
-    color += vec3(0.0, 0.15, 0.04) * (v1 + v2) * pulse * 0.5;
-    gl_FragColor = vec4(color, 1.0);
-  }
-`;
-
 // ── TunnelcoreCinematic ───────────────────────────────────
-// Fullscreen overlay: dim matrix rain + left-aligned typewriter text.
+// Fullscreen overlay: substrate tendrils + left-aligned typewriter text.
 // Mounts over everything via position:fixed, z-index 9999.
 // Self-dismisses (renders null) after completion so it stops blocking input.
 // Holds on black for 4s after text fades so the shell never flashes through.
@@ -796,9 +580,8 @@ const TC_FADE_OUT_START = 38500;
 const TC_TOTAL_DURATION = 43500;  // fade at 38.5s, 4s hold on black, then complete
 
 function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
-  const threeRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const completedRef = useRef(false);
   const animFrameRef = useRef<number>(0);
   const [dismissed, setDismissed] = useState(false);
@@ -827,7 +610,6 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     if (completedRef.current) return;
     completedRef.current = true;
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    if (rendererRef.current) { rendererRef.current.dispose(); rendererRef.current = null; }
 
     // ── FX: Tier 2 + desync tear on exit ────────────────────────────────
     eventBus.emit('neural:frequency-shift', { mode: 'green' });
@@ -919,199 +701,227 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     requestAnimationFrame(animate);
   }, [fadingOut]);
 
-  // Substrate tendril system (Three.js)
+  // ── Substrate tendril system — 2D canvas ──────────────────────────────
+  // Fungal glyph-tendrils grow upward, branching organically.
+  // Spore particles drift and swirl. Ground pulses with bioluminescence.
   useEffect(() => {
-    const container = threeRef.current;
-    if (!container) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const rect = container.getBoundingClientRect();
-    const w = rect.width || window.innerWidth;
-    const h = rect.height || window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    const resize = () => {
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener('resize', resize);
 
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000a02, 0.025);
+    const GLYPHS = [...'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ⌇⏣◬◭◮⌬⍟⏚⌁∿≋⋈⋇⋆⟐⟡∰⌖⌗'];
+    const FS = 14;
+    const cW = () => window.innerWidth;
+    const cH = () => window.innerHeight;
 
-    const camera = new THREE.PerspectiveCamera(65, w / h, 0.1, 200);
-    camera.position.set(0, 6, 22);
-    camera.lookAt(0, 10, -4);
+    // ── Tendril data ────────────────────────────────────────
+    type TGlyph = { y: number; char: string; brightness: number; age: number; mutTimer: number };
+    type TTendril = {
+      x: number; height: number; maxH: number; speed: number;
+      twistPhase: number; twistFreq: number; twistAmp: number;
+      glyphs: TGlyph[]; nextGlyphAt: number; spacing: number;
+      delay: number; elapsed: number; branches: TTendril[];
+    };
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false });
-    renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000a02);
-    container.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    const atlas = createSubstrateAtlas();
-
-    // Create tendrils across three depth layers
-    const tendrils: SubstrateTendril[] = [];
-    for (let i = 0; i < SUB_CFG.tendrilCount; i++) {
-      const dl = i % SUB_CFG.depthLayers;
-      const zBase = dl === 0 ? 0 : dl === 1 ? -8 : -18;
-      const spread = dl === 0 ? 14 : dl === 1 ? 20 : 28;
-      const t = new SubstrateTendril(
-        (Math.random() - 0.5) * spread,
-        zBase + (Math.random() - 0.5) * 6,
-        dl, Math.random() * 3, SUB_CFG.maxHeight
-      );
-      t.atlasTotal = atlas.total;
-      tendrils.push(t);
+    function makeTendril(x: number, delay: number, maxH: number): TTendril {
+      return {
+        x, height: 0, maxH: maxH * (0.5 + Math.random() * 0.8),
+        speed: 0.4 + Math.random() * 0.8,
+        twistPhase: Math.random() * Math.PI * 2,
+        twistFreq: 0.015 + Math.random() * 0.025,
+        twistAmp: 15 + Math.random() * 35,
+        glyphs: [], nextGlyphAt: 0, spacing: FS * (0.9 + Math.random() * 0.3),
+        delay, elapsed: 0, branches: [],
+      };
     }
 
-    // Pre-simulate 4 seconds so tendrils are already visible on mount
-    const PRE_SIM_STEPS = 240; // ~4s at 60fps
-    const PRE_DT = 1 / 60;
-    for (let step = 0; step < PRE_SIM_STEPS; step++) {
-      for (const t of tendrils) t.update(PRE_DT);
+    function getTendrilX(t: TTendril, y: number): number {
+      const progress = Math.min(1, y / t.maxH);
+      return t.x + Math.sin(y * t.twistFreq + t.twistPhase + t.elapsed * 0.15) * t.twistAmp * progress;
     }
 
-    // Glyph particle system
-    const MAX_G = 6000;
-    const gPos = new Float32Array(MAX_G * 3);
-    const gIdx = new Float32Array(MAX_G);
-    const gBri = new Float32Array(MAX_G);
-    const gDep = new Float32Array(MAX_G);
-    const gAge = new Float32Array(MAX_G);
-    const gGeo = new THREE.BufferGeometry();
-    gGeo.setAttribute('position', new THREE.BufferAttribute(gPos, 3));
-    gGeo.setAttribute('glyphIndex', new THREE.BufferAttribute(gIdx, 1));
-    gGeo.setAttribute('brightness', new THREE.BufferAttribute(gBri, 1));
-    gGeo.setAttribute('depth', new THREE.BufferAttribute(gDep, 1));
-    gGeo.setAttribute('age', new THREE.BufferAttribute(gAge, 1));
-    const gMat = new THREE.ShaderMaterial({
-      vertexShader: SUBSTRATE_GLYPH_VERT, fragmentShader: SUBSTRATE_GLYPH_FRAG,
-      uniforms: {
-        uAtlas: { value: atlas.texture }, uCols: { value: atlas.cols }, uTotal: { value: atlas.total },
-        uTime: { value: 0 }, uBaseColor: { value: new THREE.Vector3(...SUB_CFG.baseColor) }, uTipColor: { value: new THREE.Vector3(...SUB_CFG.tipColor) },
-      },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    });
-    scene.add(new THREE.Points(gGeo, gMat));
+    function updateTendril(t: TTendril, dt: number) {
+      t.elapsed += dt;
+      if (t.elapsed < t.delay) return;
+      t.height += t.speed * dt * 60;
 
-    // Spore particle system
-    const SC = SUB_CFG.sporeCount;
-    const sPos = new Float32Array(SC * 3);
-    const sSiz = new Float32Array(SC);
-    const sAlp = new Float32Array(SC);
-    const sVel: { vx: number; vy: number; vz: number; phase: number; freq: number; turbPhase: number; dl: number; zB: number; sp: number }[] = [];
-    for (let i = 0; i < SC; i++) {
-      const dl = Math.floor(Math.random() * 3);
-      const zB = dl === 0 ? 0 : dl === 1 ? -8 : -18;
-      const sp = dl === 0 ? 16 : dl === 1 ? 24 : 32;
-      sPos[i * 3] = (Math.random() - 0.5) * sp;
-      sPos[i * 3 + 1] = Math.random() * SUB_CFG.maxHeight * 1.2;
-      sPos[i * 3 + 2] = zB + (Math.random() - 0.5) * 8;
-      sSiz[i] = 0.15 + Math.random() * 0.35;
-      sAlp[i] = 0.1 + Math.random() * 0.5;
-      sVel.push({ vx: (Math.random() - 0.5) * SUB_CFG.sporeDrift, vy: SUB_CFG.sporeSpeed * (0.3 + Math.random()), vz: (Math.random() - 0.5) * SUB_CFG.sporeDrift * 0.5, phase: Math.random() * Math.PI * 2, freq: 0.5 + Math.random() * 2, turbPhase: Math.random() * Math.PI * 2, dl, zB, sp });
-    }
-    const sGeo = new THREE.BufferGeometry();
-    sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
-    sGeo.setAttribute('size', new THREE.BufferAttribute(sSiz, 1));
-    sGeo.setAttribute('alpha', new THREE.BufferAttribute(sAlp, 1));
-    const sMat = new THREE.ShaderMaterial({
-      vertexShader: SUBSTRATE_SPORE_VERT, fragmentShader: SUBSTRATE_SPORE_FRAG,
-      uniforms: { uColor: { value: new THREE.Vector3(...SUB_CFG.sporeColor) }, uTime: { value: 0 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    });
-    scene.add(new THREE.Points(sGeo, sMat));
+      while (t.height > t.nextGlyphAt) {
+        t.glyphs.push({
+          y: t.nextGlyphAt,
+          char: GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
+          brightness: 1.0, age: 0,
+          mutTimer: 0.5 + Math.random() * 2,
+        });
+        t.nextGlyphAt += t.spacing;
 
-    // Ground glow plane
-    const grGeo = new THREE.PlaneGeometry(60, 40);
-    const grMat = new THREE.ShaderMaterial({
-      vertexShader: SUBSTRATE_GROUND_VERT, fragmentShader: SUBSTRATE_GROUND_FRAG,
-      uniforms: { uTime: { value: 0 } }, transparent: true, side: THREE.DoubleSide,
-    });
-    const ground = new THREE.Mesh(grGeo, grMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.5;
-    scene.add(ground);
-
-    scene.add(new THREE.AmbientLight(0x001a06, 0.3));
-
-    let lastTime = performance.now();
-    let elapsed = 0;
-    let camAngle = 0;
-
-    const animate = () => {
-      if (completedRef.current) return;
-      animFrameRef.current = requestAnimationFrame(animate);
-      const now = performance.now();
-      const dt = Math.min((now - lastTime) / 1000, 0.05);
-      lastTime = now;
-      elapsed += dt;
-
-      for (const t of tendrils) t.update(dt);
-      const allG: { x: number; y: number; z: number; glyphIdx: number; brightness: number; depth: number; age: number }[] = [];
-      for (const t of tendrils) t.collect(allG);
-      const count = Math.min(allG.length, MAX_G);
-      for (let i = 0; i < count; i++) {
-        const g = allG[i];
-        gPos[i * 3] = g.x; gPos[i * 3 + 1] = g.y; gPos[i * 3 + 2] = g.z;
-        gIdx[i] = g.glyphIdx; gBri[i] = g.brightness; gDep[i] = g.depth; gAge[i] = g.age;
-      }
-      gGeo.setDrawRange(0, count);
-      gGeo.attributes.position.needsUpdate = true;
-      gGeo.attributes.glyphIndex.needsUpdate = true;
-      gGeo.attributes.brightness.needsUpdate = true;
-      gGeo.attributes.depth.needsUpdate = true;
-      gGeo.attributes.age.needsUpdate = true;
-
-      // Update spores — upward drift with turbulence + swirl
-      for (let i = 0; i < SC; i++) {
-        const v = sVel[i]; const idx = i * 3;
-        const turbX = Math.sin(elapsed * v.freq + v.phase) * SUB_CFG.sporeTurb;
-        const turbZ = Math.cos(elapsed * v.freq * 0.7 + v.turbPhase) * SUB_CFG.sporeTurb * 0.6;
-        const sa = elapsed * 0.2 + v.phase;
-        const sr = 0.3 + Math.sin(elapsed * 0.5 + v.phase) * 0.2;
-        sPos[idx] += (v.vx * 0.1 + turbX + Math.cos(sa) * sr * 0.3) * dt;
-        sPos[idx + 1] += v.vy * dt;
-        sPos[idx + 2] += (v.vz * 0.1 + turbZ + Math.sin(sa) * sr * 0.2) * dt;
-        const gust = Math.sin(elapsed * 0.15 + sPos[idx] * 0.1);
-        if (gust > 0.7) { sPos[idx] += gust * 1.5 * dt; sPos[idx + 2] += gust * 0.5 * dt; }
-        sAlp[i] = (0.1 + Math.random() * 0.3) * (0.7 + 0.3 * Math.sin(elapsed * v.freq * 2 + v.phase));
-        if (sPos[idx + 1] > SUB_CFG.maxHeight * 1.4 || Math.abs(sPos[idx]) > 25) {
-          sPos[idx] = (Math.random() - 0.5) * v.sp;
-          sPos[idx + 1] = -1 + Math.random() * 2;
-          sPos[idx + 2] = v.zB + (Math.random() - 0.5) * 8;
+        // Branch chance
+        if (t.branches.length < 2 && Math.random() < 0.025 && t.nextGlyphAt > FS * 6) {
+          const bx = getTendrilX(t, t.nextGlyphAt) + (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 25);
+          const branch = makeTendril(bx, 0, t.maxH - t.height + Math.random() * cH() * 0.2);
+          branch.twistAmp *= 1.8;
+          branch.speed *= 0.6;
+          t.branches.push(branch);
         }
       }
-      sGeo.attributes.position.needsUpdate = true;
-      sGeo.attributes.alpha.needsUpdate = true;
 
-      gMat.uniforms.uTime.value = elapsed;
-      sMat.uniforms.uTime.value = elapsed;
-      grMat.uniforms.uTime.value = elapsed;
+      for (const g of t.glyphs) {
+        g.age += dt;
+        const distFromTip = t.height - g.y;
+        g.brightness = distFromTip < FS * 2 ? 1.0 : Math.max(0.05, Math.exp(-distFromTip * 0.004));
+        g.mutTimer -= dt;
+        if (g.mutTimer <= 0) {
+          g.char = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+          g.mutTimer = (distFromTip < FS * 4 ? 0.1 : 0.8) + Math.random() * 1.5;
+        }
+      }
 
-      // Slow camera orbit
-      camAngle += 0.03 * dt;
-      camera.position.x = Math.sin(camAngle) * 4;
-      camera.position.z = 22 + Math.cos(camAngle) * 1.2;
-      camera.position.y = 6 + Math.sin(elapsed * 0.1) * 1.5;
-      camera.lookAt(0, 10 + Math.sin(elapsed * 0.08) * 2, -4);
+      if (t.height > t.maxH + cH() * 0.15) {
+        t.height = 0; t.glyphs = []; t.nextGlyphAt = 0;
+        t.twistPhase = Math.random() * Math.PI * 2;
+        t.maxH = cH() * (0.5 + Math.random() * 0.8);
+        t.x += (Math.random() - 0.5) * 40;
+        t.branches = [];
+      }
 
-      renderer.render(scene, camera);
+      for (const b of t.branches) updateTendril(b, dt);
+    }
+
+    function drawTendril(t: TTendril) {
+      if (!ctx) return;
+      ctx.font = `${FS}px monospace`;
+      for (const g of t.glyphs) {
+        const screenX = getTendrilX(t, g.y);
+        const screenY = cH() - g.y; // grows upward from bottom
+        if (screenY < -FS || screenY > cH() + FS) continue;
+
+        const distFromTip = t.height - g.y;
+        if (distFromTip < FS * 1.5) {
+          // Tip: white-hot with glow
+          const tipBright = 0.7 + 0.3 * Math.sin(g.age * 8);
+          ctx.fillStyle = `rgba(255, 255, 255, ${tipBright})`;
+          ctx.fillText(g.char, screenX, screenY);
+          ctx.fillStyle = `rgba(200, 255, 220, 0.25)`;
+          ctx.fillText(g.char, screenX, screenY);
+        } else {
+          // Trail: phosphor green, fading
+          const a = g.brightness * (0.8 + 0.2 * Math.sin(g.age * 3 + g.y * 0.01));
+          const green = Math.floor(180 + 75 * g.brightness);
+          ctx.fillStyle = `rgba(0, ${green}, ${Math.floor(40 + 25 * g.brightness)}, ${a})`;
+          ctx.fillText(g.char, screenX, screenY);
+        }
+      }
+      for (const b of t.branches) drawTendril(b);
+    }
+
+    // Create tendrils spread across screen width
+    const TENDRIL_COUNT = Math.max(14, Math.floor(cW() / 55));
+    const tendrils: TTendril[] = [];
+    for (let i = 0; i < TENDRIL_COUNT; i++) {
+      const x = (i / TENDRIL_COUNT) * cW() + (Math.random() - 0.5) * (cW() / TENDRIL_COUNT);
+      tendrils.push(makeTendril(x, Math.random() * 2, cH() * (0.6 + Math.random() * 0.5)));
+    }
+
+    // Pre-grow so tendrils are visible immediately
+    for (let step = 0; step < 200; step++) {
+      for (const t of tendrils) updateTendril(t, 1/60);
+    }
+
+    // ── Spore particles ─────────────────────────────────────
+    type TSpore = { x: number; y: number; vx: number; vy: number; size: number; alpha: number; phase: number; freq: number };
+    const SPORE_COUNT = 250;
+    const spores: TSpore[] = [];
+    for (let i = 0; i < SPORE_COUNT; i++) {
+      spores.push({
+        x: Math.random() * cW(), y: Math.random() * cH(),
+        vx: (Math.random() - 0.5) * 30, vy: -(15 + Math.random() * 40),
+        size: 1 + Math.random() * 2.5, alpha: 0.1 + Math.random() * 0.4,
+        phase: Math.random() * Math.PI * 2, freq: 0.5 + Math.random() * 2,
+      });
+    }
+
+    let elapsed = 0;
+
+    const draw = () => {
+      if (completedRef.current) return;
+      const dt = 1 / 60;
+      elapsed += dt;
+
+      // Fade trails — slow for dense organic look
+      ctx.fillStyle = 'rgba(0, 3, 1, 0.08)';
+      ctx.fillRect(0, 0, cW(), cH());
+
+      // Ground bioluminescent pulse
+      const pulseAlpha = 0.04 + 0.02 * Math.sin(elapsed * 2.07);
+      const groundGrad = ctx.createLinearGradient(0, cH(), 0, cH() * 0.7);
+      groundGrad.addColorStop(0, `rgba(0, 60, 15, ${pulseAlpha})`);
+      groundGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = groundGrad;
+      ctx.fillRect(0, cH() * 0.7, cW(), cH() * 0.3);
+
+      // Ground vein lines
+      ctx.strokeStyle = `rgba(0, 80, 20, ${0.03 + 0.015 * Math.sin(elapsed * 1.5)})`;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        const baseX = (i / 8) * cW() + Math.sin(elapsed * 0.3 + i) * 20;
+        ctx.beginPath();
+        ctx.moveTo(baseX, cH());
+        ctx.quadraticCurveTo(
+          baseX + Math.sin(elapsed * 0.2 + i * 1.7) * 40,
+          cH() - 30 - Math.random() * 20,
+          baseX + Math.sin(elapsed * 0.5 + i * 0.9) * 60,
+          cH() - 60 - Math.random() * 30
+        );
+        ctx.stroke();
+      }
+
+      // Update + draw tendrils
+      for (const t of tendrils) {
+        updateTendril(t, dt);
+        drawTendril(t);
+      }
+
+      // Update + draw spores
+      for (const s of spores) {
+        const turbX = Math.sin(elapsed * s.freq + s.phase) * 25;
+        const gustPhase = Math.sin(elapsed * 0.15 + s.x * 0.005);
+        s.x += (s.vx * 0.05 + turbX * 0.05 + (gustPhase > 0.7 ? gustPhase * 40 : 0)) * dt;
+        s.y += s.vy * dt;
+
+        const flicker = 0.6 + 0.4 * Math.sin(elapsed * s.freq * 3 + s.phase);
+        const drawAlpha = s.alpha * flicker;
+
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, ${Math.floor(160 + 80 * flicker)}, ${Math.floor(40 + 20 * flicker)}, ${drawAlpha})`;
+        ctx.fill();
+
+        if (s.y < -10 || s.x < -20 || s.x > cW() + 20) {
+          s.x = Math.random() * cW();
+          s.y = cH() + Math.random() * 20;
+          s.vy = -(15 + Math.random() * 40);
+        }
+      }
+
+      animFrameRef.current = requestAnimationFrame(draw);
     };
 
-    animFrameRef.current = requestAnimationFrame(animate);
-
-    const onResize = () => {
-      const r = container.getBoundingClientRect();
-      const nw = r.width || window.innerWidth;
-      const nh = r.height || window.innerHeight;
-      camera.aspect = nw / nh;
-      camera.updateProjectionMatrix();
-      renderer.setSize(nw, nh);
-    };
-    window.addEventListener('resize', onResize);
+    animFrameRef.current = requestAnimationFrame(draw);
 
     return () => {
       cancelAnimationFrame(animFrameRef.current);
-      window.removeEventListener('resize', onResize);
-      renderer.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
-      rendererRef.current = null;
+      window.removeEventListener('resize', resize);
     };
   }, []);
 
@@ -1150,9 +960,9 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         cursor: 'pointer',
       }}
     >
-      {/* Substrate tendril system — fades with overlayOpacity */}
-      <div
-        ref={threeRef}
+      {/* Substrate tendrils canvas — fades with overlayOpacity */}
+      <canvas
+        ref={canvasRef}
         style={{
           position: 'absolute',
           inset: 0,
@@ -1160,8 +970,6 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           height: '100%',
           opacity: matrixOpacity * 0.7 * overlayOpacity,
           transition: 'opacity 0.5s',
-          pointerEvents: 'none',
-          overflow: 'hidden',
         }}
       />
 
