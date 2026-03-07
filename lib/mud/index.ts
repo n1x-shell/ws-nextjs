@@ -14,7 +14,8 @@ export * from './mudCommands';
 export * from './mudAudio';
 export * from './mudHUD';
 // ── Progression Systems ─────────────────────────────────────────────────
-export * from './skillTree';
+// skillTree has its own SkillNode that shadows the one in types.ts.
+// Exclude from barrel — consumers import from './skillTree' directly.
 export * from './lootEngine';
 export * from './safeHaven';
 export * from './levelUpSequence';
