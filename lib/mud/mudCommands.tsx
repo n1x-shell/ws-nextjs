@@ -2354,9 +2354,9 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         addLocalMsg(
           <MudLine key={k('lvl-prompt')} color={C.dim}>&gt; {prompt}</MudLine>
         );
-        const handler = (data: { input: string }) => {
+        const handler = (event: import('@/types/neural.types').NeuralEvent) => {
           eventBus.off('mud:levelup-input', handler);
-          resolve(data.input);
+          resolve(event.payload?.input ?? '');
         };
         eventBus.on('mud:levelup-input', handler);
         // Set session to track we're in level-up mode
