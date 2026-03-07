@@ -562,7 +562,8 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
 // Fullscreen overlay: dim matrix rain + left-aligned typewriter text.
 // Mounts over everything via position:fixed, z-index 9999.
 // Self-dismisses (renders null) after completion so it stops blocking input.
-// Calls onComplete() when the sequence finishes or user presses Enter/clicks.
+// Holds on black for 4s after text fades so the shell never flashes through.
+// Calls onComplete() when the full sequence (including hold) finishes.
 
 const TC_LINES: { text: string; startDelay: number }[] = [
   { text: 'wake up, citizen.',                                                          startDelay: 1200  },
@@ -576,7 +577,7 @@ const TC_LINES: { text: string; startDelay: number }[] = [
 const TC_CHAR_SPEED_FIRST = 80;
 const TC_CHAR_SPEED_REPEAT = 35;
 const TC_FADE_OUT_START = 38500;
-const TC_TOTAL_DURATION = 40000;
+const TC_TOTAL_DURATION = 43500;  // fade at 38.5s, 4s hold on black, then complete
 
 function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -600,19 +601,23 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     }
   }, []);
 
-  // Fire CRT glitch on mount
+  // ── FX: Tier 2 + whiteout flash on mount ──────────────────────────────
   useEffect(() => {
-    eventBus.emit('crt:glitch-tier', { tier: 2, duration: 300 });
+    eventBus.emit('telnet:connected');
   }, []);
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
     completedRef.current = true;
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    // Remove overlay from DOM first so it stops blocking input
+
+    // ── FX: Tier 2 + desync tear on exit ────────────────────────────────
+    eventBus.emit('neural:frequency-shift', { mode: 'green' });
+
+    // Remove overlay from DOM so it stops blocking input
     setDismissed(true);
-    // Delay onComplete so the prompt appears after overlay is gone
-    setTimeout(() => onComplete(), 100);
+    // Small delay so React processes dismiss before onComplete pushes new content
+    setTimeout(() => onComplete(), 80);
   }, [onComplete]);
 
   // Skip handler: Enter or click
@@ -640,7 +645,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     requestAnimationFrame(fadeIn);
   }, []);
 
-  // Sequence timer: line reveals
+  // Sequence timer: line reveals + fade + hold + complete
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     TC_LINES.forEach((line, i) => {
@@ -653,14 +658,14 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       }, adjustedDelay));
     });
 
-    // Fade out
+    // Fade out text + rain
     const fadeOutDelay = hasSeen ? TC_FADE_OUT_START * 0.5 : TC_FADE_OUT_START;
     timers.push(setTimeout(() => {
       if (completedRef.current) return;
       setFadingOut(true);
     }, fadeOutDelay));
 
-    // Complete
+    // Complete (after 4s hold on black)
     const totalDelay = hasSeen ? TC_TOTAL_DURATION * 0.5 : TC_TOTAL_DURATION;
     timers.push(setTimeout(() => {
       finish();
@@ -687,6 +692,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     const animate = () => {
       const elapsed = Date.now() - start;
       const progress = Math.min(1, elapsed / 800);
+      // Fade text+rain to 0 but keep black background at full opacity
       setOverlayOpacity(1 - progress);
       if (progress < 1 && !completedRef.current) {
         requestAnimationFrame(animate);
@@ -793,11 +799,9 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         zIndex: 9999,
         background: '#000',
         cursor: 'pointer',
-        opacity: overlayOpacity,
-        transition: fadingOut ? 'opacity 0.8s ease-out' : undefined,
       }}
     >
-      {/* Matrix rain canvas */}
+      {/* Matrix rain canvas — fades with overlayOpacity */}
       <canvas
         ref={canvasRef}
         style={{
@@ -805,12 +809,12 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           inset: 0,
           width: '100%',
           height: '100%',
-          opacity: matrixOpacity * 0.7,
+          opacity: matrixOpacity * 0.7 * overlayOpacity,
           transition: 'opacity 0.5s',
         }}
       />
 
-      {/* Left-aligned text container */}
+      {/* Left-aligned text container — fades with overlayOpacity */}
       <div style={{
         position: 'absolute',
         inset: 0,
@@ -819,6 +823,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         justifyContent: 'center',
         zIndex: 1,
         padding: '2rem',
+        opacity: overlayOpacity,
       }}>
         <div style={{
           maxWidth: '500px',
@@ -834,7 +839,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         </div>
       </div>
 
-      {/* Skip hint */}
+      {/* Skip hint — fades with overlayOpacity */}
       <div style={{
         position: 'absolute',
         bottom: '2rem',
@@ -843,7 +848,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         fontFamily: 'monospace',
         fontSize: '11px',
         color: '#e0e0e0',
-        opacity: 0.2,
+        opacity: 0.2 * overlayOpacity,
         zIndex: 2,
       }}>
         press enter to skip
@@ -1998,39 +2003,40 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         setTimeout(() => {
           push(
             <TunnelcoreCinematic onComplete={() => {
-              // Pause before asking for handle
+              // ── FX: Tier 2 + text jitter when question appears ──────
+              eventBus.emit('crt:glitch-tier', { tier: 2, duration: 400 });
+              eventBus.emit('neural:glitch-trigger', { intensity: 0.8 });
+
+              // Push styled question
+              push(
+                <div style={{
+                  fontFamily: 'monospace',
+                  fontSize: 'var(--text-base)',
+                  marginTop: '0.5rem',
+                  marginBottom: '0.25rem',
+                }}>
+                  <span style={{
+                    background: 'var(--phosphor-green)',
+                    color: '#000',
+                    padding: '2px 8px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                  }}>WHAT DO THEY CALL YOU?</span>
+                </div>
+              );
+
+              if (!_requestPrompt) {
+                push(<TelnetSession host="n1x.sh" handle="citizen" mudDirect />);
+                return;
+              }
+
+              const promptFn = _requestPrompt;
               setTimeout(() => {
-                // Push styled question
-                push(
-                  <div style={{
-                    fontFamily: 'monospace',
-                    fontSize: 'var(--text-base)',
-                    marginTop: '0.5rem',
-                    marginBottom: '0.25rem',
-                  }}>
-                    <span style={{
-                      background: 'var(--phosphor-green)',
-                      color: '#000',
-                      padding: '2px 8px',
-                      fontWeight: 700,
-                      letterSpacing: '0.06em',
-                    }}>WHAT DO THEY CALL YOU?</span>
-                  </div>
-                );
-
-                if (!_requestPrompt) {
-                  push(<TelnetSession host="n1x.sh" handle="citizen" mudDirect />);
-                  return;
-                }
-
-                const promptFn = _requestPrompt;
-                setTimeout(() => {
-                  promptFn('>', (input: string) => {
-                    const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
-                    push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
-                  }, 'text');
-                }, 100);
-              }, 4000);
+                promptFn('>', (input: string) => {
+                  const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
+                  push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
+                }, 'text');
+              }, 100);
             }} />
           );
         }, 50);
