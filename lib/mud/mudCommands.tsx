@@ -68,7 +68,7 @@ import {
 import {
   getFormattedShop, getShopkeeperName, buyItem, sellItem,
 } from './shopSystem';
-import { getItemTemplate } from './items';
+import { getItemTemplate, createItem } from './items';
 import {
   getAvailableQuests, getActiveQuests, startQuest, trackObjective,
   getQuestObjectiveProgress, QUEST_REGISTRY,
@@ -1602,9 +1602,28 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         if (endCheck.victory) {
           clearCombat(char.handle);
           const xpResult = addXP(char, endCheck.xpGained);
+
+          // Build salvage data — drops stay on the ground until player takes them
+          const enemyNames = (combat.sourceEnemies ?? []).map(e => e.name);
+          const salvageDrops = endCheck.drops.map(dropId => {
+            const template = getItemTemplate(dropId);
+            return { itemId: dropId, name: template?.name ?? dropId, taken: false };
+          });
+          if (salvageDrops.length > 0) {
+            char.pendingSalvage = {
+              enemies: enemyNames.length > 0
+                ? [{ name: enemyNames.join(', '), drops: salvageDrops }]
+                : [{ name: 'remains', drops: salvageDrops }],
+            };
+          }
+          char.lastCombatLoot = endCheck.drops;
+
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
           eventBus.emit('crt:glitch-tier', { tier: 2, duration: 300 });
+          if (salvageDrops.length > 0) {
+            eventBus.emit('mud:panel-mode', { mode: 'salvage' });
+          }
 
           const nextXP = xpForLevel(char.level + 1 + (char.pendingLevelUps ?? 0));
           addLocalMsg(
@@ -1625,9 +1644,9 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
                   </MudLine>
                 </div>
               )}
-              {endCheck.drops.length > 0 && (
+              {salvageDrops.length > 0 && (
                 <MudLine indent color={C.dim}>
-                  drops: {endCheck.drops.join(', ')}
+                  {salvageDrops.length} item{salvageDrops.length > 1 ? 's' : ''} to salvage. check the panel or /take all
                 </MudLine>
               )}
             </div>
@@ -1745,8 +1764,26 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         if (endCheck.victory) {
           clearCombat(char.handle);
           const xpResult = addXP(char, endCheck.xpGained);
+
+          // Build salvage
+          const enemyNames = (combat.sourceEnemies ?? []).map(e => e.name);
+          const salvageDrops = endCheck.drops.map(dropId => {
+            const template = getItemTemplate(dropId);
+            return { itemId: dropId, name: template?.name ?? dropId, taken: false };
+          });
+          if (salvageDrops.length > 0) {
+            char.pendingSalvage = {
+              enemies: [{ name: enemyNames.join(', ') || 'remains', drops: salvageDrops }],
+            };
+          }
+          char.lastCombatLoot = endCheck.drops;
+
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
+          if (salvageDrops.length > 0) {
+            eventBus.emit('mud:panel-mode', { mode: 'salvage' });
+          }
+
           const nextXP = xpForLevel(char.level + 1 + (char.pendingLevelUps ?? 0));
           addLocalMsg(
             <div key={k('combat-win-h')}>
@@ -1756,6 +1793,11 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
               {xpResult.pendingLevels > 0 && (
                 <MudLine color={C.accent} glow>
                   &gt;&gt; LEVEL THRESHOLD REACHED — find a safe haven and /rest to integrate.
+                </MudLine>
+              )}
+              {salvageDrops.length > 0 && (
+                <MudLine color={C.dim}>
+                  {salvageDrops.length} item{salvageDrops.length > 1 ? 's' : ''} to salvage.
                 </MudLine>
               )}
             </div>
@@ -2021,6 +2063,10 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     }
 
     // Move character
+    // Clear any pending salvage — you walked away from the remains
+    if (char.pendingSalvage) {
+      delete char.pendingSalvage;
+    }
     const prevRoomId = char.currentRoom;
     char.currentRoom = result.targetRoom;
     addVisitedRoom(handle, result.targetRoom);
@@ -2660,6 +2706,99 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     return { handled: true, stopPropagation: true };
   }
 
+  // ── /take [item|all] ───────────────────────────────────────────────────
+  if (cmd === 'take' || cmd === 'takeall' || cmd === 'salvage') {
+    const salvage = char.pendingSalvage;
+    if (!salvage || salvage.enemies.length === 0) {
+      addLocalMsg(
+        <MudNotice key={k('take-none')}>nothing to salvage.</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    const allDrops = salvage.enemies.flatMap(e => e.drops);
+    const untaken = allDrops.filter(d => !d.taken);
+
+    if (untaken.length === 0) {
+      addLocalMsg(
+        <MudNotice key={k('take-empty')}>nothing left. you picked it clean.</MudNotice>
+      );
+      delete char.pendingSalvage;
+      saveCharacter(char.handle, char);
+      eventBus.emit('mud:panel-mode', { mode: 'default' });
+      setSession({ ...session });
+      return { handled: true, stopPropagation: true };
+    }
+
+    const takeAll = cmd === 'takeall' || cmd === 'salvage' || rest.toLowerCase() === 'all';
+    const collectedNames: string[] = [];
+
+    if (takeAll) {
+      // Take everything
+      for (const drop of untaken) {
+        const item = createItem(drop.itemId);
+        if (item) {
+          const existing = char.inventory.find(i => i.id === drop.itemId && i.stackable);
+          if (existing) { existing.quantity += item.quantity; }
+          else { char.inventory.push(item); }
+          collectedNames.push(item.name);
+          drop.taken = true;
+        }
+      }
+    } else if (rest) {
+      // Take specific item by name
+      const search = rest.toLowerCase();
+      const match = untaken.find(d => d.name.toLowerCase().includes(search));
+      if (!match) {
+        addLocalMsg(
+          <MudNotice key={k('take-notfound')} error>
+            no "{rest}" in the salvage.
+          </MudNotice>
+        );
+        return { handled: true, stopPropagation: true };
+      }
+      const item = createItem(match.itemId);
+      if (item) {
+        const existing = char.inventory.find(i => i.id === match.itemId && i.stackable);
+        if (existing) { existing.quantity += item.quantity; }
+        else { char.inventory.push(item); }
+        collectedNames.push(item.name);
+        match.taken = true;
+      }
+    } else {
+      addLocalMsg(
+        <MudNotice key={k('take-usage')}>usage: /take &lt;item name&gt; or /take all</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Check if all taken
+    const remaining = allDrops.filter(d => !d.taken);
+    if (remaining.length === 0) {
+      delete char.pendingSalvage;
+      eventBus.emit('mud:panel-mode', { mode: 'default' });
+    }
+
+    saveCharacter(char.handle, char);
+    setSession({ ...session });
+
+    addLocalMsg(
+      <div key={k('take-ok')}>
+        {collectedNames.map((name, i) => (
+          <MudLine key={k(`took-${i}`)} color={C.heal} indent>
+            + {name}
+          </MudLine>
+        ))}
+        {remaining.length > 0 && (
+          <MudLine color={C.dim}>
+            {remaining.length} item{remaining.length > 1 ? 's' : ''} remaining.
+          </MudLine>
+        )}
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
   // ── /save ─────────────────────────────────────────────────────────────
   if (cmd === 'save') {
     saveFullSession(handle, session);
@@ -2712,6 +2851,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         { cmd: '/skillinfo <name>',  desc: 'Detailed skill description' },
         { cmd: '/spend <name>',      desc: 'Unlock a skill node' },
         { cmd: '/loot',              desc: 'Review last combat drops' },
+        { cmd: '/take <item|all>',   desc: 'Salvage items from the dead' },
+        { cmd: '/salvage',           desc: 'Take all salvage at once' },
       ]},
     ];
 
@@ -3152,6 +3293,7 @@ const MUD_COMMANDS = [
   '/save', '/help', '/attack', '/hack', '/use', '/scan', '/flee',
   '/talk', '/shop', '/buy', '/sell', '/quests', '/quest', '/me', '/mudhelp', '/q',
   '/rest', '/levelup', '/skills', '/skilltree', '/skillinfo', '/spend', '/loot',
+  '/take', '/salvage',
 ];
 
 export function getMudSuggestions(partial: string, session: MudSession): string[] {

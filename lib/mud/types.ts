@@ -170,6 +170,12 @@ export interface MudCharacter {
   uniqueDrops: string[];        // item IDs of unique drops already received
   discoveredSynergies: string[]; // synergy IDs the player has activated
   lastCombatLoot?: string[];    // item IDs from last combat for /loot review
+  pendingSalvage?: {            // post-combat salvage awaiting collection
+    enemies: Array<{
+      name: string;
+      drops: Array<{ itemId: string; name: string; taken: boolean }>;
+    }>;
+  };
 }
 
 // ── World State (per-character) ─────────────────────────────────────────────

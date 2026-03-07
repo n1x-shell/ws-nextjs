@@ -153,7 +153,7 @@ function HUDFXStyles() {
 
 // ── Panel mode type ─────────────────────────────────────────────────────────
 
-export type PanelMode = 'default' | 'inventory' | 'shop' | 'map';
+export type PanelMode = 'default' | 'inventory' | 'shop' | 'map' | 'salvage';
 
 // ── Panel data extraction ───────────────────────────────────────────────────
 
@@ -220,6 +220,8 @@ interface PanelData {
   currentRoomId: string;
   inventory: Item[];
   gear: Array<{ slot: string; item: Item }>;
+  salvageEnemies: string[];
+  salvageDrops: Array<{ itemId: string; name: string; taken: boolean }>;
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -313,6 +315,8 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     currentRoomId: char.currentRoom,
     inventory: char.inventory,
     gear: gearEntries,
+    salvageEnemies: char.pendingSalvage?.enemies.map(e => e.name) ?? [],
+    salvageDrops: char.pendingSalvage?.enemies.flatMap(e => e.drops) ?? [],
   };
 }
 
@@ -674,6 +678,102 @@ function ShopPlayerPanel({ inventory }: { inventory: Item[] }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Salvage Panel — Left panel replacement for post-combat looting ─────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const C_SALVAGE = 'rgba(var(--phosphor-rgb),0.65)';
+const C_SALVAGE_ACCENT = 'rgba(var(--phosphor-rgb),0.9)';
+
+function SalvageDropsPanel({ drops }: {
+  drops: Array<{ itemId: string; name: string; taken: boolean }>;
+}) {
+  const untaken = drops.filter(d => !d.taken);
+
+  return (
+    <div>
+      <TitleBar color={C_SALVAGE_ACCENT} borderColor={BORDER} rightSlot={
+        untaken.length > 0 ? (
+          <span
+            role="button" tabIndex={0}
+            onClick={() => eventBus.emit('mud:execute-command', { command: '/take all' })}
+            onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/take all' }); }}
+            style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: C.heal, cursor: 'pointer', touchAction: 'manipulation',
+              border: '1px solid rgba(74,222,128,0.35)', padding: '0.05rem 0.35rem',
+              borderRadius: 2,
+            }}
+          >
+            TAKE ALL
+          </span>
+        ) : undefined
+      }>
+        SALVAGE
+      </TitleBar>
+      {untaken.length === 0 ? (
+        <Empty text="picked clean" />
+      ) : (
+        <div style={{ padding: '0.3rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {drops.map((drop, i) => (
+            <div key={`salvage-${drop.itemId}-${i}`} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              opacity: drop.taken ? 0.35 : 1,
+              padding: '0.15rem 0.2rem',
+              borderLeft: `2px solid ${drop.taken ? 'rgba(var(--phosphor-rgb),0.1)' : 'rgba(74,222,128,0.3)'}`,
+              borderRadius: '0 2px 2px 0',
+            }}>
+              <span style={{
+                color: drop.taken ? C.faint : C_SALVAGE_ACCENT,
+                textDecoration: drop.taken ? 'line-through' : 'none',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                maxWidth: '70%',
+              }}>
+                {drop.name}
+              </span>
+              {!drop.taken && (
+                <span
+                  role="button" tabIndex={0}
+                  className="mud-btn"
+                  onClick={() => eventBus.emit('mud:execute-command', { command: `/take ${drop.name.toLowerCase()}` })}
+                  onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/take ${drop.name.toLowerCase()}` }); }}
+                  style={{
+                    color: C.heal, cursor: 'pointer', touchAction: 'manipulation',
+                    border: '1px solid rgba(74,222,128,0.3)',
+                    padding: '0.05rem 0.3rem', borderRadius: 2,
+                    fontSize: 'var(--text-base)', flexShrink: 0,
+                  }}
+                >
+                  TAKE
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SalvageContextPanel({ enemyNames }: { enemyNames: string[] }) {
+  return (
+    <div>
+      <TitleBar color={C.dimmer} borderColor={BORDER}>REMAINS</TitleBar>
+      <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.05rem' }}>
+        {enemyNames.map((name, i) => (
+          <div key={`dead-${i}`} style={{
+            display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          }}>
+            <span style={{ color: C.dimmer }}>{name}</span>
+            <span style={{ color: C.faint, fontSize: '9px' }}>{'\u2620'}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1256,13 +1356,14 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
   // Combat mode — completely different layout
   if (data.inCombat) return <CombatPanels data={data} />;
 
+  const isSalvageMode = panelMode === 'salvage' && data.salvageDrops.length > 0;
   const isShopMode = panelMode === 'shop' && !data.inCombat;
   const isInvMode = panelMode === 'inventory' && !data.inCombat;
   const isMapMode = panelMode === 'map' && !data.inCombat;
 
   const showRightTop = !data.inCombat;
   const showRightBottom = !isShopMode && (
-    data.inCombat || data.enemies.length > 0 ||
+    data.inCombat || data.enemies.length > 0 || isSalvageMode ||
     (data.shopkeeper !== null && data.shopItems.length > 0 && panelMode === 'default')
   );
   const showRight = showRightTop || showRightBottom;
@@ -1319,6 +1420,8 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
       }}>
         {isMapMode ? (
           <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
+        ) : isSalvageMode ? (
+          <SalvageDropsPanel drops={data.salvageDrops} />
         ) : isShopMode ? (
           <ShopStockPanel
             shopItems={data.shopItems}
@@ -1352,11 +1455,15 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
               <div style={{ borderTop: `1px solid ${BORDER}` }} />
             )}
             {showRightBottom && (
-              <ContextPanel
-                enemies={data.enemies} shopItems={data.shopItems}
-                shopkeeper={data.shopkeeper} inCombat={data.inCombat}
-                creds={data.creds}
-              />
+              isSalvageMode ? (
+                <SalvageContextPanel enemyNames={data.salvageEnemies} />
+              ) : (
+                <ContextPanel
+                  enemies={data.enemies} shopItems={data.shopItems}
+                  shopkeeper={data.shopkeeper} inCombat={data.inCombat}
+                  creds={data.creds}
+                />
+              )
             )}
           </div>
         )}
