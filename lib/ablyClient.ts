@@ -560,7 +560,7 @@ export function useAblyRoom(handle: string, channelName: string = 'ghost'): UseA
           isUnprompted: false,
           isThinking:   true,
           sigil:        '⟁',
-          sigilColor:   '#bf00ff',
+          sigilColor:   '#cc44ff',
         },
       ]);
       eventBus.emit('shell:request-scroll');
@@ -586,7 +586,7 @@ export function useAblyRoom(handle: string, channelName: string = 'ghost'): UseA
         isSystem:     false,
         isUnprompted: data.isUnprompted ?? false,
         sigil:        '⟁',
-        sigilColor:   '#bf00ff',
+        sigilColor:   '#cc44ff',
       });
       recentHistoryRef.current = [
         ...recentHistoryRef.current.slice(-29),
