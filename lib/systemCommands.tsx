@@ -702,8 +702,8 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
   }, [fadingOut]);
 
   // ── Substrate tendril system — 2D canvas ──────────────────────────────
-  // Fungal glyph-tendrils grow upward, branching organically.
-  // Spore particles drift and swirl. Ground pulses with bioluminescence.
+  // Three depth tiers, organic twist, FogExp2 alpha, Perlin-like spore
+  // turbulence, bioluminescent ground veins, slow camera-like drift.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -722,9 +722,24 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     window.addEventListener('resize', resize);
 
     const GLYPHS = [...'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ⌇⏣◬◭◮⌬⍟⏚⌁∿≋⋈⋇⋆⟐⟡∰⌖⌗'];
-    const FS = 14;
     const cW = () => window.innerWidth;
     const cH = () => window.innerHeight;
+
+    // ── Depth tiers — far=dim/slow/small, near=bright/fast/large ────────
+    const TIERS = [
+      { fs: 10, speed: 0.25, amp: 8,  alpha: 0.25, branchProb: 0.01, count: 12, color: [0, 100, 30] },  // far
+      { fs: 13, speed: 0.5,  amp: 20, alpha: 0.55, branchProb: 0.025, count: 10, color: [0, 160, 45] },  // mid
+      { fs: 16, speed: 0.8,  amp: 35, alpha: 0.9,  branchProb: 0.035, count: 8,  color: [0, 220, 60] },  // near
+    ];
+
+    // ── Simple pseudo-Perlin noise (sine octaves) ───────────────────────
+    function noise2D(x: number, y: number): number {
+      return (
+        Math.sin(x * 1.2 + y * 0.9) * 0.5 +
+        Math.sin(x * 2.5 - y * 1.8) * 0.3 +
+        Math.sin(x * 4.1 + y * 3.2) * 0.2
+      );
+    }
 
     // ── Tendril data ────────────────────────────────────────
     type TGlyph = { y: number; char: string; brightness: number; age: number; mutTimer: number };
@@ -733,45 +748,59 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       twistPhase: number; twistFreq: number; twistAmp: number;
       glyphs: TGlyph[]; nextGlyphAt: number; spacing: number;
       delay: number; elapsed: number; branches: TTendril[];
+      tier: number; baseAlpha: number; fs: number;
+      color: number[];
     };
 
-    function makeTendril(x: number, delay: number, maxH: number): TTendril {
+    function makeTendril(x: number, delay: number, maxH: number, tierIdx: number): TTendril {
+      const tier = TIERS[tierIdx];
       return {
         x, height: 0, maxH: maxH * (0.5 + Math.random() * 0.8),
-        speed: 0.4 + Math.random() * 0.8,
+        speed: tier.speed * (0.6 + Math.random() * 0.8),
         twistPhase: Math.random() * Math.PI * 2,
-        twistFreq: 0.015 + Math.random() * 0.025,
-        twistAmp: 15 + Math.random() * 35,
-        glyphs: [], nextGlyphAt: 0, spacing: FS * (0.9 + Math.random() * 0.3),
+        // Higher twist frequency for more organic curves
+        twistFreq: 0.025 + Math.random() * 0.04,
+        twistAmp: tier.amp * (0.6 + Math.random() * 0.8),
+        glyphs: [], nextGlyphAt: 0,
+        spacing: tier.fs * (0.85 + Math.random() * 0.3),
         delay, elapsed: 0, branches: [],
+        tier: tierIdx, baseAlpha: tier.alpha, fs: tier.fs,
+        color: tier.color,
       };
     }
 
-    function getTendrilX(t: TTendril, y: number): number {
+    function getTendrilX(t: TTendril, y: number, globalTime: number): number {
       const progress = Math.min(1, y / t.maxH);
-      return t.x + Math.sin(y * t.twistFreq + t.twistPhase + t.elapsed * 0.15) * t.twistAmp * progress;
+      // Multi-frequency twist for organic irregular movement
+      const primary = Math.sin(y * t.twistFreq + t.twistPhase + t.elapsed * 0.15);
+      const secondary = Math.sin(y * t.twistFreq * 2.3 + t.twistPhase * 1.7 + globalTime * 0.08) * 0.3;
+      const tertiary = Math.sin(y * t.twistFreq * 0.4 + t.twistPhase * 0.5 + globalTime * 0.03) * 0.5;
+      return t.x + (primary + secondary + tertiary) * t.twistAmp * progress;
     }
 
-    function updateTendril(t: TTendril, dt: number) {
+    function updateTendril(t: TTendril, dt: number, globalTime: number) {
       t.elapsed += dt;
       if (t.elapsed < t.delay) return;
       t.height += t.speed * dt * 60;
+
+      const tier = TIERS[t.tier];
 
       while (t.height > t.nextGlyphAt) {
         t.glyphs.push({
           y: t.nextGlyphAt,
           char: GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
           brightness: 1.0, age: 0,
-          mutTimer: 0.5 + Math.random() * 2,
+          mutTimer: 0.3 + Math.random() * 1.5,
         });
         t.nextGlyphAt += t.spacing;
 
-        // Branch chance
-        if (t.branches.length < 2 && Math.random() < 0.025 && t.nextGlyphAt > FS * 6) {
-          const bx = getTendrilX(t, t.nextGlyphAt) + (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 25);
-          const branch = makeTendril(bx, 0, t.maxH - t.height + Math.random() * cH() * 0.2);
-          branch.twistAmp *= 1.8;
-          branch.speed *= 0.6;
+        // Branch — probability varies by tier
+        if (t.branches.length < 3 && Math.random() < tier.branchProb && t.nextGlyphAt > t.fs * 5) {
+          const bx = getTendrilX(t, t.nextGlyphAt, globalTime) + (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random() * t.twistAmp * 0.8);
+          const branch = makeTendril(bx, 0, t.maxH - t.height + Math.random() * cH() * 0.15, t.tier);
+          branch.twistAmp *= 1.6;
+          branch.speed *= 0.55;
+          branch.twistFreq *= 1.4;
           t.branches.push(branch);
         }
       }
@@ -779,138 +808,221 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       for (const g of t.glyphs) {
         g.age += dt;
         const distFromTip = t.height - g.y;
-        g.brightness = distFromTip < FS * 2 ? 1.0 : Math.max(0.05, Math.exp(-distFromTip * 0.004));
+        g.brightness = distFromTip < t.fs * 2 ? 1.0 : Math.max(0.04, Math.exp(-distFromTip * 0.005));
         g.mutTimer -= dt;
         if (g.mutTimer <= 0) {
           g.char = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-          g.mutTimer = (distFromTip < FS * 4 ? 0.1 : 0.8) + Math.random() * 1.5;
+          g.mutTimer = (distFromTip < t.fs * 3 ? 0.08 : 0.6) + Math.random() * 1.2;
         }
       }
 
-      if (t.height > t.maxH + cH() * 0.15) {
+      if (t.height > t.maxH + cH() * 0.12) {
         t.height = 0; t.glyphs = []; t.nextGlyphAt = 0;
         t.twistPhase = Math.random() * Math.PI * 2;
         t.maxH = cH() * (0.5 + Math.random() * 0.8);
-        t.x += (Math.random() - 0.5) * 40;
+        t.x += (Math.random() - 0.5) * 30;
+        // Keep x in bounds
+        if (t.x < -50) t.x = Math.random() * cW() * 0.3;
+        if (t.x > cW() + 50) t.x = cW() - Math.random() * cW() * 0.3;
         t.branches = [];
       }
 
-      for (const b of t.branches) updateTendril(b, dt);
+      for (const b of t.branches) updateTendril(b, dt, globalTime);
     }
 
-    function drawTendril(t: TTendril) {
+    function drawTendril(t: TTendril, globalTime: number, driftX: number, driftY: number) {
       if (!ctx) return;
-      ctx.font = `${FS}px monospace`;
+      ctx.font = `${t.fs}px monospace`;
+      const h = cH();
+
       for (const g of t.glyphs) {
-        const screenX = getTendrilX(t, g.y);
-        const screenY = cH() - g.y; // grows upward from bottom
-        if (screenY < -FS || screenY > cH() + FS) continue;
+        const rawX = getTendrilX(t, g.y, globalTime);
+        // Apply camera drift
+        const screenX = rawX + driftX;
+        const screenY = h - g.y + driftY;
+        if (screenY < -t.fs * 2 || screenY > h + t.fs) continue;
+
+        // FogExp2-style distance fade (from bottom of screen)
+        const distFromBottom = g.y / h;
+        const fogAlpha = Math.pow(Math.max(0, 1 - distFromBottom * 0.7), 2.5);
+        const layerAlpha = t.baseAlpha * fogAlpha;
+        if (layerAlpha < 0.02) continue;
 
         const distFromTip = t.height - g.y;
-        if (distFromTip < FS * 1.5) {
-          // Tip: white-hot with glow
-          const tipBright = 0.7 + 0.3 * Math.sin(g.age * 8);
+
+        if (distFromTip < t.fs * 1.5) {
+          // Tip: white-hot glow — brightest on near tier
+          const tipBright = (0.6 + 0.4 * Math.sin(g.age * 8)) * layerAlpha;
           ctx.fillStyle = `rgba(255, 255, 255, ${tipBright})`;
           ctx.fillText(g.char, screenX, screenY);
-          ctx.fillStyle = `rgba(200, 255, 220, 0.25)`;
-          ctx.fillText(g.char, screenX, screenY);
+          // Glow halo
+          ctx.fillStyle = `rgba(180, 255, 200, ${tipBright * 0.35})`;
+          ctx.fillText(g.char, screenX - 0.5, screenY);
+          ctx.fillText(g.char, screenX + 0.5, screenY);
         } else {
-          // Trail: phosphor green, fading
-          const a = g.brightness * (0.8 + 0.2 * Math.sin(g.age * 3 + g.y * 0.01));
-          const green = Math.floor(180 + 75 * g.brightness);
-          ctx.fillStyle = `rgba(0, ${green}, ${Math.floor(40 + 25 * g.brightness)}, ${a})`;
+          // Trail: tier-colored, exponential fade + pulse
+          const pulse = 0.8 + 0.2 * Math.sin(g.age * 3 + g.y * 0.015);
+          const a = g.brightness * pulse * layerAlpha;
+          const [r, green, b] = t.color;
+          const gBright = Math.floor(green + (255 - green) * g.brightness * 0.3);
+          ctx.fillStyle = `rgba(${r}, ${gBright}, ${b + Math.floor(20 * g.brightness)}, ${a})`;
           ctx.fillText(g.char, screenX, screenY);
         }
       }
-      for (const b of t.branches) drawTendril(b);
+      for (const b of t.branches) drawTendril(b, globalTime, driftX, driftY);
     }
 
-    // Create tendrils spread across screen width
-    const TENDRIL_COUNT = Math.max(14, Math.floor(cW() / 55));
+    // ── Create tendrils across all three tiers ──────────────
     const tendrils: TTendril[] = [];
-    for (let i = 0; i < TENDRIL_COUNT; i++) {
-      const x = (i / TENDRIL_COUNT) * cW() + (Math.random() - 0.5) * (cW() / TENDRIL_COUNT);
-      tendrils.push(makeTendril(x, Math.random() * 2, cH() * (0.6 + Math.random() * 0.5)));
+    for (let tierIdx = 0; tierIdx < TIERS.length; tierIdx++) {
+      const tier = TIERS[tierIdx];
+      for (let i = 0; i < tier.count; i++) {
+        const x = (i / tier.count) * cW() + (Math.random() - 0.5) * (cW() / tier.count);
+        tendrils.push(makeTendril(x, Math.random() * 2.5, cH() * (0.5 + Math.random() * 0.6), tierIdx));
+      }
     }
 
     // Pre-grow so tendrils are visible immediately
     for (let step = 0; step < 200; step++) {
-      for (const t of tendrils) updateTendril(t, 1/60);
+      for (const t of tendrils) updateTendril(t, 1/60, step / 60);
     }
 
-    // ── Spore particles ─────────────────────────────────────
-    type TSpore = { x: number; y: number; vx: number; vy: number; size: number; alpha: number; phase: number; freq: number };
-    const SPORE_COUNT = 250;
+    // ── Spore particles with Perlin-like turbulence ─────────
+    type TSpore = { x: number; y: number; size: number; alpha: number; phase: number; freq: number; tier: number };
+    const SPORE_COUNT = 280;
     const spores: TSpore[] = [];
     for (let i = 0; i < SPORE_COUNT; i++) {
+      const tier = Math.floor(Math.random() * 3);
       spores.push({
         x: Math.random() * cW(), y: Math.random() * cH(),
-        vx: (Math.random() - 0.5) * 30, vy: -(15 + Math.random() * 40),
-        size: 1 + Math.random() * 2.5, alpha: 0.1 + Math.random() * 0.4,
-        phase: Math.random() * Math.PI * 2, freq: 0.5 + Math.random() * 2,
+        size: (tier === 2 ? 1.5 : tier === 1 ? 1.0 : 0.6) + Math.random() * (tier === 2 ? 2 : 1),
+        alpha: TIERS[tier].alpha * (0.15 + Math.random() * 0.3),
+        phase: Math.random() * Math.PI * 2,
+        freq: 0.5 + Math.random() * 2,
+        tier,
       });
     }
 
+    // ── Ground vein offscreen canvas (drawn once, composited per frame) ──
+    const veinCanvas = document.createElement('canvas');
+    veinCanvas.width = cW();
+    veinCanvas.height = 120;
+    const vCtx = veinCanvas.getContext('2d');
+    function drawVeinsToOffscreen(time: number) {
+      if (!vCtx) return;
+      vCtx.clearRect(0, 0, veinCanvas.width, veinCanvas.height);
+      const veinCount = 12;
+      for (let i = 0; i < veinCount; i++) {
+        const baseX = (i / veinCount) * veinCanvas.width;
+        const phase = time * 0.2 + i * 1.3;
+        const brightness = 0.03 + 0.025 * Math.sin(time * 0.33 * 6.28 + i * 0.8);
+        vCtx.strokeStyle = `rgba(0, 100, 25, ${brightness})`;
+        vCtx.lineWidth = 0.8 + Math.sin(time * 0.5 + i) * 0.4;
+        vCtx.beginPath();
+        vCtx.moveTo(baseX + Math.sin(phase) * 15, veinCanvas.height);
+        // Multi-point bezier for more organic shape
+        const cp1x = baseX + Math.sin(phase * 1.3) * 30;
+        const cp1y = veinCanvas.height * 0.65;
+        const cp2x = baseX + Math.sin(phase * 0.7 + 1) * 45;
+        const cp2y = veinCanvas.height * 0.3;
+        const endX = baseX + Math.sin(phase * 0.4 + 2) * 50;
+        const endY = Math.random() * 10;
+        vCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+        vCtx.stroke();
+
+        // Secondary thinner branch off each vein
+        if (i % 2 === 0) {
+          vCtx.strokeStyle = `rgba(0, 70, 18, ${brightness * 0.6})`;
+          vCtx.lineWidth = 0.5;
+          vCtx.beginPath();
+          vCtx.moveTo(cp1x, cp1y);
+          vCtx.quadraticCurveTo(
+            cp1x + (Math.random() > 0.5 ? 20 : -20),
+            cp1y - 15,
+            cp1x + Math.sin(phase * 2) * 30,
+            cp1y - 30
+          );
+          vCtx.stroke();
+        }
+      }
+    }
+
     let elapsed = 0;
+    let lastVeinDraw = -1;
 
     const draw = () => {
       if (completedRef.current) return;
       const dt = 1 / 60;
       elapsed += dt;
 
-      // Fade trails — slow for dense organic look
-      ctx.fillStyle = 'rgba(0, 3, 1, 0.08)';
+      // Slow camera-like drift
+      const driftX = Math.sin(elapsed * 0.05) * 8 + Math.sin(elapsed * 0.02) * 4;
+      const driftY = Math.cos(elapsed * 0.04) * 5;
+
+      // Fade trails — very slow for dense, persistent organic look
+      ctx.fillStyle = 'rgba(0, 2, 1, 0.06)';
       ctx.fillRect(0, 0, cW(), cH());
 
-      // Ground bioluminescent pulse
-      const pulseAlpha = 0.04 + 0.02 * Math.sin(elapsed * 2.07);
-      const groundGrad = ctx.createLinearGradient(0, cH(), 0, cH() * 0.7);
-      groundGrad.addColorStop(0, `rgba(0, 60, 15, ${pulseAlpha})`);
+      // Ground bioluminescent pulse (gradient)
+      const pulse33 = 0.8 + 0.2 * Math.sin(elapsed * 0.33 * 6.28); // 33hz visual ref
+      const pulseAlpha = 0.035 * pulse33;
+      const groundGrad = ctx.createLinearGradient(0, cH(), 0, cH() * 0.65);
+      groundGrad.addColorStop(0, `rgba(0, 50, 12, ${pulseAlpha * 1.5})`);
+      groundGrad.addColorStop(0.5, `rgba(0, 30, 8, ${pulseAlpha * 0.7})`);
       groundGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = groundGrad;
-      ctx.fillRect(0, cH() * 0.7, cW(), cH() * 0.3);
+      ctx.fillRect(0, cH() * 0.65, cW(), cH() * 0.35);
 
-      // Ground vein lines
-      ctx.strokeStyle = `rgba(0, 80, 20, ${0.03 + 0.015 * Math.sin(elapsed * 1.5)})`;
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 8; i++) {
-        const baseX = (i / 8) * cW() + Math.sin(elapsed * 0.3 + i) * 20;
-        ctx.beginPath();
-        ctx.moveTo(baseX, cH());
-        ctx.quadraticCurveTo(
-          baseX + Math.sin(elapsed * 0.2 + i * 1.7) * 40,
-          cH() - 30 - Math.random() * 20,
-          baseX + Math.sin(elapsed * 0.5 + i * 0.9) * 60,
-          cH() - 60 - Math.random() * 30
-        );
-        ctx.stroke();
+      // Redraw veins to offscreen every ~4 frames for perf
+      const veinFrame = Math.floor(elapsed * 15);
+      if (veinFrame !== lastVeinDraw) {
+        drawVeinsToOffscreen(elapsed);
+        lastVeinDraw = veinFrame;
+      }
+      // Composite veins at bottom
+      ctx.drawImage(veinCanvas, driftX * 0.3, cH() - 120 + driftY * 0.5);
+
+      // Draw tendrils — far tier first (painter's algorithm)
+      for (const t of tendrils) updateTendril(t, dt, elapsed);
+      for (let tierIdx = 0; tierIdx < TIERS.length; tierIdx++) {
+        for (const t of tendrils) {
+          if (t.tier === tierIdx) drawTendril(t, elapsed, driftX * (tierIdx === 0 ? 0.3 : tierIdx === 1 ? 0.6 : 1.0), driftY * (tierIdx === 0 ? 0.2 : tierIdx === 1 ? 0.5 : 1.0));
+        }
       }
 
-      // Update + draw tendrils
-      for (const t of tendrils) {
-        updateTendril(t, dt);
-        drawTendril(t);
-      }
-
-      // Update + draw spores
+      // Spores with Perlin-like turbulence
       for (const s of spores) {
-        const turbX = Math.sin(elapsed * s.freq + s.phase) * 25;
-        const gustPhase = Math.sin(elapsed * 0.15 + s.x * 0.005);
-        s.x += (s.vx * 0.05 + turbX * 0.05 + (gustPhase > 0.7 ? gustPhase * 40 : 0)) * dt;
-        s.y += s.vy * dt;
+        // Noise-driven displacement
+        const nx = noise2D(s.x * 0.003 + elapsed * 0.2, s.y * 0.003) * 60;
+        const ny = noise2D(s.x * 0.003, s.y * 0.003 + elapsed * 0.15) * 30;
 
-        const flicker = 0.6 + 0.4 * Math.sin(elapsed * s.freq * 3 + s.phase);
-        const drawAlpha = s.alpha * flicker;
+        s.x += nx * dt;
+        s.y += (-20 - s.freq * 15 + ny) * dt; // upward with noise
 
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, ${Math.floor(160 + 80 * flicker)}, ${Math.floor(40 + 20 * flicker)}, ${drawAlpha})`;
-        ctx.fill();
+        // Wind gust
+        const gust = Math.sin(elapsed * 0.12 + s.x * 0.004);
+        if (gust > 0.6) s.x += gust * 50 * dt;
 
-        if (s.y < -10 || s.x < -20 || s.x > cW() + 20) {
+        const flicker = 0.5 + 0.5 * Math.sin(elapsed * s.freq * 3 + s.phase);
+        const fogFade = Math.pow(Math.max(0, 1 - (cH() - s.y) / cH() * 0.8), 2);
+        const drawAlpha = s.alpha * flicker * fogFade;
+
+        if (drawAlpha > 0.01) {
+          const tierDriftX = driftX * (s.tier === 0 ? 0.3 : s.tier === 1 ? 0.6 : 1.0);
+          const tierDriftY = driftY * (s.tier === 0 ? 0.2 : s.tier === 1 ? 0.5 : 1.0);
+          const sx = s.x + tierDriftX;
+          const sy = s.y + tierDriftY;
+          const [, green, blue] = TIERS[s.tier].color;
+          ctx.beginPath();
+          ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0, ${Math.floor(green * (0.7 + 0.3 * flicker))}, ${Math.floor(blue * (0.6 + 0.4 * flicker))}, ${drawAlpha})`;
+          ctx.fill();
+        }
+
+        // Respawn
+        if (s.y < -15 || s.x < -30 || s.x > cW() + 30) {
           s.x = Math.random() * cW();
-          s.y = cH() + Math.random() * 20;
-          s.vy = -(15 + Math.random() * 40);
+          s.y = cH() + Math.random() * 30;
         }
       }
 
