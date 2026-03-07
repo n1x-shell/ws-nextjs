@@ -1,7 +1,7 @@
 // lib/mud/mudHUD.tsx
-// TUNNELCORE MUD — Persistent HUD Panel System (v3)
+// TUNNELCORE MUD — Persistent HUD Panel System (v4)
 // Self-contained flex container that owns its own scroll region.
-// Layout: room header → 2-col grid (2/3 + 1/3) → compass → [chat scrolls here] → status bar.
+// Layout: room header → 2-col grid → [chat scrolls] → action bar → [stats + compass].
 // No position:sticky — the container fills the viewport and manages internal scroll.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -61,10 +61,9 @@ const BG_PANEL = '#0a0a0a';
 const BG_COMBAT = '#0d0808';
 const BORDER = 'rgba(var(--phosphor-rgb),0.15)';
 const BORDER_COMBAT = 'rgba(255,68,68,0.25)';
+// ── HUD FX Keyframes ────────────────────────────────────────────────────────
 
-// ── Combat FX Keyframes ─────────────────────────────────────────────────────
-
-function CombatFXStyles() {
+function HUDFXStyles() {
   return (
     <style>{`
       @keyframes mud-pulse-red {
@@ -79,10 +78,9 @@ function CombatFXStyles() {
         from { opacity: 0; transform: translateX(-6px); }
         to { opacity: 1; transform: translateX(0); }
       }
-      @keyframes mud-bar-flash {
-        0% { filter: brightness(1); }
-        30% { filter: brightness(1.8); }
-        100% { filter: brightness(1); }
+      @keyframes mud-fade-in {
+        from { opacity: 0; transform: translateY(2px); }
+        to { opacity: 1; transform: translateY(0); }
       }
       @keyframes mud-header-pulse {
         0%, 100% { text-shadow: 0 0 6px rgba(255,68,68,0.4); }
@@ -92,26 +90,65 @@ function CombatFXStyles() {
         0%, 100% { text-shadow: 0 0 5px var(--phosphor-accent); }
         50% { text-shadow: 0 0 12px var(--phosphor-accent), 0 0 20px rgba(var(--phosphor-rgb),0.3); }
       }
-      .mud-btn-combat {
+      .mud-btn {
         transition: all 0.15s ease !important;
       }
-      .mud-btn-combat:hover {
+      .mud-btn:hover {
         transform: scale(1.06) !important;
         filter: brightness(1.15) !important;
       }
-      .mud-btn-combat:active {
+      .mud-btn:active {
         transform: scale(0.95) !important;
         filter: brightness(0.9) !important;
       }
-      .mud-enemy-card {
+      .mud-card-slide {
         animation: mud-slide-in 0.25s ease-out both;
       }
-      .mud-player-card {
-        animation: mud-slide-in 0.3s ease-out 0.1s both;
+      .mud-compass-btn {
+        transition: all 0.15s ease !important;
+      }
+      .mud-compass-btn:hover:not(:disabled) {
+        transform: scale(1.12) !important;
+        filter: brightness(1.3) !important;
+      }
+      .mud-compass-btn:active:not(:disabled) {
+        transform: scale(0.9) !important;
+      }
+      .mud-action-btn {
+        transition: all 0.15s ease !important;
+      }
+      .mud-action-btn:hover {
+        background: rgba(var(--phosphor-rgb),0.1) !important;
+        color: var(--phosphor-accent) !important;
+      }
+      .mud-action-btn:active {
+        transform: scale(0.94) !important;
+        filter: brightness(0.85) !important;
+      }
+      .mud-npc-card {
+        animation: mud-fade-in 0.2s ease-out both;
+        transition: background 0.15s ease;
+      }
+      .mud-npc-card:hover {
+        background: rgba(var(--phosphor-rgb),0.04);
+      }
+      .mud-obj-row {
+        transition: all 0.12s ease;
+      }
+      .mud-obj-row:hover {
+        padding-left: 0.2rem;
+        background: rgba(var(--phosphor-rgb),0.04);
+      }
+      .mud-shop-row {
+        transition: all 0.12s ease;
+      }
+      .mud-shop-row:hover {
+        background: rgba(var(--phosphor-rgb),0.04);
       }
     `}</style>
   );
 }
+
 
 // ── Panel mode type ─────────────────────────────────────────────────────────
 
@@ -285,7 +322,7 @@ function Btn({ label, command, color, borderColor, small }: {
 }) {
   return (
     <button
-      className="mud-btn-combat"
+      className="mud-btn"
       onClick={(e) => { e.stopPropagation(); eventBus.emit('mud:execute-command', { command }); }}
       style={{
         fontFamily: 'monospace', fontSize: 'var(--text-base)', lineHeight: 1,
@@ -337,7 +374,7 @@ function TitleBar({ children, color, borderColor, rightSlot }: {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '0.15rem 0.35rem',
+      padding: '0.25rem 0.5rem',
       background: 'rgba(var(--phosphor-rgb),0.04)',
       borderBottom: `1px solid ${borderColor}`,
     }}>
@@ -356,7 +393,7 @@ function Empty({ text }: { text: string }) {
   return (
     <div style={{
       fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint,
-      fontStyle: 'italic', padding: '0.15rem 0.35rem',
+      fontStyle: 'italic', padding: '0.25rem 0.5rem',
     }}>
       {text}
     </div>
@@ -386,16 +423,16 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
             <Btn label="FLEE" command="/flee" color={C.dimmer} borderColor="rgba(var(--phosphor-rgb),0.25)" />
           </div>
           {hasRam && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', marginBottom: '0.15rem' }}>
               <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack, flexShrink: 0 }}>RAM</span>
-              <Bar pct={(playerRam / playerMaxRam) * 100} color={C.hack} height={5} />
+              <Bar pct={(playerRam / playerMaxRam) * 100} color={C.hack} />
               <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack, flexShrink: 0 }}>
                 {playerRam}/{playerMaxRam}
               </span>
             </div>
           )}
           {consumables.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.1rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem' }}>
               {consumables.map(item => (
                 <Btn key={item.id}
                   label={`${item.name}${item.quantity > 1 ? ' \u00d7' + item.quantity : ''}`}
@@ -417,20 +454,24 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
       {npcs.length === 0 ? (
         <Empty text="no one here" />
       ) : (
-        <div style={{ padding: '0.2rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-          {npcs.map(npc => {
+        <div style={{ padding: '0.3rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {npcs.map((npc, _npcIdx) => {
             const icon = npc.type === 'QUESTGIVER' ? '?' : npc.type === 'SHOPKEEPER' ? '$' : npc.type === 'ALLIED' ? '+' : '\u00b7';
             const iconColor = npc.type === 'QUESTGIVER' ? C.quest : npc.type === 'SHOPKEEPER' ? C.shop : C.npc;
             return (
-              <div key={npc.id}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4ch', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
+              <div key={npc.id} className="mud-npc-card" style={{
+                padding: '0.2rem 0.3rem',
+                borderLeft: '2px solid rgba(252,211,77,0.25)',
+                borderRadius: '0 2px 2px 0',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
                   <span style={{ color: iconColor, fontWeight: 'bold', width: '1.2ch', textAlign: 'center' }}>{icon}</span>
                   <span style={{ color: C.npc, fontWeight: 'bold' }}>{npc.name}</span>
                   {npc.disposition !== 'NEUTRAL' && (
                     <span style={{ color: C.faint, fontSize: '9px' }}>[{npc.disposition}]</span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.2rem', paddingLeft: '1.6ch', marginTop: '0.05rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.3rem', paddingLeft: '1.6ch', marginTop: '0.15rem', flexWrap: 'wrap' }}>
                   <Btn label="TALK" command="/talk hello" color={C.npc} borderColor="rgba(252,211,77,0.3)" small />
                   {npc.hasShop && <Btn label="SHOP" command="/shop" color={C.shop} borderColor="rgba(252,211,77,0.3)" small />}
                   {npc.isQuestGiver && <Btn label="QUEST" command="/quests" color={C.quest} borderColor="rgba(251,191,36,0.3)" small />}
@@ -500,19 +541,18 @@ function ObjectsPanel({ objects }: { objects: PanelObject[] }) {
       {objects.length === 0 ? (
         <Empty text="nothing notable" />
       ) : (
-        <div style={{ padding: '0.15rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.05rem' }}>
+        <div style={{ padding: '0.25rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
           {objects.map(obj => (
             <div key={obj.id}
+              className="mud-obj-row"
               role="button" tabIndex={0}
               onClick={() => eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` })}
               onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` }); }}
               style={{
                 fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.object,
                 cursor: 'pointer', touchAction: 'manipulation',
-                padding: '0.05rem 0', transition: 'color 0.12s',
+                padding: '0.1rem 0.2rem', borderRadius: 2,
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--phosphor-green)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.object; }}
             >
               {obj.name}
               {obj.lootable && <span style={{ color: C.quest, marginLeft: '0.3ch' }}>{'\u2b21'}</span>}
@@ -647,27 +687,26 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
     return (
       <div>
         <TitleBar color={C.enemy} borderColor={BORDER_COMBAT}>HOSTILES</TitleBar>
-        <div style={{ padding: '0.3rem 0.4rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        <div style={{ padding: '0.2rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
           {enemies.map(e => {
             const hpPct = e.maxHp && e.maxHp > 0 ? ((e.hp ?? 0) / e.maxHp) * 100 : 100;
             return (
               <div key={e.id}>
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                  marginBottom: '0.15rem',
                 }}>
                   <span style={{ color: C.enemy, fontWeight: 'bold' }}>{e.name}</span>
                   <span style={{ color: C.enemy, fontSize: 'var(--text-base)' }}>
                     {e.hp !== undefined ? `${e.hp}/${e.maxHp}` : '???'}
                   </span>
                 </div>
-                <Bar pct={hpPct} color="#ff4444" height={5} />
+                <Bar pct={hpPct} color="#ff4444" />
                 {e.effects && e.effects.length > 0 && (
                   <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack }}>
                     [{e.effects.join(', ')}]
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.2rem' }}>
+                <div style={{ display: 'flex', gap: '0.2rem', marginTop: '0.1rem' }}>
                   <Btn label="ATK" command={`/attack ${e.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.4)" small />
                   <Btn label="SCAN" command={`/scan ${e.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.3)" small />
                 </div>
@@ -754,24 +793,21 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
   const isLow = hpPct < 30 && hpPct > 0;
 
   return (
-    <div className="mud-enemy-card" style={{
+    <div className="mud-card-slide" style={{
       border: '1px solid rgba(255,68,68,0.15)',
       borderLeft: '3px solid rgba(255,68,68,0.5)',
       background: isLow ? 'rgba(255,30,30,0.08)' : 'rgba(255,30,30,0.03)',
       padding: compact ? '0.5rem 0.6rem' : '0.6rem 0.75rem',
       borderRadius: '0 3px 3px 0',
-      animation: 'mud-pulse-red 3s ease-in-out infinite',
+      animation: 'mud-pulse-red 3s ease-in-out infinite, mud-slide-in 0.25s ease-out both',
     }}>
-      {/* Title row */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontFamily: 'monospace', fontSize: 'var(--text-base)',
-        marginBottom: '0.35rem',
-        paddingBottom: '0.25rem',
+        marginBottom: '0.35rem', paddingBottom: '0.25rem',
         borderBottom: '1px solid rgba(255,68,68,0.1)',
       }}>
-        <span style={{
-          color: C.enemy, fontWeight: 'bold', letterSpacing: '0.06em',
+        <span style={{ color: C.enemy, fontWeight: 'bold', letterSpacing: '0.06em',
           textShadow: isLow ? '0 0 8px rgba(255,68,68,0.5)' : 'none',
         }}>
           {enemy.name}
@@ -781,45 +817,30 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
         </span>
       </div>
 
-      {/* HP bar */}
       {hpKnown ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', marginBottom: '0.35rem' }}>
           <span style={{ color: C.faint, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
           <div style={{ flex: 1 }}><Bar pct={hpPct} color="#ff4444" height={6} /></div>
-          <span style={{
-            color: isLow ? '#ff6b6b' : C.enemy, fontSize: 'var(--text-base)',
-            flexShrink: 0, minWidth: '5ch', textAlign: 'right',
-            fontWeight: isLow ? 'bold' : 'normal',
-          }}>
+          <span style={{ color: isLow ? '#ff6b6b' : C.enemy, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right', fontWeight: isLow ? 'bold' : 'normal' }}>
             {enemy.hp}/{enemy.maxHp}
           </span>
         </div>
       ) : (
-        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.35rem' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.15rem' }}>
           HP ???
         </div>
       )}
 
-      {/* Effects */}
       {enemy.effects && enemy.effects.length > 0 && (
-        <div style={{
-          fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.35rem',
-          display: 'flex', gap: '0.4ch', flexWrap: 'wrap',
-        }}>
+        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.35rem', display: 'flex', gap: '0.4ch', flexWrap: 'wrap' }}>
           {enemy.effects.map((eff, i) => (
-            <span key={i} style={{
-              padding: '0.1rem 0.3rem',
-              border: '1px solid rgba(192,132,252,0.25)',
-              borderRadius: 2,
-              background: 'rgba(192,132,252,0.06)',
-            }}>
+            <span key={i} style={{ padding: '0.1rem 0.3rem', border: '1px solid rgba(192,132,252,0.25)', borderRadius: 2, background: 'rgba(192,132,252,0.06)' }}>
               {eff.toUpperCase()}
             </span>
           ))}
         </div>
       )}
 
-      {/* Action buttons */}
       <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
         <Btn label="ATK" command={`/attack ${enemy.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.5)" small />
         {hasRam && <Btn label="HACK" command={`/hack short_circuit`} color={C.hack} borderColor="rgba(192,132,252,0.5)" small />}
@@ -837,7 +858,7 @@ function PlayerCard({ data }: { data: PanelData }) {
   const ramPct = hasRam ? (data.playerRam / data.playerMaxRam) * 100 : 0;
 
   return (
-    <div className="mud-player-card" style={{
+    <div className="mud-card-slide" style={{
       border: '1px solid rgba(var(--phosphor-rgb),0.15)',
       borderLeft: data.isPlayerTurn ? '3px solid var(--phosphor-green)' : '3px solid rgba(var(--phosphor-rgb),0.25)',
       background: data.isPlayerTurn ? 'rgba(var(--phosphor-rgb),0.04)' : 'rgba(var(--phosphor-rgb),0.02)',
@@ -845,12 +866,9 @@ function PlayerCard({ data }: { data: PanelData }) {
       borderRadius: '0 3px 3px 0',
       animation: data.isPlayerTurn ? 'mud-pulse-green 2.5s ease-in-out infinite' : 'none',
     }}>
-      {/* Title: turn indicator + identity */}
       <div style={{
         fontFamily: 'monospace', fontSize: 'var(--text-base)',
-        fontWeight: 'bold',
-        marginBottom: '0.4rem',
-        paddingBottom: '0.3rem',
+        fontWeight: 'bold', marginBottom: '0.4rem', paddingBottom: '0.3rem',
         borderBottom: `1px solid ${data.isPlayerTurn ? 'rgba(var(--phosphor-rgb),0.15)' : 'rgba(var(--phosphor-rgb),0.08)'}`,
         color: data.isPlayerTurn ? 'var(--phosphor-accent)' : C.dim,
         letterSpacing: '0.06em',
@@ -859,50 +877,45 @@ function PlayerCard({ data }: { data: PanelData }) {
         {data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle} ({data.subjectId})
       </div>
 
-      {/* Stat bars with consistent spacing */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-        {/* HP bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
-          <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-            {data.hp}/{data.maxHp}
-          </span>
-          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
-          <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
-            Lv.{data.level}
-          </span>
-        </div>
-
-        {/* XP bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
-          <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-            {data.xp}/{data.xpNext}
-          </span>
-        </div>
-
-        {/* RAM bar */}
-        {hasRam && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-            <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>RM</span>
-            <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={5} /></div>
-            <span style={{ color: C.hack, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-              {data.playerRam}/{data.playerMaxRam}
-            </span>
-          </div>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
+        <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          {data.hp}/{data.maxHp}
+        </span>
+        <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
+        <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
+          Lv.{data.level}
+        </span>
       </div>
 
-      {/* Divider before actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
+        <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          {data.xp}/{data.xpNext}
+        </span>
+      </div>
+
+      {hasRam && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>RM</span>
+          <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={5} /></div>
+          <span style={{ color: C.hack, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {data.playerRam}/{data.playerMaxRam}
+          </span>
+        </div>
+      )}
+
+      </div>
+
       <div style={{
         borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
         marginTop: '0.4rem', paddingTop: '0.4rem',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        gap: '0.5rem',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem',
       }}>
-        <div style={{ display: 'flex', gap: '0.6ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
+        <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
           <span style={{ color: '#fcd34d' }}>{data.creds}{'\u00a2'}</span>
           {data.scrip > 0 && <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>}
         </div>
@@ -911,10 +924,7 @@ function PlayerCard({ data }: { data: PanelData }) {
 
       {/* Consumables */}
       {data.consumables.length > 0 && (
-        <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.35rem',
-          paddingTop: '0.3rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.06)',
-        }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem', marginTop: '0.2rem' }}>
           {data.consumables.map(item => (
             <Btn key={item.id}
               label={`${item.name}${item.quantity > 1 ? ' \u00d7' + item.quantity : ''}`}
@@ -938,9 +948,6 @@ function CombatPanels({ data }: { data: PanelData }) {
       borderBottom: `1px solid ${BORDER_COMBAT}`,
       touchAction: 'none',
     }}>
-      <CombatFXStyles />
-
-      {/* Combat header */}
       <div style={{
         padding: '0.4rem 0.6rem',
         borderBottom: `1px solid ${BORDER_COMBAT}`,
@@ -964,7 +971,6 @@ function CombatPanels({ data }: { data: PanelData }) {
         </span>
       </div>
 
-      {/* Enemy cards */}
       <div style={{
         padding: '0.5rem 0.5rem',
         ...(useGrid ? {
@@ -977,7 +983,7 @@ function CombatPanels({ data }: { data: PanelData }) {
           gap: '0.6rem',
         }),
       }}>
-        {data.enemies.map((enemy) => (
+        {data.enemies.map(enemy => (
           <EnemyCard key={enemy.id} enemy={enemy} hasRam={hasRam} compact={useGrid} />
         ))}
       </div>
@@ -994,9 +1000,7 @@ const DIR_LABELS: Record<Direction, string> = {
   up: 'UP', down: 'DN', in: 'IN', out: 'OUT',
 };
 
-function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolean }) {
-  if (inCombat) return null;
-
+function CompassRose({ exits }: { exits: PanelExit[] }) {
   const exitSet = new Set(exits.map(e => e.direction));
   const hasVertical = exitSet.has('up') || exitSet.has('down');
   const hasInOut = exitSet.has('in') || exitSet.has('out');
@@ -1010,6 +1014,7 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
 
     return (
       <button
+        className="mud-compass-btn"
         disabled={!available}
         onClick={() => {
           if (!available) return;
@@ -1035,10 +1040,10 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
             ? locked ? '#ff6b6b' : 'var(--phosphor-accent)'
             : 'rgba(var(--phosphor-rgb),0.12)',
           cursor: available ? 'pointer' : 'default',
-          touchAction: 'manipulation', transition: 'background 0.12s', borderRadius: 2, padding: 0,
+          touchAction: 'manipulation', borderRadius: 2, padding: 0,
+          boxShadow: available ? `0 0 3px ${locked ? 'rgba(255,107,107,0.2)' : 'rgba(var(--phosphor-rgb),0.1)'}` : 'none',
         }}
-        onMouseEnter={(e) => { if (available) (e.target as HTMLElement).style.background = 'rgba(var(--phosphor-rgb),0.12)'; }}
-        onMouseLeave={(e) => { if (available) (e.target as HTMLElement).style.background = locked ? 'rgba(255,107,107,0.08)' : 'rgba(var(--phosphor-rgb),0.06)'; }}
+
       >
         {locked ? '\ud83d\udd12' : DIR_LABELS[dir]}
       </button>
@@ -1047,9 +1052,9 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
 
   return (
     <div style={{
+      aspectRatio: '1',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      gap: '0.5rem', padding: '0.2rem 0',
-      borderTop: `1px solid ${BORDER}`,
+      gap: '0.4rem', padding: '0.3rem',
     }}>
       <div style={{
         display: 'grid',
@@ -1080,43 +1085,90 @@ function CompassRose({ exits, inCombat }: { exits: PanelExit[]; inCombat: boolea
         </div>
       )}
 
-      <div style={{
-        fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint,
-        maxWidth: '35%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>
-        {exits.filter(e => !e.locked).length} exit{exits.filter(e => !e.locked).length !== 1 ? 's' : ''}
-      </div>
+
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Action Bar — LOOK · INVENTORY · QUESTS · MAP · HELP ─────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const ACTION_BUTTONS = [
+  { label: 'LOOK',      command: '/look' },
+  { label: 'INVENTORY', command: '/inventory' },
+  { label: 'QUESTS',    command: '/quests' },
+  { label: 'MAP',       command: '/map' },
+  { label: 'HELP',      command: '/mudhelp' },
+];
+
+function ActionBar({ inCombat }: { inCombat: boolean }) {
+  if (inCombat) return null;
+
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'stretch',
+      borderTop: `1px solid ${BORDER}`,
+      background: 'rgba(var(--phosphor-rgb),0.02)',
+      flexShrink: 0,
+    }}>
+      {ACTION_BUTTONS.map((btn, i) => (
+        <button
+          key={btn.label}
+          className="mud-action-btn"
+          onClick={() => {
+            eventBus.emit('mud:execute-command', { command: btn.command });
+            eventBus.emit('crt:glitch-tier', { tier: 1, duration: 80 });
+          }}
+          style={{
+            flex: 1,
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: C.dim, background: 'transparent',
+            border: 'none',
+            borderRight: i < ACTION_BUTTONS.length - 1 ? `1px solid ${BORDER}` : 'none',
+            padding: '0.4rem 0.2rem',
+            cursor: 'pointer', touchAction: 'manipulation',
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+          }}
+        >
+          {btn.label}
+        </button>
+      ))}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Status Bar ──────────────────────────────────────────────────────────────
-// Row 1: HP [bar] val · Lv.N
-// Row 2: XP [bar] val · creds scrip · combat
+// ── Bottom Bar — [Stats | Compass 1:1] ──────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function StatusBar({ data }: { data: PanelData }) {
+function BottomBar({ data }: { data: PanelData }) {
   const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
   const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
 
   return (
     <div style={{
-      fontFamily: 'monospace', fontSize: S.base,
-      padding: '0.35rem 0.6rem',
-      borderTop: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
-      background: data.inCombat ? BG_COMBAT : BG_PANEL,
-      position: 'relative',
+      display: 'flex',
+      borderTop: `1px solid ${BORDER}`,
+      background: BG_PANEL,
       flexShrink: 0,
+      position: 'relative',
     }}>
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
         background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
       }} />
 
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        {/* Row 1: HP + level */}
+      {/* Stats — fills remaining width */}
+      <div style={{
+        flex: 1, minWidth: 0,
+        fontFamily: 'monospace', fontSize: S.base,
+        padding: '0.4rem 0.6rem',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        gap: '0.25rem', position: 'relative',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
           <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
@@ -1128,31 +1180,34 @@ function StatusBar({ data }: { data: PanelData }) {
             Lv.{data.level}
           </span>
         </div>
-
-        {/* Row 2: XP + Currency + Combat */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
           <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
           <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.xp}/{data.xpNext}
           </span>
-          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
-          <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)', flexShrink: 0 }}>{data.creds}{'\u00a2'}</span>
-          {data.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)', flexShrink: 0 }}>{data.scrip}s</span>}
-          {data.inCombat && (
-            <span style={{
-              color: '#ff4444', fontWeight: 'bold', fontSize: 'var(--text-base)',
-              textShadow: '0 0 6px rgba(255,68,68,0.5)',
-            }}>{'\u2694'} R{data.combatRound}</span>
-          )}
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+          <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)' }}>{data.creds}{'\u00a2'}</span>
+          {data.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)' }}>{data.scrip}s</span>}
+        </div>
+      </div>
+
+      {/* Compass — right side, 1:1 */}
+      <div style={{
+        borderLeft: `1px solid ${BORDER}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, position: 'relative',
+      }}>
+        <CompassRose exits={data.exits} />
       </div>
     </div>
   );
 }
 
+
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Top Panels (room header + grid + compass) ───────────────────────────────
+// ── Top Panels (room header + grid) ──────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode }) {
@@ -1177,7 +1232,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
     }}>
       {/* Room header */}
       <div style={{
-        padding: '0.15rem 0.5rem',
+        padding: '0.3rem 0.6rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         borderBottom: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
         background: data.inCombat ? 'rgba(255,20,20,0.06)' : 'rgba(var(--phosphor-rgb),0.03)',
@@ -1193,7 +1248,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
           {data.isSafeZone && (
             <span style={{
               fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.safe,
-              border: '1px solid rgba(165,243,252,0.3)', padding: '0 0.25em',
+              border: '1px solid rgba(165,243,252,0.3)', padding: '0.1rem 0.35rem',
               borderRadius: 2, lineHeight: 1.3,
             }}>SAFE</span>
           )}
@@ -1203,7 +1258,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
               onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/quests' }); }}
               style={{
                 fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.quest,
-                border: '1px solid rgba(251,191,36,0.35)', padding: '0 0.25em',
+                border: '1px solid rgba(251,191,36,0.35)', padding: '0.1rem 0.35rem',
                 borderRadius: 2, cursor: 'pointer', touchAction: 'manipulation',
               }}
             >
@@ -1262,7 +1317,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         )}
       </div>
 
-      <CompassRose exits={data.exits} inCombat={data.inCombat} />
+
     </div>
   );
 }
@@ -1369,6 +1424,7 @@ export function MudHUDContainer({ session, children }: {
         background: data.inCombat ? BG_COMBAT : BG_PANEL,
       }}
     >
+      <HUDFXStyles />
       <TopPanels data={data} panelMode={panelMode} />
 
       <div
@@ -1386,7 +1442,7 @@ export function MudHUDContainer({ session, children }: {
         {children}
       </div>
 
-      {/* Bottom bar — PlayerCard in combat, StatusBar in explore */}
+      {/* Bottom section */}
       {data.inCombat ? (
         <div style={{
           flexShrink: 0,
@@ -1398,7 +1454,10 @@ export function MudHUDContainer({ session, children }: {
           <PlayerCard data={data} />
         </div>
       ) : (
-        <StatusBar data={data} />
+        <>
+          <ActionBar inCombat={data.inCombat} />
+          <BottomBar data={data} />
+        </>
       )}
     </div>
   );
