@@ -805,9 +805,14 @@ export default function ShellInterface() {
       setTimeout(() => {
         setTransitionPhase(null);
         inputRef.current?.focus();
+
+        // ── enter.n1x.sh subdomain: auto-fire tunnelcore after boot ──
+        if (typeof window !== 'undefined' && window.location.hostname === 'enter.n1x.sh') {
+          setTimeout(() => executeCommand('tunnelcore'), 200);
+        }
       }, 600);
     }, 440);
-  }, [argState]);
+  }, [argState, executeCommand]);
 
   useEffect(() => {
     if (!booting) inputRef.current?.focus();
