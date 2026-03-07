@@ -452,12 +452,12 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
   return (
     <div>
       <TitleBar color={C.npc} borderColor={BORDER}>
-        NPCs {npcs.length > 0 && <span style={{ opacity: 0.5, fontWeight: 'normal' }}>({npcs.length})</span>}
+        CONTACTS {npcs.length > 0 && <span style={{ opacity: 0.5, fontWeight: 'normal' }}>({npcs.length})</span>}
       </TitleBar>
       {npcs.length === 0 ? (
         <Empty text="no one here" />
       ) : (
-        <div style={{ padding: '0.3rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        <div style={{ padding: '0.3rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
           {npcs.map((npc, _npcIdx) => {
             const icon = npc.type === 'QUESTGIVER' ? '?' : npc.type === 'SHOPKEEPER' ? '$' : npc.type === 'ALLIED' ? '+' : '\u00b7';
             const iconColor = npc.type === 'QUESTGIVER' ? C.quest : npc.type === 'SHOPKEEPER' ? C.shop : C.npc;
@@ -474,7 +474,7 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
                     <span style={{ color: C.faint, fontSize: '9px' }}>[{npc.disposition}]</span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.3rem', paddingLeft: '1.6ch', marginTop: '0.15rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.3rem', paddingLeft: '1.6ch', marginTop: '0.3rem', paddingBottom: '0.1rem', flexWrap: 'wrap' }}>
                   <Btn label="TALK" command="/talk hello" color={C.npc} borderColor="rgba(252,211,77,0.3)" small />
                   {npc.hasShop && <Btn label="SHOP" command="/shop" color={C.shop} borderColor="rgba(252,211,77,0.3)" small />}
                   {npc.isQuestGiver && <Btn label="QUEST" command="/quests" color={C.quest} borderColor="rgba(251,191,36,0.3)" small />}
@@ -883,19 +883,24 @@ function PlayerCard({ data }: { data: PanelData }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
         <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
+        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
         <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
           {data.hp}/{data.maxHp}
         </span>
         <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
-        <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
+        <span style={{
+          color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0,
+          border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
+          borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
+          boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
+        }}>
           Lv.{data.level}
         </span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
         <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
+        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
         <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
           {data.xp}/{data.xpNext}
         </span>
@@ -904,7 +909,7 @@ function PlayerCard({ data }: { data: PanelData }) {
       {hasRam && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>RM</span>
-          <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={5} /></div>
+          <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={7} /></div>
           <span style={{ color: C.hack, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.playerRam}/{data.playerMaxRam}
           </span>
@@ -918,9 +923,16 @@ function PlayerCard({ data }: { data: PanelData }) {
         marginTop: '0.4rem', paddingTop: '0.4rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem',
       }}>
-        <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
-          <span style={{ color: '#fcd34d' }}>{data.creds}{'\u00a2'}</span>
-          {data.scrip > 0 && <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>}
+        <div style={{ display: 'flex', gap: '1ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
+            <span style={{ color: '#fcd34d', fontWeight: 'bold', letterSpacing: '0.04em' }}>CREDS</span>
+            <span style={{ color: '#fff' }}>{data.creds}</span>
+          </span>
+          <span style={{ color: C.faint }}>{'\u00b7'}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
+            <span style={{ color: '#a78bfa', fontWeight: 'bold', letterSpacing: '0.04em' }}>SCRIP</span>
+            <span style={{ color: '#fff' }}>{data.scrip}</span>
+          </span>
         </div>
         <Btn label="FLEE" command="/flee" color={C.dimmer} borderColor="rgba(var(--phosphor-rgb),0.25)" small />
       </div>
@@ -1189,25 +1201,37 @@ function BottomBar({ data }: { data: PanelData }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
+          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
           <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.hp}/{data.maxHp}
           </span>
           <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
-          <span style={{ color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0 }}>
+          <span style={{
+            color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0,
+            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
+            borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
+            boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
+          }}>
             Lv.{data.level}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
           <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.xp}/{data.xpNext}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)' }}>{data.creds}{'\u00a2'}</span>
-          {data.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)' }}>{data.scrip}s</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1ch' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
+            <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)', fontWeight: 'bold', letterSpacing: '0.04em' }}>CREDS</span>
+            <span style={{ color: '#fff', fontSize: 'var(--text-base)' }}>{data.creds}</span>
+          </span>
+          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
+            <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)', fontWeight: 'bold', letterSpacing: '0.04em' }}>SCRIP</span>
+            <span style={{ color: '#fff', fontSize: 'var(--text-base)' }}>{data.scrip}</span>
+          </span>
         </div>
       </div>
 
