@@ -1737,9 +1737,10 @@ interface TelnetConnectedProps {
   host:     string;
   handle:   string;
   roomName: 'ghost' | 'mancave';
+  mudDirect?: boolean;
 }
 
-const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomName }) => {
+const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomName, mudDirect }) => {
   const { messages, occupantCount, presenceNames, isConnected, connectionStatus, ablyDebug, isMuted, send } =
     useAblyRoom(handle, roomName);
 
@@ -1926,6 +1927,35 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       }, 600);
     }
   }, [addLocalMsg, handle, setMudSession]);
+
+  // ── mudDirect: auto-enter MUD after connection stabilizes ─────────────
+  const mudDirectFiredRef = useRef(false);
+  useEffect(() => {
+    if (!mudDirect || mudDirectFiredRef.current) return;
+    if (mode !== 'multi') return; // wait until Ably is connected and boot is done
+    mudDirectFiredRef.current = true;
+    const timer = setTimeout(() => {
+      // Check for existing character first
+      if (hasExistingCharacter(handle)) {
+        const session = loadFullSession(handle);
+        if (session && !session.character?.isDead) {
+          onMudSessionEntry(session);
+          return;
+        }
+      }
+      // Start fresh creation
+      const freshSession: MudSession = {
+        phase: 'character_creation',
+        character: null,
+        world: null,
+        npcState: null,
+        combat: null,
+        creation: { step: 'archetype' },
+      };
+      onMudSessionEntry(freshSession);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [mode, mudDirect, handle, onMudSessionEntry]);
 
   const sendWithSlash = useCallback((text: string) => {
     // Collapse any open entity panels on new input
@@ -2171,12 +2201,12 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
 
       {!showBoot && mode === 'multi' && (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <ChannelStats occupantCount={occupantCount} handle={handle} roomName={roomName} />
+          {!mudDirect && <ChannelStats occupantCount={occupantCount} handle={handle} roomName={roomName} />}
 
           {/* ── MUD HUD Container — self-contained scroll region ── */}
           {isMudHUDVisible ? (
             <MudHUDContainer session={mudSession}>
-              {messages.length === 0 && localMsgs.length === 0 && (
+              {!mudDirect && messages.length === 0 && localMsgs.length === 0 && (
                 <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
                   channel open. transmit to begin.
                 </div>
@@ -2195,7 +2225,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
             </MudHUDContainer>
           ) : (
             <>
-              {messages.length === 0 && localMsgs.length === 0 && (
+              {!mudDirect && messages.length === 0 && localMsgs.length === 0 && (
                 <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
                   channel open. transmit to begin.
                 </div>
@@ -2226,7 +2256,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
                 &nbsp;·&nbsp;
                 <span style={{ color: '#00e5ff' }}>/help</span> for all commands
               </>
-            ) : isMudHUDVisible ? null : (
+            ) : (isMudHUDVisible || mudDirect) ? null : (
               <>
                 <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
                 &nbsp;·&nbsp;
@@ -2245,8 +2275,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
 
 // ── TelnetSession (public export) ─────────────────────────────────────────────
 
-interface TelnetSessionProps { host: string; handle: string; roomName?: 'ghost' | 'mancave'; }
+interface TelnetSessionProps { host: string; handle: string; roomName?: 'ghost' | 'mancave'; mudDirect?: boolean; }
 
-export const TelnetSession: React.FC<TelnetSessionProps> = ({ host, handle, roomName = 'ghost' }) => {
-  return <TelnetConnected host={host} handle={handle} roomName={roomName} />;
+export const TelnetSession: React.FC<TelnetSessionProps> = ({ host, handle, roomName = 'ghost', mudDirect }) => {
+  return <TelnetConnected host={host} handle={handle} roomName={roomName} mudDirect={mudDirect} />;
 };
