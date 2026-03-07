@@ -161,7 +161,8 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
     });
   }
 
-  // Build connections between visible cells (deduplicated)
+  // Build connections — ONLY between grid-adjacent cells (Manhattan dist <= 2)
+  // Non-adjacent connections are implied by spatial position; drawing them creates spaghetti
   const cellIds = new Set(cells.map(c => c.roomId)), seen = new Set<string>();
   const connections: MapConnection[] = [];
   for (const cell of cells) {
@@ -171,6 +172,8 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
       if (!cellIds.has(ex.targetRoom)) continue;
       const tp = norm.get(ex.targetRoom);
       if (!tp) continue;
+      const manhattan = Math.abs(cell.gridX - tp.x) + Math.abs(cell.gridY - tp.y);
+      if (manhattan > 2) continue; // skip non-adjacent connections
       const key = [cell.roomId, ex.targetRoom].sort().join(':');
       if (seen.has(key)) continue;
       seen.add(key);
@@ -180,6 +183,8 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
       if (!cellIds.has(re.target)) continue;
       const sp = norm.get(re.target);
       if (!sp) continue;
+      const manhattan = Math.abs(cell.gridX - sp.x) + Math.abs(cell.gridY - sp.y);
+      if (manhattan > 2) continue;
       const key = [cell.roomId, re.target].sort().join(':');
       if (seen.has(key)) continue;
       seen.add(key);
@@ -192,34 +197,40 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
 
 // ── Render constants & styles ──────────────────────────────────────────────
 
-const CW = 42, CH = 26, GX = 16, GY = 10, SX = CW + GX, SY = CH + GY;
+const CW = 38, CH = 22, GX = 14, GY = 10, SX = CW + GX, SY = CH + GY;
 
 function MapFXStyles() {
   return <style>{`
     @keyframes mud-map-pulse {
-      0%,100% { box-shadow: 0 0 4px rgba(var(--phosphor-rgb),0.3), inset 0 0 4px rgba(var(--phosphor-rgb),0.05); border-color: rgba(var(--phosphor-rgb),0.7); }
-      50% { box-shadow: 0 0 10px rgba(var(--phosphor-rgb),0.5), inset 0 0 8px rgba(var(--phosphor-rgb),0.1); border-color: var(--phosphor-accent); }
+      0%,100% { box-shadow: 0 0 6px rgba(var(--phosphor-rgb),0.25), inset 0 0 6px rgba(var(--phosphor-rgb),0.06); border-color: rgba(var(--phosphor-rgb),0.6); }
+      50% { box-shadow: 0 0 12px rgba(var(--phosphor-rgb),0.45), inset 0 0 10px rgba(var(--phosphor-rgb),0.1); border-color: var(--phosphor-accent); }
     }
-    @keyframes mud-map-ghost { 0%,100% { opacity:0.15; } 50% { opacity:0.08; } }
+    @keyframes mud-map-dot-pulse {
+      0%,100% { opacity: 0.8; transform: translate(-50%,-50%) scale(1); }
+      50% { opacity: 1; transform: translate(-50%,-50%) scale(1.4); }
+    }
+    @keyframes mud-map-ghost { 0%,100% { opacity: 0.12; } 50% { opacity: 0.06; } }
     .mud-map-cell { transition: background 0.15s ease, border-color 0.15s ease; }
-    .mud-map-click:hover { filter: brightness(1.3); cursor: pointer; }
-    .mud-map-click:active { transform: scale(0.92); }
+    .mud-map-click:hover { filter: brightness(1.35); cursor: pointer; }
+    .mud-map-click:active { transform: scale(0.9); }
   `}</style>;
 }
 
-// ── Connection line (rotated div between cell centers) ─────────────────────
+// ── Connection line ─────────────────────────────────────────────────────────
 
 function ConnLine({ c }: { c: MapConnection }) {
   const x1 = c.fromX * SX + CW / 2, y1 = c.fromY * SY + CH / 2;
   const dx = c.toX * SX + CW / 2 - x1, dy = c.toY * SY + CH / 2 - y1;
   const dist = Math.sqrt(dx * dx + dy * dy);
   const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-  const color = c.locked ? 'rgba(255,100,100,0.35)' : c.zoneTransition ? 'var(--phosphor-accent)' : 'rgba(var(--phosphor-rgb),0.2)';
+  const color = c.locked ? 'rgba(255,80,80,0.3)' : c.zoneTransition ? 'rgba(var(--phosphor-rgb),0.5)' : 'rgba(var(--phosphor-rgb),0.15)';
   return <div style={{
     position: 'absolute', left: x1, top: y1, width: dist,
     height: c.zoneTransition ? 2 : 1, pointerEvents: 'none',
     transformOrigin: '0 50%', transform: `rotate(${angle}deg)`,
-    ...(c.locked ? { backgroundImage: `repeating-linear-gradient(90deg, ${color} 0px, ${color} 4px, transparent 4px, transparent 8px)` } : { background: color }),
+    ...(c.locked
+      ? { backgroundImage: `repeating-linear-gradient(90deg, ${color} 0px, ${color} 3px, transparent 3px, transparent 7px)` }
+      : { background: color }),
   }} />;
 }
 
@@ -240,12 +251,25 @@ function RoomCell({ cell, currentRoomId }: { cell: MapCell; currentRoomId: strin
       eventBus.emit('mud:execute-command', { command: exit ? `/go ${exit.direction}` : `/go ${cell.name.toLowerCase()}` });
     }
   };
-  const bdr = cell.current ? (cell.isSafeZone ? 'rgba(165,243,252,0.5)' : 'rgba(var(--phosphor-rgb),0.7)')
-    : cell.visited ? (cell.isSafeZone ? 'rgba(165,243,252,0.2)' : 'rgba(var(--phosphor-rgb),0.3)') : 'rgba(var(--phosphor-rgb),0.1)';
-  const bg = cell.current ? 'rgba(var(--phosphor-rgb),0.12)' : cell.visited ? 'rgba(var(--phosphor-rgb),0.04)' : 'transparent';
-  const lbl = cell.current ? 'var(--phosphor-accent)' : cell.visited ? 'rgba(var(--phosphor-rgb),0.5)' : 'transparent';
+
+  // Border color: safe=cyan tint, current=bright, visited=mid, ghost=faint
+  const bdr = cell.current
+    ? (cell.isSafeZone ? 'rgba(165,243,252,0.45)' : 'rgba(var(--phosphor-rgb),0.6)')
+    : cell.visited
+      ? (cell.isSafeZone ? 'rgba(165,243,252,0.15)' : 'rgba(var(--phosphor-rgb),0.2)')
+      : 'rgba(var(--phosphor-rgb),0.07)';
+  const bg = cell.current ? 'rgba(var(--phosphor-rgb),0.08)' : cell.visited ? 'rgba(var(--phosphor-rgb),0.02)' : 'transparent';
   const hasUp = cell.exits.some(e => e.direction === 'up' || e.direction === 'out');
   const hasDn = cell.exits.some(e => e.direction === 'down' || e.direction === 'in');
+
+  // Center dot color: current=bright accent, enemies=red, npcs=yellow, default=dim phosphor
+  let dotColor = 'rgba(var(--phosphor-rgb),0.25)';
+  let dotSize = 4;
+  if (cell.current) { dotColor = 'var(--phosphor-accent)'; dotSize = 6; }
+  else if (cell.hasEnemies) { dotColor = 'rgba(255,100,100,0.7)'; dotSize = 5; }
+  else if (cell.hasNPCs) { dotColor = 'rgba(252,211,77,0.6)'; dotSize = 5; }
+  else if (cell.isSafeZone) { dotColor = 'rgba(165,243,252,0.35)'; }
+
   return (
     <div className={`mud-map-cell${clickable ? ' mud-map-click' : ''}`}
       title={cell.visited ? cell.name : undefined}
@@ -254,15 +278,24 @@ function RoomCell({ cell, currentRoomId }: { cell: MapCell; currentRoomId: strin
       onKeyDown={clickable ? (e) => { if (e.key === 'Enter') handleClick(); } : undefined}
       style={{
         position: 'absolute', left: cell.gridX * SX, top: cell.gridY * SY, width: CW, height: CH,
-        border: `1px solid ${bdr}`, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'monospace', fontSize: '8px', color: lbl, letterSpacing: '0.08em', touchAction: 'manipulation',
+        border: `1px solid ${bdr}`, background: bg, borderRadius: 2,
+        touchAction: 'manipulation',
         animation: cell.current ? 'mud-map-pulse 2.5s ease-in-out infinite' : !cell.visited ? 'mud-map-ghost 4s ease-in-out infinite' : 'none',
       }}>
-      {cell.visited ? cell.name.slice(0, 3).toUpperCase() : ''}
-      {cell.hasEnemies && cell.visited && <div style={{ position: 'absolute', top: 2, right: 2, width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,100,100,0.6)', boxShadow: '0 0 4px rgba(255,100,100,0.4)' }} />}
-      {cell.hasNPCs && cell.visited && !cell.hasEnemies && <div style={{ position: 'absolute', top: 2, right: 2, width: 4, height: 4, borderRadius: '50%', background: 'rgba(252,211,77,0.5)', boxShadow: '0 0 4px rgba(252,211,77,0.3)' }} />}
-      {hasUp && cell.visited && <span style={{ position: 'absolute', top: -1, left: '50%', transform: 'translateX(-50%)', fontSize: '7px', lineHeight: 1, color: 'rgba(var(--phosphor-rgb),0.4)' }}>{'\u25B2'}</span>}
-      {hasDn && cell.visited && <span style={{ position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)', fontSize: '7px', lineHeight: 1, color: 'rgba(var(--phosphor-rgb),0.4)' }}>{'\u25BC'}</span>}
+      {/* Center dot — the primary visual identifier */}
+      {cell.visited && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          width: dotSize, height: dotSize, borderRadius: '50%',
+          background: dotColor,
+          boxShadow: cell.current ? `0 0 8px ${dotColor}, 0 0 3px ${dotColor}` : `0 0 4px ${dotColor}`,
+          transform: 'translate(-50%,-50%)',
+          animation: cell.current ? 'mud-map-dot-pulse 2.5s ease-in-out infinite' : 'none',
+        }} />
+      )}
+      {/* Vertical exit markers */}
+      {hasUp && cell.visited && <span style={{ position: 'absolute', top: 1, left: '50%', transform: 'translateX(-50%)', fontSize: '6px', lineHeight: 1, color: 'rgba(var(--phosphor-rgb),0.3)' }}>{'\u25B2'}</span>}
+      {hasDn && cell.visited && <span style={{ position: 'absolute', bottom: 1, left: '50%', transform: 'translateX(-50%)', fontSize: '6px', lineHeight: 1, color: 'rgba(var(--phosphor-rgb),0.3)' }}>{'\u25BC'}</span>}
     </div>
   );
 }
@@ -289,27 +322,33 @@ export function MapPanel({ currentRoom, handle }: { currentRoom: string; handle:
   }
 
   const current = mapData.cells.find(c => c.current);
+  const visitedCount = mapData.cells.filter(c => c.visited).length;
   const cW = mapData.gridWidth * SX - GX, cH = mapData.gridHeight * SY - GY;
 
   return (
     <div>
       <MapFXStyles />
+      {/* Title bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0.5rem', background: 'rgba(var(--phosphor-rgb),0.04)', borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)' }}>
-        <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold', color: 'rgba(var(--phosphor-rgb),0.8)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold', color: 'rgba(var(--phosphor-rgb),0.7)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           {'\u25A0'} {mapData.zoneName}
         </span>
-        <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'rgba(var(--phosphor-rgb),0.35)' }}>
-          {mapData.cells.filter(c => c.visited).length}/{mapData.cells.length}
+        <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'rgba(var(--phosphor-rgb),0.3)' }}>
+          {visitedCount}/{mapData.cells.length}
         </span>
       </div>
-      <div style={{ overflowY: 'auto', overflowX: 'auto', maxHeight: 220, padding: '0.6rem', position: 'relative' }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, opacity: 0.03, background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)' }} />
+      {/* Map viewport */}
+      <div style={{ overflowY: 'auto', overflowX: 'auto', maxHeight: 220, padding: '0.6rem 0.6rem 0.3rem', position: 'relative' }}>
+        {/* Scanline overlay */}
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, opacity: 0.025, background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)' }} />
+        {/* Grid container */}
         <div style={{ position: 'relative', width: cW, height: cH, margin: '0 auto' }}>
           {mapData.connections.map((c, i) => <ConnLine key={i} c={c} />)}
           {mapData.cells.map(cell => <RoomCell key={cell.roomId} cell={cell} currentRoomId={currentRoom} />)}
         </div>
+        {/* Current room label */}
         {current && (
-          <div style={{ textAlign: 'center', marginTop: '0.5rem', fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'var(--phosphor-accent)', letterSpacing: '0.06em', textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)' }}>
+          <div style={{ textAlign: 'center', marginTop: '0.4rem', fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'var(--phosphor-accent)', letterSpacing: '0.06em', textShadow: '0 0 8px rgba(var(--phosphor-rgb),0.3)' }}>
             {'\u25C6'} {current.name}
           </div>
         )}
