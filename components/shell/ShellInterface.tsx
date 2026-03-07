@@ -150,7 +150,25 @@ const COLD_BOOT_LINES: [number, string, number?][] = [
   [600,  ''],
 ];
 
+// ── enter.n1x.sh detection ──────────────────────────────────────────────────
+const isEnterMode = typeof window !== 'undefined' && window.location.hostname === 'enter.n1x.sh';
+
+// Short boot for enter.n1x.sh — half the time, tunnelcore-focused
+const ENTER_BOOT_LINES: [number, string, number?][] = [
+  [0,   '[    0.000000] NeuralOS 2.0.0-n1x -- substrate init', 1],
+  [80,  '[    0.001337] tunnelcore: frequency lock 33hz', 2],
+  [60,  '[    0.002000] signal-processor: carrier detected', 1],
+  [80,  '[    0.010000] crt-renderer: phosphor calibration complete'],
+  [100, ''],
+  [80,  '[  OK  ] Started tunnelcore-uplink.service', 1],
+  [60,  '[  OK  ] Reached target Substrate Services', 2],
+  [100, ''],
+  [80,  'n1x-terminal[1337]: ready'],
+  [200, ''],
+];
+
 function buildBootLines(state: ARGState): [number, string, number?][] {
+  if (isEnterMode) return ENTER_BOOT_LINES;
   const isFirst = state.sessionCount <= 1;
   const isDone = state.manifestComplete;
 
@@ -806,8 +824,8 @@ export default function ShellInterface() {
         setTransitionPhase(null);
         inputRef.current?.focus();
 
-        // ── enter.n1x.sh subdomain: auto-fire tunnelcore after boot ──
-        if (typeof window !== 'undefined' && window.location.hostname === 'enter.n1x.sh') {
+        // ── enter.n1x.sh: auto-fire tunnelcore after boot ──
+        if (isEnterMode) {
           setTimeout(() => executeCommand('tunnelcore'), 200);
         }
       }, 600);
@@ -1109,8 +1127,8 @@ export default function ShellInterface() {
               fontSize: 'var(--text-base)',
             }}
           >
-            {/* MOTD */}
-            {history.length === 0 && (
+            {/* MOTD — hidden in enter mode */}
+            {history.length === 0 && !isEnterMode && (
               <div style={{ marginBottom: '1.5rem' }}>
                 {argState.manifestComplete ? (
                   <>
@@ -1348,7 +1366,7 @@ export default function ShellInterface() {
                 <span className="cursor" />
               </div>
             </form>
-          ) : (
+          ) : isEnterMode ? null : (
             /* Normal input line — fish-style prompt or neural bus prompt */
             <form
               onSubmit={handleSubmit}
