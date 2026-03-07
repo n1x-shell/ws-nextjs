@@ -819,6 +819,9 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
   const [fadingOut, setFadingOut] = useState(false);
   const [overlayOpacity, setOverlayOpacity] = useState(1);
   const [matrixOpacity, setMatrixOpacity] = useState(0);
+  const [titleCard, setTitleCard] = useState(false);
+  const [titleCardOpacity, setTitleCardOpacity] = useState(0);
+  const stingerRef = useRef(false); // render loop reads this for wild spore mode
 
   const hasSeen = typeof window !== 'undefined' && localStorage.getItem('n1x_tc_intro_seen') === 'true';
   const charSpeed = hasSeen ? TC_CHAR_SPEED_REPEAT : TC_CHAR_SPEED_FIRST;
@@ -894,11 +897,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       setFadingOut(true);
     }, fadeOutDelay));
 
-    // Complete (after 4s hold on black)
-    const totalDelay = hasSeen ? TC_TOTAL_DURATION * 0.5 : TC_TOTAL_DURATION;
-    timers.push(setTimeout(() => {
-      finish();
-    }, totalDelay));
+    // Title card stinger handles completion — no auto-finish timer here
 
     return () => timers.forEach(clearTimeout);
   }, [finish, hasSeen]);
@@ -914,7 +913,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     return () => clearTimeout(timer);
   }, [currentLine, revealedChars, charSpeed]);
 
-  // Fade out opacity transition
+  // Fade out opacity transition → triggers title card stinger
   useEffect(() => {
     if (!fadingOut) return;
     const start = Date.now();
@@ -925,10 +924,43 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       setOverlayOpacity(1 - progress);
       if (progress < 1 && !completedRef.current) {
         requestAnimationFrame(animate);
+      } else if (!completedRef.current) {
+        // Text fully faded — launch title card stinger
+        setTitleCard(true);
+        stingerRef.current = true;
       }
     };
     requestAnimationFrame(animate);
   }, [fadingOut]);
+
+  // ── Title card stinger: 2500ms → CRT shutdown → finish ────────────
+  useEffect(() => {
+    if (!titleCard) return;
+    // Fade in the title card text
+    const fadeStart = Date.now();
+    const fadeInTitle = () => {
+      const elapsed = Date.now() - fadeStart;
+      const p = Math.min(1, elapsed / 400);
+      setTitleCardOpacity(p * p); // quadratic ease-in
+      if (p < 1 && !completedRef.current) requestAnimationFrame(fadeInTitle);
+    };
+    requestAnimationFrame(fadeInTitle);
+
+    // After 2500ms: CRT monitor-off effect, then finish
+    const exitTimer = setTimeout(() => {
+      if (completedRef.current) return;
+      // Heavy CRT shutdown glitch — monitor off/on stinger
+      eventBus.emit('crt:glitch-tier', { tier: 3, duration: 500 });
+      eventBus.emit('neural:glitch-trigger', { intensity: 1.0 });
+      // Brief blackout gap before finishing
+      setTitleCardOpacity(0);
+      setTimeout(() => {
+        finish();
+      }, 350);
+    }, 2500);
+
+    return () => clearTimeout(exitTimer);
+  }, [titleCard, finish]);
 
   // ── Fungal substrate system — breathing mycelium organism ─────────────
   useEffect(() => {
@@ -1278,7 +1310,39 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       drawVeins(state, breath, pal);
       drawGlyphCols(state, breath, pal);
 
-      for (const s of state.spores) { updateSpore(s, state, breath); drawSpore(s, state, breath, pal); }
+      // ── Spore rendering — wild mode during title card stinger ──
+      const isWild = stingerRef.current;
+      if (isWild) {
+        // Spawn extra spores rapidly during stinger — flourish and multiply
+        const spawnBurst = 6;
+        for (let s = 0; s < spawnBurst && state.spores.length < 900; s++) {
+          const sp = _createSpore(state.w, state.h);
+          // Spawn from all edges and center for chaotic coverage
+          if (Math.random() < 0.3) {
+            sp.x = Math.random() * state.w;
+            sp.y = Math.random() * state.h;
+          } else if (Math.random() < 0.5) {
+            sp.x = Math.random() < 0.5 ? -20 : state.w + 20;
+            sp.y = Math.random() * state.h;
+          }
+          sp.speed *= 2.5;
+          sp.brightness = 0.4 + Math.random() * 0.6;
+          sp.swirlSpeed *= 3;
+          sp.swirlRadius *= 1.8;
+          state.spores.push(sp);
+        }
+      }
+      for (const s of state.spores) {
+        if (isWild) {
+          // Boost existing spore energy during stinger
+          s.speed *= 1.003; // accelerating drift
+          s.swirlSpeed *= 1.002;
+          s.brightness = Math.min(1, s.brightness * 1.005);
+          s.swirlRadius = Math.min(80, s.swirlRadius * 1.001);
+        }
+        updateSpore(s, state, breath);
+        drawSpore(s, state, breath, pal);
+      }
 
       const deadIdx: number[] = [];
       for (let i = 0; i < state.tendrils.length; i++) {
@@ -1356,7 +1420,9 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           inset: 0,
           width: '100%',
           height: '100%',
-          opacity: matrixOpacity * 0.85 * overlayOpacity,
+          opacity: titleCard
+            ? matrixOpacity * 0.9 * titleCardOpacity
+            : matrixOpacity * 0.85 * overlayOpacity,
           transition: 'opacity 0.5s',
         }}
       />
@@ -1395,12 +1461,62 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         fontFamily: 'monospace',
         fontSize: '11px',
         color: '#e0e0e0',
-        opacity: 0.25 * overlayOpacity,
+        opacity: titleCard ? 0 : 0.25 * overlayOpacity,
         zIndex: 2,
         textShadow: '0 0 8px rgba(0,0,0,0.8)',
       }}>
         press enter to skip
       </div>
+
+      {/* ── Title card stinger ── */}
+      {titleCard && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3,
+          opacity: titleCardOpacity,
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: 'clamp(32px, 7vw, 64px)',
+            fontWeight: 900,
+            letterSpacing: '0.25em',
+            color: '#ffffff',
+            textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 60px rgba(255,255,255,0.15), 0 0 4px rgba(255,255,255,0.8)',
+            marginBottom: '0.8rem',
+            animation: 'tc-title-pulse 1.5s ease-in-out infinite',
+          }}>
+            TUNNELCORE
+          </div>
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: 'clamp(10px, 2vw, 14px)',
+            fontWeight: 400,
+            letterSpacing: '0.15em',
+            color: 'rgba(255,255,255,0.5)',
+            textShadow: '0 0 12px rgba(255,255,255,0.2)',
+            marginBottom: '2rem',
+            textTransform: 'lowercase',
+          }}>
+            a text-based mmorpg
+          </div>
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: 'clamp(10px, 1.8vw, 13px)',
+            fontWeight: 400,
+            letterSpacing: '0.12em',
+            color: 'rgba(255,255,255,0.35)',
+            textShadow: '0 0 10px rgba(255,255,255,0.1)',
+          }}>
+            by N1X.sh
+          </div>
+        </div>
+      )}
 
       {/* Inline styles */}
       <style>{`
@@ -1415,6 +1531,10 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         @keyframes tc-blink {
           0%, 100% { opacity: 0.7; }
           50% { opacity: 0; }
+        }
+        @keyframes tc-title-pulse {
+          0%, 100% { opacity: 0.85; text-shadow: 0 0 30px rgba(255,255,255,0.4), 0 0 60px rgba(255,255,255,0.15), 0 0 4px rgba(255,255,255,0.8); }
+          50% { opacity: 1; text-shadow: 0 0 40px rgba(255,255,255,0.6), 0 0 80px rgba(255,255,255,0.25), 0 0 6px rgba(255,255,255,1); }
         }
       `}</style>
     </div>
