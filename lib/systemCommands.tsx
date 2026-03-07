@@ -853,7 +853,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
 
   // ── Substrate tendril system — breathing organism ─────────────────────
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef.current!;
     if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
     if (!ctx) return;
