@@ -609,7 +609,7 @@ function N1XLine({ children }: { children: React.ReactNode }) {
 // Renders purple N1X text that types itself out character by character.
 // Emits shell:request-scroll as text reveals to keep viewport pinned.
 
-function TypedN1XLine({ children, speed = 22 }: { children: React.ReactNode; speed?: number }) {
+function TypedN1XLine({ children, speed = 22, onComplete }: { children: React.ReactNode; speed?: number; onComplete?: () => void }) {
   // Flatten children to a plain string for typing
   const text = React.useMemo(() => {
     const flatten = (node: React.ReactNode): string => {
@@ -622,17 +622,27 @@ function TypedN1XLine({ children, speed = 22 }: { children: React.ReactNode; spe
   }, [children]);
 
   const [revealed, setRevealed] = React.useState(0);
+  const completeFiredRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (revealed >= text.length) return;
+    if (revealed >= text.length) {
+      if (onComplete && !completeFiredRef.current) {
+        completeFiredRef.current = true;
+        onComplete();
+      }
+      return;
+    }
     const timer = setTimeout(() => {
       setRevealed(prev => Math.min(prev + 1, text.length));
       eventBus.emit('shell:request-scroll');
     }, speed);
     return () => clearTimeout(timer);
-  }, [revealed, text, speed]);
+  }, [revealed, text, speed, onComplete]);
 
-  React.useEffect(() => { setRevealed(0); }, [text]);
+  React.useEffect(() => {
+    setRevealed(0);
+    completeFiredRef.current = false;
+  }, [text]);
 
   // Render revealed text, converting \n to <br/>
   const visibleText = text.slice(0, revealed);
@@ -657,6 +667,42 @@ function TypedN1XLine({ children, speed = 22 }: { children: React.ReactNode; spe
         <span style={{ opacity: 0.6, animation: 'mud-cursor-blink 0.6s step-end infinite' }}>{'\u2588'}</span>
       )}
       <style>{`@keyframes mud-cursor-blink { 0%,100% { opacity:0.6; } 50% { opacity:0; } }`}</style>
+    </div>
+  );
+}
+
+// ── CreationQuestionBlock — types question, then reveals children with glitch ──
+// Used in character creation. Types the N1X question text first, then after
+// typing completes, reveals each child element one by one with CRT glitch FX.
+function CreationQuestionBlock({ questionText, children, typingSpeed = 22 }: {
+  questionText: string;
+  children: React.ReactNode;
+  typingSpeed?: number;
+}) {
+  const [typingDone, setTypingDone] = React.useState(false);
+  const [revealed, setRevealed] = React.useState(0);
+  const items = React.useMemo(() => React.Children.toArray(children), [children]);
+
+  React.useEffect(() => {
+    if (!typingDone) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    items.forEach((_, i) => {
+      timers.push(setTimeout(() => {
+        setRevealed(prev => prev + 1);
+        eventBus.emit('crt:glitch-tier', { tier: 1, duration: 120 });
+        eventBus.emit('shell:request-scroll');
+      }, 400 + i * 350));
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [typingDone, items]);
+
+  return (
+    <div>
+      <TypedN1XLine speed={typingSpeed} onComplete={() => setTypingDone(true)}>
+        {questionText}
+      </TypedN1XLine>
+      {typingDone && <MudSpacer />}
+      {items.slice(0, revealed)}
     </div>
   );
 }
@@ -797,11 +843,9 @@ export function startCreationFlow(ctx: MudContext): void {
     )},
     { delay: 10600, node: <MudSpacer key={k('sp-entry4')} /> },
     { delay: 11000, node: (
-      <div key={k('create-archetype-q')}>
-        <TypedN1XLine>{CREATION_STEPS.archetype.n1xText}</TypedN1XLine>
-        <MudSpacer />
+      <CreationQuestionBlock key={k('create-archetype-q')} questionText={CREATION_STEPS.archetype.n1xText}>
         {CREATION_STEPS.archetype.options.map((opt, i) => (
-          <div key={k(`arch-opt-${i}`)} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
+          <div key={`arch-opt-${i}`} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
             <span style={{ color: C.accent, fontFamily: 'monospace', fontSize: S.base }}>
               [{i + 1}] {opt.display}
             </span>
@@ -812,7 +856,7 @@ export function startCreationFlow(ctx: MudContext): void {
         ))}
         <MudSpacer />
         <MudLine color={C.dim}>type 1, 2, or 3</MudLine>
-      </div>
+      </CreationQuestionBlock>
     )},
   ]);
 
@@ -878,11 +922,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         )},
         { delay: 600, node: <MudSpacer key={k('sp-cs')} /> },
         { delay: 1000, node: (
-          <div key={k('cs-q')}>
-            <TypedN1XLine>{CREATION_STEPS.combatStyle.n1xText}</TypedN1XLine>
-            <MudSpacer />
+          <CreationQuestionBlock key={k('cs-q')} questionText={CREATION_STEPS.combatStyle.n1xText}>
             {CREATION_STEPS.combatStyle.options.map((opt, i) => (
-              <div key={k(`cs-opt-${i}`)} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
+              <div key={`cs-opt-${i}`} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
                 <span style={{ color: C.accent, fontFamily: 'monospace', fontSize: S.base }}>
                   [{i + 1}] {opt.display}
                 </span>
@@ -893,7 +935,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
             ))}
             <MudSpacer />
             <MudLine color={C.dim}>type 1, 2, 3, or 4</MudLine>
-          </div>
+          </CreationQuestionBlock>
         )},
       ]);
 
@@ -952,9 +994,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         )},
         { delay: 600, node: <MudSpacer key={k('sp-attr')} /> },
         { delay: 1000, node: (
-          <div key={k('attr-q')}>
-            <TypedN1XLine>{CREATION_STEPS.attributes.n1xText}</TypedN1XLine>
-            <MudSpacer />
+          <CreationQuestionBlock key={k('attr-q')} questionText={CREATION_STEPS.attributes.n1xText}>
             <MudLine color={C.dim}>
               current base (with {ARCHETYPE_INFO[archetype].label} bonuses):
             </MudLine>
@@ -962,7 +1002,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
               const val = withBonuses[attr];
               const bonus = (bonuses[attr] ?? 0);
               return (
-                <MudLine key={k(`attr-base-${attr}`)} indent color={C.stat}>
+                <MudLine key={`attr-base-${attr}`} indent color={C.stat}>
                   {attr.padEnd(8)}{val}{bonus > 0 ? ` (+${bonus} archetype)` : ''}
                 </MudLine>
               );
@@ -974,7 +1014,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
             <MudLine color={C.dim}>
               or just: 7 5 4 3 5 6 (BODY/REFLEX/TECH/COOL/INT/GHOST order)
             </MudLine>
-          </div>
+          </CreationQuestionBlock>
         )},
       ]);
 
@@ -1044,11 +1084,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         )},
         { delay: 800, node: <MudSpacer key={k('sp-origin')} /> },
         { delay: 1200, node: (
-          <div key={k('origin-q')}>
-            <TypedN1XLine>{CREATION_STEPS.origin.n1xText}</TypedN1XLine>
-            <MudSpacer />
+          <CreationQuestionBlock key={k('origin-q')} questionText={CREATION_STEPS.origin.n1xText}>
             {origins.map((opt, i) => (
-              <div key={k(`origin-opt-${i}`)} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
+              <div key={`origin-opt-${i}`} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
                 <span style={{ color: C.accent, fontFamily: 'monospace', fontSize: S.base, fontWeight: 'bold' }}>
                   [{i + 1}] {opt.display}
                 </span>
@@ -1061,7 +1099,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
             <MudLine color={C.dim}>
               {origins.length === 1 ? 'type 1 to confirm' : `type 1-${origins.length}`}
             </MudLine>
-          </div>
+          </CreationQuestionBlock>
         )},
       ]);
 
