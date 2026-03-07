@@ -2130,6 +2130,26 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     });
   }, [host, handle, sendWithSlash, handleDisconnect, runSequence]);
 
+  // ── mudDirect boot: skip all boot lines, pause, glitch, then activate ──
+  const runMudDirectBoot = useCallback(() => {
+    // MeshStatus already shows "contacting... connected."
+    // Wait 500ms after connection, then glitch and go straight to multi mode
+    setTimeout(() => {
+      if (!isMountedRef.current) return;
+      // CRT glitch shake
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 400 });
+      eventBus.emit('neural:glitch-trigger', { intensity: 0.8 });
+      // Brief pause for the glitch to register visually
+      setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setShowBoot(false);
+        activateTelnet(handle, sendWithSlash, handleDisconnect);
+        setMode('multi');
+        setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
+      }, 300);
+    }, 500);
+  }, [handle, sendWithSlash, handleDisconnect]);
+
   // ── Boot decision ─────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -2137,12 +2157,14 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     bootFiredRef.current = true;
     if (connectionStatus === 'failed') {
       runOfflineBoot();
+    } else if (mudDirect) {
+      runMudDirectBoot();
     } else if (roomName === 'mancave') {
       runMancaveBoot(occupantCount);
     } else {
       runMultiBoot(occupantCount + 4);
     }
-  }, [isConnected, connectionStatus, occupantCount, roomName, runOfflineBoot, runMancaveBoot, runMultiBoot]);
+  }, [isConnected, connectionStatus, occupantCount, roomName, mudDirect, runOfflineBoot, runMancaveBoot, runMultiBoot, runMudDirectBoot]);
 
   // ── Re-register send when presenceNames changes ───────────────────────────
 
@@ -2191,7 +2213,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       )}
 
       {bootLines.map((line, i) => <div key={i}>{line}</div>)}
-      {showBoot && <span style={{ opacity: 0.3 }}><Cursor /></span>}
+      {showBoot && !mudDirect && <span style={{ opacity: 0.3 }}><Cursor /></span>}
 
       {!showBoot && mode === 'offline' && (
         <div style={{ opacity: 0.5, fontSize: S.base, fontStyle: 'italic' }}>
