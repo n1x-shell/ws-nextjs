@@ -32,7 +32,7 @@ const C = {
   bracket:     'var(--phosphor-green)',
   selfUser:    'var(--phosphor-green)',
   otherUser:   '#b0b0b0',
-  n1xName:     '#bf00ff',
+  n1xName:     '#cc44ff',
   selfMsg:     '#ffffff',
   otherMsg:    '#b0b0b0',
   n1xMsg:      'var(--phosphor-green)',
@@ -41,7 +41,7 @@ const C = {
   thinking:    'rgba(var(--phosphor-rgb),0.45)',
   whoSelf:     '#ffffff',
   whoOther:    '#555555',
-  whoN1X:      '#bf00ff',
+  whoN1X:      '#cc44ff',
   action:      '#ff69b4',
   cmdError:    '#ff6b6b',
   helpKey:     'var(--phosphor-accent)',
@@ -55,7 +55,7 @@ const C = {
 
 // N1X fixed sigil
 const N1X_SIGIL       = '⟁';
-const N1X_SIGIL_COLOR = '#bf00ff';
+const N1X_SIGIL_COLOR = '#cc44ff';
 
 // ── Ambient bot config (hardcoded — mirrors ambientBotConfig.ts) ──────────────
 
@@ -868,7 +868,7 @@ const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
 };
 
 // ── N1XMessage ────────────────────────────────────────────────────────────────
-// Format: ⟁ [N1X] > message (sigil and name both #bf00ff)
+// Format: ⟁ [N1X] > message (sigil and name both #cc44ff)
 
 const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
   if (msg.isThinking) {
@@ -1536,7 +1536,7 @@ function handleSlashCommand(ctx: SlashContext): boolean {
             fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
           }}>
             <div style={{ opacity: 0.5 }}>&gt;&gt; SUBSTRATE_LINK RE-ESTABLISHED</div>
-            <div style={{ color: '#bf00ff', opacity: 0.8, marginTop: '0.25rem' }}>
+            <div style={{ color: '#cc44ff', opacity: 0.8, marginTop: '0.25rem' }}>
               welcome back, {session.character!.subjectId}. you&apos;re still breathing. good.
             </div>
             <div style={{ color: 'var(--phosphor-accent)', opacity: 0.6, marginTop: '0.25rem' }}>
