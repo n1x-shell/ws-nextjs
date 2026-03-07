@@ -164,11 +164,28 @@ knows you.`,
 // ── Safe Haven Logic ───────────────────────────────────────────────────────
 
 export function isSafeHaven(roomId: string): boolean {
+  // Primary check: the room's own isSafeZone flag in worldMap
+  const room = getRoom(roomId);
+  if (room?.isSafeZone) return true;
+  // Fallback: explicit registry
   return roomId in SAFE_HAVENS;
 }
 
 export function getSafeHaven(roomId: string): SafeHaven | null {
-  return SAFE_HAVENS[roomId] ?? null;
+  // Check registry first for flavor text
+  if (SAFE_HAVENS[roomId]) return SAFE_HAVENS[roomId];
+  // If room is a safe zone but not in registry, generate a generic haven
+  const room = getRoom(roomId);
+  if (room?.isSafeZone) {
+    return {
+      roomId,
+      name: room.name,
+      zone: room.zone,
+      flavorText: `you settle in. the tension in your shoulders releases — not all of it,
+but enough. the hum of the world fades to background.`,
+    };
+  }
+  return null;
 }
 
 /** Find nearest known safe havens from a room (uses visited rooms) */
