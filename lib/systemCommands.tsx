@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Command } from '@/types/shell.types';
 import { FileSystemNavigator } from './virtualFS';
 import { eventBus } from './eventBus';
