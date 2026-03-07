@@ -163,6 +163,13 @@ export interface MudCharacter {
   createdAt: number;
   lastSaved: number;
   isDead: boolean;
+  // ── Progression (added by progression systems) ────────────────────────
+  pendingLevelUps: number;      // levels earned but not yet integrated at safe haven
+  unspentAttributePoints: number; // attribute points awaiting allocation
+  crossClassTree?: string;      // secondary combat tree ID (unlocks at level 10)
+  uniqueDrops: string[];        // item IDs of unique drops already received
+  discoveredSynergies: string[]; // synergy IDs the player has activated
+  lastCombatLoot?: string[];    // item IDs from last combat for /loot review
 }
 
 // ── World State (per-character) ─────────────────────────────────────────────

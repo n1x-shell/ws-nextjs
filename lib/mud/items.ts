@@ -229,6 +229,516 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'quest', tier: 'COMMON', stackable: false,
     questItem: true,
   },
+
+  // ── TIER 1 LOOT — Tunnel Rats ──────────────────────────────────────────
+
+  chewed_cable: {
+    id: 'chewed_cable', name: 'Chewed Cable',
+    description: 'Gnawed through by something with very sharp teeth. Worth 2 CREDS as scrap.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 2,
+  },
+  nutrient_bar: {
+    id: 'nutrient_bar', name: 'Nutrient Bar',
+    description: 'Compressed protein and vitamins. Tastes like cardboard soaked in regret. Heals 10 HP.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    healAmount: 10, sellPrice: 3,
+  },
+  corroded_data_chip: {
+    id: 'corroded_data_chip', name: 'Corroded Data Chip',
+    description: 'Partially dissolved by tunnel water. Ketch might pay for this, or decrypt it if your TECH is high enough.',
+    category: 'lore', tier: 'COMMON', stackable: true,
+    sellPrice: 15, loreItem: true,
+  },
+  rat_king_fragment: {
+    id: 'rat_king_fragment', name: 'Rat King Nest Fragment',
+    description: 'Matted fur, sinew, and something that pulses faintly. Cole will study it if asked.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+
+  // ── TIER 1 LOOT — Feral Augment ────────────────────────────────────────
+
+  broken_servo: {
+    id: 'broken_servo', name: 'Broken Servo',
+    description: 'Hydraulic servo from a cybernetic limb. Seized mid-motion. Crafting component.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 5,
+  },
+  intact_t1_cyberware: {
+    id: 'intact_t1_cyberware', name: 'Intact T1 Cyberware',
+    description: 'Functional low-tier augment component. Random slot. Not pretty but it works.',
+    category: 'cyberware', tier: 'COMMON', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 1, sellPrice: 20,
+  },
+  neural_shunt_fragment: {
+    id: 'neural_shunt_fragment', name: 'Neural Shunt Fragment',
+    description: 'Partial neural interface component. Required for T2 cyberware assembly.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 12,
+  },
+  subject_id_tag: {
+    id: 'subject_id_tag', name: 'Subject ID Tag',
+    description: 'Helixion subject identifier. A number. A name. They were a person once. The tag remembers.',
+    category: 'lore', tier: 'COMMON', stackable: false,
+    loreItem: true, sellPrice: 5,
+  },
+  helixion_tracker: {
+    id: 'helixion_tracker', name: 'Helixion Tracker Module',
+    description: 'Active tracking beacon from a feral augment. Disabling requires TECH 6. Keeping it active means Helixion patrols find you faster. Iron Bloom pays 80 CREDS.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 80,
+  },
+  mnemos_fragment: {
+    id: 'mnemos_fragment', name: 'MNEMOS Fragment',
+    description: 'Partial memory data from a damaged MNEMOS implant. GHOST 4 or higher to read. Contains someone\'s last memories.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true,
+  },
+  corrupted_compliance_chip: {
+    id: 'corrupted_compliance_chip', name: 'Corrupted Compliance Chip',
+    description: 'Equippable cyberware. Grants +1 GHOST but -1 COOL. The chip whispers. It never stops.',
+    category: 'cyberware', tier: 'HELIXION', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 1,
+  },
+
+  // ── TIER 1 LOOT — Scavenger ────────────────────────────────────────────
+
+  stim_injector: {
+    id: 'stim_injector', name: 'Stim Injector',
+    description: 'Auto-injecting medical stimulant. Heals 25 HP. Single use.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    healAmount: 25, sellPrice: 8,
+  },
+  scavenger_map_fragment: {
+    id: 'scavenger_map_fragment', name: 'Scavenger\'s Map Fragment',
+    description: 'Hand-drawn on scrap fabric. Reveals 1 hidden room in the current zone.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 15,
+  },
+  decent_weapon: {
+    id: 'decent_weapon', name: 'Scavenged Weapon',
+    description: 'Mid-low tier. Somebody kept this maintained. Better than starting gear.',
+    category: 'weapon_melee', tier: 'COMMON', stackable: false,
+    slot: 'weapon_primary', damage: 5, damageType: 'melee', sellPrice: 15,
+  },
+  cache_key: {
+    id: 'cache_key', name: 'Cache Key',
+    description: 'Opens one scavenger cache in the current zone. Contains 50-100 CREDS and uncommon gear.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    questItem: true,
+  },
+  tunnel_map_deep: {
+    id: 'tunnel_map_deep', name: 'Tunnel Map — Deep Layer',
+    description: 'Reveals connections from current zone to undercity access points. Drawn by someone who survived the trip.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 30,
+  },
+
+  // ── TIER 1 LOOT — Patrol Drone ─────────────────────────────────────────
+
+  sensor_array_damaged: {
+    id: 'sensor_array_damaged', name: 'Sensor Array (Damaged)',
+    description: 'Drone sensor unit. TECH 5 to repair. Repaired grants scan range +1 for 3 uses.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 10,
+  },
+  power_cell_depleted: {
+    id: 'power_cell_depleted', name: 'Power Cell (Depleted)',
+    description: 'Recharge at Iron Bloom for 10 CREDS. Powers electronic devices.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 5,
+  },
+  patrol_route_chip: {
+    id: 'patrol_route_chip', name: 'Patrol Route Data',
+    description: 'Reveals enemy patrol patterns in current zone for 1 hour. Helixion standard encryption, already cracked.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 20,
+  },
+  targeting_lens: {
+    id: 'targeting_lens', name: 'Targeting Lens',
+    description: 'Weapon mod. Ranged +1 accuracy. Helixion military optics.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 25,
+  },
+  intact_flight_motor: {
+    id: 'intact_flight_motor', name: 'Intact Flight Motor',
+    description: 'Drone propulsion unit in working condition. Iron Bloom pays 50 CREDS or use it for hover components.',
+    category: 'material', tier: 'COMMON', stackable: false,
+    sellPrice: 50,
+  },
+  helixion_comms_log: {
+    id: 'helixion_comms_log', name: 'Helixion Encrypted Comms Log',
+    description: 'TECH 7 or Iron Bloom contact to decrypt. Contains intel relevant to current questline.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true, sellPrice: 40,
+  },
+  emp_charge_salvaged: {
+    id: 'emp_charge_salvaged', name: 'EMP Charge (Salvaged)',
+    description: 'Single-use. Disables all cyberware and electronics in room for 1 turn. Handle with care.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 35,
+  },
+
+  // ── TIER 2 LOOT — Helixion Security Guard ──────────────────────────────
+
+  military_rations: {
+    id: 'military_rations', name: 'Military Rations',
+    description: 'Helixion standard-issue food. Vacuum sealed. Heals 15 HP. Tastes like obedience.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    healAmount: 15, sellPrice: 5,
+  },
+  standard_sidearm: {
+    id: 'standard_sidearm', name: 'Standard-Issue Sidearm',
+    description: 'Helixion Security Model 7. Reliable. Not exciting. Ammo: 12.',
+    category: 'weapon_ranged', tier: 'COMMON', stackable: false,
+    slot: 'weapon_primary', damage: 5, damageType: 'ranged', sellPrice: 20,
+  },
+  security_keycard_basic: {
+    id: 'security_keycard_basic', name: 'Security Keycard (Basic)',
+    description: 'Opens Tier 1 Helixion doors in current zone. Standard access level.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 10,
+  },
+  ballistic_vest_helixion: {
+    id: 'ballistic_vest_helixion', name: 'Ballistic Vest (Helixion)',
+    description: 'Armor +4. Clean. Corporate logo on the chest. You might want to scratch that off.',
+    category: 'armor', tier: 'COMMON', stackable: false,
+    slot: 'armor', armorValue: 4, sellPrice: 30,
+  },
+  comms_earpiece: {
+    id: 'comms_earpiece', name: 'Comms Earpiece',
+    description: 'Equip to hear Helixion patrol chatter in current zone. Knowledge is survival.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 20,
+  },
+  shock_baton: {
+    id: 'shock_baton', name: 'Shock Baton',
+    description: 'Helixion crowd control. 1d6 melee + stun chance (BODY save). Blue arcs between the prongs.',
+    category: 'weapon_melee', tier: 'COMMON', stackable: false,
+    slot: 'weapon_primary', damage: 6, damageType: 'electric', sellPrice: 25,
+  },
+  security_keycard_elevated: {
+    id: 'security_keycard_elevated', name: 'Security Keycard (Elevated)',
+    description: 'Opens Tier 2 Helixion doors. Higher clearance. Someone will miss this.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 40,
+  },
+  helixion_deployment_orders: {
+    id: 'helixion_deployment_orders', name: 'Helixion Deployment Orders',
+    description: 'Sealed orders. Names, coordinates, objectives. Reveals next Helixion operation in district.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true, sellPrice: 50,
+  },
+  mesh_compliance_badge: {
+    id: 'mesh_compliance_badge', name: 'Mesh Compliance Badge',
+    description: 'Helixion NPCs treat you as neutral for 10 minutes. One use before it pings HQ. Then they come for you.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+  },
+
+  // ── TIER 2 LOOT — Chrome Wolf ──────────────────────────────────────────
+
+  chrome_knuckles: {
+    id: 'chrome_knuckles', name: 'Chrome Knuckles',
+    description: 'Weighted cybernetic hand reinforcement. Melee +2. Ugly but effective.',
+    category: 'weapon_melee', tier: 'COMMON', stackable: false,
+    slot: 'weapon_primary', damage: 5, damageType: 'melee', sellPrice: 15,
+  },
+  wolf_territory_marker: {
+    id: 'wolf_territory_marker', name: 'Wolf Territory Marker',
+    description: 'Chrome Wolf gang tag. Worth 5 CREDS. Or keep it — some NPCs respect the mark.',
+    category: 'utility', tier: 'SCRAP', stackable: true,
+    sellPrice: 5,
+  },
+  t2_combat_cyberware: {
+    id: 't2_combat_cyberware', name: 'T2 Combat Cyberware',
+    description: 'Functional Tier 2 augment. Reflex booster, subdermal plate, or targeting array.',
+    category: 'cyberware', tier: 'MIL_SPEC', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 2, sellPrice: 50,
+  },
+  fight_pit_token: {
+    id: 'fight_pit_token', name: 'Fight Pit Token',
+    description: 'Grants entry to one ranked fight in the pits. Blood-colored chip. Somebody died for this one.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    sellPrice: 15,
+  },
+  modified_weapon: {
+    id: 'modified_weapon', name: 'Modified Weapon',
+    description: 'Wolf-custom. +1 to base weapon damage. Chrome Wolf serial marks filed off. Mostly.',
+    category: 'weapon_melee', tier: 'COMMON', stackable: false,
+    slot: 'weapon_primary', damage: 6, damageType: 'melee', sellPrice: 30,
+  },
+  wolf_augment_schematic: {
+    id: 'wolf_augment_schematic', name: 'Chrome Wolf Augmentation Schematic',
+    description: 'Crafting recipe for Wolf-exclusive T2 cyberware. The Wolves built this themselves.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true, sellPrice: 45,
+  },
+  voss_deployment_sigil: {
+    id: 'voss_deployment_sigil', name: "Voss's Deployment Sigil",
+    description: 'Shows Wolf patrol routes. Also proves you killed one of his people. There will be consequences.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true,
+  },
+  fenrirs_tooth: {
+    id: 'fenrirs_tooth', name: "Fenrir's Tooth",
+    description: 'Mono-edge blade. 1d10 melee. Ignores 2 armor. Named for the old Wolf legend. Voss notices if you carry it.',
+    category: 'weapon_melee', tier: 'HELIXION', stackable: false,
+    slot: 'weapon_primary', damage: 10, damageType: 'melee',
+  },
+
+  // ── TIER 2 LOOT — D9 Agent ─────────────────────────────────────────────
+
+  agent_sidearm: {
+    id: 'agent_sidearm', name: 'Agent Sidearm (Suppressed)',
+    description: 'D9 standard. 1d8 ranged. Stealth attacks don\'t break concealment. Whisper quiet.',
+    category: 'weapon_ranged', tier: 'MIL_SPEC', stackable: false,
+    slot: 'weapon_primary', damage: 8, damageType: 'ranged', sellPrice: 40,
+  },
+  surveillance_hardware: {
+    id: 'surveillance_hardware', name: 'Surveillance Hardware',
+    description: 'D9 field equipment. Iron Bloom pays 60 CREDS or disassemble (TECH 7) for components.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 60,
+  },
+  neural_dampener_grenade: {
+    id: 'neural_dampener_grenade', name: 'Neural Dampener Grenade',
+    description: 'AoE. All targets lose 2 GHOST for 3 turns. The silence is deafening.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    sellPrice: 25,
+  },
+  d9_field_report: {
+    id: 'd9_field_report', name: 'D9 Field Report',
+    description: 'Names, locations, objectives. Major quest intel. Someone\'s career is in this document.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true, sellPrice: 50,
+  },
+  mesh_sniffer: {
+    id: 'mesh_sniffer', name: 'Mesh Sniffer',
+    description: 'Device. Detects mesh-connected individuals within 2 rooms. 10 uses. D9 counterintel tech.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 40,
+  },
+  agent_armor_light: {
+    id: 'agent_armor_light', name: 'Agent Armor (Light)',
+    description: 'Armor +5. Looks civilian. That\'s the point.',
+    category: 'armor', tier: 'MIL_SPEC', stackable: false,
+    slot: 'armor', armorValue: 5, sellPrice: 50,
+  },
+  d9_encryption_key: {
+    id: 'd9_encryption_key', name: 'D9 Encryption Key',
+    description: 'Decrypt any D9 data chip. Permanent tool. The secrets of the directorate, one chip at a time.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+    sellPrice: 100,
+  },
+  compliance_override_device: {
+    id: 'compliance_override_device', name: 'Compliance Override Device',
+    description: 'Single-use. Forces one mesh-connected NPC to freeze for 1 turn. Doesn\'t work on sovereigns.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+    sellPrice: 80,
+  },
+  agent_null_badge: {
+    id: 'agent_null_badge', name: "Agent Null's Badge",
+    description: 'Named agent kill. D9 disguise — lasts until you attack or fail a COOL check. They\'ll come for you once they realize he\'s gone.',
+    category: 'utility', tier: 'PROTOTYPE', stackable: false,
+  },
+
+  // ── TIER 3 LOOT — Helixion Cyborg Enforcer ─────────────────────────────
+
+  military_grade_weapon: {
+    id: 'military_grade_weapon', name: 'Military-Grade Weapon',
+    description: '1d10 ranged or 1d8+2 melee. Real hardware. Helixion military issue.',
+    category: 'weapon_ranged', tier: 'MIL_SPEC', stackable: false,
+    slot: 'weapon_primary', damage: 10, damageType: 'ranged', sellPrice: 60,
+  },
+  t2_cyberware_intact: {
+    id: 't2_cyberware_intact', name: 'T2 Cyberware (Intact)',
+    description: 'Random functional Tier 2 augment. Always in working condition.',
+    category: 'cyberware', tier: 'MIL_SPEC', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 2, sellPrice: 55,
+  },
+  enforcer_armor_plating: {
+    id: 'enforcer_armor_plating', name: 'Enforcer Armor Plating',
+    description: 'Armor +6. Heavy. Requires BODY 7. The kind of armor that changes how you walk.',
+    category: 'armor', tier: 'MIL_SPEC', stackable: false,
+    slot: 'armor', armorValue: 6, sellPrice: 65,
+  },
+  t3_cyberware_component: {
+    id: 't3_cyberware_component', name: 'T3 Cyberware Component',
+    description: 'Requires additional components to complete. Worth finding. Worth keeping.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 40,
+  },
+  chrysalis_research_data: {
+    id: 'chrysalis_research_data', name: 'Chrysalis Research Data',
+    description: 'Helixion research files on Project Chrysalis. Lore + quest advancement. Iron Bloom pays 100 CREDS.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true, sellPrice: 100,
+  },
+  neural_inhibitor: {
+    id: 'neural_inhibitor', name: 'Neural Inhibitor',
+    description: 'Single-use. Disables target cyberware for entire combat. The silence hits them like a wall.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 45,
+  },
+  sandevistan_chip: {
+    id: 'sandevistan_chip', name: 'Sandevistan Chip (Damaged)',
+    description: 'Needs repair (TECH 8 or Costa/Mira). When repaired: extra turn 1/combat. Time stops for everyone but you.',
+    category: 'cyberware', tier: 'HELIXION', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 3, sellPrice: 120,
+  },
+  helixion_override_codes: {
+    id: 'helixion_override_codes', name: 'Helixion Override Codes',
+    description: 'Opens all Tier 1-3 Helixion doors. Lab access possible. Guard these with your life.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+  },
+  chrysalis_interface: {
+    id: 'chrysalis_interface', name: 'Chrysalis Interface Prototype',
+    description: 'T3 cyberware. +2 TECH, +1 GHOST. Whispers Helixion compliance protocols. At GHOST 8, you can hear the Substrate responding.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 3,
+  },
+
+  // ── TIER 3 LOOT — Mesh-Weaponized Squad ────────────────────────────────
+
+  mesh_linked_weapon: {
+    id: 'mesh_linked_weapon', name: 'Mesh-Linked Weapon',
+    description: 'Smart weapon. +2 accuracy but pings Helixion on every shot. The mesh is watching.',
+    category: 'weapon_ranged', tier: 'MIL_SPEC', stackable: false,
+    slot: 'weapon_primary', damage: 9, damageType: 'ranged', sellPrice: 55,
+  },
+  compliance_stim: {
+    id: 'compliance_stim', name: 'Compliance Stim',
+    description: 'Heals 20 HP but applies -1 GHOST for 1 hour. The mesh wants to help. Let it.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    healAmount: 20, sellPrice: 8,
+  },
+  squad_tactical_data: {
+    id: 'squad_tactical_data', name: 'Squad Tactical Data',
+    description: 'Reveals squad deployment pattern in current zone. Helixion military planning.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 15,
+  },
+  mesh_amplifier: {
+    id: 'mesh_amplifier', name: 'Mesh Amplifier (Portable)',
+    description: 'Equip to boost TECH +2 but suffer -2 GHOST. The tradeoff Helixion designed.',
+    category: 'cyberware', tier: 'MIL_SPEC', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 2, sellPrice: 50,
+  },
+  signal_jammer_personal: {
+    id: 'signal_jammer_personal', name: 'Signal Jammer (Personal)',
+    description: 'Blocks mesh effects in a 1-room radius. 5 uses. Your own private silence.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 45,
+  },
+  t3_combat_stim: {
+    id: 't3_combat_stim', name: 'T3 Combat Stim',
+    description: 'Heals 50 HP. No side effects. Military medical grade. Clean.',
+    category: 'consumable', tier: 'MIL_SPEC', stackable: true,
+    healAmount: 50, sellPrice: 35,
+  },
+  frequency_dampener: {
+    id: 'frequency_dampener', name: 'Frequency Dampener',
+    description: 'Cyberware. Reduces all mesh damage by 50%. Also dampens 33hz perception by 50%. Trade-off.',
+    category: 'cyberware', tier: 'HELIXION', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 2, sellPrice: 80,
+  },
+  squad_commander_log: {
+    id: 'squad_commander_log', name: "Squad Commander's Log",
+    description: 'Patrol rotations, safe routes, and one name: the local D9 handler. Valuable intelligence.',
+    category: 'lore', tier: 'HELIXION', stackable: false,
+    loreItem: true, sellPrice: 75,
+  },
+  the_leash_broken: {
+    id: 'the_leash_broken', name: 'The Leash (Broken)',
+    description: 'A compliance device that failed. Equip: immune to mesh compliance. -2 COOL (it left marks). +3 GHOST (breaking it taught you something).',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_3', cyberwareTier: 2,
+  },
+
+  // ── TIER 4 LOOT — Broadcast Tower Defender ─────────────────────────────
+
+  military_grade_t3_weapon: {
+    id: 'military_grade_t3_weapon', name: 'Military-Grade T3 Weapon',
+    description: 'Top-tier. 1d12 or 2d6. The last weapon you\'ll ever need.',
+    category: 'weapon_ranged', tier: 'HELIXION', stackable: false,
+    slot: 'weapon_primary', damage: 12, damageType: 'ranged', sellPrice: 100,
+  },
+  tower_security_pass: {
+    id: 'tower_security_pass', name: 'Tower Security Pass',
+    description: 'Opens doors on current tower level. The broadcast tower doesn\'t give up its secrets easily.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+  },
+  combat_stim_military: {
+    id: 'combat_stim_military', name: 'Combat Stim (Military)',
+    description: 'Full HP restore. 1 use. Military-grade nanomedicine. Feels like being rebuilt from inside.',
+    category: 'consumable', tier: 'HELIXION', stackable: true,
+    healAmount: 999, sellPrice: 60,
+  },
+  frequency_array_component: {
+    id: 'frequency_array_component', name: 'Frequency Array Component',
+    description: 'Used in endgame choices. Needed to modify tower output. The signal infrastructure is modular.',
+    category: 'quest', tier: 'HELIXION', stackable: true,
+    questItem: true,
+  },
+  t3_cyberware_complete: {
+    id: 't3_cyberware_complete', name: 'T3 Cyberware (Complete)',
+    description: 'Ready to install. No assembly required. Top-tier Helixion augmentation.',
+    category: 'cyberware', tier: 'HELIXION', stackable: false,
+    slot: 'cyberware_3', cyberwareTier: 3, sellPrice: 120,
+  },
+  tower_schematic_fragment: {
+    id: 'tower_schematic_fragment', name: 'Tower Schematic Fragment',
+    description: 'Collect all 4 to reveal hidden paths in the tower. One piece of the puzzle.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: true,
+    questItem: true,
+  },
+  virek_override_key: {
+    id: 'virek_override_key', name: "Virek's Personal Override Key",
+    description: 'Opens the CEO\'s private elevator. Shortcut to the top. How much did he trust his tower?',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+  },
+  substrate_resonance_crystal: {
+    id: 'substrate_resonance_crystal', name: 'Substrate Resonance Crystal',
+    description: 'Natural formation. +2 GHOST when held. Glows at 33hz. The Substrate grew it on purpose.',
+    category: 'utility', tier: 'PROTOTYPE', stackable: false,
+  },
+  the_frequency_key: {
+    id: 'the_frequency_key', name: 'The Frequency Key',
+    description: 'Required for Option B — broadcast sovereign frequency. Without this, you can only destroy the tower. Finding it creates the choice.',
+    category: 'quest', tier: 'PROTOTYPE', stackable: false,
+    questItem: true,
+  },
+
+  // ── Endgame / Lab Uniques ──────────────────────────────────────────────
+
+  sovereign_frequency_implant: {
+    id: 'sovereign_frequency_implant', name: 'Sovereign Frequency Implant',
+    description: 'Lab unique. Combines with SOVEREIGN SIGNAL capstone for FULL SOVEREIGNTY. The endgame unlock.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_3', cyberwareTier: 3,
+  },
+
+  // ── Crafting Materials (expanded) ──────────────────────────────────────
+
+  substrate_crystal_shard: {
+    id: 'substrate_crystal_shard', name: 'Substrate Crystal Shard',
+    description: 'Fragment of deep-zone crystalline formation. Pulses faintly at 33hz. Used in frequency-attuned equipment.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 30,
+  },
+  helixion_circuit_board: {
+    id: 'helixion_circuit_board', name: 'Helixion Circuit Board',
+    description: 'Military-grade electronics. Used for T3 cyberware and hacking tools.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 25,
+  },
+  signal_wire: {
+    id: 'signal_wire', name: 'Signal Wire',
+    description: 'Salvaged from relay stations. Communication devices, signal tools. The infrastructure of the hidden network.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 8,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────

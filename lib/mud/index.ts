@@ -13,3 +13,9 @@ export * from './shopSystem';
 export * from './mudCommands';
 export * from './mudAudio';
 export * from './mudHUD';
+// ── Progression Systems ─────────────────────────────────────────────────
+export * from './skillTree';
+export * from './lootEngine';
+export * from './safeHaven';
+export * from './levelUpSequence';
+export * from './synergies';

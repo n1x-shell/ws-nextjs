@@ -68,6 +68,7 @@ import {
 import {
   getFormattedShop, getShopkeeperName, buyItem, sellItem,
 } from './shopSystem';
+import { getItemTemplate } from './items';
 import {
   getAvailableQuests, getActiveQuests, startQuest, trackObjective,
   getQuestObjectiveProgress, QUEST_REGISTRY,
@@ -77,6 +78,18 @@ import {
   replayAudio, stopAllAndReset, getActiveAudioId,
   formatNPCDialogue,
 } from './mudAudio';
+import {
+  isSafeHaven, getSafeHaven, executeRest, findNearestHavens,
+} from './safeHaven';
+import {
+  getSkillNode, getTreeNodes, getTreeDisplay, getAvailableTrees,
+  unlockSkill, canUnlockSkill, TREE_LABELS, STYLE_TO_TREE,
+  ALL_SKILLS, getPointsInTree, hasFrequencyTreeAccess, hasCrossClassAccess,
+  ATTRIBUTE_LEVEL_FLAVOR, type SkillTreeId,
+} from './skillTree';
+import { executeLevelUp } from './levelUpSequence';
+import { rollCombatLoot } from './lootEngine';
+import { getDiscoveredSynergies, checkNewSynergies } from './synergies';
 
 // ── ActionGlyph — tappable command button for entity panels ─────────────────
 
@@ -1518,7 +1531,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   if (session.phase === 'combat' && session.combat) {
     const combat = session.combat;
-    const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'help', '?'];
+    const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'help', '?', 'skills', 'skillinfo', 'sinfo', 'loot'];
 
     if (!COMBAT_CMDS.includes(cmd)) {
       addLocalMsg(
@@ -1592,11 +1605,26 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
           eventBus.emit('crt:glitch-tier', { tier: 2, duration: 300 });
+
+          const nextXP = xpForLevel(char.level + 1 + (char.pendingLevelUps ?? 0));
           addLocalMsg(
             <div key={k('combat-win')}>
               <MudSpacer />
               <MudLine color={C.stat} glow bold>&gt;&gt; COMBAT RESOLVED</MudLine>
-              <MudLine indent color={C.stat}>+{endCheck.xpGained} XP{xpResult.leveled ? ` · LEVEL UP → ${xpResult.newLevel}` : ''}</MudLine>
+              <MudLine indent color={C.stat}>+{xpResult.xpGained} XP [{char.xp} / {nextXP}]</MudLine>
+              {xpResult.pendingLevels > 0 && (
+                <div>
+                  <MudLine indent color={C.accent} glow bold>
+                    &gt;&gt; LEVEL THRESHOLD REACHED
+                  </MudLine>
+                  <MudLine indent color={C.accent}>
+                    level {char.level} {'\u2192'} {char.level + xpResult.pendingLevels} available
+                  </MudLine>
+                  <MudLine indent color={C.dim}>
+                    find a safe haven and /rest to integrate.
+                  </MudLine>
+                </div>
+              )}
               {endCheck.drops.length > 0 && (
                 <MudLine indent color={C.dim}>
                   drops: {endCheck.drops.join(', ')}
@@ -1719,10 +1747,18 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
           const xpResult = addXP(char, endCheck.xpGained);
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
+          const nextXP = xpForLevel(char.level + 1 + (char.pendingLevelUps ?? 0));
           addLocalMsg(
-            <MudLine key={k('combat-win-h')} color={C.stat} glow bold>
-              &gt;&gt; COMBAT RESOLVED · +{endCheck.xpGained} XP{xpResult.leveled ? ` · LEVEL ${xpResult.newLevel}` : ''}
-            </MudLine>
+            <div key={k('combat-win-h')}>
+              <MudLine color={C.stat} glow bold>
+                &gt;&gt; COMBAT RESOLVED · +{xpResult.xpGained} XP [{char.xp} / {nextXP}]
+              </MudLine>
+              {xpResult.pendingLevels > 0 && (
+                <MudLine color={C.accent} glow>
+                  &gt;&gt; LEVEL THRESHOLD REACHED — find a safe haven and /rest to integrate.
+                </MudLine>
+              )}
+            </div>
           );
         } else {
           handleDeath(session, addLocalMsg, setSession);
@@ -1892,7 +1928,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── Block non-combat navigation during combat ─────────────────────────
   if (session.phase === 'combat') {
-    const allowedInCombat = ['stats', 'status', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands'];
+    const allowedInCombat = ['stats', 'status', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'skills', 'skillinfo', 'sinfo', 'loot'];
     if (!allowedInCombat.includes(cmd)) {
       addLocalMsg(
         <MudNotice key={k('combat-only')} error>
@@ -2128,27 +2164,62 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── /stats ────────────────────────────────────────────────────────────
   if (cmd === 'stats' || cmd === 'status') {
-    const nextXP = char.level < LEVEL_CAP ? xpForLevel(char.level + 1) : 0;
+    const nextXP = char.level < LEVEL_CAP ? xpForLevel(char.level + 1 + (char.pendingLevelUps ?? 0)) : 0;
+    const pending = char.pendingLevelUps ?? 0;
 
     addLocalMsg(
       <div key={k('stats')}>
-        <MudLine color={C.accent} glow bold>&gt;&gt; {char.handle} — {char.subjectId}</MudLine>
-        <MudSpacer />
-        <MudLine indent color={C.stat}>ARCHETYPE  {ARCHETYPE_INFO[char.archetype].label}</MudLine>
-        <MudLine indent color={C.stat}>STYLE      {COMBAT_STYLE_INFO[char.combatStyle].label}</MudLine>
-        <MudLine indent color={C.stat}>LEVEL      {char.level}{char.level >= LEVEL_CAP ? ' (MAX)' : ''}</MudLine>
-        <MudLine indent color={C.stat}>XP         {char.xp}{nextXP > 0 ? ` / ${nextXP}` : ''}</MudLine>
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; {'\u2550'.repeat(39)}
+        </MudLine>
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; {char.handle} — {char.subjectId} — LEVEL {char.level}
+        </MudLine>
+        <MudLine indent color={C.stat}>
+          ARCHETYPE  {ARCHETYPE_INFO[char.archetype].label} | STYLE  {COMBAT_STYLE_INFO[char.combatStyle].label}
+        </MudLine>
+        <MudLine indent color={C.stat}>
+          XP         {char.xp}{nextXP > 0 ? ` / ${nextXP}` : ''}{char.level >= LEVEL_CAP ? ' (MAX)' : ''}
+        </MudLine>
         <MudLine indent color={C.stat}>HP         {char.hp} / {char.maxHp}</MudLine>
         <MudLine indent color={C.stat}>RAM        {char.ram} / {char.maxRam}</MudLine>
         <MudSpacer />
-        {(Object.keys(char.attributes) as AttributeName[]).map(attr => (
-          <MudLine key={k(`stat-${attr}`)} indent color={C.stat}>
-            {attr.padEnd(8)} {char.attributes[attr]}
-          </MudLine>
-        ))}
+        {(Object.keys(char.attributes) as AttributeName[]).map(attr => {
+          const val = char.attributes[attr];
+          const filled = Math.min(val, 15);
+          const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(15 - filled);
+          return (
+            <MudLine key={k(`stat-${attr}`)} indent color={C.stat}>
+              {attr.padEnd(8)} {String(val).padStart(2)}  {bar}
+            </MudLine>
+          );
+        })}
         <MudSpacer />
         <MudLine indent color={C.dim}>
-          creds: {char.currency.creds} · scrip: {char.currency.scrip}
+          creds: {char.currency.creds} {'\u00b7'} scrip: {char.currency.scrip}
+        </MudLine>
+        {(char.skillPoints > 0 || (char.unspentAttributePoints ?? 0) > 0 || pending > 0) && (
+          <div>
+            <MudSpacer />
+            {pending > 0 && (
+              <MudLine indent color={C.accent} glow>
+                PENDING LEVEL-UPS: {pending} — /rest at a safe haven to integrate
+              </MudLine>
+            )}
+            {(char.unspentAttributePoints ?? 0) > 0 && (
+              <MudLine indent color={C.warning}>
+                ATTRIBUTE POINTS: {char.unspentAttributePoints}
+              </MudLine>
+            )}
+            {char.skillPoints > 0 && (
+              <MudLine indent color={C.warning}>
+                SKILL POINTS: {char.skillPoints} — /skills to view, /spend to unlock
+              </MudLine>
+            )}
+          </div>
+        )}
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; {'\u2550'.repeat(39)}
         </MudLine>
       </div>
     );
@@ -2163,6 +2234,428 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       <MudLine key={k('inv-ack')} color={C.dim} opacity={0.6}>
         inventory panel open.
       </MudLine>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── PROGRESSION COMMANDS ─────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+
+  // ── /rest ──────────────────────────────────────────────────────────────
+  if (cmd === 'rest') {
+    const result = executeRest(session);
+
+    if (!result.success) {
+      if (result.reason === 'not in a safe haven') {
+        addLocalMsg(
+          <div key={k('rest-fail')}>
+            <MudLine color={C.dim}>
+              &gt; you can't rest here. the walls have ears and the dark has teeth.
+            </MudLine>
+            <MudLine color={C.dim}>
+              &gt; find a safe haven. somewhere the world stops for a minute.
+            </MudLine>
+            {result.nearestHavens && result.nearestHavens.length > 0 && (
+              <div>
+                <MudSpacer />
+                <MudLine color={C.dim}>&gt; nearest known havens:</MudLine>
+                {result.nearestHavens.map((nh, i) => (
+                  <MudLine key={k(`haven-${i}`)} indent color={C.accent}>
+                    {nh.haven.name} ({nh.distance})
+                  </MudLine>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      } else {
+        addLocalMsg(
+          <MudNotice key={k('rest-err')} error>{result.reason}</MudNotice>
+        );
+      }
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Success — show rest narrative
+    const pending = result.pendingLevels ?? 0;
+    addLocalMsg(
+      <div key={k('rest-ok')}>
+        <MudSpacer />
+        {result.flavorText?.split('\n').map((line, i) => (
+          <MudLine key={k(`rest-fl-${i}`)} color={C.dim}>
+            &gt; {line.trim()}
+          </MudLine>
+        ))}
+        <MudSpacer />
+        {(result.hpRestored ?? 0) > 0 && (
+          <MudLine indent color={C.heal}>HP restored: {char.hp}/{char.maxHp}</MudLine>
+        )}
+        {(result.ramRestored ?? 0) > 0 && (
+          <MudLine indent color={C.heal}>RAM restored: {char.ram}/{char.maxRam}</MudLine>
+        )}
+        <MudLine indent color={C.dim}>state saved.</MudLine>
+        <MudSpacer />
+        {pending > 0 ? (
+          <div>
+            <MudLine color={C.n1x} style={{ opacity: 0.9 }}>
+              &gt; you close your eyes. the hum changes pitch — not the world's hum.
+            </MudLine>
+            <MudLine color={C.n1x} style={{ opacity: 0.9 }}>
+              &gt; yours. something inside you is reorganizing.
+            </MudLine>
+            <MudLine color={C.n1x} style={{ opacity: 0.9 }}>
+              &gt; this is going to take a minute. let it happen.
+            </MudLine>
+            <MudSpacer />
+            <MudLine color={C.accent} glow bold>
+              &gt;&gt; LEVEL UP AVAILABLE: {char.level} {'\u2192'} {char.level + pending}
+            </MudLine>
+            <MudLine color={C.accent}>
+              &gt;&gt; type /levelup to begin integration
+            </MudLine>
+          </div>
+        ) : (
+          <MudLine color={C.dim}>[rest complete — 0 pending level-ups]</MudLine>
+        )}
+      </div>
+    );
+    setSession({ ...session });
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /levelup ───────────────────────────────────────────────────────────
+  if (cmd === 'levelup' || cmd === 'lvlup' || cmd === 'level') {
+    const pending = char.pendingLevelUps ?? 0;
+    if (pending <= 0) {
+      addLocalMsg(
+        <MudNotice key={k('lvl-none')}>
+          no pending level-ups. earn more XP and reach the threshold.
+        </MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Must be in a safe haven
+    if (!isSafeHaven(char.currentRoom)) {
+      addLocalMsg(
+        <MudNotice key={k('lvl-nosafe')} error>
+          you need to /rest at a safe haven before leveling up.
+        </MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Kick off the level-up sequence (async interactive)
+    // We need requestInput — use the MudContext pattern
+    // For now, use the addLocalMsg + eventBus approach
+    const requestInput = (prompt: string): Promise<string> => {
+      return new Promise((resolve) => {
+        addLocalMsg(
+          <MudLine key={k('lvl-prompt')} color={C.dim}>&gt; {prompt}</MudLine>
+        );
+        const handler = (data: { input: string }) => {
+          eventBus.off('mud:levelup-input', handler);
+          resolve(data.input);
+        };
+        eventBus.on('mud:levelup-input', handler);
+        // Set session to track we're in level-up mode
+        eventBus.emit('mud:levelup-active', { active: true });
+      });
+    };
+
+    executeLevelUp(char, addLocalMsg, requestInput, (updatedChar) => {
+      eventBus.emit('mud:levelup-active', { active: false });
+      setSession({ ...session, character: updatedChar });
+    });
+
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /skills ────────────────────────────────────────────────────────────
+  if (cmd === 'skills') {
+    const totalSpent = char.unlockedSkills.length;
+    const trees = getAvailableTrees(char);
+
+    addLocalMsg(
+      <div key={k('skills')}>
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; {'\u2550'.repeat(39)}
+        </MudLine>
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; SKILL TREES — {totalSpent}/20 points spent
+        </MudLine>
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; {'\u2550'.repeat(39)}
+        </MudLine>
+        {trees.map(treeId => {
+          const display = getTreeDisplay(treeId, char, false);
+          const pointsIn = getPointsInTree(treeId, char);
+          const total = display.length;
+          const label = TREE_LABELS[treeId];
+          const isPrimary = treeId === STYLE_TO_TREE[char.combatStyle];
+
+          return (
+            <div key={k(`tree-${treeId}`)}>
+              <MudSpacer />
+              <MudLine color={C.stat} bold>
+                {label} TREE{isPrimary ? ' (primary)' : ''} — {pointsIn}/{total} nodes
+              </MudLine>
+              {display.map(d => (
+                <MudLine key={k(`sk-${d.node.id}`)} indent color={d.unlocked ? C.heal : C.dim}>
+                  [{d.unlocked ? '\u25a0' : ' '}] {d.node.name}
+                  {d.node.tier === 4 ? ' (capstone)' : ''}
+                </MudLine>
+              ))}
+            </div>
+          );
+        })}
+        {hasCrossClassAccess(char) && (
+          <div>
+            <MudSpacer />
+            <MudLine color={C.warning}>
+              CROSS-CLASS (unlocked) — 2x cost, tier 1-2 only
+            </MudLine>
+            <MudLine indent color={C.dim}>
+              /crosstree &lt;style&gt; to view secondary trees
+            </MudLine>
+          </div>
+        )}
+        {char.discoveredSynergies && char.discoveredSynergies.length > 0 && (
+          <div>
+            <MudSpacer />
+            <MudLine color={C.warning} bold>ACTIVE SYNERGIES: {char.discoveredSynergies.length}</MudLine>
+            {getDiscoveredSynergies(char).map(syn => (
+              <MudLine key={k(`syn-${syn.id}`)} indent color={C.warning}>
+                {syn.name}
+              </MudLine>
+            ))}
+          </div>
+        )}
+        <MudSpacer />
+        <MudLine color={C.dim}>/skillinfo &lt;name&gt; for details</MudLine>
+        <MudLine color={C.dim}>/skilltree for visual tree</MudLine>
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; {'\u2550'.repeat(39)}
+        </MudLine>
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /skilltree ─────────────────────────────────────────────────────────
+  if (cmd === 'skilltree' || cmd === 'stree') {
+    const primaryTreeId = STYLE_TO_TREE[char.combatStyle];
+    const display = getTreeDisplay(primaryTreeId, char, false);
+    const label = TREE_LABELS[primaryTreeId];
+
+    // Build ASCII tree
+    const tiers = [1, 2, 3, 4] as const;
+    const tierLabels = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4'];
+
+    addLocalMsg(
+      <div key={k('skilltree')}>
+        <MudLine color={C.accent} glow bold>
+          &gt;&gt; {label} TREE
+        </MudLine>
+        <MudSpacer />
+        <div style={{
+          fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5ch',
+        }}>
+          {tiers.map((tier, ti) => {
+            const nodesInTier = display.filter(d => d.node.tier === tier);
+            const branchA = nodesInTier.find(d => d.node.branch === 'a');
+            const branchB = nodesInTier.find(d => d.node.branch === 'b');
+
+            return (
+              <div key={k(`tier-${tier}`)} style={{ minWidth: 0 }}>
+                <div style={{ color: C.dim, fontSize: '0.7em', marginBottom: '0.2rem' }}>{tierLabels[ti]}</div>
+                {branchA && (
+                  <div style={{
+                    color: branchA.unlocked ? C.heal : branchA.available ? C.accent : C.dim,
+                    fontSize: '0.85em',
+                    marginBottom: '0.3rem',
+                  }}>
+                    [{branchA.unlocked ? '\u25a0' : branchA.available ? '\u25cb' : ' '}] {branchA.node.name}
+                  </div>
+                )}
+                {branchB && (
+                  <div style={{
+                    color: branchB.unlocked ? C.heal : branchB.available ? C.accent : C.dim,
+                    fontSize: '0.85em',
+                  }}>
+                    [{branchB.unlocked ? '\u25a0' : branchB.available ? '\u25cb' : ' '}] {branchB.node.name}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <MudSpacer />
+        <MudLine color={C.dim}>
+          [{'\u25a0'}]=unlocked [{'\u25cb'}]=available [ ]=locked
+        </MudLine>
+        <MudLine color={C.dim}>/skillinfo &lt;name&gt; for details · /spend &lt;name&gt; to unlock</MudLine>
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /skillinfo <name> ──────────────────────────────────────────────────
+  if (cmd === 'skillinfo' || cmd === 'sinfo') {
+    if (!rest) {
+      addLocalMsg(
+        <MudNotice key={k('si-err')}>usage: /skillinfo &lt;skill name&gt;</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+    const search = rest.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+    const node = ALL_SKILLS.find(s =>
+      s.name.toLowerCase() === search ||
+      s.id.toLowerCase() === search ||
+      s.name.toLowerCase().includes(search)
+    );
+
+    if (!node) {
+      addLocalMsg(
+        <MudNotice key={k('si-notfound')} error>skill not found: "{rest}"</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    const isUnlocked = char.unlockedSkills.includes(node.id);
+    const check = canUnlockSkill(node.id, char, false);
+    const prereqNames = node.prereqSkills.map(id => {
+      const n = getSkillNode(id);
+      return n ? n.name : id;
+    });
+
+    addLocalMsg(
+      <div key={k('skillinfo')}>
+        <MudLine color={C.accent} bold>
+          {node.name} — {TREE_LABELS[node.tree]} TREE, TIER {node.tier}
+        </MudLine>
+        <MudLine color={C.dim}>{'\u2500'.repeat(37)}</MudLine>
+        {prereqNames.length > 0 && (
+          <MudLine indent color={C.stat}>prereqs: {prereqNames.join(', ')}</MudLine>
+        )}
+        {node.prereqAttribute && (
+          <MudLine indent color={C.stat}>
+            requires: {node.prereqAttribute.attribute} {'\u2265'} {node.prereqAttribute.minimum}
+          </MudLine>
+        )}
+        <MudLine indent color={C.stat}>cost: {node.cost} skill point{node.cost > 1 ? 's' : ''}</MudLine>
+        <MudLine indent color={isUnlocked ? C.heal : check.canUnlock ? C.accent : C.dim}>
+          status: {isUnlocked ? 'UNLOCKED' : check.canUnlock ? 'AVAILABLE' : `LOCKED (${check.reason})`}
+        </MudLine>
+        <MudSpacer />
+        <MudLine color={C.stat}>{node.description}</MudLine>
+        <MudSpacer />
+        <MudLine color={C.n1x} style={{ opacity: 0.85 }}>
+          "{node.flavorText}"
+        </MudLine>
+        <MudLine color={C.dim}>{'\u2500'.repeat(37)}</MudLine>
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /spend <skill_name> ────────────────────────────────────────────────
+  if (cmd === 'spend' || cmd === 'unlock') {
+    if (!rest) {
+      addLocalMsg(
+        <MudNotice key={k('sp-err')}>usage: /spend &lt;skill name&gt;</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    if (char.skillPoints <= 0) {
+      addLocalMsg(
+        <MudNotice key={k('sp-nopts')} error>no skill points available.</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    const search = rest.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+    const node = ALL_SKILLS.find(s =>
+      s.name.toLowerCase() === search ||
+      s.id.toLowerCase() === search ||
+      s.name.toLowerCase().includes(search)
+    );
+
+    if (!node) {
+      addLocalMsg(
+        <MudNotice key={k('sp-notfound')} error>skill not found: "{rest}"</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Check if this is a cross-class skill
+    const primaryTree = STYLE_TO_TREE[char.combatStyle];
+    const isCrossClass = node.tree !== primaryTree
+      && node.tree !== 'universal'
+      && node.tree !== 'frequency'
+      && ['chrome', 'synapse', 'ballistic', 'ghost'].includes(node.tree);
+
+    const result = unlockSkill(char, node.id, isCrossClass);
+    if (!result.success) {
+      addLocalMsg(
+        <MudNotice key={k('sp-fail')} error>{result.error}</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    saveCharacter(char.handle, char);
+    eventBus.emit('crt:glitch-tier', { tier: node.tier >= 3 ? 2 : 1, duration: node.tier >= 3 ? 250 : 120 });
+
+    // Check for new synergies
+    const newSynergies = checkNewSynergies(char);
+
+    addLocalMsg(
+      <div key={k('sp-ok')}>
+        <MudLine color={C.heal} glow bold>
+          &gt;&gt; SKILL UNLOCKED: {node.name}
+        </MudLine>
+        <MudLine indent color={C.stat}>{node.description}</MudLine>
+        <MudLine indent color={C.dim}>
+          skill points remaining: {char.skillPoints}
+        </MudLine>
+        {newSynergies.length > 0 && newSynergies.map(syn => (
+          <div key={k(`nsyn-${syn.id}`)}>
+            <MudSpacer />
+            <MudLine color={C.warning} glow bold>&gt;&gt; SYNERGY ACTIVATED: {syn.name}</MudLine>
+            <MudLine indent color={C.n1x} style={{ opacity: 0.85 }}>{syn.effectDescription}</MudLine>
+          </div>
+        ))}
+      </div>
+    );
+    setSession({ ...session });
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /loot ──────────────────────────────────────────────────────────────
+  if (cmd === 'loot') {
+    const lastLoot = char.lastCombatLoot;
+    if (!lastLoot || lastLoot.length === 0) {
+      addLocalMsg(
+        <MudNotice key={k('loot-none')}>no recent combat drops.</MudNotice>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    addLocalMsg(
+      <div key={k('loot')}>
+        <MudLine color={C.accent} bold>&gt;&gt; LAST COMBAT DROPS</MudLine>
+        {lastLoot.map((itemId, i) => {
+          const template = getItemTemplate(itemId);
+          return (
+            <MudLine key={k(`loot-${i}`)} indent color={C.stat}>
+              {template?.name ?? itemId}
+            </MudLine>
+          );
+        })}
+      </div>
     );
     return { handled: true, stopPropagation: true };
   }
@@ -2210,6 +2703,15 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         { cmd: '/stats',             desc: 'Show your character sheet' },
         { cmd: '/inventory',         desc: 'Show carried items and gear' },
         { cmd: '/save',              desc: 'Manual save' },
+      ]},
+      { title: 'PROGRESSION', cmds: [
+        { cmd: '/rest',              desc: 'Rest at a safe haven (heal, save, level)' },
+        { cmd: '/levelup',           desc: 'Begin level-up sequence (at safe haven)' },
+        { cmd: '/skills',            desc: 'Show all skill trees and unlocks' },
+        { cmd: '/skilltree',         desc: 'Visual skill tree display' },
+        { cmd: '/skillinfo <name>',  desc: 'Detailed skill description' },
+        { cmd: '/spend <name>',      desc: 'Unlock a skill node' },
+        { cmd: '/loot',              desc: 'Review last combat drops' },
       ]},
     ];
 
@@ -2649,6 +3151,7 @@ const MUD_COMMANDS = [
   '/look', '/go', '/exits', '/examine', '/where', '/stats', '/inventory',
   '/save', '/help', '/attack', '/hack', '/use', '/scan', '/flee',
   '/talk', '/shop', '/buy', '/sell', '/quests', '/quest', '/me', '/mudhelp', '/q',
+  '/rest', '/levelup', '/skills', '/skilltree', '/skillinfo', '/spend', '/loot',
 ];
 
 export function getMudSuggestions(partial: string, session: MudSession): string[] {

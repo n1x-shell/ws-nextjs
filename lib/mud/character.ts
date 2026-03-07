@@ -234,6 +234,11 @@ export function buildCharacter(
     createdAt: Date.now(),
     lastSaved: Date.now(),
     isDead: false,
+    // Progression fields
+    pendingLevelUps: 0,
+    unspentAttributePoints: 0,
+    uniqueDrops: [],
+    discoveredSynergies: [],
   };
 
   return character;
@@ -277,6 +282,8 @@ export function addXP(character: MudCharacter, amount: number): {
   character: MudCharacter;
   leveled: boolean;
   newLevel?: number;
+  xpGained: number;
+  pendingLevels: number;
 } {
   // INT modifier: +5% XP per point above 3
   const intBonus = Math.max(0, character.attributes.INT - 3) * 0.05;
@@ -284,29 +291,42 @@ export function addXP(character: MudCharacter, amount: number): {
 
   character.xp += adjustedAmount;
 
-  // Check level up
+  // Check level up — does NOT auto-level. Sets pendingLevelUps instead.
   if (character.level >= LEVEL_CAP) {
-    return { character, leveled: false };
+    return { character, leveled: false, xpGained: adjustedAmount, pendingLevels: character.pendingLevelUps ?? 0 };
   }
 
-  const nextLevelXP = xpForLevel(character.level + 1);
-  if (character.xp >= nextLevelXP) {
-    character.level += 1;
-    character.skillPoints += 1;
-
-    // Recalculate HP
-    const newMaxHp = calculateMaxHp(character.attributes.BODY, character.archetype, character.level);
-    const hpGain = newMaxHp - character.maxHp;
-    character.maxHp = newMaxHp;
-    character.hp += hpGain; // Heal the gained amount
-
-    // Recalculate RAM
-    character.maxRam = calculateMaxRam(character.attributes.TECH);
-
-    return { character, leveled: true, newLevel: character.level };
+  // Count how many levels worth of XP we've accumulated
+  let pendingNew = 0;
+  let checkLevel = character.level + (character.pendingLevelUps ?? 0);
+  while (checkLevel < LEVEL_CAP) {
+    const nextXP = xpForLevel(checkLevel + 1);
+    if (character.xp >= nextXP) {
+      checkLevel++;
+      pendingNew++;
+    } else {
+      break;
+    }
   }
 
-  return { character, leveled: false };
+  // Calculate total pending (existing + new)
+  const existingPending = character.pendingLevelUps ?? 0;
+  // Only add NEW pending levels beyond what's already pending
+  const totalTargetLevel = character.level + existingPending + pendingNew;
+  const newPending = totalTargetLevel - character.level - existingPending;
+
+  if (newPending > 0) {
+    character.pendingLevelUps = existingPending + newPending;
+    return {
+      character,
+      leveled: true,
+      newLevel: character.level + character.pendingLevelUps,
+      xpGained: adjustedAmount,
+      pendingLevels: character.pendingLevelUps,
+    };
+  }
+
+  return { character, leveled: false, xpGained: adjustedAmount, pendingLevels: existingPending };
 }
 
 // ── Attribute Point Spending (on level up) ──────────────────────────────────
