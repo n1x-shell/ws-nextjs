@@ -52,6 +52,9 @@ export default function InterfaceLayer() {
   const screenContentRef = useRef<HTMLDivElement>(null);
   const shellAreaRef     = useRef<HTMLDivElement>(null);
 
+  // ── enter.n1x.sh: hide tab panel entirely ─────────────────────────────────
+  const isEnterMode = typeof window !== 'undefined' && window.location.hostname === 'enter.n1x.sh';
+
   // ── CRT transition states ─────────────────────────────────────────────────
   const [tabEffect,    setTabEffect]    = useState<'channel-switch' | 'static-burst' | null>(null);
   const [screenEffect, setScreenEffect] = useState<'whiteout-flash' | 'desync-tear' | null>(null);
@@ -410,8 +413,8 @@ export default function InterfaceLayer() {
                 overflow: 'hidden',
               }}
             >
-              {/* Tab nav — hidden when MUD HUD owns the UI */}
-              {mudHudVisible ? null : mudMode !== 'off' ? (
+              {/* Tab nav — hidden when MUD HUD owns the UI or enter mode */}
+              {(mudHudVisible || isEnterMode) ? null : mudMode !== 'off' ? (
                 /* ── MUD Action Panel ──────────────────────────────────── */
                 <nav
                   style={{
