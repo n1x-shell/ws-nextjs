@@ -820,7 +820,9 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
   const [overlayOpacity, setOverlayOpacity] = useState(1);
   const [matrixOpacity, setMatrixOpacity] = useState(0);
   const [titleCard, setTitleCard] = useState(false);
-  const [titleCardOpacity, setTitleCardOpacity] = useState(0);
+  const [titleOpacity, setTitleOpacity] = useState(0);
+  const [subOpacity, setSubOpacity] = useState(0);
+  const [bylineOpacity, setBylineOpacity] = useState(0);
   const stingerRef = useRef(false); // render loop reads this for wild spore mode
 
   const hasSeen = typeof window !== 'undefined' && localStorage.getItem('n1x_tc_intro_seen') === 'true';
@@ -933,33 +935,50 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     requestAnimationFrame(animate);
   }, [fadingOut]);
 
-  // ── Title card stinger: 2500ms → CRT shutdown → finish ────────────
+  // ── Title card stinger: 3500ms → CRT shutdown → finish ────────────
+  // Staggered fade-in: title → subtitle → byline, ~1500ms to spare
   useEffect(() => {
     if (!titleCard) return;
-    // Fade in the title card text
-    const fadeStart = Date.now();
-    const fadeInTitle = () => {
-      const elapsed = Date.now() - fadeStart;
-      const p = Math.min(1, elapsed / 400);
-      setTitleCardOpacity(p * p); // quadratic ease-in
-      if (p < 1 && !completedRef.current) requestAnimationFrame(fadeInTitle);
-    };
-    requestAnimationFrame(fadeInTitle);
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
-    // After 2500ms: CRT monitor-off effect, then finish
-    const exitTimer = setTimeout(() => {
+    // 0ms — TUNNELCORE fades in (500ms)
+    const fadeElement = (setter: (v: number) => void, duration: number) => {
+      const start = Date.now();
+      const tick = () => {
+        const p = Math.min(1, (Date.now() - start) / duration);
+        setter(p * p); // quadratic ease-in
+        if (p < 1 && !completedRef.current) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    };
+    fadeElement(setTitleOpacity, 500);
+
+    // 600ms — subtitle fades in
+    timers.push(setTimeout(() => {
+      if (!completedRef.current) fadeElement(setSubOpacity, 450);
+    }, 600));
+
+    // 1200ms — byline fades in
+    timers.push(setTimeout(() => {
+      if (!completedRef.current) fadeElement(setBylineOpacity, 400);
+    }, 1200));
+
+    // 3500ms — CRT monitor-off effect, then finish
+    timers.push(setTimeout(() => {
       if (completedRef.current) return;
       // Heavy CRT shutdown glitch — monitor off/on stinger
       eventBus.emit('crt:glitch-tier', { tier: 3, duration: 500 });
       eventBus.emit('neural:glitch-trigger', { intensity: 1.0 });
       // Brief blackout gap before finishing
-      setTitleCardOpacity(0);
+      setTitleOpacity(0);
+      setSubOpacity(0);
+      setBylineOpacity(0);
       setTimeout(() => {
         finish();
       }, 350);
-    }, 2500);
+    }, 3500));
 
-    return () => clearTimeout(exitTimer);
+    return () => timers.forEach(clearTimeout);
   }, [titleCard, finish]);
 
   // ── Fungal substrate system — breathing mycelium organism ─────────────
@@ -1421,7 +1440,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           width: '100%',
           height: '100%',
           opacity: titleCard
-            ? matrixOpacity * 0.9 * titleCardOpacity
+            ? matrixOpacity * 0.9 * titleOpacity
             : matrixOpacity * 0.85 * overlayOpacity,
           transition: 'opacity 0.5s',
         }}
@@ -1478,7 +1497,6 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 3,
-          opacity: titleCardOpacity,
           pointerEvents: 'none',
         }}>
           <div style={{
@@ -1490,6 +1508,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
             textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 60px rgba(255,255,255,0.15), 0 0 4px rgba(255,255,255,0.8)',
             marginBottom: '0.8rem',
             animation: 'tc-title-pulse 1.5s ease-in-out infinite',
+            opacity: titleOpacity,
           }}>
             TUNNELCORE
           </div>
@@ -1502,6 +1521,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
             textShadow: '0 0 12px rgba(255,255,255,0.2)',
             marginBottom: '2rem',
             textTransform: 'lowercase',
+            opacity: subOpacity,
           }}>
             a text-based mmorpg
           </div>
@@ -1512,6 +1532,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
             letterSpacing: '0.12em',
             color: 'rgba(255,255,255,0.35)',
             textShadow: '0 0 10px rgba(255,255,255,0.1)',
+            opacity: bylineOpacity,
           }}>
             by N1X.sh
           </div>
