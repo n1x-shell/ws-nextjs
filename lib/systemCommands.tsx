@@ -2023,8 +2023,9 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                   return;
                 }
 
+                const promptFn = _requestPrompt;
                 setTimeout(() => {
-                  _requestPrompt('>', (input: string) => {
+                  promptFn('>', (input: string) => {
                     const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
                     push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
                   }, 'text');
