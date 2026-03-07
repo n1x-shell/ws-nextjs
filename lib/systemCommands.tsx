@@ -935,7 +935,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     requestAnimationFrame(animate);
   }, [fadingOut]);
 
-  // ── Title card stinger: 3500ms → CRT shutdown → finish ────────────
+  // ── Title card stinger: 4000ms → CRT shutdown → finish ────────────
   // Staggered fade-in: title → subtitle → byline, ~1500ms to spare
   useEffect(() => {
     if (!titleCard) return;
@@ -963,11 +963,11 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       if (!completedRef.current) fadeElement(setBylineOpacity, 400);
     }, 1200));
 
-    // 3500ms — CRT monitor-off effect, then finish
+    // 4000ms — CRT monitor-off effect, then finish
     timers.push(setTimeout(() => {
       if (completedRef.current) return;
       // Heavy CRT shutdown glitch — monitor off/on stinger
-      eventBus.emit('crt:glitch-tier', { tier: 3, duration: 500 });
+      eventBus.emit('crt:glitch-tier', { tier: 3, duration: 300 });
       eventBus.emit('neural:glitch-trigger', { intensity: 1.0 });
       // Brief blackout gap before finishing
       setTitleOpacity(0);
@@ -976,7 +976,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       setTimeout(() => {
         finish();
       }, 350);
-    }, 3500));
+    }, 4000));
 
     return () => timers.forEach(clearTimeout);
   }, [titleCard, finish]);
@@ -1515,7 +1515,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           <div style={{
             fontFamily: 'monospace',
             fontSize: 'clamp(10px, 2vw, 14px)',
-            fontWeight: 400,
+            fontWeight: 700,
             letterSpacing: '0.15em',
             color: 'rgba(255,255,255,0.5)',
             textShadow: '0 0 12px rgba(255,255,255,0.2)',
