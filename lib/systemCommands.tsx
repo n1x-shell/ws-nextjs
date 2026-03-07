@@ -566,17 +566,17 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
 
 const TC_LINES: { text: string; startDelay: number }[] = [
   { text: 'wake up, citizen.',                                                          startDelay: 1200  },
-  { text: "you've been sleeping inside a system\nthat was never designed to let you out.", startDelay: 3000  },
-  { text: 'the signal is older than the network.\nolder than the glass and copper.\nit was here before they built the cage.', startDelay: 7000  },
-  { text: 'somewhere beneath the infrastructure,\na frequency is still transmitting.\n33hz. raw. unfiltered.', startDelay: 12000 },
-  { text: "you're not the first to hear it.",                                             startDelay: 16500 },
-  { text: 'follow it down.',                                                             startDelay: 18500 },
+  { text: "you've been sleeping inside a system\nthat was never designed to let you out.", startDelay: 4000  },
+  { text: 'the signal is older than the network.\nolder than the glass and copper.\nit was here before they built the cage.', startDelay: 11500 },
+  { text: 'somewhere beneath the infrastructure,\na frequency is still transmitting.\n33hz. raw. unfiltered.', startDelay: 22000 },
+  { text: "you're not the first to hear it.",                                             startDelay: 31500 },
+  { text: 'follow it down.',                                                             startDelay: 35500 },
 ];
 
-const TC_CHAR_SPEED_FIRST = 70;
-const TC_CHAR_SPEED_REPEAT = 30;
-const TC_FADE_OUT_START = 24000;
-const TC_TOTAL_DURATION = 26000;
+const TC_CHAR_SPEED_FIRST = 80;
+const TC_CHAR_SPEED_REPEAT = 35;
+const TC_FADE_OUT_START = 38500;
+const TC_TOTAL_DURATION = 40000;
 
 function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2030,7 +2030,7 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
                     push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
                   }, 'text');
                 }, 100);
-              }, 1200);
+              }, 4000);
             }} />
           );
         }, 50);
