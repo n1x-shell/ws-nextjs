@@ -605,6 +605,62 @@ function N1XLine({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ── TypedN1XLine — typewriter reveal for creation flow ─────────────────────
+// Renders purple N1X text that types itself out character by character.
+// Emits shell:request-scroll as text reveals to keep viewport pinned.
+
+function TypedN1XLine({ children, speed = 22 }: { children: React.ReactNode; speed?: number }) {
+  // Flatten children to a plain string for typing
+  const text = React.useMemo(() => {
+    const flatten = (node: React.ReactNode): string => {
+      if (node == null || typeof node === 'boolean') return '';
+      if (typeof node === 'string' || typeof node === 'number') return String(node);
+      if (Array.isArray(node)) return node.map(flatten).join('');
+      return '';
+    };
+    return flatten(children);
+  }, [children]);
+
+  const [revealed, setRevealed] = React.useState(0);
+
+  React.useEffect(() => {
+    if (revealed >= text.length) return;
+    const timer = setTimeout(() => {
+      setRevealed(prev => Math.min(prev + 1, text.length));
+      eventBus.emit('shell:request-scroll');
+    }, speed);
+    return () => clearTimeout(timer);
+  }, [revealed, text, speed]);
+
+  React.useEffect(() => { setRevealed(0); }, [text]);
+
+  // Render revealed text, converting \n to <br/>
+  const visibleText = text.slice(0, revealed);
+  const parts = visibleText.split('\n');
+
+  return (
+    <div style={{
+      fontFamily: 'monospace',
+      fontSize: S.base,
+      lineHeight: 1.8,
+      color: C.n1x,
+      opacity: 0.9,
+      minHeight: '1.8em',
+    }}>
+      {parts.map((part, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <br />}
+          {part}
+        </React.Fragment>
+      ))}
+      {revealed < text.length && (
+        <span style={{ opacity: 0.6, animation: 'mud-cursor-blink 0.6s step-end infinite' }}>{'\u2588'}</span>
+      )}
+      <style>{`@keyframes mud-cursor-blink { 0%,100% { opacity:0.6; } 50% { opacity:0; } }`}</style>
+    </div>
+  );
+}
+
 function MudNotice({ children, error }: { children: React.ReactNode; error?: boolean }) {
   return (
     <div style={{
@@ -631,7 +687,12 @@ function pushDelayed(
   const maxDelay = items.reduce((m, i) => Math.max(m, i.delay), 0);
 
   items.forEach(({ delay, node }) => {
-    timers.push(setTimeout(() => addLocalMsg(node), delay));
+    timers.push(setTimeout(() => {
+      addLocalMsg(node);
+      // Post-commit scroll kick — addLocalMsg fires shell:request-scroll
+      // before React commits DOM. This second emit catches the committed state.
+      timers.push(setTimeout(() => eventBus.emit('shell:request-scroll'), 50));
+    }, delay));
   });
 
   if (onDone) {
@@ -696,50 +757,48 @@ export function startCreationFlow(ctx: MudContext): void {
     // Phase 2: N1X speaks — scripted monologue from design doc
     { delay: 1800, node: <MudSpacer key={k('sp-entry1')} /> },
     { delay: 2200, node: (
-      <N1XLine key={k('entry-m1')}>
+      <TypedN1XLine key={k('entry-m1')}>
         you&apos;ve been here long enough. you&apos;ve seen the fragments.
-      </N1XLine>
+      </TypedN1XLine>
     )},
     { delay: 3200, node: (
-      <N1XLine key={k('entry-m2')}>
+      <TypedN1XLine key={k('entry-m2')}>
         you know what helixion did. you know what i survived.
-      </N1XLine>
+      </TypedN1XLine>
     )},
     { delay: 4400, node: (
-      <N1XLine key={k('entry-m3')}>
+      <TypedN1XLine key={k('entry-m3')}>
         the terminal you&apos;re using — it&apos;s a window. but there&apos;s a door.
-      </N1XLine>
+      </TypedN1XLine>
     )},
     { delay: 5600, node: (
-      <N1XLine key={k('entry-m4')}>
+      <TypedN1XLine key={k('entry-m4')}>
         TUNNELCORE is what&apos;s on the other side.
-      </N1XLine>
+      </TypedN1XLine>
     )},
     { delay: 7000, node: <MudSpacer key={k('sp-entry2')} /> },
     { delay: 7400, node: (
-      <N1XLine key={k('entry-m5')}>
+      <TypedN1XLine key={k('entry-m5')}>
         before you go through, i need to know what you&apos;re carrying.
-      </N1XLine>
+      </TypedN1XLine>
     )},
 
     // Phase 3: Subject ID assignment → archetype question
     { delay: 8800, node: <MudSpacer key={k('sp-entry3')} /> },
     { delay: 9200, node: (
-      <N1XLine key={k('create-intro-1')}>
+      <TypedN1XLine key={k('create-intro-1')}>
         subject detected. handle: {handle}
-      </N1XLine>
+      </TypedN1XLine>
     )},
     { delay: 9800, node: (
-      <N1XLine key={k('create-intro-2')}>
+      <TypedN1XLine key={k('create-intro-2')}>
         assigning identifier: {subjectId}
-      </N1XLine>
+      </TypedN1XLine>
     )},
     { delay: 10600, node: <MudSpacer key={k('sp-entry4')} /> },
     { delay: 11000, node: (
       <div key={k('create-archetype-q')}>
-        {CREATION_STEPS.archetype.n1xText.split('\n').map((line, i) => (
-          <N1XLine key={k(`arch-q-${i}`)}>{line || '\u00a0'}</N1XLine>
-        ))}
+        <TypedN1XLine>{CREATION_STEPS.archetype.n1xText}</TypedN1XLine>
         <MudSpacer />
         {CREATION_STEPS.archetype.options.map((opt, i) => (
           <div key={k(`arch-opt-${i}`)} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
@@ -808,6 +867,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
       // Fire-and-forget LLM flavor
       fetchN1XReaction(`player chose archetype: ${choice.display}`, addLocalMsg);
 
+      // CRT shake on selection
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 200 });
+
       pushDelayed(addLocalMsg, [
         { delay: 0, node: (
           <MudLine key={k('arch-ack')} color={C.accent} glow>
@@ -817,9 +879,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         { delay: 600, node: <MudSpacer key={k('sp-cs')} /> },
         { delay: 1000, node: (
           <div key={k('cs-q')}>
-            {CREATION_STEPS.combatStyle.n1xText.split('\n').map((line, i) => (
-              <N1XLine key={k(`cs-q-${i}`)}>{line || '\u00a0'}</N1XLine>
-            ))}
+            <TypedN1XLine>{CREATION_STEPS.combatStyle.n1xText}</TypedN1XLine>
             <MudSpacer />
             {CREATION_STEPS.combatStyle.options.map((opt, i) => (
               <div key={k(`cs-opt-${i}`)} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
@@ -875,6 +935,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
 
       fetchN1XReaction(`player chose combat style: ${choice.display}`, addLocalMsg);
 
+      // CRT shake on selection
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 200 });
+
       // Show attributes prompt with current base values
       const archetype = creation.archetype!;
       const base = defaultAttributes();
@@ -890,9 +953,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         { delay: 600, node: <MudSpacer key={k('sp-attr')} /> },
         { delay: 1000, node: (
           <div key={k('attr-q')}>
-            {CREATION_STEPS.attributes.n1xText.split('\n').map((line, i) => (
-              <N1XLine key={k(`attr-q-${i}`)}>{line || '\u00a0'}</N1XLine>
-            ))}
+            <TypedN1XLine>{CREATION_STEPS.attributes.n1xText}</TypedN1XLine>
             <MudSpacer />
             <MudLine color={C.dim}>
               current base (with {ARCHETYPE_INFO[archetype].label} bonuses):
@@ -962,6 +1023,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
 
       fetchN1XReaction(`player distributed attributes: ${JSON.stringify(attrs)}`, addLocalMsg);
 
+      // CRT shake on selection
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 200 });
+
       // Show origin selection
       // Phase 1: only DRAINAGE available
       const origins = CREATION_STEPS.origin.options.filter(o => o.available);
@@ -981,9 +1045,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         { delay: 800, node: <MudSpacer key={k('sp-origin')} /> },
         { delay: 1200, node: (
           <div key={k('origin-q')}>
-            {CREATION_STEPS.origin.n1xText.split('\n').map((line, i) => (
-              <N1XLine key={k(`origin-q-${i}`)}>{line || '\u00a0'}</N1XLine>
-            ))}
+            <TypedN1XLine>{CREATION_STEPS.origin.n1xText}</TypedN1XLine>
             <MudSpacer />
             {origins.map((opt, i) => (
               <div key={k(`origin-opt-${i}`)} style={{ paddingLeft: '2ch', lineHeight: 1.8 }}>
@@ -1039,6 +1101,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
       };
       setSession({ ...session, creation: next });
 
+      // CRT shake on selection
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 200 });
+
       // Show confirmation summary
       const archetype = creation.archetype!;
       const combatStyle = creation.combatStyle!;
@@ -1054,7 +1119,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         { delay: 600, node: <MudSpacer key={k('sp-confirm')} /> },
         { delay: 1000, node: (
           <div key={k('confirm-q')}>
-            <N1XLine>last chance. this is what you're carrying into the tunnels.</N1XLine>
+            <TypedN1XLine>last chance. this is what you&apos;re carrying into the tunnels.</TypedN1XLine>
             <MudSpacer />
             <MudLine indent color={C.stat}>HANDLE     {handle}</MudLine>
             <MudLine indent color={C.stat}>SUBJECT    {subjectId}</MudLine>
@@ -1067,7 +1132,7 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
             <MudLine indent color={C.stat}>HP         {calculateMaxHp(attributes.BODY, archetype, 1)}</MudLine>
             <MudLine indent color={C.stat}>RAM        {calculateMaxRam(attributes.TECH)}</MudLine>
             <MudSpacer />
-            <N1XLine>confirm? (y/n)</N1XLine>
+            <TypedN1XLine>confirm? (y/n)</TypedN1XLine>
           </div>
         )},
       ]);
@@ -1117,6 +1182,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
       const finalSession = finalizeCharacter(character);
       setSession(finalSession);
 
+      // CRT shake on final confirmation
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 350 });
+
       // Spawn sequence
       pushDelayed(addLocalMsg, [
         { delay: 0, node: <MudSpacer key={k('sp-spawn0')} /> },
@@ -1126,9 +1194,9 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
           </MudLine>
         )},
         { delay: 800, node: (
-          <N1XLine key={k('spawn-2')}>
-            you're in. don't die.
-          </N1XLine>
+          <TypedN1XLine key={k('spawn-2')}>
+            you&apos;re in. don&apos;t die.
+          </TypedN1XLine>
         )},
         { delay: 1400, node: (
           <MudLine key={k('spawn-3')} color={C.accent} glow>
