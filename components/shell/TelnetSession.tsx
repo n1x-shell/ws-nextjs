@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { eventBus } from '@/lib/eventBus';
 import { useAblyRoom, type RoomMsg, type MessageMetadata, type ConnectionStatus } from '@/lib/ablyClient';
 import {
