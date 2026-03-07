@@ -559,8 +559,9 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
 };
 
 // ── TunnelcoreCinematic ───────────────────────────────────
-// Fullscreen overlay: dim matrix rain + centered typewriter text.
+// Fullscreen overlay: dim matrix rain + left-aligned typewriter text.
 // Mounts over everything via position:fixed, z-index 9999.
+// Self-dismisses (renders null) after completion so it stops blocking input.
 // Calls onComplete() when the sequence finishes or user presses Enter/clicks.
 
 const TC_LINES: { text: string; startDelay: number }[] = [
@@ -572,17 +573,17 @@ const TC_LINES: { text: string; startDelay: number }[] = [
   { text: 'follow it down.',                                                             startDelay: 18500 },
 ];
 
-const TC_CHAR_SPEED_FIRST = 35;
-const TC_CHAR_SPEED_REPEAT = 15;
-const TC_FADE_OUT_START = 21000;
-const TC_TOTAL_DURATION = 22500;
+const TC_CHAR_SPEED_FIRST = 70;
+const TC_CHAR_SPEED_REPEAT = 30;
+const TC_FADE_OUT_START = 24000;
+const TC_TOTAL_DURATION = 26000;
 
 function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const completedRef = useRef(false);
-  const mountTimeRef = useRef(Date.now());
   const animFrameRef = useRef<number>(0);
+  const [dismissed, setDismissed] = useState(false);
   const [currentLine, setCurrentLine] = useState(-1);
   const [revealedChars, setRevealedChars] = useState(0);
   const [fadingOut, setFadingOut] = useState(false);
@@ -608,17 +609,21 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     if (completedRef.current) return;
     completedRef.current = true;
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    onComplete();
+    // Remove overlay from DOM first so it stops blocking input
+    setDismissed(true);
+    // Delay onComplete so the prompt appears after overlay is gone
+    setTimeout(() => onComplete(), 100);
   }, [onComplete]);
 
   // Skip handler: Enter or click
   useEffect(() => {
+    if (dismissed) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter') { e.preventDefault(); finish(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [finish]);
+  }, [finish, dismissed]);
 
   // Matrix rain fade in
   useEffect(() => {
@@ -710,9 +715,7 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
     const drops: number[] = new Array(columns).fill(0).map(() => -Math.random() * 40);
     const speeds: number[] = new Array(columns).fill(0).map(() => 0.3 + Math.random() * 0.7);
 
-    let frame = 0;
     const draw = () => {
-      // Dim trail fade — low opacity black rect
       ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -723,26 +726,29 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         const y = drops[i] * FONT_SIZE;
         const char = CHARS[Math.floor(Math.random() * CHARS.length)];
 
-        // Head character — white
-        ctx.fillStyle = `rgba(255, 255, 255, 0.35)`;
+        // Head character — bright white
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.fillText(char, x, y);
 
-        // Trail characters — green, dimmer
+        // Trail characters — green
         if (drops[i] > 1) {
           const trailChar = CHARS[Math.floor(Math.random() * CHARS.length)];
-          ctx.fillStyle = `rgba(0, 255, 65, 0.12)`;
+          ctx.fillStyle = 'rgba(0, 255, 65, 0.25)';
           ctx.fillText(trailChar, x, y - FONT_SIZE);
+        }
+        if (drops[i] > 2) {
+          const trailChar2 = CHARS[Math.floor(Math.random() * CHARS.length)];
+          ctx.fillStyle = 'rgba(0, 255, 65, 0.12)';
+          ctx.fillText(trailChar2, x, y - FONT_SIZE * 2);
         }
 
         drops[i] += speeds[i];
 
-        // Reset when off screen
         if (y > canvas.height && Math.random() > 0.975) {
           drops[i] = -Math.random() * 10;
         }
       }
 
-      frame++;
       animFrameRef.current = requestAnimationFrame(draw);
     };
 
@@ -753,6 +759,9 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
       window.removeEventListener('resize', resize);
     };
   }, []);
+
+  // Self-dismiss: render nothing once complete so overlay stops blocking input
+  if (dismissed) return null;
 
   // Build visible text lines
   const visibleLines: React.ReactNode[] = [];
@@ -796,12 +805,12 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
           inset: 0,
           width: '100%',
           height: '100%',
-          opacity: matrixOpacity * 0.35,
+          opacity: matrixOpacity * 0.7,
           transition: 'opacity 0.5s',
         }}
       />
 
-      {/* Centered text container */}
+      {/* Left-aligned text container */}
       <div style={{
         position: 'absolute',
         inset: 0,
@@ -809,11 +818,12 @@ function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1,
+        padding: '2rem',
       }}>
         <div style={{
           maxWidth: '500px',
           width: '90%',
-          textAlign: 'center',
+          textAlign: 'left',
           fontFamily: 'monospace',
           fontSize: '15px',
           lineHeight: 1.9,
@@ -1988,14 +1998,38 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         setTimeout(() => {
           push(
             <TunnelcoreCinematic onComplete={() => {
-              if (!_requestPrompt) {
-                push(<TelnetSession host="n1x.sh" handle="citizen" mudDirect />);
-                return;
-              }
-              _requestPrompt('handle:', (input: string) => {
-                const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
-                push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
-              }, 'text');
+              // Pause before asking for handle
+              setTimeout(() => {
+                // Push styled question
+                push(
+                  <div style={{
+                    fontFamily: 'monospace',
+                    fontSize: 'var(--text-base)',
+                    marginTop: '0.5rem',
+                    marginBottom: '0.25rem',
+                  }}>
+                    <span style={{
+                      background: 'var(--phosphor-green)',
+                      color: '#000',
+                      padding: '2px 8px',
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                    }}>WHAT DO THEY CALL YOU?</span>
+                  </div>
+                );
+
+                if (!_requestPrompt) {
+                  push(<TelnetSession host="n1x.sh" handle="citizen" mudDirect />);
+                  return;
+                }
+
+                setTimeout(() => {
+                  _requestPrompt('>', (input: string) => {
+                    const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
+                    push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
+                  }, 'text');
+                }, 100);
+              }, 1200);
             }} />
           );
         }, 50);
