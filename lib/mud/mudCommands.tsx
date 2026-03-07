@@ -501,7 +501,7 @@ const C = {
   dim:       'rgba(var(--phosphor-rgb),0.75)',   // was 0.45 — readable now
   dimmer:    'rgba(var(--phosphor-rgb),0.55)',   // was 0.25
   error:     '#ff6b6b',
-  n1x:       '#bf00ff',
+  n1x:       '#cc44ff',
   npc:       '#fcd34d',
   enemy:     '#ff6b6b',
   object:    'rgba(var(--phosphor-rgb),0.85)',   // was 0.7
