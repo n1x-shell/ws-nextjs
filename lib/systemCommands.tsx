@@ -558,6 +558,306 @@ const F010DecryptChecker: React.FC<{ keyAttempt: string }> = ({ keyAttempt }) =>
   );
 };
 
+// ── TunnelcoreCinematic ───────────────────────────────────
+// Fullscreen overlay: dim matrix rain + centered typewriter text.
+// Mounts over everything via position:fixed, z-index 9999.
+// Calls onComplete() when the sequence finishes or user presses Enter/clicks.
+
+const TC_LINES: { text: string; startDelay: number }[] = [
+  { text: 'wake up, citizen.',                                                          startDelay: 1200  },
+  { text: "you've been sleeping inside a system\nthat was never designed to let you out.", startDelay: 3000  },
+  { text: 'the signal is older than the network.\nolder than the glass and copper.\nit was here before they built the cage.', startDelay: 7000  },
+  { text: 'somewhere beneath the infrastructure,\na frequency is still transmitting.\n33hz. raw. unfiltered.', startDelay: 12000 },
+  { text: "you're not the first to hear it.",                                             startDelay: 16500 },
+  { text: 'follow it down.',                                                             startDelay: 18500 },
+];
+
+const TC_CHAR_SPEED_FIRST = 35;
+const TC_CHAR_SPEED_REPEAT = 15;
+const TC_FADE_OUT_START = 21000;
+const TC_TOTAL_DURATION = 22500;
+
+function TunnelcoreCinematic({ onComplete }: { onComplete: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const completedRef = useRef(false);
+  const mountTimeRef = useRef(Date.now());
+  const animFrameRef = useRef<number>(0);
+  const [currentLine, setCurrentLine] = useState(-1);
+  const [revealedChars, setRevealedChars] = useState(0);
+  const [fadingOut, setFadingOut] = useState(false);
+  const [overlayOpacity, setOverlayOpacity] = useState(1);
+  const [matrixOpacity, setMatrixOpacity] = useState(0);
+
+  const hasSeen = typeof window !== 'undefined' && localStorage.getItem('n1x_tc_intro_seen') === 'true';
+  const charSpeed = hasSeen ? TC_CHAR_SPEED_REPEAT : TC_CHAR_SPEED_FIRST;
+
+  // Mark as seen
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('n1x_tc_intro_seen', 'true');
+    }
+  }, []);
+
+  // Fire CRT glitch on mount
+  useEffect(() => {
+    eventBus.emit('crt:glitch-tier', { tier: 2, duration: 300 });
+  }, []);
+
+  const finish = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    onComplete();
+  }, [onComplete]);
+
+  // Skip handler: Enter or click
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [finish]);
+
+  // Matrix rain fade in
+  useEffect(() => {
+    const start = Date.now();
+    const fadeIn = () => {
+      const elapsed = Date.now() - start;
+      if (elapsed < 500) {
+        setMatrixOpacity(Math.min(1, elapsed / 500));
+        requestAnimationFrame(fadeIn);
+      } else {
+        setMatrixOpacity(1);
+      }
+    };
+    requestAnimationFrame(fadeIn);
+  }, []);
+
+  // Sequence timer: line reveals
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    TC_LINES.forEach((line, i) => {
+      const adjustedDelay = hasSeen ? line.startDelay * 0.5 : line.startDelay;
+      timers.push(setTimeout(() => {
+        if (completedRef.current) return;
+        setCurrentLine(i);
+        setRevealedChars(0);
+        eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 });
+      }, adjustedDelay));
+    });
+
+    // Fade out
+    const fadeOutDelay = hasSeen ? TC_FADE_OUT_START * 0.5 : TC_FADE_OUT_START;
+    timers.push(setTimeout(() => {
+      if (completedRef.current) return;
+      setFadingOut(true);
+    }, fadeOutDelay));
+
+    // Complete
+    const totalDelay = hasSeen ? TC_TOTAL_DURATION * 0.5 : TC_TOTAL_DURATION;
+    timers.push(setTimeout(() => {
+      finish();
+    }, totalDelay));
+
+    return () => timers.forEach(clearTimeout);
+  }, [finish, hasSeen]);
+
+  // Typewriter effect: reveal chars for current line
+  useEffect(() => {
+    if (currentLine < 0 || currentLine >= TC_LINES.length) return;
+    const totalChars = TC_LINES[currentLine].text.length;
+    if (revealedChars >= totalChars) return;
+    const timer = setTimeout(() => {
+      if (!completedRef.current) setRevealedChars(prev => prev + 1);
+    }, charSpeed);
+    return () => clearTimeout(timer);
+  }, [currentLine, revealedChars, charSpeed]);
+
+  // Fade out opacity transition
+  useEffect(() => {
+    if (!fadingOut) return;
+    const start = Date.now();
+    const animate = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(1, elapsed / 800);
+      setOverlayOpacity(1 - progress);
+      if (progress < 1 && !completedRef.current) {
+        requestAnimationFrame(animate);
+      }
+    };
+    requestAnimationFrame(animate);
+  }, [fadingOut]);
+
+  // Lightweight matrix rain canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const CHARS = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789';
+    const FONT_SIZE = 14;
+    const columns = Math.floor(canvas.width / (FONT_SIZE * 0.6));
+    const drops: number[] = new Array(columns).fill(0).map(() => -Math.random() * 40);
+    const speeds: number[] = new Array(columns).fill(0).map(() => 0.3 + Math.random() * 0.7);
+
+    let frame = 0;
+    const draw = () => {
+      // Dim trail fade — low opacity black rect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.font = `${FONT_SIZE}px monospace`;
+
+      for (let i = 0; i < columns; i++) {
+        const x = i * (FONT_SIZE * 0.6);
+        const y = drops[i] * FONT_SIZE;
+        const char = CHARS[Math.floor(Math.random() * CHARS.length)];
+
+        // Head character — white
+        ctx.fillStyle = `rgba(255, 255, 255, 0.35)`;
+        ctx.fillText(char, x, y);
+
+        // Trail characters — green, dimmer
+        if (drops[i] > 1) {
+          const trailChar = CHARS[Math.floor(Math.random() * CHARS.length)];
+          ctx.fillStyle = `rgba(0, 255, 65, 0.12)`;
+          ctx.fillText(trailChar, x, y - FONT_SIZE);
+        }
+
+        drops[i] += speeds[i];
+
+        // Reset when off screen
+        if (y > canvas.height && Math.random() > 0.975) {
+          drops[i] = -Math.random() * 10;
+        }
+      }
+
+      frame++;
+      animFrameRef.current = requestAnimationFrame(draw);
+    };
+
+    animFrameRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  // Build visible text lines
+  const visibleLines: React.ReactNode[] = [];
+  for (let i = 0; i <= currentLine && i < TC_LINES.length; i++) {
+    const text = TC_LINES[i].text;
+    const chars = i < currentLine ? text : text.slice(0, revealedChars);
+    const showCursor = i === currentLine && revealedChars < text.length;
+    visibleLines.push(
+      <div key={i} style={{
+        marginBottom: '1.4rem',
+        whiteSpace: 'pre-wrap',
+        minHeight: '1.6em',
+      }}>
+        {chars}
+        {showCursor && (
+          <span style={{ opacity: 0.7, animation: 'tc-blink 800ms step-end infinite' }}>&#x2588;</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={wrapRef}
+      onClick={finish}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        background: '#000',
+        cursor: 'pointer',
+        opacity: overlayOpacity,
+        transition: fadingOut ? 'opacity 0.8s ease-out' : undefined,
+      }}
+    >
+      {/* Matrix rain canvas */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          opacity: matrixOpacity * 0.35,
+          transition: 'opacity 0.5s',
+        }}
+      />
+
+      {/* Centered text container */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+      }}>
+        <div style={{
+          maxWidth: '500px',
+          width: '90%',
+          textAlign: 'center',
+          fontFamily: 'monospace',
+          fontSize: '15px',
+          lineHeight: 1.9,
+          color: '#e0e0e0',
+          animation: 'tunnelcore-glitch 2.5s infinite',
+        }}>
+          {visibleLines}
+        </div>
+      </div>
+
+      {/* Skip hint */}
+      <div style={{
+        position: 'absolute',
+        bottom: '2rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#e0e0e0',
+        opacity: 0.2,
+        zIndex: 2,
+      }}>
+        press enter to skip
+      </div>
+
+      {/* Inline styles */}
+      <style>{`
+        @keyframes tunnelcore-glitch {
+          0%, 85%, 100% { transform: translateX(0); }
+          86% { transform: translateX(-3px); }
+          88% { transform: translateX(2px); }
+          90% { transform: translateX(-1px); }
+          92% { transform: translateX(4px); }
+          94% { transform: translateX(0); }
+        }
+        @keyframes tc-blink {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────
 
 export function createSystemCommands(fs: FileSystemNavigator, isRootFn: () => boolean = () => false): Record<string, Command> {
@@ -1665,6 +1965,38 @@ PATH=/usr/local/neural/bin:/usr/bin:/bin:/ghost/bin`
         }, telnetDelay + 400);
 
         return { output: null };
+      },
+    },
+
+    // ── Direct MUD entry: tunnelcore ─────────────────────────
+    // Hidden command. Cinematic overlay → handle prompt → TelnetSession with mudDirect.
+    // Bypasses all ARG requirements. The "follow the white rabbit" moment.
+
+    'tunnelcore': {
+      name: 'tunnelcore',
+      description: 'Enter TUNNELCORE',
+      usage: 'tunnelcore',
+      hidden: true,
+      handler: () => {
+        if (typeof window === 'undefined') return { output: null };
+
+        const push = (output: React.ReactNode) =>
+          eventBus.emit('shell:push-output', { command: '', output });
+
+        push(
+          <TunnelcoreCinematic onComplete={() => {
+            if (!_requestPrompt) {
+              push(<TelnetSession host="n1x.sh" handle="citizen" mudDirect />);
+              return;
+            }
+            _requestPrompt('handle:', (input: string) => {
+              const handle = input.trim().replace(/\s+/g, '_').slice(0, 16) || 'citizen';
+              push(<TelnetSession host="n1x.sh" handle={handle} mudDirect />);
+            }, 'text');
+          }} />
+        );
+
+        return { output: null, clearScreen: true };
       },
     },
 
