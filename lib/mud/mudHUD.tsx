@@ -1093,7 +1093,7 @@ function CombatPanels({ data }: { data: PanelData }) {
   return (
     <div style={{
       flexShrink: 0,
-      background: BG_COMBAT,
+      /* bg on outer wrapper */
       borderBottom: `1px solid ${BORDER_COMBAT}`,
       touchAction: 'none',
     }}>
@@ -2048,7 +2048,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
       <div style={{
         display: 'grid',
         gridTemplateColumns: showRight ? '2fr 1fr' : '1fr',
-        background: data.inCombat ? BG_COMBAT : BG_PANEL,
+        /* bg on outer div */
       }}>
         {isMapMode ? (
           <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
