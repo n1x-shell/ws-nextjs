@@ -34,7 +34,12 @@ import {
 import { getFormattedShop, type ShopListing } from './shopSystem';
 import { getNPCRelation, saveCharacter } from './persistence';
 import { sellItem } from './shopSystem';
-import { getActiveQuests, getAvailableQuests, getQuestObjectiveProgress, QUEST_REGISTRY } from './questEngine';
+import {
+  getActiveQuests, getAvailableQuests, getQuestObjectiveProgress,
+  getDeclinedQuests, getNPCQuests,
+  startQuest, declineQuest, undeclineQuest,
+  QUEST_REGISTRY,
+} from './questEngine';
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
 import { MapPanel } from './mudMap';
@@ -527,7 +532,18 @@ function LeftPanel({ npcs, inCombat, consumables, playerRam, playerMaxRam, isPla
                 <div style={{ display: 'flex', gap: '0.3rem', paddingLeft: '1.6ch', marginTop: '0.3rem', paddingBottom: '0.1rem', flexWrap: 'wrap' }}>
                   <Btn label="TALK" command="/talk hello" color={C.npc} borderColor="rgba(252,211,77,0.3)" small />
                   {npc.hasShop && <Btn label="SHOP" command="/shop" color={C.shop} borderColor="rgba(252,211,77,0.3)" small />}
-                  {npc.isQuestGiver && <Btn label="QUEST" command="/quests" color={C.quest} borderColor="rgba(251,191,36,0.3)" small />}
+                  {npc.isQuestGiver && (
+                    <button className="mud-btn" onClick={(e) => {
+                      e.stopPropagation();
+                      eventBus.emit('mud:open-npc-quest', { npcId: npc.id, npcName: npc.name });
+                    }} style={{
+                      fontFamily: 'monospace', fontSize: 'var(--text-base)', lineHeight: 1,
+                      padding: '0.2rem 0.45rem', minHeight: 26, background: 'transparent',
+                      border: '1px solid rgba(251,191,36,0.3)', color: C.quest, cursor: 'pointer',
+                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      borderRadius: 2, touchAction: 'manipulation',
+                    }}>JOB</button>
+                  )}
                 </div>
               </div>
             );
@@ -668,7 +684,7 @@ function InventoryPanel({ inventory, gear }: {
                   {item.name}{item.quantity > 1 ? ` \u00d7${item.quantity}` : ''}
                 </span>
                 <div style={{ display: 'flex', gap: '0.2rem', flexShrink: 0 }}>
-                  {isQuest && <span style={{ color: C.quest, fontSize: '9px' }}>QUEST</span>}
+                  {isQuest && <span style={{ color: C.quest, fontSize: '9px' }}>JOB</span>}
                   {isConsumable && (
                     <Btn label="USE" command={`/use ${item.name}`}
                       color={C.heal} borderColor="rgba(74,222,128,0.3)" small />
@@ -1328,13 +1344,13 @@ function PassagesBar({ branches }: { branches: Array<{ id: string; name: string 
 
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Action Bar — LOOK · INVENTORY · QUESTS · MAP · HELP ─────────────────────
+// ── Action Bar — LOOK · INVENTORY · JOBS · MAP · HELP ─────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 const ACTION_BUTTONS = [
   { label: 'INVENTORY', command: '/inventory' },
   { label: 'SKILLS',    command: '_modal' },
-  { label: 'QUESTS',    command: '_modal' },
+  { label: 'JOBS',    command: '_modal' },
   { label: 'MAP',       command: '_toggle' },
   { label: 'HELP',      command: '_modal' },
 ];
@@ -1997,7 +2013,185 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Quests Modal ───────────────────────────────────────────────────────────
+// ── NPC Quest Modal — focused on a single NPC's available quest ─────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function NPCQuestModal({ session, npcId, npcName, onClose }: {
+  session: MudSession; npcId: string; npcName: string; onClose: () => void;
+}) {
+  const char = session.character;
+  const world = session.world;
+  if (!char || !world) return null;
+
+  const quests = getNPCQuests(npcId, char, world);
+  const quest = quests.length > 0 ? quests[0] : null;
+
+  // Check if this NPC has an active quest already
+  const activeNPCQuest = getActiveQuests(world).find(q => q.giver === npcId);
+
+  const handleAccept = () => {
+    if (!quest) return;
+    const result = startQuest(char.handle, quest.id);
+    if (result.success) {
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 200 });
+      onClose();
+      // Push quest accepted message to chat
+      eventBus.emit('shell:push-output', {
+        output: (
+          <div>
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: '#fbbf24', fontWeight: 'bold', textShadow: '0 0 8px rgba(251,191,36,0.3)' }}>
+              {'>> JOB ACCEPTED: '}{quest.title}
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: C.dim, opacity: 0.85, paddingLeft: '2ch' }}>
+              {quest.description}
+            </div>
+          </div>
+        ),
+      });
+    }
+  };
+
+  const handleDecline = () => {
+    if (!quest) return;
+    declineQuest(char.handle, quest.id);
+    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(2,3,8,0.88)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.35} />
+      <div style={{
+        width: '100%', maxWidth: 380, maxHeight: '70vh',
+        background: 'rgba(10,10,10,0.75)',
+        border: '1px solid rgba(251,191,36,0.25)',
+        borderRadius: 4, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 0 30px rgba(251,191,36,0.08)',
+        position: 'relative', zIndex: 1,
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderBottom: '1px solid rgba(251,191,36,0.15)',
+          background: 'rgba(251,191,36,0.04)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: '#fbbf24', letterSpacing: '0.06em',
+          }} className={S.glow}>{npcName.toUpperCase()}</span>
+          <span style={{
+            fontFamily: 'monospace', fontSize: '0.7em',
+            color: C.faint, letterSpacing: '0.08em',
+          }}>JOB OFFER</span>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem 0.8rem' }}>
+          {activeNPCQuest ? (
+            // NPC already has an active quest
+            <div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: '#fbbf24', fontWeight: 'bold', marginBottom: '0.3rem',
+              }}>{activeNPCQuest.title}</div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: C.dim, lineHeight: 1.6, marginBottom: '0.5rem',
+              }}>already tracking this job. check /jobs for progress.</div>
+            </div>
+          ) : quest ? (
+            // Show quest details
+            <div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: '#fbbf24', fontWeight: 'bold', marginBottom: '0.15rem',
+              }}>{quest.title}</div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.75em',
+                color: C.faint, marginBottom: '0.4rem',
+              }}>tier {quest.tier} {'\u00b7'} {quest.type}</div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: C.dim, lineHeight: 1.7, marginBottom: '0.5rem',
+              }}>{quest.description}</div>
+
+              {/* Objectives preview */}
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.75em',
+                color: C.faint, letterSpacing: '0.08em', marginBottom: '0.2rem',
+              }}>OBJECTIVES</div>
+              {quest.objectives.map(o => (
+                <div key={o.id} style={{
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                  color: C.dim, padding: '0.1rem 0', paddingLeft: '1ch',
+                }}>{'\u25cb'} {o.description}</div>
+              ))}
+
+              {/* Rewards preview */}
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.75em',
+                color: C.faint, letterSpacing: '0.08em', marginTop: '0.5rem', marginBottom: '0.2rem',
+              }}>REWARDS</div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: C.dim, paddingLeft: '1ch',
+              }}>
+                {quest.rewards.xp && <span style={{ color: C.xp }}>{quest.rewards.xp} XP</span>}
+                {quest.rewards.creds && <>{' '}{'\u00b7'}{' '}<span style={{ color: '#fcd34d' }}>{quest.rewards.creds} creds</span></>}
+                {quest.rewards.items && quest.rewards.items.length > 0 && <>{' '}{'\u00b7'}{' '}<span style={{ color: 'var(--phosphor-accent)' }}>{quest.rewards.items.length} item{quest.rewards.items.length > 1 ? 's' : ''}</span></>}
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: C.faint, textAlign: 'center', padding: '1.5rem 0',
+            }}>no work available from {npcName.toLowerCase()} right now.</div>
+          )}
+        </div>
+
+        {/* Buttons */}
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          display: 'flex', justifyContent: quest && !activeNPCQuest ? 'space-between' : 'center', gap: '0.5rem',
+        }}>
+          {quest && !activeNPCQuest ? (
+            <>
+              <button className="mud-btn" onClick={handleDecline} style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'rgba(255,100,100,0.7)', background: 'transparent',
+                border: '1px solid rgba(255,100,100,0.25)', padding: '0.3rem 1.2rem',
+                cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation', letterSpacing: '0.04em',
+              }}>DECLINE</button>
+              <button className="mud-btn" onClick={handleAccept} style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24', background: 'rgba(251,191,36,0.08)',
+                border: '1px solid rgba(251,191,36,0.4)', padding: '0.3rem 1.2rem',
+                cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation', fontWeight: 'bold', letterSpacing: '0.04em',
+                boxShadow: '0 0 6px rgba(251,191,36,0.15)',
+              }}>ACCEPT</button>
+            </>
+          ) : (
+            <button className="mud-btn" onClick={onClose} style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
+              border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+              cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+            }}>CLOSE</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Quests Modal — Active / Declined tabs ─────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 function QuestsModal({ session, onClose }: { session: MudSession; onClose: () => void }) {
@@ -2006,12 +2200,28 @@ function QuestsModal({ session, onClose }: { session: MudSession; onClose: () =>
   if (!char || !world) return null;
 
   const active = getActiveQuests(world);
-  const available = getAvailableQuests(char, world);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const declined = getDeclinedQuests(world);
+  const [tab, setTab] = useState<'active' | 'declined'>('active');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const selectedQuest = selectedId ? (QUEST_REGISTRY[selectedId] ?? null) : null;
-  const selectedProgress = selectedId ? getQuestObjectiveProgress(char.handle, selectedId) : null;
-  const isActive = selectedId ? world.activeQuests.includes(selectedId) : false;
+  const handleAcceptDeclined = (questId: string) => {
+    undeclineQuest(char.handle, questId);
+    const result = startQuest(char.handle, questId);
+    if (result.success) {
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 200 });
+      setExpandedId(null);
+      setTab('active');
+    }
+  };
+
+  const handleDeclineActive = (questId: string) => {
+    declineQuest(char.handle, questId);
+    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+    setExpandedId(null);
+  };
+
+  const quests = tab === 'active' ? active : declined;
+  const emptyMsg = tab === 'active' ? 'no active jobs. talk to NPCs for work.' : 'no declined jobs.';
 
   return (
     <div style={{
@@ -2031,134 +2241,149 @@ function QuestsModal({ session, onClose }: { session: MudSession; onClose: () =>
         boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
         position: 'relative', zIndex: 1,
       }}>
+        {/* Header with tabs */}
         <div style={{
-          padding: '0.5rem 0.8rem',
           borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
           background: 'rgba(var(--phosphor-rgb),0.04)',
         }}>
-          <span style={{
-            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
-            color: '#fbbf24', letterSpacing: '0.06em',
-          }} className={S.glow}>QUEST LOG</span>
+          <div style={{
+            padding: '0.5rem 0.8rem 0',
+            display: 'flex', gap: '0.8rem', alignItems: 'flex-end',
+          }}>
+            {(['active', 'declined'] as const).map(t => {
+              const isActive = tab === t;
+              const count = t === 'active' ? active.length : declined.length;
+              return (
+                <button key={t} className="mud-btn" onClick={() => { setTab(t); setExpandedId(null); }} style={{
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)', fontWeight: isActive ? 'bold' : 'normal',
+                  color: isActive ? (t === 'active' ? '#fbbf24' : 'rgba(255,100,100,0.7)') : C.faint,
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  padding: '0.3rem 0.1rem 0.4rem',
+                  borderBottom: isActive ? `2px solid ${t === 'active' ? '#fbbf24' : 'rgba(255,100,100,0.5)'}` : '2px solid transparent',
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                  touchAction: 'manipulation',
+                }}>
+                  {t} {count > 0 && <span style={{ fontSize: '0.8em', opacity: 0.7 }}>({count})</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Quest list */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0.4rem 0.5rem' }}>
-          {/* Active quests */}
-          {active.length > 0 && (
-            <div style={{ marginBottom: '0.5rem' }}>
-              <div style={{
-                fontFamily: 'monospace', fontSize: '0.65em',
-                color: '#fbbf24', letterSpacing: '0.1em', marginBottom: '0.2rem',
-              }}>ACTIVE</div>
-              {active.map(q => {
-                const progress = getQuestObjectiveProgress(char.handle, q.id);
-                const done = progress?.objectives.filter(o => o.done).length ?? 0;
-                const total = progress?.objectives.length ?? 0;
-                const isSelected = selectedId === q.id;
-                return (
-                  <div key={q.id}
-                    role="button" tabIndex={0}
-                    onClick={() => setSelectedId(isSelected ? null : q.id)}
-                    style={{
-                      padding: '0.3rem 0.4rem',
-                      borderLeft: `2px solid ${isSelected ? '#fbbf24' : 'rgba(251,191,36,0.3)'}`,
-                      borderRadius: '0 3px 3px 0',
-                      marginBottom: '0.25rem',
-                      background: isSelected ? 'rgba(251,191,36,0.08)' : 'transparent',
-                      cursor: 'pointer', touchAction: 'manipulation',
-                      transition: 'background 0.2s',
-                    }}>
-                    <div style={{
-                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                      display: 'flex', justifyContent: 'space-between',
-                    }}>
-                      <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{q.title}</span>
-                      <span style={{ color: C.dim }}>[{done}/{total}]</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Available quests */}
-          {available.length > 0 && (
-            <div style={{ marginBottom: '0.5rem' }}>
-              <div style={{
-                fontFamily: 'monospace', fontSize: '0.65em',
-                color: C.faint, letterSpacing: '0.1em', marginBottom: '0.2rem',
-              }}>AVAILABLE</div>
-              {available.map(q => (
-                <div key={q.id}
-                  role="button" tabIndex={0}
-                  onClick={() => setSelectedId(selectedId === q.id ? null : q.id)}
-                  style={{
-                    padding: '0.3rem 0.4rem',
-                    borderLeft: `2px solid ${selectedId === q.id ? 'rgba(var(--phosphor-rgb),0.5)' : 'rgba(var(--phosphor-rgb),0.15)'}`,
-                    borderRadius: '0 3px 3px 0',
-                    marginBottom: '0.25rem',
-                    background: selectedId === q.id ? 'rgba(var(--phosphor-rgb),0.05)' : 'transparent',
-                    cursor: 'pointer', touchAction: 'manipulation',
-                  }}>
-                  <div style={{
-                    fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                    color: C.dim,
-                  }}>
-                    {q.title} <span style={{ color: C.faint, fontSize: '0.8em' }}>({q.giver}, T{q.tier})</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {active.length === 0 && available.length === 0 && (
+          {quests.length === 0 ? (
             <div style={{
               fontFamily: 'monospace', fontSize: 'var(--text-base)',
               color: C.faint, textAlign: 'center', padding: '1.5rem 0',
-            }}>no quests. explore and talk to NPCs.</div>
-          )}
+            }}>{emptyMsg}</div>
+          ) : (
+            quests.map(q => {
+              const isExpanded = expandedId === q.id;
+              const progress = tab === 'active' ? getQuestObjectiveProgress(char.handle, q.id) : null;
+              const done = progress?.objectives.filter(o => o.done).length ?? 0;
+              const total = progress?.objectives.length ?? q.objectives.length;
+              const borderColor = tab === 'active' ? 'rgba(251,191,36,0.3)' : 'rgba(255,100,100,0.2)';
+              const borderColorActive = tab === 'active' ? '#fbbf24' : 'rgba(255,100,100,0.5)';
 
-          {/* Detail panel */}
-          {selectedQuest && (
-            <div style={{
-              padding: '0.5rem',
-              borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
-              marginTop: '0.2rem',
-              animation: 'mud-fade-in 0.2s ease-out',
-            }}>
-              <div style={{
-                fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                color: isActive ? '#fbbf24' : 'var(--phosphor-accent)', fontWeight: 'bold',
-              }}>{selectedQuest.title}</div>
-              <div style={{
-                fontFamily: 'monospace', fontSize: '0.8em',
-                color: C.faint, marginBottom: '0.3rem',
-              }}>from: {selectedQuest.giver} {'\u00b7'} tier {selectedQuest.tier} {'\u00b7'} {selectedQuest.type}</div>
-              <div style={{
-                fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                color: C.dim, lineHeight: 1.6,
-              }}>{selectedQuest.description}</div>
-              {isActive && selectedProgress && (
-                <div style={{ marginTop: '0.4rem' }}>
-                  {selectedProgress.objectives.map(o => (
-                    <div key={o.id} style={{
+              return (
+                <div key={q.id} style={{
+                  marginBottom: '0.3rem',
+                  borderLeft: `2px solid ${isExpanded ? borderColorActive : borderColor}`,
+                  borderRadius: '0 3px 3px 0',
+                  background: isExpanded ? `rgba(${tab === 'active' ? '251,191,36' : '255,100,100'},0.06)` : 'transparent',
+                  transition: 'background 0.2s',
+                }}>
+                  {/* Quest title row — clickable */}
+                  <div
+                    role="button" tabIndex={0}
+                    onClick={() => setExpandedId(isExpanded ? null : q.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setExpandedId(isExpanded ? null : q.id); }}
+                    style={{
+                      padding: '0.35rem 0.4rem',
+                      cursor: 'pointer', touchAction: 'manipulation',
                       fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                      color: o.done ? C.heal : C.dim,
-                      padding: '0.1rem 0',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     }}>
-                      {o.done ? '\u2713' : '\u25cb'} {o.description} ({o.current}/{o.required})
+                    <span style={{
+                      color: tab === 'active' ? '#fbbf24' : 'rgba(255,100,100,0.7)',
+                      fontWeight: 'bold',
+                    }}>{q.title}</span>
+                    {tab === 'active' && progress && (
+                      <span style={{ color: C.dim, fontSize: '0.85em', flexShrink: 0 }}>[{done}/{total}]</span>
+                    )}
+                    {tab === 'declined' && (
+                      <span style={{ color: C.faint, fontSize: '0.8em' }}>T{q.tier}</span>
+                    )}
+                  </div>
+
+                  {/* Expanded detail */}
+                  {isExpanded && (
+                    <div style={{
+                      padding: '0.2rem 0.4rem 0.5rem',
+                      animation: 'mud-fade-in 0.2s ease-out',
+                    }}>
+                      <div style={{
+                        fontFamily: 'monospace', fontSize: '0.75em',
+                        color: C.faint, marginBottom: '0.3rem',
+                      }}>from: {q.giver} {'\u00b7'} tier {q.tier} {'\u00b7'} {q.type}</div>
+                      <div style={{
+                        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                        color: C.dim, lineHeight: 1.6, marginBottom: '0.4rem',
+                      }}>{q.description}</div>
+
+                      {/* Objectives */}
+                      {tab === 'active' && progress && (
+                        <div style={{ marginBottom: '0.4rem' }}>
+                          {progress.objectives.map(o => (
+                            <div key={o.id} style={{
+                              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                              color: o.done ? C.heal : C.dim,
+                              padding: '0.1rem 0',
+                            }}>
+                              {o.done ? '\u2713' : '\u25cb'} {o.description} ({o.current}/{o.required})
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {tab === 'declined' && (
+                        <div style={{ marginBottom: '0.4rem' }}>
+                          {q.objectives.map(o => (
+                            <div key={o.id} style={{
+                              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                              color: C.faint, padding: '0.1rem 0',
+                            }}>{'\u25cb'} {o.description}</div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action button — only visible in expanded state */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
+                        {tab === 'active' && (
+                          <button className="mud-btn" onClick={(e) => { e.stopPropagation(); handleDeclineActive(q.id); }} style={{
+                            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'rgba(255,100,100,0.7)', background: 'transparent',
+                            border: '1px solid rgba(255,100,100,0.25)', padding: '0.25rem 0.8rem',
+                            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation', letterSpacing: '0.04em',
+                          }}>ABANDON</button>
+                        )}
+                        {tab === 'declined' && (
+                          <button className="mud-btn" onClick={(e) => { e.stopPropagation(); handleAcceptDeclined(q.id); }} style={{
+                            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24', background: 'rgba(251,191,36,0.08)',
+                            border: '1px solid rgba(251,191,36,0.4)', padding: '0.25rem 0.8rem',
+                            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation', fontWeight: 'bold', letterSpacing: '0.04em',
+                            boxShadow: '0 0 4px rgba(251,191,36,0.1)',
+                          }}>ACCEPT</button>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-              {!isActive && (
-                <div style={{
-                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                  color: C.faint, marginTop: '0.3rem', fontStyle: 'italic',
-                }}>talk to {selectedQuest.giver} to start</div>
-              )}
-            </div>
+              );
+            })
           )}
         </div>
+
+        {/* Footer */}
         <div style={{ padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', display: 'flex', justifyContent: 'center' }}>
           <button className="mud-btn" onClick={onClose} style={{
             fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
@@ -2337,7 +2562,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
       {ACTION_BUTTONS.map((btn) => {
         const isMapBtn = btn.label === 'MAP';
         const isSkillsBtn = btn.label === 'SKILLS';
-        const isQuestsBtn = btn.label === 'QUESTS';
+        const isJobsBtn = btn.label === 'JOBS';
         const isHelpBtn = btn.label === 'HELP';
         const isActive = isMapBtn && panelMode === 'map';
 
@@ -2352,7 +2577,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
                 });
               } else if (isSkillsBtn) {
                 onSkills();
-              } else if (isQuestsBtn) {
+              } else if (isJobsBtn) {
                 onQuests();
               } else if (isHelpBtn) {
                 onHelp();
@@ -2540,15 +2765,15 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
           )}
           {data.activeQuestCount > 0 && (
             <span role="button" tabIndex={0}
-              onClick={() => eventBus.emit('mud:execute-command', { command: '/quests' })}
-              onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/quests' }); }}
+              onClick={() => eventBus.emit('mud:execute-command', { command: '/jobs' })}
+              onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
               style={{
                 fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.quest,
                 border: '1px solid rgba(251,191,36,0.35)', padding: '0.1rem 0.35rem',
                 borderRadius: 2, cursor: 'pointer', touchAction: 'manipulation',
               }}
             >
-              {data.activeQuestCount}Q
+              {data.activeQuestCount}J
             </span>
           )}
         </div>
@@ -2636,6 +2861,7 @@ export function MudHUDContainer({ session, children }: {
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showQuestsModal, setShowQuestsModal] = useState(false);
+  const [npcQuestData, setNpcQuestData] = useState<{ npcId: string; npcName: string } | null>(null);
   const [examineData, setExamineData] = useState<ExamineData | null>(null);
   const [restModalData, setRestModalData] = useState<RestModalData | null>(null);
   const [sellModalData, setSellModalData] = useState<SellModalData | null>(null);
@@ -2697,6 +2923,11 @@ export function MudHUDContainer({ session, children }: {
     const helpHandler = () => setShowHelpModal(true);
     const questsHandler = () => setShowQuestsModal(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const npcQuestHandler = (event: any) => {
+      const d = event?.payload as { npcId: string; npcName: string } | undefined;
+      if (d?.npcId) setNpcQuestData({ npcId: d.npcId, npcName: d.npcName ?? d.npcId });
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const examineHandler = (event: any) => {
       const d = event?.payload as ExamineData | undefined;
       if (d) setExamineData(d);
@@ -2713,12 +2944,14 @@ export function MudHUDContainer({ session, children }: {
     };
     eventBus.on('mud:open-help', helpHandler);
     eventBus.on('mud:open-quests', questsHandler);
+    eventBus.on('mud:open-npc-quest', npcQuestHandler);
     eventBus.on('mud:open-examine', examineHandler);
     eventBus.on('mud:open-rest', restHandler);
     eventBus.on('mud:open-sell', sellHandler);
     return () => {
       eventBus.off('mud:open-help', helpHandler);
       eventBus.off('mud:open-quests', questsHandler);
+      eventBus.off('mud:open-npc-quest', npcQuestHandler);
       eventBus.off('mud:open-examine', examineHandler);
       eventBus.off('mud:open-rest', restHandler);
       eventBus.off('mud:open-sell', sellHandler);
@@ -2892,6 +3125,16 @@ export function MudHUDContainer({ session, children }: {
       {/* Quests modal */}
       {showQuestsModal && session.character && (
         <QuestsModal session={session} onClose={() => setShowQuestsModal(false)} />
+      )}
+
+      {/* NPC Quest offer modal */}
+      {npcQuestData && session.character && (
+        <NPCQuestModal
+          session={session}
+          npcId={npcQuestData.npcId}
+          npcName={npcQuestData.npcName}
+          onClose={() => setNpcQuestData(null)}
+        />
       )}
 
       {/* Examine modal */}

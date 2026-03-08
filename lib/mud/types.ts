@@ -186,6 +186,7 @@ export interface MudWorldState {
   activeQuests: string[];
   completedQuests: string[];
   failedQuests: string[];
+  declinedQuests: string[];
   worldFlags: Record<string, boolean | string | number>;
   partyId: string | null;
 }

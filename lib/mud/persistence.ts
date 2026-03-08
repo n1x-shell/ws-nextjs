@@ -86,12 +86,17 @@ const DEFAULT_WORLD: MudWorldState = {
   activeQuests: [],
   completedQuests: [],
   failedQuests: [],
+  declinedQuests: [],
   worldFlags: {},
   partyId: null,
 };
 
 export function loadWorld(handle: string): MudWorldState {
-  return read<MudWorldState>(worldKey(handle)) ?? { ...DEFAULT_WORLD };
+  const raw = read<MudWorldState>(worldKey(handle));
+  if (!raw) return { ...DEFAULT_WORLD };
+  // Migration: ensure declinedQuests exists for saves created before this field
+  if (!raw.declinedQuests) raw.declinedQuests = [];
+  return raw;
 }
 
 export function saveWorld(handle: string, world: MudWorldState): void {

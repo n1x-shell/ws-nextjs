@@ -143,7 +143,7 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     voice: 'patient but direct. decades of compressed anger held in check by discipline. speaks like someone who has given this speech before and will give it again.',
     background: 'parish elder. first-generation iron bloom prosthetic on his left hand. has been in the tunnels longer than the walls. founded the parish from nothing. decides who stays, who works, who gets trusted. every new arrival is another mouth to feed and another pair of hands. he measures which matters more.',
     mannerisms: 'studies people for three full seconds before speaking. reads by lamplight. the prosthetic hand clicks when he flexes it. remembers everyone who has ever passed through.',
-    topics: ['the parish', 'helixion', 'survival', 'new arrivals', 'the tunnels', 'history', 'quests', 'missions', 'work', 'iron bloom', 'trust', 'the memorial'],
+    topics: ['the parish', 'helixion', 'survival', 'new arrivals', 'the tunnels', 'history', 'jobs', 'missions', 'work', 'iron bloom', 'trust', 'the memorial'],
     physicalDesc: 'old man, elder, the one reading, man with prosthetic hand, man at the table',
     zone: 'z08',
     isQuestGiver: true,

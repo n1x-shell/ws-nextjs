@@ -2206,7 +2206,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         npcActions.push({ label: 'HEAL', color: '#4ade80', command: `/talk can you heal me` });
       }
       if (isNPCQuestGiver(npc.id)) {
-        npcActions.push({ label: 'QUESTS', color: '#fbbf24', command: '/quests' });
+        npcActions.push({ label: 'JOBS', color: '#fbbf24', command: '/jobs' });
       }
 
       eventBus.emit('mud:open-examine', {
@@ -2916,14 +2916,14 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     return { handled: true, stopPropagation: true };
   }
 
-  // ── /quests ───────────────────────────────────────────────────────────
-  if (cmd === 'quests') {
+  // ── /jobs (alias: /quests) ────────────────────────────────────────────
+  if (cmd === 'jobs' || cmd === 'quests') {
     eventBus.emit('mud:open-quests');
     return { handled: true, stopPropagation: true };
   }
 
-  // ── /quest <id> ───────────────────────────────────────────────────────
-  if (cmd === 'quest') {
+  // ── /job <id> (alias: /quest) ──────────────────────────────────────────
+  if (cmd === 'job' || cmd === 'quest') {
     eventBus.emit('mud:open-quests');
     return { handled: true, stopPropagation: true };
   }
@@ -3079,7 +3079,7 @@ export async function handleNPCDialogue(
             <div key={k(`quest-start-${quest.id}`)}>
               <MudSpacer />
               <MudLine color={C.quest} glow bold>
-                &gt;&gt; QUEST ACTIVATED: {quest.title}
+                &gt;&gt; JOB ACCEPTED: {quest.title}
               </MudLine>
               <MudLine color={C.green} opacity={0.85} indent>
                 {quest.description}
@@ -3093,7 +3093,7 @@ export async function handleNPCDialogue(
               ))}
               <MudSpacer />
               <MudLine color={C.dim}>
-                /quests to track progress · /quest {quest.id} for details
+                /jobs to track progress · /job {quest.id} for details
               </MudLine>
             </div>
           );
@@ -3145,7 +3145,7 @@ export async function handleNPCDialogue(
 const MUD_COMMANDS = [
   '/look', '/go', '/exits', '/examine', '/where', '/stats', '/inventory',
   '/save', '/help', '/attack', '/hack', '/use', '/scan', '/flee',
-  '/talk', '/shop', '/buy', '/sell', '/quests', '/quest', '/me', '/mudhelp', '/q',
+  '/talk', '/shop', '/buy', '/sell', '/jobs', '/job', '/quests', '/quest', '/me', '/mudhelp', '/q',
   '/rest', '/levelup', '/upgrade', '/skills', '/skilltree', '/skillinfo', '/spend', '/loot',
   '/take', '/salvage',
 ];
@@ -3239,10 +3239,10 @@ export function getMudSuggestions(partial: string, session: MudSession): string[
       return npcs.filter(n => n.includes(argPartial)).map(n => `/talk ${n}`);
     }
 
-    // /quest → quest IDs
-    if (cmd === '/quest') {
+    // /job or /quest → quest IDs
+    if (cmd === '/job' || cmd === '/quest') {
       const ids = Object.keys(QUEST_REGISTRY);
-      return ids.filter(id => id.includes(argPartial)).map(id => `/quest ${id}`);
+      return ids.filter(id => id.includes(argPartial)).map(id => `/job ${id}`);
     }
 
     // /scan → enemies

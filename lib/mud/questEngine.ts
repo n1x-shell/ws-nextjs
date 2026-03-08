@@ -71,6 +71,7 @@ export function getAvailableQuests(character: MudCharacter, world: MudWorldState
   return Object.values(QUEST_REGISTRY).filter(q => {
     if (world.activeQuests.includes(q.id)) return false;
     if (world.completedQuests.includes(q.id) && !q.repeatable) return false;
+    if ((world.declinedQuests ?? []).includes(q.id)) return false;
     if (q.levelRequirement && character.level < q.levelRequirement) return false;
     if (q.prerequisites.some(p => !world.completedQuests.includes(p))) return false;
     return true;
@@ -83,11 +84,50 @@ export function getActiveQuests(world: MudWorldState): Quest[] {
     .filter(Boolean);
 }
 
+export function getDeclinedQuests(world: MudWorldState): Quest[] {
+  return (world.declinedQuests ?? [])
+    .map(id => QUEST_REGISTRY[id])
+    .filter(Boolean);
+}
+
+export function getNPCQuests(npcId: string, character: MudCharacter, world: MudWorldState): Quest[] {
+  return getAvailableQuests(character, world).filter(q => q.giver === npcId);
+}
+
+export function declineQuest(
+  handle: string, questId: string,
+): { success: boolean; error?: string } {
+  const quest = QUEST_REGISTRY[questId];
+  if (!quest) return { success: false, error: 'job not found' };
+  const world = loadWorld(handle);
+  // Remove from active if it was active
+  world.activeQuests = world.activeQuests.filter(id => id !== questId);
+  // Add to declined
+  if (!world.declinedQuests) world.declinedQuests = [];
+  if (!world.declinedQuests.includes(questId)) {
+    world.declinedQuests.push(questId);
+  }
+  saveWorld(handle, world);
+  return { success: true };
+}
+
+export function undeclineQuest(
+  handle: string, questId: string,
+): { success: boolean; error?: string } {
+  const quest = QUEST_REGISTRY[questId];
+  if (!quest) return { success: false, error: 'job not found' };
+  const world = loadWorld(handle);
+  if (!world.declinedQuests) world.declinedQuests = [];
+  world.declinedQuests = world.declinedQuests.filter(id => id !== questId);
+  saveWorld(handle, world);
+  return { success: true };
+}
+
 export function startQuest(
   handle: string, questId: string,
 ): { success: boolean; quest?: Quest; error?: string } {
   const quest = QUEST_REGISTRY[questId];
-  if (!quest) return { success: false, error: 'quest not found' };
+  if (!quest) return { success: false, error: 'job not found' };
 
   const world = loadWorld(handle);
   if (world.activeQuests.includes(questId)) return { success: false, error: 'already active' };

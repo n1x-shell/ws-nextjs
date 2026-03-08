@@ -71,26 +71,25 @@ const ZONE_GRID_HINTS: Record<string, Record<string, { x: number; y: number }>> 
   z08: {
     //            col:  0     1     2     3     4
     // row 0:                       r05
-    // row 1:                       r04
-    // row 2:     r06         r09   r03   r10         r11
-    // row 3:     r07                                  r12
-    // row 4:     r08         r02         r13          r14
-    // row 5:                 r01
+    // row 1:           r06         r04   r11
+    // row 2:                 r09   r03   r10   r13
+    // row 3:           r07         r02   r12
+    // row 4:           r08         r01   r14
 
     z08_r05: { x: 2, y: 0 },  // Deep Gate (north end)
+    z08_r06: { x: 1, y: 1 },  // Pump Room (NW of Junction)
     z08_r04: { x: 2, y: 1 },  // North Channel
-    z08_r06: { x: 0, y: 2 },  // Pump Room (west branch)
+    z08_r11: { x: 3, y: 1 },  // Elder's Chamber (NE of Junction)
     z08_r09: { x: 1, y: 2 },  // West Overflow
     z08_r03: { x: 2, y: 2 },  // THE JUNCTION (hub)
     z08_r10: { x: 3, y: 2 },  // Storage Chambers
-    z08_r11: { x: 4, y: 2 },  // Elder's Chamber (east branch)
-    z08_r07: { x: 0, y: 3 },  // Memorial Alcove (west branch)
-    z08_r12: { x: 4, y: 3 },  // East Passage (east branch)
-    z08_r08: { x: 0, y: 4 },  // The Clinic (west branch)
-    z08_r02: { x: 2, y: 4 },  // The Narrows
-    z08_r13: { x: 3, y: 4 },  // The Seep
-    z08_r14: { x: 4, y: 4 },  // Signal Hollow (hidden, east branch)
-    z08_r01: { x: 2, y: 5 },  // South Entry (south end)
+    z08_r13: { x: 4, y: 2 },  // The Seep (east of Storage)
+    z08_r07: { x: 1, y: 3 },  // Memorial Alcove (SW of Junction)
+    z08_r02: { x: 2, y: 3 },  // The Narrows
+    z08_r12: { x: 3, y: 3 },  // East Passage (SE of Junction)
+    z08_r08: { x: 1, y: 4 },  // The Clinic (south of Memorial)
+    z08_r01: { x: 2, y: 4 },  // South Entry (south end)
+    z08_r14: { x: 3, y: 4 },  // Signal Hollow (south of East Passage, hidden)
   },
 };
 
@@ -313,7 +312,8 @@ function ConnLine({ c }: { c: MapConnection }) {
 
 function RoomCell({ cell, currentRoomId }: { cell: MapCell; currentRoomId: string }) {
   const curRoom = getRoom(currentRoomId);
-  const isAdj = cell.visited && !cell.current && (
+  // Adjacent = current room has exit to this cell, OR this cell has exit to current room
+  const isAdj = !cell.current && (
     cell.exits.some(e => e.targetRoomId === currentRoomId) || curRoom?.exits.some(e => e.targetRoom === cell.roomId)
   );
   const clickable = isAdj || cell.current;
