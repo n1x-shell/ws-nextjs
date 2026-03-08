@@ -209,9 +209,32 @@ export default function SubstrateBackground({ opacity = 0.18 }: { opacity?: numb
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
-    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    return startRenderer(ctx, canvas, wrap, stateRef, animRef);
+  }, []);
+
+  return (
+    <div ref={wrapRef} style={{
+      position: 'absolute', inset: 0, opacity, pointerEvents: 'none', zIndex: 0,
+    }}>
+      <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
+    </div>
+  );
+}
+
+// ── Renderer — ctx is a parameter, not a closure capture ───────────────────
+// TypeScript can't narrow closure-captured variables across hoisted function
+// declarations. Passing ctx as a parameter sidesteps this entirely.
+
+function startRenderer(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  wrap: HTMLDivElement,
+  stateRef: React.MutableRefObject<SState | null>,
+  animRef: React.MutableRefObject<number>,
+): () => void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     const resize = () => {
@@ -549,13 +572,4 @@ export default function SubstrateBackground({ opacity = 0.18 }: { opacity?: numb
       cancelAnimationFrame(animRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, []);
-
-  return (
-    <div ref={wrapRef} style={{
-      position: 'absolute', inset: 0, opacity, pointerEvents: 'none', zIndex: 0,
-    }}>
-      <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
-    </div>
-  );
 }
