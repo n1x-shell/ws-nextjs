@@ -257,6 +257,7 @@ export function finalizeCharacter(character: MudCharacter): MudSession {
     activeQuests: [],
     completedQuests: [],
     failedQuests: [],
+    declinedQuests: [],
     worldFlags: {},
     partyId: null,
   };
