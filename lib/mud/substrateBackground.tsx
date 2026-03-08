@@ -112,6 +112,7 @@ type STendril = {
   opacity: number; children: STendril[]; sigil: string | null;
   unravelProgress: number; shrinkAccum: number;
   nodules: SNodule[]; lateralDir: number;
+  growDirX: number; growDirY: number;  // growth vector: (0,-1) = up, (1,0) = right, etc.
 };
 type SSpore = {
   x: number; y: number; size: number; drift: number; speed: number;
@@ -126,7 +127,7 @@ type SBreath = { bx: number; by: number; intensity: number };
 
 // ── Factory Functions ──────────────────────────────────────────────────────
 
-function _createTendril(x: number, y: number, depth = 0, parentPhase = 0): STendril {
+function _createTendril(x: number, y: number, depth = 0, parentPhase = 0, dirX = 0, dirY = -1): STendril {
   return {
     segments: [{ x, y, ox: 0, oy: 0 }], phase: parentPhase + Math.random() * Math.PI * 2,
     freqMod: 0.7 + Math.random() * 0.6, ampMod: 0.5 + Math.random() * 1.0,
@@ -140,6 +141,7 @@ function _createTendril(x: number, y: number, depth = 0, parentPhase = 0): STend
     sigil: depth === 0 && Math.random() < 0.3 ? _randSigil() : null,
     unravelProgress: 0, shrinkAccum: 0,
     nodules: [], lateralDir: Math.random() > 0.5 ? 1 : -1,
+    growDirX: dirX, growDirY: dirY,
   };
 }
 function _createSpore(w: number, h: number): SSpore {
@@ -174,16 +176,56 @@ function _getBreath(time: number): SBreath {
     intensity,
   };
 }
-function _initSubstrateState(w: number, h: number): SState {
+function _initSubstrateState(w: number, h: number, cfg?: SubstrateCfg): SState {
+  const tendrilCount = cfg?.tendrilCount ?? SC.TENDRIL_COUNT;
+  const sporeCount = cfg?.sporeCount ?? SC.SPORE_COUNT;
+  const fromEdges = cfg?.growFromEdges ?? false;
+
   const tendrils: STendril[] = [];
-  for (let i = 0; i < SC.TENDRIL_COUNT; i++) {
-    const spawnY = h * (0.82 + Math.random() * 0.22);
-    const t = _createTendril(w * 0.05 + Math.random() * w * 0.9, spawnY, 0);
+  for (let i = 0; i < tendrilCount; i++) {
+    let x: number, y: number, dx: number, dy: number;
+    if (fromEdges) {
+      // Distribute across all 4 edges, grow toward center
+      const edge = i % 4;
+      switch (edge) {
+        case 0: // bottom
+          x = w * 0.05 + Math.random() * w * 0.9;
+          y = h * (0.85 + Math.random() * 0.18);
+          dx = (Math.random() - 0.5) * 0.3;
+          dy = -1;
+          break;
+        case 1: // top
+          x = w * 0.05 + Math.random() * w * 0.9;
+          y = h * (0.02 + Math.random() * 0.15);
+          dx = (Math.random() - 0.5) * 0.3;
+          dy = 1;
+          break;
+        case 2: // left
+          x = w * (0.02 + Math.random() * 0.12);
+          y = h * 0.1 + Math.random() * h * 0.8;
+          dx = 1;
+          dy = (Math.random() - 0.5) * 0.4;
+          break;
+        default: // right
+          x = w * (0.86 + Math.random() * 0.12);
+          y = h * 0.1 + Math.random() * h * 0.8;
+          dx = -1;
+          dy = (Math.random() - 0.5) * 0.4;
+          break;
+      }
+    } else {
+      // Classic: bottom-up
+      x = w * 0.05 + Math.random() * w * 0.9;
+      y = h * (0.82 + Math.random() * 0.22);
+      dx = 0;
+      dy = -1;
+    }
+    const t = _createTendril(x, y, 0, 0, dx, dy);
     t.lifecycleTimer = Math.random() * t.growDuration * 0.8;
     tendrils.push(t);
   }
   const spores: SSpore[] = [];
-  for (let i = 0; i < SC.SPORE_COUNT; i++) spores.push(_createSpore(w, h));
+  for (let i = 0; i < sporeCount; i++) spores.push(_createSpore(w, h));
   const glyphColumns: SGlyphCol[] = [];
   for (let i = 0; i < SC.GLYPH_COLUMN_COUNT; i++) glyphColumns.push(_createGlyphCol(w, h));
   const veins: SVein[] = [];
@@ -195,11 +237,22 @@ function _initSubstrateState(w: number, h: number): SState {
   return { tendrils, spores, glyphColumns, veins, time: 0, driftX: 0, driftY: 0, w, h };
 }
 
+// ── Config for substrate variants ──────────────────────────────────────────
+
+export interface SubstrateCfg {
+  tendrilCount?: number;
+  sporeCount?: number;
+  growFromEdges?: boolean;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ── SubstrateBackground Component ─────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-export default function SubstrateBackground({ opacity = 0.18 }: { opacity?: number }) {
+export default function SubstrateBackground({ opacity = 0.18, config }: {
+  opacity?: number;
+  config?: SubstrateCfg;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<SState | null>(null);
@@ -212,8 +265,8 @@ export default function SubstrateBackground({ opacity = 0.18 }: { opacity?: numb
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    return startRenderer(ctx, canvas, wrap, stateRef, animRef);
-  }, []);
+    return startRenderer(ctx, canvas, wrap, stateRef, animRef, config);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div ref={wrapRef} style={{
@@ -234,8 +287,11 @@ function startRenderer(
   wrap: HTMLDivElement,
   stateRef: React.MutableRefObject<SState | null>,
   animRef: React.MutableRefObject<number>,
+  config?: SubstrateCfg,
 ): () => void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const fromEdges = config?.growFromEdges ?? false;
+    const tendrilTarget = config?.tendrilCount ?? SC.TENDRIL_COUNT;
 
     const resize = () => {
       const w = wrap.clientWidth;
@@ -244,7 +300,7 @@ function startRenderer(
       canvas.height = h * dpr;
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
-      stateRef.current = _initSubstrateState(w, h);
+      stateRef.current = _initSubstrateState(w, h, config);
     };
     resize();
     window.addEventListener('resize', resize);
@@ -267,9 +323,13 @@ function startRenderer(
         const last = t.segments[t.segments.length - 1];
         const sinD = Math.sin(t.segments.length * SC.SIN_FREQ * t.freqMod + t.phase) * SC.SIN_AMP * t.ampMod;
         const nv = _fbm(last.x * 0.003 + state.time * 0.0005, last.y * 0.003, 3);
+        // Perpendicular to grow direction for wiggle
+        const perpX = -t.growDirY;
+        const perpY = t.growDirX;
+        const moveLen = SC.SEGMENT_LEN * t.speed * (1 - SC.LATERAL_BIAS * 0.5);
         const lateralPush = t.lateralDir * SC.LATERAL_BIAS * (SC.SEGMENT_LEN * t.speed) * (0.5 + Math.abs(nv));
-        const nx = last.x + sinD * 0.15 + nv * 6 + breath.bx * 0.1 + lateralPush;
-        const ny = last.y - SC.SEGMENT_LEN * t.speed * (1 - SC.LATERAL_BIAS * 0.5) + breath.intensity * 1.5;
+        const nx = last.x + t.growDirX * moveLen + sinD * 0.15 * perpX + nv * 6 * perpX + breath.bx * 0.1 + lateralPush * perpX;
+        const ny = last.y + t.growDirY * moveLen + sinD * 0.15 * perpY + nv * 6 * perpY + breath.intensity * 1.5;
         t.segments.push({ x: nx, y: ny, ox: 0, oy: 0 });
 
         t.glyphTimer++;
@@ -277,7 +337,7 @@ function startRenderer(
 
         if (t.depth < SC.BRANCH_MAX_DEPTH && t.segments.length > 12 && Math.random() < SC.BRANCH_CHANCE) {
           const bp = t.phase + (Math.random() > 0.5 ? 1 : -1) * (Math.PI * 0.25 + Math.random() * 0.6);
-          const child = _createTendril(nx, ny, t.depth + 1, bp);
+          const child = _createTendril(nx, ny, t.depth + 1, bp, t.growDirX, t.growDirY);
           child.ampMod = t.ampMod * (0.4 + Math.random() * 0.3);
           child.growDuration = t.growDuration * (0.25 + Math.random() * 0.2);
           child.holdDuration = t.holdDuration * 0.3;
@@ -291,7 +351,7 @@ function startRenderer(
         }
 
         if (t.depth < 2 && t.segments.length > 30 && Math.random() < SC.HYPHAE_CHANCE) {
-          const hypha = _createTendril(nx, ny, SC.BRANCH_MAX_DEPTH, t.phase + Math.random() * Math.PI);
+          const hypha = _createTendril(nx, ny, SC.BRANCH_MAX_DEPTH, t.phase + Math.random() * Math.PI, t.growDirX, t.growDirY);
           hypha.ampMod = 0.2; hypha.growDuration = 40 + Math.random() * 60;
           hypha.holdDuration = 20; hypha.shrinkDuration = 30; hypha.opacity = 0.3;
           state.tendrils.push(hypha);
@@ -550,9 +610,21 @@ function startRenderer(
         if (t.lifecycle === LP.DISSOLVE && t.opacity < 0.01) deadIdx.push(i);
       }
       for (let i = deadIdx.length - 1; i >= 0; i--) state.tendrils.splice(deadIdx[i], 1);
-      if (state.tendrils.filter(t => t.depth === 0).length < SC.TENDRIL_COUNT && Math.random() < 0.018) {
-        const spawnY = state.h * (0.82 + Math.random() * 0.22);
-        state.tendrils.push(_createTendril(state.w * 0.05 + Math.random() * state.w * 0.9, spawnY, 0));
+      if (state.tendrils.filter(t => t.depth === 0).length < tendrilTarget && Math.random() < 0.025) {
+        if (fromEdges) {
+          const edge = Math.floor(Math.random() * 4);
+          let sx: number, sy: number, dx: number, dy: number;
+          switch (edge) {
+            case 0: sx = Math.random() * state.w; sy = state.h * (0.88 + Math.random() * 0.12); dx = (Math.random() - 0.5) * 0.3; dy = -1; break;
+            case 1: sx = Math.random() * state.w; sy = state.h * Math.random() * 0.12; dx = (Math.random() - 0.5) * 0.3; dy = 1; break;
+            case 2: sx = state.w * Math.random() * 0.1; sy = Math.random() * state.h; dx = 1; dy = (Math.random() - 0.5) * 0.4; break;
+            default: sx = state.w * (0.9 + Math.random() * 0.1); sy = Math.random() * state.h; dx = -1; dy = (Math.random() - 0.5) * 0.4; break;
+          }
+          state.tendrils.push(_createTendril(sx, sy, 0, 0, dx, dy));
+        } else {
+          const spawnY = state.h * (0.82 + Math.random() * 0.22);
+          state.tendrils.push(_createTendril(state.w * 0.05 + Math.random() * state.w * 0.9, spawnY, 0));
+        }
       }
 
       drawFog(state);

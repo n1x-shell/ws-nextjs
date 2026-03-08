@@ -70,8 +70,8 @@ const C = {
   xp:        '#ff69b4',
 };
 
-const BG_PANEL = '#0a0a0a';
-const BG_COMBAT = '#0d0808';
+const BG_PANEL = 'rgba(10,10,10,0.75)';
+const BG_COMBAT = 'rgba(13,8,8,0.75)';
 const BORDER = 'rgba(var(--phosphor-rgb),0.15)';
 const BORDER_COMBAT = 'rgba(255,68,68,0.25)';
 // ── HUD FX Keyframes ────────────────────────────────────────────────────────
@@ -2243,12 +2243,18 @@ export function MudHUDContainer({ session, children }: {
         flexDirection: 'column',
         height: availableHeight || '100dvh',
         overflow: 'hidden',
-        background: data.inCombat ? BG_COMBAT : BG_PANEL,
+        background: '#020308',
         position: 'relative',
       }}
     >
+      <SubstrateBackground
+        opacity={0.4}
+        config={{ tendrilCount: 56, sporeCount: 800, growFromEdges: true }}
+      />
       <HUDFXStyles />
-      <TopPanels data={data} panelMode={panelMode} />
+      <div style={{ position: 'relative', zIndex: 1, flexShrink: 0 }}>
+        <TopPanels data={data} panelMode={panelMode} />
+      </div>
 
       <div
         ref={chatRef}
@@ -2260,6 +2266,7 @@ export function MudHUDContainer({ session, children }: {
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
           padding: '0.35rem 0.5rem',
+          position: 'relative', zIndex: 1,
         }}
       >
         {children}
@@ -2273,11 +2280,12 @@ export function MudHUDContainer({ session, children }: {
           background: BG_COMBAT,
           padding: '0.4rem 0.5rem',
           touchAction: 'none',
+          position: 'relative', zIndex: 1,
         }}>
           <PlayerCard data={data} />
         </div>
       ) : (
-        <>
+        <div style={{ position: 'relative', zIndex: 1, flexShrink: 0 }}>
           <ActionBar
             inCombat={data.inCombat}
             panelMode={panelMode}
@@ -2286,7 +2294,7 @@ export function MudHUDContainer({ session, children }: {
             onSkills={() => setShowSkillsModal(true)}
           />
           <BottomBar data={data} onStatsClick={() => setShowStatsModal(true)} />
-        </>
+        </div>
       )}
 
       {/* Level-up modal overlay */}
