@@ -37,7 +37,12 @@ import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
 import { MapPanel } from './mudMap';
 import { processLevelUp, spendAttributePoint, type LevelUpResult } from './character';
-import { isSafeHaven } from './safeHaven';
+import {
+  getAvailableTrees, getTreeDisplay, getPointsInTree,
+  TREE_LABELS, STYLE_TO_TREE, unlockSkill,
+  type SkillTreeId,
+} from './skillTree';
+import type { CombatStyle } from './types';
 
 // ── Style constants ─────────────────────────────────────────────────────────
 
@@ -237,6 +242,10 @@ interface PanelData {
   skillPointsAvailable: number;
   archetype: Archetype;
   attributes: Attributes;
+  unlockedSkills: string[];
+  combatStyleRaw: CombatStyle;
+  ram: number;
+  maxRam: number;
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -337,6 +346,10 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     skillPointsAvailable: char.skillPoints,
     archetype: char.archetype,
     attributes: { ...char.attributes },
+    unlockedSkills: [...char.unlockedSkills],
+    combatStyleRaw: char.combatStyle,
+    ram: char.ram,
+    maxRam: char.maxRam,
   };
 }
 
@@ -1231,12 +1244,294 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const ACTION_BUTTONS = [
-  { label: 'LOOK',      command: '/look' },
   { label: 'INVENTORY', command: '/inventory' },
+  { label: 'SKILLS',    command: '_modal' },
   { label: 'QUESTS',    command: '/quests' },
-  { label: 'MAP',       command: '/map' },
+  { label: 'MAP',       command: '_toggle' },
   { label: 'HELP',      command: '/mudhelp' },
 ];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Skills Modal ───────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function SkillsModal({ session, onClose }: {
+  session: MudSession; onClose: () => void;
+}) {
+  const char = session.character;
+  if (!char) return null;
+
+  const trees = getAvailableTrees(char);
+  const primaryTree = STYLE_TO_TREE[char.combatStyle];
+  const [activeTree, setActiveTree] = useState<SkillTreeId>(primaryTree);
+  const [confirmNode, setConfirmNode] = useState<string | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
+
+  const display = getTreeDisplay(activeTree, char, false);
+  const tiers = [1, 2, 3, 4] as const;
+
+  const handleUnlock = (nodeId: string) => {
+    const isCross = !trees.includes(activeTree);
+    const result = unlockSkill(char, nodeId, isCross);
+    if (result.success) {
+      setConfirmNode(null);
+      setFlashId(nodeId);
+      setTimeout(() => setFlashId(null), 500);
+      saveCharacter(char.handle, char);
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 200 });
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        width: '100%', maxWidth: 440, maxHeight: '85vh',
+        background: '#0a0a0a',
+        border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+        borderRadius: 4, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
+          background: 'rgba(var(--phosphor-rgb),0.04)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: 'var(--phosphor-accent)', letterSpacing: '0.06em',
+          }} className={S.glow}>SKILL TREES</span>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: char.skillPoints > 0 ? '#fbbf24' : C.dim,
+          }}>
+            {char.skillPoints} pt{char.skillPoints !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Tree tabs */}
+        <div style={{
+          display: 'flex', borderBottom: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          overflowX: 'auto', flexShrink: 0,
+        }}>
+          {trees.map(treeId => {
+            const active = treeId === activeTree;
+            const pts = getPointsInTree(treeId, char);
+            return (
+              <button key={treeId}
+                onClick={() => { setActiveTree(treeId); setConfirmNode(null); }}
+                style={{
+                  flex: 1, minWidth: 0, padding: '0.35rem 0.3rem',
+                  fontFamily: 'monospace', fontSize: '0.7em',
+                  color: active ? 'var(--phosphor-accent)' : C.dim,
+                  background: active ? 'rgba(var(--phosphor-rgb),0.08)' : 'transparent',
+                  border: 'none',
+                  borderBottom: active ? '2px solid var(--phosphor-accent)' : '2px solid transparent',
+                  cursor: 'pointer', touchAction: 'manipulation', whiteSpace: 'nowrap',
+                }}>
+                {TREE_LABELS[treeId]}{pts > 0 ? ` (${pts})` : ''}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Nodes */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.4rem' }}>
+          {tiers.map(tier => {
+            const nodesInTier = display.filter(d => d.node.tier === tier);
+            if (nodesInTier.length === 0) return null;
+            return (
+              <div key={tier} style={{ marginBottom: '0.5rem' }}>
+                <div style={{
+                  fontFamily: 'monospace', fontSize: '0.65em',
+                  color: C.faint, marginBottom: '0.2rem', letterSpacing: '0.1em',
+                }}>TIER {tier}{tier === 4 ? ' \u2014 CAPSTONE' : ''}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem' }}>
+                  {nodesInTier.map(d => {
+                    const isFlash = flashId === d.node.id;
+                    const isConfirming = confirmNode === d.node.id;
+                    const borderColor = d.unlocked ? 'rgba(74,222,128,0.4)' : d.available ? 'rgba(251,191,36,0.4)' : 'rgba(var(--phosphor-rgb),0.1)';
+                    const bgColor = isFlash ? 'rgba(74,222,128,0.15)' : isConfirming ? 'rgba(251,191,36,0.08)' : d.unlocked ? 'rgba(74,222,128,0.05)' : 'transparent';
+                    return (
+                      <div key={d.node.id}
+                        role={d.available ? 'button' : undefined}
+                        tabIndex={d.available ? 0 : undefined}
+                        onClick={() => {
+                          if (d.available && !d.unlocked) {
+                            if (isConfirming) handleUnlock(d.node.id);
+                            else setConfirmNode(d.node.id);
+                          }
+                        }}
+                        style={{
+                          padding: '0.35rem 0.4rem', border: `1px solid ${borderColor}`,
+                          borderRadius: 3, background: bgColor,
+                          cursor: d.available ? 'pointer' : 'default',
+                          touchAction: 'manipulation', transition: 'all 0.2s',
+                        }}>
+                        <div style={{
+                          fontFamily: 'monospace', fontSize: 'var(--text-base)', fontWeight: 'bold',
+                          color: d.unlocked ? C.heal : d.available ? '#fbbf24' : C.dimmer,
+                        }}>
+                          {d.unlocked ? '\u25a0 ' : d.available ? '\u25cb ' : '\u25ab '}{d.node.name}
+                        </div>
+                        <div style={{
+                          fontFamily: 'monospace', fontSize: '0.7em', color: C.faint,
+                          marginTop: '0.15rem', lineHeight: 1.4,
+                          display: '-webkit-box', WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
+                        }}>{d.node.description}</div>
+                        {isConfirming && (
+                          <div style={{
+                            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                            color: '#fbbf24', marginTop: '0.25rem', fontWeight: 'bold',
+                            animation: 'mud-fade-in 0.2s ease-out',
+                          }}>tap again to unlock</div>
+                        )}
+                        {!d.unlocked && !d.available && d.reason && (
+                          <div style={{ fontFamily: 'monospace', fontSize: '0.6em', color: C.faint, marginTop: '0.1rem', fontStyle: 'italic' }}>{d.reason}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Close */}
+        <div style={{
+          padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          display: 'flex', justifyContent: 'center',
+        }}>
+          <button className="mud-btn" onClick={onClose} style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
+            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+          }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Stats Modal ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void }) {
+  const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
+  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
+  const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        width: '100%', maxWidth: 380,
+        background: '#0a0a0a',
+        border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+        borderRadius: 4, overflow: 'hidden',
+        boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '0.6rem 0.8rem',
+          borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
+          background: 'rgba(var(--phosphor-rgb),0.04)',
+        }}>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: 'var(--phosphor-accent)', letterSpacing: '0.06em',
+          }} className={S.glow}>{data.handle} {'\u2014'} {data.subjectId}</div>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, marginTop: '0.2rem',
+          }}>{data.archetype} {'\u00b7'} {data.combatStyle} {'\u00b7'} Level {data.level}</div>
+        </div>
+
+        {/* Bars */}
+        <div style={{ padding: '0.5rem 0.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.3rem' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>HP</span>
+            <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: hpColor }}>{data.hp}/{data.maxHp}</span>
+          </div>
+          {data.maxRam > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.3rem' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>RAM</span>
+              <div style={{ flex: 1 }}><Bar pct={(data.ram / data.maxRam) * 100} color={C.hack} height={7} /></div>
+              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack }}>{data.ram}/{data.maxRam}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.xp }}>{data.xp}/{data.xpNext}</span>
+          </div>
+        </div>
+
+        {/* Attributes */}
+        <div style={{ padding: '0.4rem 0.8rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)' }}>
+          {ATTR_ORDER.map(attr => {
+            const val = data.attributes[attr];
+            const filled = Math.min(val, 15);
+            const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(15 - filled);
+            return (
+              <div key={attr} style={{
+                display: 'grid', gridTemplateColumns: '5.5ch 2ch 1fr', gap: '0.4ch', alignItems: 'center',
+                fontFamily: 'monospace', fontSize: 'var(--text-base)', padding: '0.1rem 0',
+              }}>
+                <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
+                <span style={{ color: C.dim, textAlign: 'right' }}>{val}</span>
+                <span style={{ color: 'rgba(var(--phosphor-rgb),0.35)', fontSize: '0.8em', letterSpacing: '-0.5px' }}>{bar}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Currency */}
+        <div style={{
+          padding: '0.4rem 0.8rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          display: 'flex', gap: '1.5ch', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        }}>
+          <span><span style={{ color: '#fcd34d', fontWeight: 'bold' }}>CREDS</span> <span style={{ color: '#fff' }}>{data.creds}</span></span>
+          <span><span style={{ color: '#a78bfa', fontWeight: 'bold' }}>SCRIP</span> <span style={{ color: '#fff' }}>{data.scrip}</span></span>
+        </div>
+
+        {(data.skillPointsAvailable > 0 || data.unspentAttributePoints > 0) && (
+          <div style={{ padding: '0.3rem 0.8rem', fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24' }}>
+            {data.unspentAttributePoints > 0 && <div>{data.unspentAttributePoints} attribute pt{data.unspentAttributePoints > 1 ? 's' : ''} unspent</div>}
+            {data.skillPointsAvailable > 0 && <div>{data.skillPointsAvailable} skill pt{data.skillPointsAvailable > 1 ? 's' : ''} available</div>}
+          </div>
+        )}
+
+        <div style={{
+          padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          display: 'flex', justifyContent: 'center',
+        }}>
+          <button className="mud-btn" onClick={onClose} style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
+            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+          }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ── Level-Up Modal ─────────────────────────────────────────────────────────
@@ -1514,9 +1809,9 @@ function LevelUpModal({ session, onClose }: {
 // ── Action Bar ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade }: {
+function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills }: {
   inCombat: boolean; panelMode: PanelMode;
-  showUpgrade: boolean; onUpgrade: () => void;
+  showUpgrade: boolean; onUpgrade: () => void; onSkills: () => void;
 }) {
   if (inCombat) return null;
 
@@ -1528,8 +1823,9 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade }: {
       flexShrink: 0,
       touchAction: 'none',
     }}>
-      {ACTION_BUTTONS.map((btn, i) => {
+      {ACTION_BUTTONS.map((btn) => {
         const isMapBtn = btn.label === 'MAP';
+        const isSkillsBtn = btn.label === 'SKILLS';
         const isActive = isMapBtn && panelMode === 'map';
 
         return (
@@ -1541,6 +1837,8 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade }: {
                 eventBus.emit('mud:panel-mode', {
                   mode: panelMode === 'map' ? 'default' : 'map',
                 });
+              } else if (isSkillsBtn) {
+                onSkills();
               } else {
                 eventBus.emit('mud:execute-command', { command: btn.command });
               }
@@ -1594,7 +1892,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade }: {
 // ── Bottom Bar — [Stats | Compass 1:1] ──────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function BottomBar({ data }: { data: PanelData }) {
+function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
   const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
   const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
@@ -1613,13 +1911,18 @@ function BottomBar({ data }: { data: PanelData }) {
         background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
       }} />
 
-      {/* Stats — fills remaining width */}
-      <div style={{
+      {/* Stats — fills remaining width — tappable for full stats modal */}
+      <div
+        role="button" tabIndex={0}
+        onClick={onStatsClick}
+        onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
+        style={{
         flex: 1, minWidth: 0,
         fontFamily: 'monospace', fontSize: S.base,
         padding: '0.4rem 0.6rem',
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         gap: '0.25rem', position: 'relative',
+        cursor: 'pointer', touchAction: 'manipulation',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
           <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
@@ -1812,6 +2115,9 @@ export function MudHUDContainer({ session, children }: {
   const [availableHeight, setAvailableHeight] = useState<number>(0);
   const [panelMode, setPanelMode] = useState<PanelMode>('default');
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [showSkillsModal, setShowSkillsModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const mapWasActiveRef = useRef(false);
 
   // Measure scroll parent to fill viewport + lock its scroll
   useEffect(() => {
@@ -1861,12 +2167,23 @@ export function MudHUDContainer({ session, children }: {
     return () => { eventBus.off('mud:open-levelup', handler); };
   }, []);
 
-  // Reset panel mode on combat start
+  // Save map state on combat start, restore on combat end
+  const prevPhaseRef = useRef(session.phase);
   useEffect(() => {
-    if (session.phase === 'combat') {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = session.phase;
+
+    if (session.phase === 'combat' && prev !== 'combat') {
+      // Entering combat — save map state
+      mapWasActiveRef.current = panelMode === 'map';
       setPanelMode('default');
+    } else if (prev === 'combat' && session.phase !== 'combat') {
+      // Leaving combat — restore map if it was active
+      if (mapWasActiveRef.current) {
+        setPanelMode('map');
+      }
     }
-  }, [session.phase]);
+  }, [session.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll chat area to bottom
   const scrollChatToBottom = useCallback(() => {
@@ -1959,8 +2276,9 @@ export function MudHUDContainer({ session, children }: {
             panelMode={panelMode}
             showUpgrade={data.pendingLevelUps > 0 && data.isSafeZone}
             onUpgrade={() => setShowLevelUpModal(true)}
+            onSkills={() => setShowSkillsModal(true)}
           />
-          <BottomBar data={data} />
+          <BottomBar data={data} onStatsClick={() => setShowStatsModal(true)} />
         </>
       )}
 
@@ -1970,12 +2288,28 @@ export function MudHUDContainer({ session, children }: {
           session={session}
           onClose={() => {
             setShowLevelUpModal(false);
-            // Trigger a save command to refresh session state in parent
             setTimeout(() => {
               eventBus.emit('mud:execute-command', { command: '/save' });
             }, 100);
           }}
         />
+      )}
+
+      {/* Skills modal */}
+      {showSkillsModal && session.character && data && (
+        <SkillsModal
+          session={session}
+          onClose={() => {
+            setShowSkillsModal(false);
+            // Trigger save to persist any skill purchases
+            eventBus.emit('mud:execute-command', { command: '/save' });
+          }}
+        />
+      )}
+
+      {/* Stats modal */}
+      {showStatsModal && data && (
+        <StatsModal data={data} onClose={() => setShowStatsModal(false)} />
       )}
     </div>
   );
