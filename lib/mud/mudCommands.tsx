@@ -2426,7 +2426,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             return <MudLine key={s} color="rgba(255,80,80,0.5)">  {s.toUpperCase().padEnd(8)} [SEALED]</MudLine>;
           }
           if (!item) {
-            return <MudLine key={s} color={C.faint}>  {s.toUpperCase().padEnd(8)} vacant</MudLine>;
+            return <MudLine key={s} color={C.hint}>  {s.toUpperCase().padEnd(8)} vacant</MudLine>;
           }
           return (
             <MudLine key={s} color="#d8b4fe">
@@ -2435,7 +2435,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             </MudLine>
           );
         })}
-        <MudLine color={C.faint} opacity={0.6}>  use /inventory {'>'} AUGMENTS tab to manage slots.</MudLine>
+        <MudLine color={C.hint} opacity={0.6}>  use /inventory {'>'} AUGMENTS tab to manage slots.</MudLine>
       </div>
     );
     return { handled: true, stopPropagation: true };
