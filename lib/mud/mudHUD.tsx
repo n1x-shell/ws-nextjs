@@ -43,6 +43,7 @@ import {
   type SkillTreeId,
 } from './skillTree';
 import type { CombatStyle } from './types';
+import SubstrateBackground from './substrateBackground';
 
 // ── Style constants ─────────────────────────────────────────────────────────
 
@@ -1285,18 +1286,20 @@ function SkillsModal({ session, onClose }: {
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
-      background: 'rgba(0,0,0,0.85)',
+      background: '#020308',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '0.5rem',
       animation: 'mud-fade-in 0.3s ease-out',
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.18} />
       <div style={{
         width: '100%', maxWidth: 440, maxHeight: '85vh',
-        background: '#0a0a0a',
+        background: 'rgba(10,10,10,0.92)',
         border: '1px solid rgba(var(--phosphor-rgb),0.25)',
         borderRadius: 4, overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
+        position: 'relative', zIndex: 1,
       }}>
         {/* Header */}
         <div style={{
@@ -1435,17 +1438,19 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
-      background: 'rgba(0,0,0,0.85)',
+      background: '#020308',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '0.5rem',
       animation: 'mud-fade-in 0.3s ease-out',
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.18} />
       <div style={{
         width: '100%', maxWidth: 380,
-        background: '#0a0a0a',
+        background: 'rgba(10,10,10,0.92)',
         border: '1px solid rgba(var(--phosphor-rgb),0.25)',
         borderRadius: 4, overflow: 'hidden',
         boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
+        position: 'relative', zIndex: 1,
       }}>
         {/* Header */}
         <div style={{
@@ -1613,18 +1618,20 @@ function LevelUpModal({ session, onClose }: {
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
-      background: 'rgba(0,0,0,0.85)',
+      background: '#020308',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '1rem',
       animation: 'mud-fade-in 0.3s ease-out',
     }}>
+      <SubstrateBackground opacity={0.18} />
       <div style={{
         width: '100%', maxWidth: 420,
-        background: '#0a0a0a',
+        background: 'rgba(10,10,10,0.92)',
         border: '1px solid rgba(var(--phosphor-rgb),0.25)',
         borderRadius: 4,
         overflow: 'hidden',
         boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08), 0 0 60px rgba(0,0,0,0.5)',
+        position: 'relative', zIndex: 1,
       }}>
         {/* Header */}
         <div style={{
