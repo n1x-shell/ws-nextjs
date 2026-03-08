@@ -32,6 +32,7 @@ import {
 } from './combat';
 import { getFormattedShop, type ShopListing } from './shopSystem';
 import { getNPCRelation, saveCharacter } from './persistence';
+import { sellItem } from './shopSystem';
 import { getActiveQuests, getAvailableQuests, getQuestObjectiveProgress, QUEST_REGISTRY } from './questEngine';
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
@@ -44,6 +45,10 @@ import {
 } from './skillTree';
 import type { CombatStyle } from './types';
 import SubstrateBackground from './substrateBackground';
+import { TransientMessageOverlay } from './transientMessage';
+import { RestModal, type RestModalData } from './restModal';
+import { SellModal, type SellModalData, type SellModalResult } from './sellModal';
+import { useCombatFX, CombatFXStyles } from './combatFX';
 
 // ── Style constants ─────────────────────────────────────────────────────────
 
@@ -1146,6 +1151,7 @@ function CombatPanels({ data }: { data: PanelData }) {
 
 const DIR_LABELS: Record<Direction, string> = {
   north: 'N', south: 'S', east: 'E', west: 'W',
+  northeast: 'NE', northwest: 'NW', southeast: 'SE', southwest: 'SW',
   up: 'UP', down: 'DN', in: 'IN', out: 'OUT',
 };
 
@@ -1153,13 +1159,15 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
   const exitSet = new Set(exits.map(e => e.direction));
   const hasVertical = exitSet.has('up') || exitSet.has('down');
   const hasInOut = exitSet.has('in') || exitSet.has('out');
+  const hasIntercardinal = exitSet.has('northeast') || exitSet.has('northwest') || exitSet.has('southeast') || exitSet.has('southwest');
 
-  const SZ = 28;
+  const SZ = 26;
 
-  function ExitBtn({ dir }: { dir: Direction }) {
+  function ExitBtn({ dir, small }: { dir: Direction; small?: boolean }) {
     const available = exitSet.has(dir);
     const exitData = exits.find(e => e.direction === dir);
     const locked = exitData?.locked ?? false;
+    const btnSz = small ? SZ - 4 : SZ;
 
     return (
       <button
@@ -1176,9 +1184,9 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
         }}
         title={exitData ? `${dir}: ${exitData.label}${locked ? ' [LOCKED]' : ''}` : dir}
         style={{
-          fontFamily: 'monospace', fontSize: 'var(--text-base)', fontWeight: 'bold', lineHeight: 1,
-          width: (dir === 'up' || dir === 'down' || dir === 'in' || dir === 'out') ? SZ + 6 : SZ,
-          height: SZ, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'monospace', fontSize: small ? '0.6em' : 'var(--text-base)', fontWeight: 'bold', lineHeight: 1,
+          width: (dir === 'up' || dir === 'down' || dir === 'in' || dir === 'out') ? btnSz + 6 : btnSz,
+          height: btnSz, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: available
             ? locked ? 'rgba(255,107,107,0.08)' : 'rgba(var(--phosphor-rgb),0.06)'
             : 'transparent',
@@ -1192,7 +1200,6 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
           touchAction: 'manipulation', borderRadius: 2, padding: 0,
           boxShadow: available ? `0 0 3px ${locked ? 'rgba(255,107,107,0.2)' : 'rgba(var(--phosphor-rgb),0.1)'}` : 'none',
         }}
-
       >
         {locked ? '\ud83d\udd12' : DIR_LABELS[dir]}
       </button>
@@ -1205,26 +1212,53 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       gap: '0.4rem', padding: '0.3rem',
     }}>
+      {/* 5x5 grid for 8-direction compass */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(3, ${SZ}px)`,
-        gridTemplateRows: `repeat(3, ${SZ}px)`,
-        gap: 2, justifyItems: 'center', alignItems: 'center',
+        gridTemplateColumns: `repeat(5, ${SZ}px)`,
+        gridTemplateRows: `repeat(5, ${SZ}px)`,
+        gap: 1, justifyItems: 'center', alignItems: 'center',
       }}>
+        {/* Row 1: . NW . N . NE . */}
+        <div />
+        {hasIntercardinal ? <ExitBtn dir="northwest" small /> : <div />}
+        <div />
+        {hasIntercardinal ? <ExitBtn dir="northeast" small /> : <div />}
+        <div />
+
+        {/* Row 2: . . N . . */}
+        <div />
         <div />
         <ExitBtn dir="north" />
         <div />
+        <div />
+
+        {/* Row 3: W . ◆ . E */}
         <ExitBtn dir="west" />
+        <div />
         <div style={{
           width: SZ, height: SZ, display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontFamily: 'monospace', fontSize: '8px', color: 'rgba(var(--phosphor-rgb),0.15)',
         }}>{'\u25c6'}</div>
+        <div />
         <ExitBtn dir="east" />
+
+        {/* Row 4: . . S . . */}
+        <div />
         <div />
         <ExitBtn dir="south" />
         <div />
+        <div />
+
+        {/* Row 5: . SW . SE . */}
+        <div />
+        {hasIntercardinal ? <ExitBtn dir="southwest" small /> : <div />}
+        <div />
+        {hasIntercardinal ? <ExitBtn dir="southeast" small /> : <div />}
+        <div />
       </div>
 
+      {/* Special exits: UP/DOWN/IN/OUT */}
       {(hasVertical || hasInOut) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {exitSet.has('up') && <ExitBtn dir="up" />}
@@ -1233,8 +1267,6 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
           {exitSet.has('out') && <ExitBtn dir="out" />}
         </div>
       )}
-
-
     </div>
   );
 }
@@ -2550,7 +2582,12 @@ export function MudHUDContainer({ session, children }: {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showQuestsModal, setShowQuestsModal] = useState(false);
   const [examineData, setExamineData] = useState<ExamineData | null>(null);
+  const [restModalData, setRestModalData] = useState<RestModalData | null>(null);
+  const [sellModalData, setSellModalData] = useState<SellModalData | null>(null);
   const mapWasActiveRef = useRef(false);
+
+  // Combat FX hook — shake + glitch on hits
+  useCombatFX(containerRef);
 
   // Measure scroll parent to fill viewport + lock its scroll
   useEffect(() => {
@@ -2600,7 +2637,7 @@ export function MudHUDContainer({ session, children }: {
     return () => { eventBus.off('mud:open-levelup', handler); };
   }, []);
 
-  // Listen for help/quests/examine modal triggers
+  // Listen for help/quests/examine/rest/sell modal triggers
   useEffect(() => {
     const helpHandler = () => setShowHelpModal(true);
     const questsHandler = () => setShowQuestsModal(true);
@@ -2609,13 +2646,27 @@ export function MudHUDContainer({ session, children }: {
       const d = event?.payload as ExamineData | undefined;
       if (d) setExamineData(d);
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const restHandler = (event: any) => {
+      const d = event?.payload as RestModalData | undefined;
+      if (d) setRestModalData(d);
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sellHandler = (event: any) => {
+      const d = event?.payload as SellModalData | undefined;
+      if (d) setSellModalData(d);
+    };
     eventBus.on('mud:open-help', helpHandler);
     eventBus.on('mud:open-quests', questsHandler);
     eventBus.on('mud:open-examine', examineHandler);
+    eventBus.on('mud:open-rest', restHandler);
+    eventBus.on('mud:open-sell', sellHandler);
     return () => {
       eventBus.off('mud:open-help', helpHandler);
       eventBus.off('mud:open-quests', questsHandler);
       eventBus.off('mud:open-examine', examineHandler);
+      eventBus.off('mud:open-rest', restHandler);
+      eventBus.off('mud:open-sell', sellHandler);
     };
   }, []);
 
@@ -2697,6 +2748,7 @@ export function MudHUDContainer({ session, children }: {
         config={{ tendrilCount: 56, sporeCount: 800, growFromEdges: true }}
       />
       <HUDFXStyles />
+      <CombatFXStyles />
       <div style={{ position: 'relative', zIndex: 1, flexShrink: 0 }}>
         <TopPanels data={data} panelMode={panelMode} />
       </div>
@@ -2715,6 +2767,8 @@ export function MudHUDContainer({ session, children }: {
         }}
       >
         {children}
+        {/* Transient messages float above chat bottom */}
+        <TransientMessageOverlay />
       </div>
 
       {/* Bottom section */}
@@ -2787,6 +2841,50 @@ export function MudHUDContainer({ session, children }: {
       {/* Examine modal */}
       {examineData && (
         <ExamineModal data={examineData} onClose={() => setExamineData(null)} />
+      )}
+
+      {/* Rest modal */}
+      {restModalData && (
+        <RestModal
+          data={restModalData}
+          onClose={() => setRestModalData(null)}
+        />
+      )}
+
+      {/* Sell modal */}
+      {sellModalData && session.character && (
+        <SellModal
+          data={sellModalData}
+          onClose={() => setSellModalData(null)}
+          onConfirm={(result) => {
+            const char = session.character!;
+            let totalSold = 0;
+            let totalValue = 0;
+            // Sell items in reverse order to avoid index shifting
+            for (const { item, qty } of result.items) {
+              for (let i = 0; i < qty; i++) {
+                const idx = char.inventory.findIndex(inv => inv.id === item.id);
+                if (idx >= 0) {
+                  const r = sellItem(char, sellModalData.shopkeeperId, idx);
+                  if (r.success) {
+                    totalSold++;
+                    totalValue += r.price ?? 0;
+                  }
+                }
+              }
+            }
+            saveCharacter(char.handle, char);
+            setSellModalData(null);
+            // Transient summary
+            if (totalSold > 0) {
+              eventBus.emit('mud:transient-message', {
+                text: `sold ${totalSold} item${totalSold > 1 ? 's' : ''} for ${totalValue}c. balance: ${char.currency.creds}c`,
+                type: 'commerce',
+              });
+            }
+            eventBus.emit('crt:glitch-tier', { tier: 1, duration: 120 });
+          }}
+        />
       )}
     </div>
   );

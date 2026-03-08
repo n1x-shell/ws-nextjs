@@ -248,7 +248,14 @@ export interface CombatState {
 
 // ── Room System ─────────────────────────────────────────────────────────────
 
-export type Direction = 'north' | 'south' | 'east' | 'west' | 'up' | 'down' | 'in' | 'out';
+export type Direction = 'north' | 'south' | 'east' | 'west' | 'northeast' | 'northwest' | 'southeast' | 'southwest' | 'up' | 'down' | 'in' | 'out';
+
+/** Shorthand aliases for direction matching (used in /go command resolution) */
+export const DIRECTION_ALIASES: Record<string, Direction> = {
+  n: 'north', s: 'south', e: 'east', w: 'west',
+  ne: 'northeast', nw: 'northwest', se: 'southeast', sw: 'southwest',
+  u: 'up', d: 'down',
+};
 
 export interface RoomExit {
   direction: Direction;

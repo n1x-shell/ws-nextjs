@@ -88,6 +88,8 @@ import {
   ATTRIBUTE_LEVEL_FLAVOR, type SkillTreeId,
 } from './skillTree';
 import { getDiscoveredSynergies, checkNewSynergies } from './synergies';
+import { emitPlayerHit, emitPlayerDamage, emitEnemyDeath } from './combatFX';
+import { emitCommerceTransient, emitCombatTransient } from './transientMessage';
 
 // ── ActionGlyph — tappable command button for entity panels ─────────────────
 
@@ -1361,9 +1363,9 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
           </MudLine>
         </div>
       );
-      // CRT feedback when player takes damage
+      // Combat FX when player takes damage
       if (action.hit && action.damage && action.damage > 0) {
-        eventBus.emit('crt:glitch-tier', { tier: action.crit ? 2 : 1, duration: action.crit ? 200 : 100 });
+        emitPlayerDamage(!!action.crit);
       }
     }
 
@@ -1588,7 +1590,10 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
       // CRT feedback on hit/crit
       if (r.hit) {
-        eventBus.emit('crt:glitch-tier', { tier: r.crit ? 2 : 1, duration: r.crit ? 250 : 120 });
+        emitPlayerHit(r.crit);
+      }
+      if (r.killed) {
+        emitEnemyDeath();
       }
 
       syncCombatToCharacter(combat, char);
@@ -2335,49 +2340,20 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
-    // Success — show rest narrative
+    // Success — open rest modal instead of inline text
     const pending = result.pendingLevels ?? 0;
-    addLocalMsg(
-      <div key={k('rest-ok')}>
-        <MudSpacer />
-        {result.flavorText?.split('\n').map((line, i) => (
-          <MudLine key={k(`rest-fl-${i}`)} color={C.dim}>
-            &gt; {line.trim()}
-          </MudLine>
-        ))}
-        <MudSpacer />
-        {(result.hpRestored ?? 0) > 0 && (
-          <MudLine indent color={C.heal}>HP restored: {char.hp}/{char.maxHp}</MudLine>
-        )}
-        {(result.ramRestored ?? 0) > 0 && (
-          <MudLine indent color={C.heal}>RAM restored: {char.ram}/{char.maxRam}</MudLine>
-        )}
-        <MudLine indent color={C.dim}>state saved.</MudLine>
-        <MudSpacer />
-        {pending > 0 ? (
-          <div>
-            <MudLine color={C.n1x} style={{ opacity: 0.9 }}>
-              &gt; you close your eyes. the hum changes pitch — not the world's hum.
-            </MudLine>
-            <MudLine color={C.n1x} style={{ opacity: 0.9 }}>
-              &gt; yours. something inside you is reorganizing.
-            </MudLine>
-            <MudLine color={C.n1x} style={{ opacity: 0.9 }}>
-              &gt; this is going to take a minute. let it happen.
-            </MudLine>
-            <MudSpacer />
-            <MudLine color={C.accent} glow bold>
-              &gt;&gt; LEVEL UP AVAILABLE: {char.level} {'\u2192'} {char.level + pending}
-            </MudLine>
-            <MudLine color={C.accent}>
-              &gt;&gt; tap UPGRADE in the action bar to begin integration
-            </MudLine>
-          </div>
-        ) : (
-          <MudLine color={C.dim}>[rest complete — 0 pending level-ups]</MudLine>
-        )}
-      </div>
-    );
+    eventBus.emit('mud:open-rest', {
+      location: getSafeHaven(char.currentRoom)?.name ?? 'SAFE HAVEN',
+      flavorText: result.flavorText ?? 'you rest.',
+      hpBefore: char.hp - (result.hpRestored ?? 0),
+      hpAfter: char.hp,
+      maxHp: char.maxHp,
+      ramBefore: char.ram - (result.ramRestored ?? 0),
+      ramAfter: char.ram,
+      maxRam: char.maxRam,
+      pendingLevelUps: pending,
+      level: char.level,
+    });
     setSession({ ...session });
     return { handled: true, stopPropagation: true };
   }
@@ -2872,20 +2848,13 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     }
 
     saveCharacter(handle, char);
-    addLocalMsg(
-      <MudLine key={k('buy-ok')} color={C.shop}>
-        purchased {result.item!.name} for {result.price}c. remaining: {char.currency.creds}c
-      </MudLine>
-    );
+    emitCommerceTransient(`purchased ${result.item!.name} for ${result.price}c. remaining: ${char.currency.creds}c`);
+    setSession({ ...session });
     return { handled: true, stopPropagation: true };
   }
 
   // ── /sell <item> ──────────────────────────────────────────────────────
   if (cmd === 'sell') {
-    if (!rest) {
-      addLocalMsg(<MudNotice key={k('sell-err')} error>sell what? /sell &lt;item name&gt;</MudNotice>);
-      return { handled: true, stopPropagation: true };
-    }
     const room = getRoom(char.currentRoom);
     const shopkeeper = room?.npcs.find(n => n.services?.includes('shop'));
     if (!shopkeeper) {
@@ -2893,6 +2862,23 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
+    // /sell with no args or /sell all → open batch sell modal
+    if (!rest || rest.toLowerCase() === 'all') {
+      const sellable = char.inventory.filter(i => !i.questItem && !i.loreItem && (i.sellPrice ?? 0) > 0);
+      if (sellable.length === 0) {
+        addLocalMsg(<MudNotice key={k('sell-nothing')} error>nothing to sell.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+      eventBus.emit('mud:open-sell', {
+        inventory: char.inventory,
+        shopkeeperId: shopkeeper.id,
+        shopkeeperName: getShopkeeperName(shopkeeper.id),
+        currentCreds: char.currency.creds,
+      });
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Single item sell
     const idx = char.inventory.findIndex(i => i.name.toLowerCase().includes(rest.toLowerCase()));
     if (idx < 0) {
       addLocalMsg(<MudNotice key={k('sell-nf')} error>you don't have that.</MudNotice>);
@@ -2906,11 +2892,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     }
 
     saveCharacter(handle, char);
-    addLocalMsg(
-      <MudLine key={k('sell-ok')} color={C.shop}>
-        sold {result.itemName} for {result.price}c. total: {char.currency.creds}c
-      </MudLine>
-    );
+    emitCommerceTransient(`sold ${result.itemName} for ${result.price}c. total: ${char.currency.creds}c`);
+    setSession({ ...session });
     return { handled: true, stopPropagation: true };
   }
 
@@ -3229,7 +3212,8 @@ export function getMudSuggestions(partial: string, session: MudSession): string[
     // /sell → inventory items
     if (cmd === '/sell') {
       const items = char.inventory.filter(i => !i.questItem).map(i => i.name.toLowerCase());
-      return items.filter(n => n.includes(argPartial)).map(n => `/sell ${n}`);
+      const options = ['all', ...items];
+      return options.filter(n => n.includes(argPartial)).map(n => `/sell ${n}`);
     }
 
     // /talk → NPC names

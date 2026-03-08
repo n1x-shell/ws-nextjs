@@ -31,9 +31,13 @@ interface MapData {
 const DIR_OFF: Partial<Record<Direction, { dx: number; dy: number }>> = {
   north: { dx: 0, dy: -1 }, south: { dx: 0, dy: 1 },
   east: { dx: 1, dy: 0 }, west: { dx: -1, dy: 0 },
+  northeast: { dx: 1, dy: -1 }, northwest: { dx: -1, dy: -1 },
+  southeast: { dx: 1, dy: 1 }, southwest: { dx: -1, dy: 1 },
 };
 const OPP: Record<string, Direction> = {
   north: 'south', south: 'north', east: 'west', west: 'east',
+  northeast: 'southwest', southwest: 'northeast',
+  northwest: 'southeast', southeast: 'northwest',
   up: 'down', down: 'up', in: 'out', out: 'in',
 };
 

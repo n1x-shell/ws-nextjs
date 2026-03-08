@@ -4,6 +4,7 @@
 // Phase 1: Drainage Nexus only (Zone 8, 14 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
+import { DIRECTION_ALIASES } from './types';
 
 // ── Default enemy attributes by level ───────────────────────────────────────
 
@@ -711,9 +712,10 @@ export function resolveExit(
   const room = getRoom(roomId);
   if (!room) return null;
 
-  // Direct direction match
+  // Direct direction match (with alias support)
   const dirLower = direction.toLowerCase();
-  let exit = room.exits.find(e => e.direction === dirLower);
+  const resolvedDir = DIRECTION_ALIASES[dirLower] ?? dirLower;
+  let exit = room.exits.find(e => e.direction === resolvedDir || e.direction === dirLower);
 
   // Try matching by room name in the description
   if (!exit) {
