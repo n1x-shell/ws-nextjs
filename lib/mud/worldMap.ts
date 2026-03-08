@@ -120,6 +120,10 @@ don't. You're not the first stranger to climb down the ladder.`,
       { direction: 'south', targetRoom: 'z08_r02', description: 'south (The Narrows)' },
       { direction: 'east', targetRoom: 'z08_r10', description: 'east (Storage Chambers)' },
       { direction: 'west', targetRoom: 'z08_r09', description: 'west (West Overflow)' },
+      { direction: 'northwest', targetRoom: 'z08_r06', description: 'northwest (Pump Room)' },
+      { direction: 'southwest', targetRoom: 'z08_r07', description: 'southwest (Memorial Alcove)' },
+      { direction: 'northeast', targetRoom: 'z08_r11', description: "northeast (Elder's Chamber)" },
+      { direction: 'southeast', targetRoom: 'z08_r12', description: 'southeast (East Passage)' },
     ],
     npcs: [
       {
@@ -291,6 +295,7 @@ One name near the center has been scratched deeper than the others:
 LE-751078`,
     exits: [
       { direction: 'east', targetRoom: 'z08_r03', description: 'east (The Junction)' },
+      { direction: 'south', targetRoom: 'z08_r08', description: 'south (The Clinic)' },
     ],
     npcs: [],
     enemies: [],
@@ -324,6 +329,7 @@ a Parish resident's forearm. He doesn't rush. He doesn't look
 up. When he's done, he ties off the thread and says something
 quiet that makes the patient almost smile.`,
     exits: [
+      { direction: 'north', targetRoom: 'z08_r07', description: 'north (Memorial Alcove)' },
       { direction: 'east', targetRoom: 'z08_r03', description: 'east (The Junction)' },
     ],
     npcs: [
@@ -510,6 +516,7 @@ The Parish's protection ends at this cloth.`,
     exits: [
       { direction: 'west', targetRoom: 'z08_r03', description: 'west (The Junction)' },
       { direction: 'east', targetRoom: 'z09_r01', description: 'east (Maintenance Tunnels)', zoneTransition: true, targetZone: 'z09' },
+      { direction: 'south', targetRoom: 'z08_r14', description: 'south (Signal Hollow)', hidden: true, hiddenRequirement: { attribute: 'GHOST', minimum: 6 } },
     ],
     npcs: [],
     enemies: [
@@ -630,7 +637,7 @@ A Parish symbol is carved into the stone near the crack:
 a circle with a vertical line through it. Below it, scratched
 in small letters: "THE SIGNAL WAS HERE BEFORE US."`,
     exits: [
-      { direction: 'out', targetRoom: 'z08_r03', description: 'out (The Junction)' },
+      { direction: 'north', targetRoom: 'z08_r12', description: 'north (East Passage)' },
     ],
     npcs: [],
     enemies: [],
