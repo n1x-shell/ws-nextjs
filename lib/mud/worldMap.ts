@@ -725,18 +725,12 @@ export function resolveExit(
     );
   }
 
-  // Junction special: allow going to branch rooms by name
-  if (!exit && roomId === 'z08_r03') {
-    const branchRooms = [...JUNCTION_WEST_BRANCHES, ...JUNCTION_EAST_BRANCHES];
-    for (const brId of branchRooms) {
-      const br = getRoom(brId);
-      if (br && br.name.toLowerCase().includes(dirLower)) {
-        // Check if hidden
-        if (br.isHidden && br.hiddenRequirement && character) {
-          const attr = character.attributes[br.hiddenRequirement.attribute];
-          if (attr < br.hiddenRequirement.minimum) continue;
-        }
-        return { targetRoom: brId };
+  // Generic branch room lookup: try rooms accessible from this room by name
+  if (!exit) {
+    const branches = getAccessibleBranches(roomId, character);
+    for (const br of branches) {
+      if (br.name.toLowerCase().includes(dirLower)) {
+        return { targetRoom: br.id };
       }
     }
   }
@@ -824,4 +818,40 @@ export function getAllRoomsInZone(zoneId: string): Room[] {
   const zone = ZONE_REGISTRY[zoneId];
   if (!zone) return [];
   return Object.values(zone.rooms);
+}
+
+// ── Accessible branch rooms ────────────────────────────────────────────────
+// Returns rooms that have an exit pointing TO this room but this room
+// doesn't have a direct exit TO them.  i.e. "side passages" reachable
+// by name (/go <room name>) but not by cardinal direction.
+// Respects hidden-room attribute gates.
+
+export function getAccessibleBranches(
+  roomId: string,
+  character?: { attributes: import('./types').Attributes },
+): Room[] {
+  const room = getRoom(roomId);
+  if (!room) return [];
+  const zoneId = roomId.split('_')[0];
+  const zone = ZONE_REGISTRY[zoneId];
+  if (!zone) return [];
+
+  // Set of rooms this room already has exits to
+  const directExitTargets = new Set(room.exits.map(e => e.targetRoom));
+
+  const branches: Room[] = [];
+  for (const candidate of Object.values(zone.rooms)) {
+    if (candidate.id === roomId) continue;
+    if (directExitTargets.has(candidate.id)) continue;
+    // Does the candidate have an exit pointing back to this room?
+    const hasExitToUs = candidate.exits.some(e => e.targetRoom === roomId);
+    if (!hasExitToUs) continue;
+    // Gate hidden rooms
+    if (candidate.isHidden) {
+      if (!candidate.hiddenRequirement || !character) continue;
+      if (character.attributes[candidate.hiddenRequirement.attribute] < candidate.hiddenRequirement.minimum) continue;
+    }
+    branches.push(candidate);
+  }
+  return branches;
 }

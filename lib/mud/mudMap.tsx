@@ -49,7 +49,9 @@ function taken(pos: Map<string, { x: number; y: number }>, x: number, y: number)
 function resolve(pos: Map<string, { x: number; y: number }>, bx: number, by: number, dx: number, dy: number) {
   let x = bx + dx, y = by + dy;
   if (!taken(pos, x, y)) return { x, y };
-  const cx = dy === 0 ? 0 : 1, cy = dx === 0 ? 0 : 1;
+  // Cross-axis spread: when moving horizontally (dy===0), spread on y; when vertical, spread on x
+  const cx = dx === 0 ? 1 : 0;
+  const cy = dy === 0 ? 1 : 0;
   for (let s = 1; s <= 6; s++) {
     if (!taken(pos, x + cx * s, y + cy * s)) return { x: x + cx * s, y: y + cy * s };
     if (!taken(pos, x - cx * s, y - cy * s)) return { x: x - cx * s, y: y - cy * s };
@@ -61,6 +63,37 @@ function resolve(pos: Map<string, { x: number; y: number }>, bx: number, by: num
   return { x: bx + 10, y: by };
 }
 
+// ── Explicit grid hints per zone ────────────────────────────────────────────
+// Hand-crafted positions for zones with hub-and-spoke topology.
+// Key: roomId -> { x, y } in grid coordinates.
+
+const ZONE_GRID_HINTS: Record<string, Record<string, { x: number; y: number }>> = {
+  z08: {
+    //            col:  0     1     2     3     4
+    // row 0:                       r05
+    // row 1:                       r04
+    // row 2:     r06         r09   r03   r10         r11
+    // row 3:     r07                                  r12
+    // row 4:     r08         r02         r13          r14
+    // row 5:                 r01
+
+    z08_r05: { x: 2, y: 0 },  // Deep Gate (north end)
+    z08_r04: { x: 2, y: 1 },  // North Channel
+    z08_r06: { x: 0, y: 2 },  // Pump Room (west branch)
+    z08_r09: { x: 1, y: 2 },  // West Overflow
+    z08_r03: { x: 2, y: 2 },  // THE JUNCTION (hub)
+    z08_r10: { x: 3, y: 2 },  // Storage Chambers
+    z08_r11: { x: 4, y: 2 },  // Elder's Chamber (east branch)
+    z08_r07: { x: 0, y: 3 },  // Memorial Alcove (west branch)
+    z08_r12: { x: 4, y: 3 },  // East Passage (east branch)
+    z08_r08: { x: 0, y: 4 },  // The Clinic (west branch)
+    z08_r02: { x: 2, y: 4 },  // The Narrows
+    z08_r13: { x: 3, y: 4 },  // The Seep
+    z08_r14: { x: 4, y: 4 },  // Signal Hollow (hidden, east branch)
+    z08_r01: { x: 2, y: 5 },  // South Entry (south end)
+  },
+};
+
 // ── Layout Engine ──────────────────────────────────────────────────────────
 
 type Edge = { target: string; direction: Direction; locked: boolean; zt: boolean };
@@ -71,59 +104,97 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
   const allRooms = getAllRoomsInZone(zoneId);
   if (!allRooms.length) return null;
 
-  // Build forward/reverse edge maps (same-zone cardinal exits only)
+  const gridHints = ZONE_GRID_HINTS[zoneId];
+
+  // Build forward/reverse edge maps (same-zone exits only)
   const fwd = new Map<string, Edge[]>(), rev = new Map<string, Edge[]>();
   for (const room of allRooms) {
     if (!fwd.has(room.id)) fwd.set(room.id, []);
     for (const ex of room.exits) {
-      if (ex.targetRoom.split('_')[0] !== zoneId || !DIR_OFF[ex.direction]) continue;
-      fwd.get(room.id)!.push({ target: ex.targetRoom, direction: ex.direction, locked: ex.locked ?? false, zt: false });
+      if (ex.targetRoom.split('_')[0] !== zoneId) continue;
+      const dir = ex.direction;
+      fwd.get(room.id)!.push({ target: ex.targetRoom, direction: dir, locked: ex.locked ?? false, zt: false });
       if (!rev.has(ex.targetRoom)) rev.set(ex.targetRoom, []);
-      rev.get(ex.targetRoom)!.push({ target: room.id, direction: OPP[ex.direction] as Direction, locked: ex.locked ?? false, zt: false });
+      rev.get(ex.targetRoom)!.push({ target: room.id, direction: OPP[dir] as Direction, locked: ex.locked ?? false, zt: false });
     }
   }
 
-  // Pass 1: BFS from current room using forward exits
+  // ── Place rooms ──────────────────────────────────────────────────────────
+
   const pos = new Map<string, { x: number; y: number }>();
-  const start = allRooms.find(r => r.id === currentRoomId) ? currentRoomId : allRooms[0].id;
-  pos.set(start, { x: 0, y: 0 });
-  const q = [start];
-  while (q.length) {
-    const rid = q.shift()!;
-    const p = pos.get(rid)!;
-    for (const e of (fwd.get(rid) ?? [])) {
-      if (pos.has(e.target)) continue;
-      const off = DIR_OFF[e.direction]!;
-      let { x: nx, y: ny } = { x: p.x + off.dx, y: p.y + off.dy };
-      if (taken(pos, nx, ny)) ({ x: nx, y: ny } = resolve(pos, p.x + off.dx, p.y + off.dy, off.dx, off.dy));
-      pos.set(e.target, { x: nx, y: ny });
-      q.push(e.target);
-    }
-  }
 
-  // Pass 2: Place rooms whose own exits point to already-placed rooms
-  for (const room of allRooms.filter(r => !pos.has(r.id))) {
-    for (const e of (fwd.get(room.id) ?? [])) {
-      if (!pos.has(e.target)) continue;
-      const tp = pos.get(e.target)!;
-      const ro = DIR_OFF[OPP[e.direction] as Direction];
-      if (!ro) continue;
-      let { x: nx, y: ny } = { x: tp.x + ro.dx, y: tp.y + ro.dy };
-      if (taken(pos, nx, ny)) ({ x: nx, y: ny } = resolve(pos, tp.x + ro.dx, tp.y + ro.dy, ro.dx, ro.dy));
-      pos.set(room.id, { x: nx, y: ny });
-      break;
+  if (gridHints) {
+    // ── Hint-based placement: use explicit positions for all hinted rooms ──
+    for (const room of allRooms) {
+      const hint = gridHints[room.id];
+      if (hint) pos.set(room.id, { x: hint.x, y: hint.y });
     }
-  }
-
-  // Pass 3: Rooms with only non-cardinal exits
-  for (const room of allRooms.filter(r => !pos.has(r.id))) {
-    for (const ex of room.exits) {
-      if (ex.targetRoom.split('_')[0] !== zoneId || !pos.has(ex.targetRoom)) continue;
-      const tp = pos.get(ex.targetRoom)!;
-      for (const d of [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: -2 }, { dx: 0, dy: 2 }]) {
-        if (!taken(pos, tp.x + d.dx, tp.y + d.dy)) { pos.set(room.id, { x: tp.x + d.dx, y: tp.y + d.dy }); break; }
+    // Fallback: any room without a hint gets BFS-placed relative to a hinted neighbor
+    for (const room of allRooms.filter(r => !pos.has(r.id))) {
+      for (const ex of room.exits) {
+        if (!pos.has(ex.targetRoom) || !DIR_OFF[ex.direction]) continue;
+        const tp = pos.get(ex.targetRoom)!;
+        const ro = DIR_OFF[OPP[ex.direction] as Direction];
+        if (!ro) continue;
+        let nx = tp.x + ro.dx, ny = tp.y + ro.dy;
+        if (taken(pos, nx, ny)) ({ x: nx, y: ny } = resolve(pos, tp.x + ro.dx, tp.y + ro.dy, ro.dx, ro.dy));
+        pos.set(room.id, { x: nx, y: ny });
+        break;
       }
-      if (pos.has(room.id)) break;
+    }
+  } else {
+    // ── BFS-based placement (original algorithm, fixed resolve) ──────────
+    const start = allRooms.find(r => r.id === currentRoomId) ? currentRoomId : allRooms[0].id;
+    pos.set(start, { x: 0, y: 0 });
+    const q = [start];
+    while (q.length) {
+      const rid = q.shift()!;
+      const p = pos.get(rid)!;
+      for (const e of (fwd.get(rid) ?? [])) {
+        if (pos.has(e.target) || !DIR_OFF[e.direction]) continue;
+        const off = DIR_OFF[e.direction]!;
+        let nx = p.x + off.dx, ny = p.y + off.dy;
+        if (taken(pos, nx, ny)) ({ x: nx, y: ny } = resolve(pos, p.x + off.dx, p.y + off.dy, off.dx, off.dy));
+        pos.set(e.target, { x: nx, y: ny });
+        q.push(e.target);
+      }
+    }
+
+    // Pass 2: rooms whose own exits point to already-placed rooms
+    for (const room of allRooms.filter(r => !pos.has(r.id))) {
+      for (const e of (fwd.get(room.id) ?? [])) {
+        if (!pos.has(e.target) || !DIR_OFF[e.direction]) continue;
+        const tp = pos.get(e.target)!;
+        const ro = DIR_OFF[OPP[e.direction] as Direction];
+        if (!ro) continue;
+        let nx = tp.x + ro.dx, ny = tp.y + ro.dy;
+        if (taken(pos, nx, ny)) ({ x: nx, y: ny } = resolve(pos, tp.x + ro.dx, tp.y + ro.dy, ro.dx, ro.dy));
+        pos.set(room.id, { x: nx, y: ny });
+        break;
+      }
+    }
+
+    // Pass 3: rooms with only non-cardinal exits (in/out/up/down)
+    for (const room of allRooms.filter(r => !pos.has(r.id))) {
+      for (const ex of room.exits) {
+        if (ex.targetRoom.split('_')[0] !== zoneId || !pos.has(ex.targetRoom)) continue;
+        const tp = pos.get(ex.targetRoom)!;
+        for (let r = 1; r <= 4; r++) {
+          let placed = false;
+          for (let oy = -r; oy <= r; oy++) {
+            for (let ox = -r; ox <= r; ox++) {
+              if (Math.abs(ox) !== r && Math.abs(oy) !== r) continue;
+              if (!taken(pos, tp.x + ox, tp.y + oy)) {
+                pos.set(room.id, { x: tp.x + ox, y: tp.y + oy });
+                placed = true; break;
+              }
+            }
+            if (placed) break;
+          }
+          if (placed) break;
+        }
+        if (pos.has(room.id)) break;
+      }
     }
   }
 
@@ -165,8 +236,8 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
     });
   }
 
-  // Build connections — ONLY between grid-adjacent cells (Manhattan dist <= 2)
-  // Non-adjacent connections are implied by spatial position; drawing them creates spaghetti
+  // Build connections — threshold of 3 to handle hub-and-spoke topologies
+  const MANHATTAN_MAX = 3;
   const cellIds = new Set(cells.map(c => c.roomId)), seen = new Set<string>();
   const connections: MapConnection[] = [];
   for (const cell of cells) {
@@ -177,7 +248,7 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
       const tp = norm.get(ex.targetRoom);
       if (!tp) continue;
       const manhattan = Math.abs(cell.gridX - tp.x) + Math.abs(cell.gridY - tp.y);
-      if (manhattan > 2) continue; // skip non-adjacent connections
+      if (manhattan > MANHATTAN_MAX) continue;
       const key = [cell.roomId, ex.targetRoom].sort().join(':');
       if (seen.has(key)) continue;
       seen.add(key);
@@ -188,7 +259,7 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
       const sp = norm.get(re.target);
       if (!sp) continue;
       const manhattan = Math.abs(cell.gridX - sp.x) + Math.abs(cell.gridY - sp.y);
-      if (manhattan > 2) continue;
+      if (manhattan > MANHATTAN_MAX) continue;
       const key = [cell.roomId, re.target].sort().join(':');
       if (seen.has(key)) continue;
       seen.add(key);
@@ -286,7 +357,7 @@ function RoomCell({ cell, currentRoomId }: { cell: MapCell; currentRoomId: strin
         touchAction: 'manipulation',
         animation: cell.current ? 'mud-map-pulse 2.5s ease-in-out infinite' : !cell.visited ? 'mud-map-ghost 4s ease-in-out infinite' : 'none',
       }}>
-      {/* Center dot — the primary visual identifier */}
+      {/* Center dot -- the primary visual identifier */}
       {cell.visited && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%',

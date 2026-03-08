@@ -24,6 +24,7 @@ import {
   getRoom,
   getZone,
   getVisibleExits,
+  getAccessibleBranches,
 } from './worldMap';
 import {
   getAllLivingEnemies,
@@ -252,6 +253,7 @@ interface PanelData {
   combatStyleRaw: CombatStyle;
   ram: number;
   maxRam: number;
+  branches: Array<{ id: string; name: string }>;
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -302,6 +304,10 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     locked: e.locked ?? false,
     zoneTransition: e.zoneTransition ?? false,
   }));
+
+  // Branch rooms: side passages accessible by name but not by cardinal exit
+  const branchRooms = getAccessibleBranches(char.currentRoom, char);
+  const branches = branchRooms.map(r => ({ id: r.id, name: r.name }));
 
   const shopNPC = npcs.find(n => n.hasShop);
   const shopItems = shopNPC && !inCombat
@@ -356,6 +362,7 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     combatStyleRaw: char.combatStyle,
     ram: char.ram,
     maxRam: char.maxRam,
+    branches,
   };
 }
 
@@ -1267,6 +1274,54 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
           {exitSet.has('out') && <ExitBtn dir="out" />}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Passages bar — clickable branch destinations ────────────────────────────
+// Shows side passages accessible from the current room that aren't compass
+// directions. Renders as a row of small tappable buttons.
+
+function PassagesBar({ branches }: { branches: Array<{ id: string; name: string }> }) {
+  if (branches.length === 0) return null;
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: '0.25rem',
+      padding: '0.3rem 0.5rem',
+      borderTop: `1px solid rgba(var(--phosphor-rgb),0.1)`,
+      background: 'rgba(var(--phosphor-rgb),0.02)',
+    }}>
+      <span style={{
+        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        color: 'rgba(var(--phosphor-rgb),0.35)',
+        letterSpacing: '0.04em', flexShrink: 0,
+        lineHeight: '22px',
+      }}>PASSAGES</span>
+      {branches.map(b => (
+        <button
+          key={b.id}
+          className="mud-compass-btn"
+          onClick={() => {
+            eventBus.emit('mud:execute-command', { command: `/go ${b.name.toLowerCase()}` });
+            eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 });
+          }}
+          title={b.name}
+          style={{
+            fontFamily: 'monospace', fontSize: '0.65em', fontWeight: 'bold',
+            lineHeight: 1, padding: '0.2rem 0.4rem', minHeight: 20,
+            background: 'rgba(var(--phosphor-rgb),0.06)',
+            border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+            color: 'var(--phosphor-accent)',
+            cursor: 'pointer', touchAction: 'manipulation',
+            borderRadius: 2, letterSpacing: '0.04em',
+            boxShadow: '0 0 3px rgba(var(--phosphor-rgb),0.1)',
+            textTransform: 'uppercase', whiteSpace: 'nowrap',
+          }}
+        >
+          {b.name}
+        </button>
+      ))}
     </div>
   );
 }
@@ -2794,6 +2849,7 @@ export function MudHUDContainer({ session, children }: {
             onQuests={() => setShowQuestsModal(true)}
             onHelp={() => setShowHelpModal(true)}
           />
+          <PassagesBar branches={data.branches} />
           <BottomBar data={data} onStatsClick={() => setShowStatsModal(true)} />
         </div>
       )}

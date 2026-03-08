@@ -49,6 +49,7 @@ import {
   getVisibleExits,
   resolveExit,
   getJunctionBranches,
+  getAccessibleBranches,
   rollRoomEnemies,
 } from './worldMap';
 import { eventBus } from '@/lib/eventBus';
@@ -2000,6 +2001,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
   if (cmd === 'exits') {
     const visibleExits = getVisibleExits(char.currentRoom, char);
     const room = getRoom(char.currentRoom);
+    const branches = getAccessibleBranches(char.currentRoom, char);
 
     addLocalMsg(
       <div key={k('exits')}>
@@ -2010,12 +2012,29 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             {exit.locked ? ' [LOCKED]' : ''}
           </MudLine>
         ))}
-        {char.currentRoom === 'z08_r03' && (
+        {branches.length > 0 && (
           <>
             <MudSpacer />
-            <MudLine color={C.dim}>
-              tip: from the junction, use /go &lt;room name&gt; to reach branch rooms
-            </MudLine>
+            <MudLine color={C.dim}>PASSAGES:</MudLine>
+            {branches.map(br => (
+              <div
+                key={k(`branch-${br.id}`)}
+                role="button" tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` });
+                  eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 });
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` }); }}
+                style={{
+                  cursor: 'pointer', paddingLeft: '2ch',
+                  fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
+                  color: C.exit, touchAction: 'manipulation',
+                }}
+              >
+                {'\u25B8'} {br.name.toLowerCase()}
+              </div>
+            ))}
           </>
         )}
       </div>
@@ -3157,11 +3176,9 @@ export function getMudSuggestions(partial: string, session: MudSession): string[
     // /go → exit directions + room names
     if (cmd === '/go') {
       const exits: string[] = getVisibleExits(char.currentRoom, char).map(e => e.direction);
-      // Add junction branch names
-      if (char.currentRoom === 'z08_r03') {
-        const branches = getJunctionBranches(char);
-        exits.push(...branches.map(b => b.name.toLowerCase()));
-      }
+      // Add branch room names accessible from current room
+      const branches = getAccessibleBranches(char.currentRoom, char);
+      exits.push(...branches.map(b => b.name.toLowerCase()));
       return exits.filter(e => e.startsWith(argPartial)).map(e => `/go ${e}`);
     }
 
