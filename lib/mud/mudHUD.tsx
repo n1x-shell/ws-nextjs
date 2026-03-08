@@ -2088,15 +2088,42 @@ function QuestsModal({ session, onClose }: { session: MudSession; onClose: () =>
 // ── Examine Modal ──────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
+interface ExamineAction {
+  label: string;
+  color: string;
+  command?: string;     // emit via mud:execute-command (closes modal)
+  inlineResult?: string; // show this text inline on click (stays open)
+}
+
 interface ExamineData {
   title: string;
   color: string;
   body: string;
   extra?: Array<{ text: string; color: string }>;
   footer?: string;
+  actions?: ExamineAction[];
 }
 
-function ExamineModal({ data, onClose }: { data: ExamineData; onClose: () => void }) {
+function ExamineModal({ data: initialData, onClose }: { data: ExamineData; onClose: () => void }) {
+  const [results, setResults] = useState<Array<{ text: string; color: string }>>([]);
+  const [usedActions, setUsedActions] = useState<Set<string>>(new Set());
+
+  const handleAction = (action: ExamineAction) => {
+    if (action.command) {
+      // Execute command and close modal
+      eventBus.emit('mud:execute-command', { command: action.command });
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+      onClose();
+      return;
+    }
+    if (action.inlineResult) {
+      // Show result inline, mark action as used
+      setResults(prev => [...prev, { text: action.inlineResult!, color: action.color }]);
+      setUsedActions(prev => new Set(prev).add(action.label));
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 80 });
+    }
+  };
+
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
@@ -2107,45 +2134,92 @@ function ExamineModal({ data, onClose }: { data: ExamineData; onClose: () => voi
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <SubstrateBackground opacity={0.35} />
       <div style={{
-        width: '100%', maxWidth: 400,
+        width: '100%', maxWidth: 400, maxHeight: '80vh',
         background: 'rgba(10,10,10,0.75)',
-        border: `1px solid ${data.color}33`,
+        border: `1px solid ${initialData.color}33`,
         borderRadius: 4, overflow: 'hidden',
-        boxShadow: `0 0 30px ${data.color}15`,
+        boxShadow: `0 0 30px ${initialData.color}15`,
         position: 'relative', zIndex: 1,
+        display: 'flex', flexDirection: 'column',
       }}>
+        {/* Header */}
         <div style={{
           padding: '0.6rem 0.8rem',
-          borderBottom: `1px solid ${data.color}33`,
-          background: `${data.color}0a`,
+          borderBottom: `1px solid ${initialData.color}33`,
+          background: `${initialData.color}0a`,
+          flexShrink: 0,
         }}>
           <span style={{
             fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
-            color: data.color, letterSpacing: '0.06em',
-          }}>{data.title}</span>
+            color: initialData.color, letterSpacing: '0.06em',
+          }}>{initialData.title}</span>
         </div>
-        <div style={{ padding: '0.6rem 0.8rem' }}>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.6rem 0.8rem' }}>
           <div style={{
             fontFamily: 'monospace', fontSize: 'var(--text-base)',
             color: '#d4d4d4', lineHeight: 1.7,
-          }}>{data.body}</div>
-          {data.extra?.map((ex, i) => (
+          }}>{initialData.body}</div>
+          {initialData.extra?.map((ex, i) => (
             <div key={i} style={{
               fontFamily: 'monospace', fontSize: 'var(--text-base)',
               color: ex.color, marginTop: '0.4rem', lineHeight: 1.6,
             }}>{ex.text}</div>
           ))}
-          {data.footer && (
+          {initialData.footer && (
             <div style={{
               fontFamily: 'monospace', fontSize: 'var(--text-base)',
               color: C.faint, marginTop: '0.4rem', fontStyle: 'italic',
-            }}>{data.footer}</div>
+            }}>{initialData.footer}</div>
           )}
+
+          {/* Inline results from actions */}
+          {results.map((r, i) => (
+            <div key={`result-${i}`} style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: r.color, marginTop: '0.5rem', paddingTop: '0.4rem',
+              borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+              animation: 'mud-fade-in 0.3s ease-out',
+              lineHeight: 1.6,
+            }}>{r.text}</div>
+          ))}
         </div>
-        <div style={{ padding: '0.4rem', borderTop: `1px solid ${data.color}1a`, display: 'flex', justifyContent: 'center' }}>
+
+        {/* Actions + Close */}
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderTop: `1px solid ${initialData.color}1a`,
+          display: 'flex', flexWrap: 'wrap', gap: '0.4rem',
+          justifyContent: 'center', flexShrink: 0,
+        }}>
+          {initialData.actions?.map(action => {
+            const used = usedActions.has(action.label);
+            return (
+              <button
+                key={action.label}
+                className="mud-btn"
+                disabled={used}
+                onClick={() => !used && handleAction(action)}
+                style={{
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                  fontWeight: 'bold', letterSpacing: '0.06em',
+                  color: used ? C.faint : action.color,
+                  background: used ? 'transparent' : `${action.color}12`,
+                  border: `1px solid ${used ? 'rgba(var(--phosphor-rgb),0.1)' : action.color + '40'}`,
+                  padding: '0.3rem 0.8rem',
+                  cursor: used ? 'default' : 'pointer',
+                  borderRadius: 2, touchAction: 'manipulation',
+                  opacity: used ? 0.4 : 1,
+                }}
+              >
+                {used ? `\u2713 ${action.label}` : action.label}
+              </button>
+            );
+          })}
           <button className="mud-btn" onClick={onClose} style={{
             fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
-            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1rem',
             cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
           }}>CLOSE</button>
         </div>

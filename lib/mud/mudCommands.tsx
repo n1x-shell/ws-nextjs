@@ -2143,11 +2143,25 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         }
       });
 
+      const actions: Array<{ label: string; color: string; command?: string; inlineResult?: string }> = [];
+      if (obj.lootable) {
+        // Build loot result text from loot table
+        const lootItems = obj.lootTable?.map(entry => {
+          const template = getItemTemplate(entry.itemId);
+          return template?.name ?? entry.itemId;
+        }).join(', ') ?? 'nothing useful';
+        actions.push({ label: 'SEARCH', color: '#fbbf24', inlineResult: `you search the ${obj.name.toLowerCase()}. found: ${lootItems}` });
+      }
+      if (obj.interactable) {
+        actions.push({ label: 'USE', color: 'var(--phosphor-accent)', command: `/use ${obj.name}` });
+      }
+
       eventBus.emit('mud:open-examine', {
         title: obj.name,
         color: 'rgba(var(--phosphor-rgb),0.85)',
         body: obj.examineText,
         extra: extra.length > 0 ? extra : undefined,
+        actions: actions.length > 0 ? actions : undefined,
       });
       return { handled: true, stopPropagation: true };
     }
@@ -2159,12 +2173,25 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     );
 
     if (npc) {
+      const npcActions: Array<{ label: string; color: string; command?: string; inlineResult?: string }> = [];
+      npcActions.push({ label: 'TALK', color: '#fcd34d', command: '/talk hello' });
+      if (npc.services?.includes('shop')) {
+        npcActions.push({ label: 'SHOP', color: '#fcd34d', command: '/shop' });
+      }
+      if (npc.services?.includes('heal')) {
+        npcActions.push({ label: 'HEAL', color: '#4ade80', command: `/talk can you heal me` });
+      }
+      if (isNPCQuestGiver(npc.id)) {
+        npcActions.push({ label: 'QUESTS', color: '#fbbf24', command: '/quests' });
+      }
+
       eventBus.emit('mud:open-examine', {
         title: npc.name,
         color: '#fcd34d',
         body: npc.description,
         extra: [{ text: `"${npc.dialogue.replace(/^"/, '').replace(/"$/, '')}"`, color: '#fcd34d' }],
         footer: npc.services?.length ? `services: ${npc.services.join(', ')}` : undefined,
+        actions: npcActions,
       });
       return { handled: true, stopPropagation: true };
     }
