@@ -27,6 +27,7 @@ import {
 } from './types';
 import { createItem } from './items';
 import { getStarterKit } from './items';
+import { getStarterAugments, getSealedSlots } from './cyberwareDB';
 import { getOriginSpawnRoom } from './worldMap';
 import { saveCharacter, saveWorld, saveNPCState } from './persistence';
 import type { MudWorldState, NPCStateMap } from './types';
@@ -203,12 +204,16 @@ export function buildCharacter(
     });
   }
 
-  // Cyberware
+  // Cyberware (legacy Item[] — kept for backward compat)
   const cyberware: import('./types').Item[] = [];
   if (starterKit.cyberware) {
     const cw = createItem(starterKit.cyberware);
     if (cw) cyberware.push(cw);
   }
+
+  // Augment slots (new typed system from cyberwareDB)
+  const starterAugments = getStarterAugments(archetype, combatStyle);
+  const sealedSlots = getSealedSlots(archetype);
 
   const character: MudCharacter = {
     handle,
@@ -228,6 +233,9 @@ export function buildCharacter(
     inventory,
     currency: { creds: starterKit.creds, scrip: starterKit.scrip },
     cyberware,
+    augmentSlots: { ...starterAugments.slotted },
+    augmentInventory: [...starterAugments.inventory],
+    sealedSlots,
     ram: maxRam,
     maxRam,
     deaths: 0,

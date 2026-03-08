@@ -61,7 +61,21 @@ function remove(key: string): void {
 // ── Character ───────────────────────────────────────────────────────────────
 
 export function loadCharacter(handle: string): MudCharacter | null {
-  return read<MudCharacter>(characterKey(handle));
+  const char = read<MudCharacter>(characterKey(handle));
+  if (!char) return null;
+
+  // Migration: add augment fields for saves created before augment system
+  if (!char.augmentSlots) {
+    char.augmentSlots = { neural: null, chassis: null, limbs: null };
+  }
+  if (!char.augmentInventory) {
+    char.augmentInventory = [];
+  }
+  if (!char.sealedSlots) {
+    char.sealedSlots = char.archetype === 'DISCONNECTED' ? ['neural'] : [];
+  }
+
+  return char;
 }
 
 export function saveCharacter(handle: string, character: MudCharacter): void {

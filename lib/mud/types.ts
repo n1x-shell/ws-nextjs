@@ -156,7 +156,14 @@ export interface MudCharacter {
   gear: GearSlots;
   inventory: Item[];
   currency: Currency;
-  cyberware: Item[];         // installed cyberware (max 3 slots)
+  cyberware: Item[];         // installed cyberware (max 3 slots) — legacy generic items
+  augmentSlots: {            // typed augmentation system (cyberwareDB.ts)
+    neural: import('./cyberwareDB').CyberwareItem | null;
+    chassis: import('./cyberwareDB').CyberwareItem | null;
+    limbs: import('./cyberwareDB').CyberwareItem | null;
+  };
+  augmentInventory: import('./cyberwareDB').CyberwareItem[];  // unequipped cyberware items
+  sealedSlots: import('./cyberwareDB').AugmentSlotType[];     // DISCONNECTED: ['neural']
   ram: number;               // current RAM
   maxRam: number;            // TECH × 2
   deaths: number;            // for ghost echo tracking

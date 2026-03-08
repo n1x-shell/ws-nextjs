@@ -70,6 +70,8 @@ import {
   getFormattedShop, getShopkeeperName, buyItem, sellItem,
 } from './shopSystem';
 import { getItemTemplate, createItem } from './items';
+import type { CyberwareItem, AugmentSlotType } from './cyberwareDB';
+import { canEquipCyberware } from './cyberwareDB';
 import {
   getAvailableQuests, getActiveQuests, startQuest, trackObjective,
   getQuestObjectiveProgress, QUEST_REGISTRY,
@@ -1974,7 +1976,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── Block non-combat navigation during combat ─────────────────────────
   if (session.phase === 'combat') {
-    const allowedInCombat = ['stats', 'status', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'skills', 'skillinfo', 'sinfo', 'loot'];
+    const allowedInCombat = ['stats', 'status', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'skills', 'skillinfo', 'sinfo', 'loot', 'cyberware', 'augments', 'cw'];
     if (!allowedInCombat.includes(cmd)) {
       addLocalMsg(
         <MudNotice key={k('combat-only')} error>
@@ -2312,6 +2314,130 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
   if (cmd === 'inventory' || cmd === 'inv' || cmd === 'i') {
     // Open full inventory modal
     eventBus.emit('mud:open-inventory');
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /equip <cyberware name> ──────────────────────────────────────────
+  if (cmd === 'equip') {
+    if (!rest) {
+      addLocalMsg(<MudNotice key={k('eq-noarg')}>usage: /equip {'<augment name>'}. check /inventory augments tab.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const augInv: CyberwareItem[] = char.augmentInventory ?? [];
+    const sealed: AugmentSlotType[] = char.sealedSlots ?? (char.archetype === 'DISCONNECTED' ? ['neural'] : []);
+    const match = augInv.find(i => i.name.toLowerCase().includes(rest.toLowerCase()));
+    if (!match) {
+      addLocalMsg(<MudNotice key={k('eq-notfound')} error>no augment matching "{rest}" in inventory.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const check = canEquipCyberware(match, char.archetype, char.attributes as Record<string, number>, sealed);
+    if (!check.allowed) {
+      addLocalMsg(<MudNotice key={k('eq-locked')} error>{check.reason}</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+    const oldItem = slots[match.slotType];
+
+    // Equip
+    slots[match.slotType] = { ...match };
+    char.augmentInventory = augInv.filter(i => i.id !== match.id);
+    if (oldItem && oldItem.removable) {
+      char.augmentInventory.push({ ...oldItem });
+    }
+    char.augmentSlots = { ...slots };
+    saveCharacter(char.handle, char);
+
+    addLocalMsg(
+      <div key={k('eq-done')}>
+        <MudLine color="#d8b4fe" bold>{'>'} {match.slotType} interface updated. {match.name} online.</MudLine>
+        {oldItem && <MudLine color={C.dim}>{oldItem.name} {oldItem.removable ? 'returned to inventory.' : 'removed (non-removable).'}</MudLine>}
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /unequip <slot: neural|chassis|limbs> ────────────────────────────
+  if (cmd === 'unequip') {
+    const slotNames: Record<string, AugmentSlotType> = {
+      neural: 'neural', chassis: 'chassis', limbs: 'limbs',
+      head: 'neural', torso: 'chassis', arms: 'limbs', legs: 'limbs',
+    };
+    const slotType = slotNames[rest.toLowerCase()] ?? null;
+
+    if (!slotType) {
+      // Try matching by item name
+      const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+      const found = (['neural', 'chassis', 'limbs'] as AugmentSlotType[]).find(s => {
+        const item = slots[s];
+        return item && item.name.toLowerCase().includes(rest.toLowerCase());
+      });
+      if (found) {
+        const item = slots[found]!;
+        if (!item.removable) {
+          addLocalMsg(<MudNotice key={k('uneq-perm')} error>{item.name} is permanently installed. cannot remove.</MudNotice>);
+          return { handled: true, stopPropagation: true };
+        }
+        slots[found] = null;
+        char.augmentInventory = [...(char.augmentInventory ?? []), { ...item }];
+        char.augmentSlots = { ...slots };
+        saveCharacter(char.handle, char);
+        addLocalMsg(<MudLine key={k('uneq-ok')} color={C.dim}>{'>'} {item.name} removed. returned to inventory.</MudLine>);
+        return { handled: true, stopPropagation: true };
+      }
+
+      addLocalMsg(<MudNotice key={k('uneq-noarg')}>usage: /unequip {'<neural|chassis|limbs>'} or /unequip {'<augment name>'}</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+    const item = slots[slotType];
+    if (!item) {
+      addLocalMsg(<MudNotice key={k('uneq-empty')} error>{slotType} slot is vacant.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+    if (!item.removable) {
+      addLocalMsg(<MudNotice key={k('uneq-perm')} error>{item.name} is permanently installed. cannot remove.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    slots[slotType] = null;
+    char.augmentInventory = [...(char.augmentInventory ?? []), { ...item }];
+    char.augmentSlots = { ...slots };
+    saveCharacter(char.handle, char);
+    addLocalMsg(<MudLine key={k('uneq-ok')} color={C.dim}>{'>'} {item.name} removed from {slotType}. returned to inventory.</MudLine>);
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /cyberware /augments — quick view ─────────────────────────────────
+  if (cmd === 'cyberware' || cmd === 'augments' || cmd === 'cw') {
+    const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+    const sealed: AugmentSlotType[] = char.sealedSlots ?? (char.archetype === 'DISCONNECTED' ? ['neural'] : []);
+    const slotOrder: AugmentSlotType[] = ['neural', 'chassis', 'limbs'];
+
+    addLocalMsg(
+      <div key={k('cw-view')}>
+        <MudLine bold color={C.label}>{'>'} AUGMENTATION STATUS</MudLine>
+        {slotOrder.map(s => {
+          const item = slots[s];
+          if (sealed.includes(s)) {
+            return <MudLine key={s} color="rgba(255,80,80,0.5)">  {s.toUpperCase().padEnd(8)} [SEALED]</MudLine>;
+          }
+          if (!item) {
+            return <MudLine key={s} color={C.faint}>  {s.toUpperCase().padEnd(8)} vacant</MudLine>;
+          }
+          return (
+            <MudLine key={s} color="#d8b4fe">
+              {'  '}{s.toUpperCase().padEnd(8)} {item.name} T{item.tier}
+              {' '}({Object.entries(item.statBonuses).filter(([,v]) => v).map(([a,v]) => `+${v} ${a}`).join(', ')})
+            </MudLine>
+          );
+        })}
+        <MudLine color={C.faint} opacity={0.6}>  use /inventory {'>'} AUGMENTS tab to manage slots.</MudLine>
+      </div>
+    );
     return { handled: true, stopPropagation: true };
   }
 
@@ -3142,7 +3268,7 @@ const MUD_COMMANDS = [
   '/save', '/help', '/attack', '/hack', '/use', '/scan', '/flee',
   '/talk', '/shop', '/buy', '/sell', '/jobs', '/job', '/quests', '/quest', '/me', '/mudhelp', '/q',
   '/rest', '/levelup', '/upgrade', '/skills', '/skilltree', '/skillinfo', '/spend', '/loot',
-  '/take', '/salvage',
+  '/take', '/salvage', '/equip', '/unequip', '/cyberware', '/augments',
 ];
 
 export function getMudSuggestions(partial: string, session: MudSession): string[] {

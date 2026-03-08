@@ -55,6 +55,8 @@ import { TransientMessageOverlay } from './transientMessage';
 import { RestModal, type RestModalData } from './restModal';
 import { SellModal, type SellModalData, type SellModalResult } from './sellModal';
 import { useCombatFX, CombatFXStyles } from './combatFX';
+import type { CyberwareItem, AugmentSlotType } from './cyberwareDB';
+import { cyberwareQualityColor, tierColor, getSlotCandidates } from './cyberwareDB';
 
 // ── Style constants ─────────────────────────────────────────────────────────
 
@@ -2081,6 +2083,9 @@ function InventoryModal({ session, data, onClose }: {
   if (!char) return null;
 
   const [activeTab, setActiveTab] = useState<InvTab>('GEAR');
+  // Augment equip overlay state
+  const augOverlayState = useState<AugmentSlotType | null>(null);
+  const augSelectedState = useState<string | null>(null);
 
   const equippedIds = new Set(
     Object.values(char.gear).filter(Boolean).map((item) => (item as Item).id)
@@ -2248,108 +2253,341 @@ function InventoryModal({ session, data, onClose }: {
   };
 
   const renderAugments = () => {
-    const cyberSlots = GEAR_SLOT_META.filter(s => s.group === 'AUGMENTS');
-    const unequippedCyber = unequipped.filter(i => i.category === 'cyberware');
+    // ── New augment slot system from cyberwareDB ──────────────────────
+    const augSlots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+    const augInv: CyberwareItem[] = char.augmentInventory ?? [];
+    const sealed: AugmentSlotType[] = char.sealedSlots ?? (char.archetype === 'DISCONNECTED' ? ['neural'] : []);
 
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {cyberSlots.map(({ slot, label }) => {
-          const installed = char.gear[slot] ?? null;
-          // Find unequipped cyberware that could go in this slot
-          const compatible = unequippedCyber.filter(i => i.slot === slot);
+    const SLOT_LABELS: Record<AugmentSlotType, string> = { neural: 'NEURAL', chassis: 'CHASSIS', limbs: 'LIMBS' };
+    const SLOT_ORDER: AugmentSlotType[] = ['neural', 'chassis', 'limbs'];
 
-          return (
-            <div key={slot} style={{
-              border: '1px solid rgba(216,180,254,0.15)',
-              borderRadius: 3, overflow: 'hidden',
-            }}>
-              {/* Slot header */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '0.3rem 0.4rem',
-                background: installed ? 'rgba(216,180,254,0.05)' : 'transparent',
-                borderBottom: compatible.length > 0 ? '1px solid rgba(216,180,254,0.08)' : 'none',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch' }}>
+    // Augment equip overlay state — managed via a ref to avoid re-render of entire InventoryModal
+    const [augOverlay, setAugOverlay] = augOverlayState;
+    const [selectedCw, setSelectedCw] = augSelectedState;
+
+    // Get candidates for an open overlay
+    const overlayCandidates = augOverlay
+      ? getSlotCandidates(augOverlay, augInv, char.archetype, char.attributes as Record<string, number>, sealed)
+      : [];
+
+    const handleAugEquip = (slot: AugmentSlotType, item: CyberwareItem) => {
+      const oldItem = augSlots[slot];
+      // Move new item from augmentInventory into slot
+      augSlots[slot] = { ...item };
+      char.augmentInventory = augInv.filter(i => i.id !== item.id);
+      // Move old item back to inventory (if removable)
+      if (oldItem && oldItem.removable) {
+        char.augmentInventory.push({ ...oldItem });
+      }
+      char.augmentSlots = { ...augSlots };
+      saveCharacter(char.handle, char);
+      setAugOverlay(null);
+      setSelectedCw(null);
+    };
+
+    const handleAugUnequip = (slot: AugmentSlotType) => {
+      const oldItem = augSlots[slot];
+      if (oldItem && oldItem.removable) {
+        char.augmentInventory = [...(char.augmentInventory ?? []), { ...oldItem }];
+      }
+      augSlots[slot] = null;
+      char.augmentSlots = { ...augSlots };
+      saveCharacter(char.handle, char);
+      setAugOverlay(null);
+      setSelectedCw(null);
+    };
+
+    // Active implants = everything currently slotted
+    const activeImplants = SLOT_ORDER.map(s => augSlots[s]).filter(Boolean) as CyberwareItem[];
+
+    // ── Main augments view ──────────────────────────────────────────────
+    if (!augOverlay) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {/* Archetype / tier info */}
+          <div style={{
+            fontFamily: 'monospace', fontSize: '0.65em',
+            color: C.faint, letterSpacing: '0.1em', marginBottom: '0.1rem',
+            display: 'flex', justifyContent: 'space-between',
+          }}>
+            <span>{char.archetype}</span>
+            <span>max tier {char.archetype === 'DISCONNECTED' ? '1' : char.archetype === 'SOVEREIGN' ? '2*' : '3'}</span>
+          </div>
+
+          {/* Augment slots */}
+          {SLOT_ORDER.map(slotType => {
+            const isSealed = sealed.includes(slotType);
+            const installed = augSlots[slotType];
+
+            if (isSealed) {
+              return (
+                <div key={slotType} style={{
+                  border: '1px solid rgba(255,50,50,0.2)', padding: '0.35rem 0.4rem',
+                  display: 'flex', alignItems: 'center', gap: '0.8ch', opacity: 0.5,
+                }}>
                   <span style={{
                     fontFamily: 'monospace', fontSize: '0.65em',
-                    color: C.faint, textTransform: 'uppercase', width: '6ch', flexShrink: 0,
-                  }}>{label}</span>
-                  {installed ? (
-                    <span style={{
-                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                      color: '#d8b4fe',
-                    }}>
-                      {installed.name}
-                      {installed.cyberwareTier ? ` T${installed.cyberwareTier}` : ''}
-                    </span>
-                  ) : (
-                    <span style={{
-                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                      color: C.faint, fontStyle: 'italic',
-                    }}>vacant</span>
-                  )}
+                    color: 'rgba(255,80,80,0.6)', textTransform: 'uppercase',
+                    width: '6ch', flexShrink: 0, letterSpacing: '0.1em',
+                  }}>{SLOT_LABELS[slotType]}</span>
+                  <span style={{
+                    fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                    color: 'rgba(255,80,80,0.4)', fontStyle: 'italic',
+                  }}>[SEALED]</span>
                 </div>
-                {installed && (
-                  <button className="mud-btn" onClick={() => {
-                    eventBus.emit('mud:execute-command', { command: `/unequip ${installed.name}` });
-                    onClose();
-                  }} style={{
-                    fontFamily: 'monospace', fontSize: '0.7em', color: 'rgba(255,100,100,0.7)',
-                    background: 'transparent',
-                    border: '1px solid rgba(255,100,100,0.2)',
-                    padding: '0.15rem 0.4rem', cursor: 'pointer',
-                    borderRadius: 2, touchAction: 'manipulation', flexShrink: 0,
-                  }}>REMOVE</button>
-                )}
-              </div>
+              );
+            }
 
-              {/* Compatible unequipped cyberware */}
-              {compatible.length > 0 && (
-                <div style={{ padding: '0.2rem 0.4rem' }}>
-                  {compatible.map(cw => (
-                    <div key={cw.id} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '0.2rem 0', fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                    }}>
-                      <span style={{ color: C.dimmer }}>
-                        {cw.name}{cw.cyberwareTier ? ` T${cw.cyberwareTier}` : ''}
-                      </span>
-                      <button className="mud-btn" onClick={() => {
-                        eventBus.emit('mud:execute-command', { command: `/equip ${cw.name}` });
-                        onClose();
-                      }} style={{
-                        fontFamily: 'monospace', fontSize: '0.7em', color: '#d8b4fe',
-                        background: 'transparent',
-                        border: '1px solid rgba(216,180,254,0.3)',
-                        padding: '0.15rem 0.4rem', cursor: 'pointer',
-                        borderRadius: 2, touchAction: 'manipulation', flexShrink: 0,
-                      }}>INSTALL</button>
+            return (
+              <div key={slotType}
+                onClick={() => { setAugOverlay(slotType); setSelectedCw(null); }}
+                style={{
+                  border: '1px solid rgba(216,180,254,0.15)',
+                  padding: '0.35rem 0.4rem', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.8ch',
+                  position: 'relative',
+                  transition: 'border-color 0.15s',
+                }}>
+                <span style={{
+                  fontFamily: 'monospace', fontSize: '0.65em',
+                  color: C.faint, textTransform: 'uppercase',
+                  width: '6ch', flexShrink: 0, letterSpacing: '0.1em',
+                }}>{SLOT_LABELS[slotType]}</span>
+
+                {installed ? (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                        color: cyberwareQualityColor(installed.quality), fontWeight: 'bold',
+                      }}>{installed.name}</span>
+                      <span style={{
+                        fontFamily: 'monospace', fontSize: '0.6em',
+                        padding: '0 0.3em', border: `1px solid ${tierColor(installed.tier)}`,
+                        color: tierColor(installed.tier),
+                      }}>T{installed.tier}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                    <span style={{
+                      fontFamily: 'monospace', fontSize: '0.6em',
+                      color: C.faint, letterSpacing: '0.05em',
+                    }}>
+                      {Object.entries(installed.statBonuses).filter(([,v]) => v).map(([a,v]) => `+${v} ${a}`).join('  \u00b7  ')}
+                      {installed.armorBonus ? `  \u00b7  +${installed.armorBonus} armor` : ''}
+                    </span>
+                  </div>
+                ) : (
+                  <span style={{
+                    fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                    color: C.faint, fontStyle: 'italic',
+                  }}>vacant</span>
+                )}
 
-        {/* Show installed cyberware from char.cyberware array if any */}
-        {char.cyberware.length > 0 && (
-          <div style={{ marginTop: '0.3rem' }}>
+                {/* Hint */}
+                <span style={{
+                  fontFamily: 'monospace', fontSize: '0.6em', color: C.faint,
+                  position: 'absolute', right: '0.4rem', top: '50%', transform: 'translateY(-50%)',
+                }}>{installed ? '\u25b8' : '\u25b8'}</span>
+              </div>
+            );
+          })}
+
+          {/* Active Implants summary */}
+          <div style={{ borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', paddingTop: '0.3rem', marginTop: '0.1rem' }}>
             <div style={{
               fontFamily: 'monospace', fontSize: '0.65em',
               color: C.faint, letterSpacing: '0.1em', marginBottom: '0.2rem',
             }}>ACTIVE IMPLANTS</div>
-            {char.cyberware.map(cw => (
+            {activeImplants.length > 0 ? activeImplants.map(cw => (
               <div key={cw.id} style={{
                 fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                color: '#d8b4fe', padding: '0.15rem 0.4rem',
+                color: cyberwareQualityColor(cw.quality), padding: '0.1rem 0.4rem',
+                display: 'flex', alignItems: 'center', gap: '0.6ch',
               }}>
-                {cw.name}{cw.cyberwareTier ? ` T${cw.cyberwareTier}` : ''}
+                {cw.name}
+                {cw.activeAbility && (
+                  <span style={{
+                    fontSize: '0.6em', padding: '0 0.3em',
+                    border: '1px solid rgba(204,153,255,0.3)', color: 'rgba(204,153,255,0.7)',
+                  }}>{'\u25c6'} {cw.activeAbility.name}</span>
+                )}
+              </div>
+            )) : (
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: C.faint, fontStyle: 'italic', padding: '0.1rem 0.4rem',
+              }}>
+                {sealed.includes('neural') ? 'flesh only. no augmentation.' : 'no augments installed.'}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Equip overlay (when a slot is tapped) ───────────────────────────
+    const currentSlotItem = augSlots[augOverlay];
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        {/* Overlay header */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginBottom: '0.2rem', paddingBottom: '0.2rem',
+          borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
+        }}>
+          <span style={{
+            fontFamily: 'monospace', fontSize: '0.7em', fontWeight: 'bold',
+            color: C.quest, textTransform: 'uppercase', letterSpacing: '0.15em',
+          }}>{SLOT_LABELS[augOverlay]} — compatible</span>
+          <button className="mud-btn" onClick={() => { setAugOverlay(null); setSelectedCw(null); }} style={{
+            fontFamily: 'monospace', fontSize: '0.7em', color: C.dim,
+            background: 'transparent', border: '1px solid rgba(var(--phosphor-rgb),0.2)',
+            padding: '0.1rem 0.4rem', cursor: 'pointer', borderRadius: 2,
+            touchAction: 'manipulation',
+          }}>{'\u2715'}</button>
+        </div>
+
+        {/* Currently equipped (if any) */}
+        {currentSlotItem && (
+          <div style={{
+            border: '1px solid rgba(216,180,254,0.3)', padding: '0.35rem 0.4rem',
+            marginBottom: '0.15rem',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', flexWrap: 'wrap' }}>
+              <span style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: cyberwareQualityColor(currentSlotItem.quality), fontWeight: 'bold',
+              }}>{currentSlotItem.name}</span>
+              <span style={{
+                fontFamily: 'monospace', fontSize: '0.6em', padding: '0 0.3em',
+                border: `1px solid ${tierColor(currentSlotItem.tier)}`, color: tierColor(currentSlotItem.tier),
+              }}>T{currentSlotItem.tier}</span>
+              <span style={{
+                fontFamily: 'monospace', fontSize: '0.55em', padding: '0 0.3em',
+                border: '1px solid rgba(var(--phosphor-rgb),0.3)', color: C.dim,
+                background: 'rgba(var(--phosphor-rgb),0.05)',
+              }}>EQUIPPED</span>
+            </div>
+            <div style={{
+              fontFamily: 'monospace', fontSize: '0.6em', color: C.faint,
+              marginTop: '0.2rem', lineHeight: 1.4,
+            }}>{currentSlotItem.description}</div>
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: '0.5ch', marginTop: '0.2rem',
+            }}>
+              {Object.entries(currentSlotItem.statBonuses).filter(([,v]) => v).map(([attr, val]) => (
+                <span key={attr} style={{ fontFamily: 'monospace', fontSize: '0.6em', color: 'var(--phosphor-green)' }}>+{val} {attr}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Inventory candidates */}
+        {overlayCandidates.length === 0 ? (
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: C.faint, fontStyle: 'italic', padding: '0.2rem 0',
+          }}>no compatible augments in inventory.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxHeight: '45vh', overflowY: 'auto' }}>
+            {overlayCandidates.map(({ item, check }) => (
+              <div key={item.id}
+                onClick={() => { if (check.allowed) setSelectedCw(selectedCw === item.id ? null : item.id); }}
+                style={{
+                  border: `1px solid ${selectedCw === item.id ? 'rgba(216,180,254,0.5)' : check.allowed ? 'rgba(216,180,254,0.12)' : 'rgba(255,50,50,0.12)'}`,
+                  padding: '0.35rem 0.4rem',
+                  cursor: check.allowed ? 'pointer' : 'not-allowed',
+                  opacity: check.allowed ? 1 : 0.45,
+                  background: selectedCw === item.id ? 'rgba(216,180,254,0.05)' : 'transparent',
+                  transition: 'border-color 0.12s, background 0.12s',
+                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                    color: check.allowed ? cyberwareQualityColor(item.quality) : C.faint, fontWeight: 'bold',
+                  }}>{item.name}</span>
+                  <span style={{
+                    fontFamily: 'monospace', fontSize: '0.6em', padding: '0 0.3em',
+                    border: `1px solid ${tierColor(item.tier)}`, color: tierColor(item.tier),
+                  }}>T{item.tier}</span>
+                  {!item.removable && check.allowed && (
+                    <span style={{
+                      fontFamily: 'monospace', fontSize: '0.55em', padding: '0 0.3em',
+                      color: 'rgba(255,153,0,0.6)', border: '1px solid rgba(255,153,0,0.25)',
+                    }}>PERMANENT</span>
+                  )}
+                </div>
+                <div style={{
+                  fontFamily: 'monospace', fontSize: '0.6em', color: C.faint,
+                  marginTop: '0.15rem', lineHeight: 1.4,
+                }}>{item.description}</div>
+                {check.allowed ? (
+                  <>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5ch', marginTop: '0.15rem' }}>
+                      {Object.entries(item.statBonuses).filter(([,v]) => v).map(([attr, val]) => (
+                        <span key={attr} style={{ fontFamily: 'monospace', fontSize: '0.6em', color: 'var(--phosphor-green)' }}>+{val} {attr}</span>
+                      ))}
+                      {item.armorBonus ? <span style={{ fontFamily: 'monospace', fontSize: '0.6em', color: 'var(--phosphor-green)' }}>+{item.armorBonus} armor</span> : null}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3ch', marginTop: '0.15rem' }}>
+                      {item.passiveEffects.map(eff => (
+                        <span key={eff} style={{
+                          fontFamily: 'monospace', fontSize: '0.55em', padding: '0 0.2em',
+                          border: '1px solid rgba(var(--phosphor-rgb),0.12)', color: C.faint,
+                        }}>{eff.replace(/_/g, ' ')}</span>
+                      ))}
+                      {item.activeAbility && (
+                        <span style={{
+                          fontFamily: 'monospace', fontSize: '0.55em', padding: '0 0.2em',
+                          border: '1px solid rgba(204,153,255,0.3)', color: 'rgba(204,153,255,0.7)',
+                        }}>{'\u25c6'} {item.activeAbility.name}{item.activeAbility.ramCost ? ` (${item.activeAbility.ramCost} RAM)` : ''}</span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{
+                    fontFamily: 'monospace', fontSize: '0.6em', color: 'rgba(255,80,80,0.6)',
+                    marginTop: '0.15rem', fontStyle: 'italic',
+                  }}>{'\u2715'} {check.reason}</div>
+                )}
               </div>
             ))}
           </div>
         )}
+
+        {/* Action buttons */}
+        <div style={{
+          display: 'flex', gap: '0.4rem', marginTop: '0.2rem', paddingTop: '0.2rem',
+          borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+        }}>
+          {selectedCw && overlayCandidates.find(c => c.item.id === selectedCw)?.check.allowed && (
+            <button className="mud-btn" onClick={() => {
+              const found = overlayCandidates.find(c => c.item.id === selectedCw);
+              if (found) handleAugEquip(augOverlay, found.item);
+            }} style={{
+              fontFamily: 'monospace', fontSize: '0.7em', fontWeight: 'bold',
+              color: '#d8b4fe', background: 'rgba(216,180,254,0.08)',
+              border: '1px solid rgba(216,180,254,0.35)',
+              padding: '0.25rem 0.6rem', cursor: 'pointer', borderRadius: 2,
+              flex: 1, touchAction: 'manipulation',
+            }}>{currentSlotItem ? 'SWAP' : 'INSTALL'}</button>
+          )}
+          {currentSlotItem && currentSlotItem.removable && (
+            <button className="mud-btn" onClick={() => handleAugUnequip(augOverlay)} style={{
+              fontFamily: 'monospace', fontSize: '0.7em',
+              color: 'rgba(255,100,100,0.7)', background: 'transparent',
+              border: '1px solid rgba(255,100,100,0.2)',
+              padding: '0.25rem 0.6rem', cursor: 'pointer', borderRadius: 2,
+              touchAction: 'manipulation',
+            }}>REMOVE</button>
+          )}
+          <button className="mud-btn" onClick={() => { setAugOverlay(null); setSelectedCw(null); }} style={{
+            fontFamily: 'monospace', fontSize: '0.7em',
+            color: C.dim, background: 'transparent',
+            border: '1px solid rgba(var(--phosphor-rgb),0.15)',
+            padding: '0.25rem 0.6rem', cursor: 'pointer', borderRadius: 2,
+            touchAction: 'manipulation',
+          }}>CANCEL</button>
+        </div>
       </div>
     );
   };
@@ -2475,7 +2713,7 @@ function InventoryModal({ session, data, onClose }: {
             const active = tab === activeTab;
             return (
               <button key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); augOverlayState[1](null); augSelectedState[1](null); }}
                 style={{
                   flex: 1, minWidth: 0, padding: '0.35rem 0.3rem',
                   fontFamily: 'monospace', fontSize: '0.7em',

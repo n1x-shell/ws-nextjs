@@ -796,18 +796,46 @@ export function getStarterKit(archetype: Archetype, combatStyle: CombatStyle): S
     scrip: 5,
   };
 
-  // Archetype + style combos from design doc
+  // ── SOVEREIGN ────────────────────────────────────────────────────────
   if (archetype === 'SOVEREIGN' && combatStyle === 'CHROME') {
+    return { ...base, weapon: 'reinforced_arm', cyberware: 'neural_shunt' };
+  }
+  if (archetype === 'SOVEREIGN' && combatStyle === 'SYNAPSE') {
+    return { ...base, weapon: 'quickhack_deck', cyberware: 'neural_shunt', consumables: [{ id: 'stim_pack', qty: 1 }, { id: 'neural_stabilizer', qty: 1 }] };
+  }
+  if (archetype === 'SOVEREIGN' && combatStyle === 'BALLISTIC') {
+    return { ...base, weapon: 'scavenged_pistol' };
+  }
+  if (archetype === 'SOVEREIGN' && combatStyle === 'GHOST_STYLE') {
+    return { ...base, weapon: 'mono_wire', cyberware: 'optical_camo', utility: ['signal_scrambler'] };
+  }
+
+  // ── INTEGRATED ───────────────────────────────────────────────────────
+  if (archetype === 'INTEGRATED' && combatStyle === 'CHROME') {
     return { ...base, weapon: 'reinforced_arm', cyberware: 'neural_shunt' };
   }
   if (archetype === 'INTEGRATED' && combatStyle === 'SYNAPSE') {
     return { ...base, weapon: 'quickhack_deck', cyberware: 'neural_shunt', consumables: [{ id: 'stim_pack', qty: 1 }, { id: 'neural_stabilizer', qty: 1 }] };
   }
+  if (archetype === 'INTEGRATED' && combatStyle === 'BALLISTIC') {
+    return { ...base, weapon: 'scavenged_pistol', cyberware: 'neural_shunt' };
+  }
+  if (archetype === 'INTEGRATED' && combatStyle === 'GHOST_STYLE') {
+    return { ...base, weapon: 'mono_wire', cyberware: 'optical_camo', utility: ['signal_scrambler'] };
+  }
+
+  // ── DISCONNECTED ─────────────────────────────────────────────────────
+  if (archetype === 'DISCONNECTED' && combatStyle === 'CHROME') {
+    return { ...base, weapon: 'reinforced_arm', armor: 'ballistic_vest' };
+  }
+  if (archetype === 'DISCONNECTED' && combatStyle === 'SYNAPSE') {
+    return { ...base, weapon: 'quickhack_deck', utility: ['emp_grenade'], consumables: [{ id: 'stim_pack', qty: 1 }, { id: 'neural_stabilizer', qty: 1 }] };
+  }
   if (archetype === 'DISCONNECTED' && combatStyle === 'BALLISTIC') {
     return { ...base, weapon: 'scavenged_pistol', armor: 'ballistic_vest', utility: ['emp_grenade'] };
   }
-  if (archetype === 'SOVEREIGN' && combatStyle === 'GHOST_STYLE') {
-    return { ...base, weapon: 'mono_wire', cyberware: 'optical_camo', utility: ['signal_scrambler'] };
+  if (archetype === 'DISCONNECTED' && combatStyle === 'GHOST_STYLE') {
+    return { ...base, weapon: 'mono_wire', utility: ['emp_grenade'] };
   }
 
   // Generic fallbacks by combat style
