@@ -2310,13 +2310,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── /inventory /inv ───────────────────────────────────────────────────
   if (cmd === 'inventory' || cmd === 'inv' || cmd === 'i') {
-    // Switch right-top panel to inventory view
-    eventBus.emit('mud:panel-mode', { mode: 'inventory' });
-    addLocalMsg(
-      <MudLine key={k('inv-ack')} color={C.dim} opacity={0.6}>
-        inventory panel open.
-      </MudLine>
-    );
+    // Open full inventory modal
+    eventBus.emit('mud:open-inventory');
     return { handled: true, stopPropagation: true };
   }
 

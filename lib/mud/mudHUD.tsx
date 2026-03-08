@@ -1348,7 +1348,7 @@ function PassagesBar({ branches }: { branches: Array<{ id: string; name: string 
 // ══════════════════════════════════════════════════════════════════════════════
 
 const ACTION_BUTTONS = [
-  { label: 'INVENTORY', command: '/inventory' },
+  { label: 'INVENTORY', command: '_modal' },
   { label: 'SKILLS',    command: '_modal' },
   { label: 'JOBS',    command: '_modal' },
   { label: 'MAP',       command: '_toggle' },
@@ -1943,9 +1943,20 @@ const HELP_SECTIONS = [
     { cmd: '/take <item|all>', desc: 'Salvage from the dead' },
     { cmd: '/save',            desc: 'Manual save' },
   ]},
+  { title: 'GENERAL', cmds: [
+    { cmd: '(no slash)',       desc: 'Talk to NPCs in the room' },
+    { cmd: 'tap map rooms',    desc: 'Move by tapping rooms on map' },
+    { cmd: 'tap NPC buttons',  desc: 'Quick actions for NPCs' },
+    { cmd: 'tap stat bars',    desc: 'Open full stats modal' },
+  ]},
 ];
 
+type HelpTab = typeof HELP_SECTIONS[number]['title'];
+
 function HelpModal({ onClose }: { onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<HelpTab>(HELP_SECTIONS[0].title);
+  const activeSection = HELP_SECTIONS.find(s => s.title === activeTab)!;
+
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
@@ -1956,7 +1967,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <SubstrateBackground opacity={0.35} />
       <div style={{
-        width: '100%', maxWidth: 420, maxHeight: '85vh',
+        width: '100%', maxWidth: 440, maxHeight: '85vh',
         background: 'rgba(10,10,10,0.75)',
         border: '1px solid rgba(var(--phosphor-rgb),0.25)',
         borderRadius: 4, overflow: 'hidden',
@@ -1964,6 +1975,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
         position: 'relative', zIndex: 1,
       }}>
+        {/* Header */}
         <div style={{
           padding: '0.5rem 0.8rem',
           borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
@@ -1974,33 +1986,525 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             color: 'var(--phosphor-accent)', letterSpacing: '0.06em',
           }} className={S.glow}>TUNNELCORE {'\u2014'} COMMANDS</span>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0.4rem 0.6rem' }}>
-          {HELP_SECTIONS.map(s => (
-            <div key={s.title} style={{ marginBottom: '0.5rem' }}>
-              <div style={{
-                fontFamily: 'monospace', fontSize: '0.65em',
-                color: C.faint, letterSpacing: '0.1em', marginBottom: '0.15rem',
-              }}>{s.title}</div>
-              {s.cmds.map(c => (
-                <div key={c.cmd} style={{
-                  display: 'grid', gridTemplateColumns: '13ch 1fr', gap: '0.5ch',
-                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                  padding: '0.1rem 0.2rem',
+
+        {/* Tab row */}
+        <div style={{
+          display: 'flex', borderBottom: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          overflowX: 'auto', flexShrink: 0,
+        }}>
+          {HELP_SECTIONS.map(s => {
+            const active = s.title === activeTab;
+            return (
+              <button key={s.title}
+                onClick={() => setActiveTab(s.title)}
+                style={{
+                  flex: 1, minWidth: 0, padding: '0.35rem 0.3rem',
+                  fontFamily: 'monospace', fontSize: '0.65em',
+                  color: active ? 'var(--phosphor-accent)' : C.faint,
+                  background: active ? 'rgba(var(--phosphor-rgb),0.08)' : 'transparent',
+                  border: 'none',
+                  borderBottom: active ? '2px solid var(--phosphor-accent)' : '2px solid transparent',
+                  cursor: 'pointer', touchAction: 'manipulation', whiteSpace: 'nowrap',
+                  letterSpacing: '0.06em',
                 }}>
-                  <span style={{ color: 'var(--phosphor-accent)' }}>{c.cmd}</span>
-                  <span style={{ color: C.dim }}>{c.desc}</span>
-                </div>
-              ))}
+                {s.title}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active tab content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.6rem' }}>
+          {activeSection.cmds.map(c => (
+            <div key={c.cmd} style={{
+              display: 'grid', gridTemplateColumns: '13ch 1fr', gap: '0.5ch',
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              padding: '0.15rem 0.2rem',
+            }}>
+              <span style={{ color: 'var(--phosphor-accent)' }}>{c.cmd}</span>
+              <span style={{ color: C.dim }}>{c.desc}</span>
             </div>
           ))}
-          <div style={{
-            fontFamily: 'monospace', fontSize: 'var(--text-base)',
-            color: C.faint, padding: '0.3rem 0', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
-          }}>
-            type without / to talk to NPCs in the room
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', display: 'flex', justifyContent: 'center' }}>
+          <button className="mud-btn" onClick={onClose} style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
+            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+          }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Inventory Modal — GEAR / BACKPACK / AUGMENTS / STATS ────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const GEAR_SLOT_META: Array<{
+  slot: import('./types').ItemSlot;
+  label: string;
+  group: 'LOADOUT' | 'AUGMENTS' | 'UTILITIES';
+}> = [
+  { slot: 'weapon_primary',  label: 'WEAPON',   group: 'LOADOUT' },
+  { slot: 'weapon_sidearm',  label: 'SIDEARM',  group: 'LOADOUT' },
+  { slot: 'armor',           label: 'ARMOR',    group: 'LOADOUT' },
+  { slot: 'cyberware_1',     label: 'NEURAL',   group: 'AUGMENTS' },
+  { slot: 'cyberware_2',     label: 'CHASSIS',  group: 'AUGMENTS' },
+  { slot: 'cyberware_3',     label: 'LIMBS',    group: 'AUGMENTS' },
+  { slot: 'utility_1',       label: 'UTIL 1',   group: 'UTILITIES' },
+  { slot: 'utility_2',       label: 'UTIL 2',   group: 'UTILITIES' },
+  { slot: 'utility_3',       label: 'UTIL 3',   group: 'UTILITIES' },
+];
+
+const ITEM_CAT_COLORS: Record<string, string> = {
+  weapon_melee: '#ff6b6b',
+  weapon_ranged: '#ff6b6b',
+  armor: '#60a5fa',
+  cyberware: '#d8b4fe',
+  consumable: '#4ade80',
+  material: 'rgba(var(--phosphor-rgb),0.55)',
+  quest: '#fbbf24',
+  lore: 'rgba(var(--phosphor-rgb),0.35)',
+  utility: 'rgba(var(--phosphor-rgb),0.75)',
+};
+
+type InvTab = 'GEAR' | 'BACKPACK' | 'AUGMENTS' | 'STATS';
+
+function InventoryModal({ session, data, onClose }: {
+  session: MudSession; data: PanelData; onClose: () => void;
+}) {
+  const char = session.character;
+  if (!char) return null;
+
+  const [activeTab, setActiveTab] = useState<InvTab>('GEAR');
+
+  const equippedIds = new Set(
+    Object.values(char.gear).filter(Boolean).map((item) => (item as Item).id)
+  );
+  const unequipped = char.inventory.filter(i => !equippedIds.has(i.id));
+
+  // ── Tab content renderers ──────────────────────────────────────────────
+
+  const renderGear = () => {
+    const groups = ['LOADOUT', 'AUGMENTS', 'UTILITIES'] as const;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {groups.map(group => {
+          const slots = GEAR_SLOT_META.filter(s => s.group === group);
+          // Skip utilities group if nothing equipped and no utility items
+          if (group === 'UTILITIES' && slots.every(s => !char.gear[s.slot])) return null;
+          return (
+            <div key={group}>
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.65em',
+                color: C.faint, letterSpacing: '0.1em', marginBottom: '0.2rem',
+              }}>{group}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                {slots.map(({ slot, label }) => {
+                  const item = char.gear[slot] ?? null;
+                  return (
+                    <div key={slot} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '0.3rem 0.4rem', minHeight: 30,
+                      border: item
+                        ? '1px solid rgba(var(--phosphor-rgb),0.15)'
+                        : '1px dashed rgba(var(--phosphor-rgb),0.1)',
+                      borderRadius: 3,
+                      background: item ? 'rgba(var(--phosphor-rgb),0.03)' : 'transparent',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch', overflow: 'hidden' }}>
+                        <span style={{
+                          fontFamily: 'monospace', fontSize: '0.65em',
+                          color: C.faint, textTransform: 'uppercase',
+                          width: '6ch', flexShrink: 0,
+                        }}>{label}</span>
+                        {item ? (
+                          <span style={{
+                            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                            color: ITEM_CAT_COLORS[item.category] ?? C.dim,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {item.name}
+                            {item.damage ? ` [${item.damage} dmg]` : ''}
+                            {item.armorValue ? ` [${item.armorValue} def]` : ''}
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                            color: C.faint, fontStyle: 'italic',
+                          }}>{'\u2014'} empty {'\u2014'}</span>
+                        )}
+                      </div>
+                      {item && (
+                        <button className="mud-btn" onClick={() => {
+                          eventBus.emit('mud:execute-command', { command: `/unequip ${item.name}` });
+                          onClose();
+                        }} style={{
+                          fontFamily: 'monospace', fontSize: '0.7em', color: C.dimmer,
+                          background: 'transparent',
+                          border: '1px solid rgba(var(--phosphor-rgb),0.15)',
+                          padding: '0.15rem 0.4rem', cursor: 'pointer',
+                          borderRadius: 2, touchAction: 'manipulation', flexShrink: 0,
+                        }}>UNEQUIP</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderBackpack = () => {
+    if (unequipped.length === 0) {
+      return <div style={{
+        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        color: C.faint, textAlign: 'center', padding: '1.5rem 0',
+      }}>backpack empty.</div>;
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+        {unequipped.map(item => {
+          const isConsumable = item.category === 'consumable';
+          const isEquipment = item.slot !== undefined;
+          const isQuest = item.questItem;
+          const isLore = item.loreItem;
+          const isMaterial = item.category === 'material';
+          const catColor = ITEM_CAT_COLORS[item.category] ?? C.dim;
+
+          return (
+            <div key={item.id} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '0.25rem 0.4rem', minHeight: 30,
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              borderBottom: '1px solid rgba(var(--phosphor-rgb),0.05)',
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.6ch',
+                overflow: 'hidden', flex: 1, minWidth: 0,
+              }}>
+                <span style={{
+                  color: catColor,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {item.name}
+                  {item.quantity > 1 ? ` \u00d7${item.quantity}` : ''}
+                </span>
+                {isMaterial && item.quantity > 1 && (
+                  <span style={{
+                    fontSize: '0.7em', color: C.faint,
+                    border: '1px solid rgba(var(--phosphor-rgb),0.1)',
+                    padding: '0 0.25rem', borderRadius: 2,
+                  }}>MAT</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0, alignItems: 'center' }}>
+                {isQuest && <span style={{
+                  fontSize: '0.7em', color: C.quest, fontWeight: 'bold',
+                  border: '1px solid rgba(251,191,36,0.25)', padding: '0 0.3rem', borderRadius: 2,
+                }}>JOB</span>}
+                {isLore && !isQuest && <span style={{
+                  fontSize: '0.7em', color: C.faint,
+                  border: '1px solid rgba(var(--phosphor-rgb),0.1)', padding: '0 0.3rem', borderRadius: 2,
+                }}>LORE</span>}
+                {isConsumable && !isQuest && !isLore && (
+                  <button className="mud-btn" onClick={() => {
+                    eventBus.emit('mud:execute-command', { command: `/use ${item.name}` });
+                    onClose();
+                  }} style={{
+                    fontFamily: 'monospace', fontSize: '0.7em', color: C.heal,
+                    background: 'transparent',
+                    border: '1px solid rgba(74,222,128,0.3)',
+                    padding: '0.15rem 0.4rem', cursor: 'pointer',
+                    borderRadius: 2, touchAction: 'manipulation',
+                  }}>USE</button>
+                )}
+                {isEquipment && !isQuest && !isLore && (
+                  <button className="mud-btn" onClick={() => {
+                    eventBus.emit('mud:execute-command', { command: `/equip ${item.name}` });
+                    onClose();
+                  }} style={{
+                    fontFamily: 'monospace', fontSize: '0.7em', color: C.accent,
+                    background: 'transparent',
+                    border: '1px solid rgba(var(--phosphor-rgb),0.2)',
+                    padding: '0.15rem 0.4rem', cursor: 'pointer',
+                    borderRadius: 2, touchAction: 'manipulation',
+                  }}>EQUIP</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderAugments = () => {
+    const cyberSlots = GEAR_SLOT_META.filter(s => s.group === 'AUGMENTS');
+    const unequippedCyber = unequipped.filter(i => i.category === 'cyberware');
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {cyberSlots.map(({ slot, label }) => {
+          const installed = char.gear[slot] ?? null;
+          // Find unequipped cyberware that could go in this slot
+          const compatible = unequippedCyber.filter(i => i.slot === slot);
+
+          return (
+            <div key={slot} style={{
+              border: '1px solid rgba(216,180,254,0.15)',
+              borderRadius: 3, overflow: 'hidden',
+            }}>
+              {/* Slot header */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.3rem 0.4rem',
+                background: installed ? 'rgba(216,180,254,0.05)' : 'transparent',
+                borderBottom: compatible.length > 0 ? '1px solid rgba(216,180,254,0.08)' : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch' }}>
+                  <span style={{
+                    fontFamily: 'monospace', fontSize: '0.65em',
+                    color: C.faint, textTransform: 'uppercase', width: '6ch', flexShrink: 0,
+                  }}>{label}</span>
+                  {installed ? (
+                    <span style={{
+                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                      color: '#d8b4fe',
+                    }}>
+                      {installed.name}
+                      {installed.cyberwareTier ? ` T${installed.cyberwareTier}` : ''}
+                    </span>
+                  ) : (
+                    <span style={{
+                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                      color: C.faint, fontStyle: 'italic',
+                    }}>vacant</span>
+                  )}
+                </div>
+                {installed && (
+                  <button className="mud-btn" onClick={() => {
+                    eventBus.emit('mud:execute-command', { command: `/unequip ${installed.name}` });
+                    onClose();
+                  }} style={{
+                    fontFamily: 'monospace', fontSize: '0.7em', color: 'rgba(255,100,100,0.7)',
+                    background: 'transparent',
+                    border: '1px solid rgba(255,100,100,0.2)',
+                    padding: '0.15rem 0.4rem', cursor: 'pointer',
+                    borderRadius: 2, touchAction: 'manipulation', flexShrink: 0,
+                  }}>REMOVE</button>
+                )}
+              </div>
+
+              {/* Compatible unequipped cyberware */}
+              {compatible.length > 0 && (
+                <div style={{ padding: '0.2rem 0.4rem' }}>
+                  {compatible.map(cw => (
+                    <div key={cw.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '0.2rem 0', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                    }}>
+                      <span style={{ color: C.dimmer }}>
+                        {cw.name}{cw.cyberwareTier ? ` T${cw.cyberwareTier}` : ''}
+                      </span>
+                      <button className="mud-btn" onClick={() => {
+                        eventBus.emit('mud:execute-command', { command: `/equip ${cw.name}` });
+                        onClose();
+                      }} style={{
+                        fontFamily: 'monospace', fontSize: '0.7em', color: '#d8b4fe',
+                        background: 'transparent',
+                        border: '1px solid rgba(216,180,254,0.3)',
+                        padding: '0.15rem 0.4rem', cursor: 'pointer',
+                        borderRadius: 2, touchAction: 'manipulation', flexShrink: 0,
+                      }}>INSTALL</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Show installed cyberware from char.cyberware array if any */}
+        {char.cyberware.length > 0 && (
+          <div style={{ marginTop: '0.3rem' }}>
+            <div style={{
+              fontFamily: 'monospace', fontSize: '0.65em',
+              color: C.faint, letterSpacing: '0.1em', marginBottom: '0.2rem',
+            }}>ACTIVE IMPLANTS</div>
+            {char.cyberware.map(cw => (
+              <div key={cw.id} style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: '#d8b4fe', padding: '0.15rem 0.4rem',
+              }}>
+                {cw.name}{cw.cyberwareTier ? ` T${cw.cyberwareTier}` : ''}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderStats = () => {
+    const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
+    const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
+    const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
+
+    return (
+      <div>
+        {/* Identity */}
+        <div style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          color: C.dim, marginBottom: '0.4rem',
+        }}>
+          {data.archetype} {'\u00b7'} {data.combatStyle} {'\u00b7'} Level {data.level}
+        </div>
+
+        {/* Bars */}
+        <div style={{ marginBottom: '0.4rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.25rem' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>HP</span>
+            <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: hpColor }}>{data.hp}/{data.maxHp}</span>
+          </div>
+          {data.maxRam > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.25rem' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>RAM</span>
+              <div style={{ flex: 1 }}><Bar pct={(data.ram / data.maxRam) * 100} color={C.hack} height={7} /></div>
+              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack }}>{data.ram}/{data.maxRam}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.xp }}>{data.xp}/{data.xpNext}</span>
           </div>
         </div>
-        <div style={{ padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', display: 'flex', justifyContent: 'center' }}>
+
+        {/* Attributes */}
+        <div style={{ borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', paddingTop: '0.4rem', marginBottom: '0.4rem' }}>
+          {ATTR_ORDER.map(attr => {
+            const val = data.attributes[attr];
+            const filled = Math.min(val, 15);
+            const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(15 - filled);
+            return (
+              <div key={attr} style={{
+                display: 'grid', gridTemplateColumns: '5.5ch 2ch 1fr', gap: '0.4ch', alignItems: 'center',
+                fontFamily: 'monospace', fontSize: 'var(--text-base)', padding: '0.1rem 0',
+              }}>
+                <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
+                <span style={{ color: C.dim, textAlign: 'right' }}>{val}</span>
+                <span style={{ color: 'rgba(var(--phosphor-rgb),0.35)', fontSize: '0.8em', letterSpacing: '-0.5px' }}>{bar}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Currency */}
+        <div style={{
+          borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', paddingTop: '0.4rem',
+          display: 'flex', gap: '1.5ch', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        }}>
+          <span><span style={{ color: '#fcd34d', fontWeight: 'bold' }}>CREDS</span> <span style={{ color: '#fff' }}>{data.creds}</span></span>
+          <span><span style={{ color: '#a78bfa', fontWeight: 'bold' }}>SCRIP</span> <span style={{ color: '#fff' }}>{data.scrip}</span></span>
+        </div>
+
+        {(data.skillPointsAvailable > 0 || data.unspentAttributePoints > 0) && (
+          <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24', marginTop: '0.3rem' }}>
+            {data.unspentAttributePoints > 0 && <div>{data.unspentAttributePoints} attribute pt{data.unspentAttributePoints > 1 ? 's' : ''} unspent</div>}
+            {data.skillPointsAvailable > 0 && <div>{data.skillPointsAvailable} skill pt{data.skillPointsAvailable > 1 ? 's' : ''} available</div>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const TABS: InvTab[] = ['GEAR', 'BACKPACK', 'AUGMENTS', 'STATS'];
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(2,3,8,0.88)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.35} />
+      <div style={{
+        width: '100%', maxWidth: 440, maxHeight: '85vh',
+        background: 'rgba(10,10,10,0.75)',
+        border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+        borderRadius: 4, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
+        position: 'relative', zIndex: 1,
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
+          background: 'rgba(var(--phosphor-rgb),0.04)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: 'var(--phosphor-accent)', letterSpacing: '0.06em',
+          }} className={S.glow}>INVENTORY</span>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim,
+          }}>
+            {char.inventory.length + Object.values(char.gear).filter(Boolean).length} items
+          </span>
+        </div>
+
+        {/* Tab row */}
+        <div style={{
+          display: 'flex', borderBottom: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          overflowX: 'auto', flexShrink: 0,
+        }}>
+          {TABS.map(tab => {
+            const active = tab === activeTab;
+            return (
+              <button key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  flex: 1, minWidth: 0, padding: '0.35rem 0.3rem',
+                  fontFamily: 'monospace', fontSize: '0.7em',
+                  color: active ? 'var(--phosphor-accent)' : C.faint,
+                  background: active ? 'rgba(var(--phosphor-rgb),0.08)' : 'transparent',
+                  border: 'none',
+                  borderBottom: active ? '2px solid var(--phosphor-accent)' : '2px solid transparent',
+                  cursor: 'pointer', touchAction: 'manipulation', whiteSpace: 'nowrap',
+                  letterSpacing: '0.06em',
+                }}>
+                {tab}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.4rem 0.5rem' }}>
+          {activeTab === 'GEAR' && renderGear()}
+          {activeTab === 'BACKPACK' && renderBackpack()}
+          {activeTab === 'AUGMENTS' && renderAugments()}
+          {activeTab === 'STATS' && renderStats()}
+        </div>
+
+        {/* Close */}
+        <div style={{
+          padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          display: 'flex', justifyContent: 'center',
+        }}>
           <button className="mud-btn" onClick={onClose} style={{
             fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
             border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
@@ -2553,10 +3057,10 @@ function ExamineModal({ data: initialData, onClose }: { data: ExamineData; onClo
 // ── Action Bar ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQuests, onHelp }: {
+function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQuests, onHelp, onInventory }: {
   inCombat: boolean; panelMode: PanelMode;
   showUpgrade: boolean; onUpgrade: () => void; onSkills: () => void;
-  onQuests: () => void; onHelp: () => void;
+  onQuests: () => void; onHelp: () => void; onInventory: () => void;
 }) {
   if (inCombat) return null;
 
@@ -2573,6 +3077,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
         const isSkillsBtn = btn.label === 'SKILLS';
         const isJobsBtn = btn.label === 'JOBS';
         const isHelpBtn = btn.label === 'HELP';
+        const isInventoryBtn = btn.label === 'INVENTORY';
         const isActive = isMapBtn && panelMode === 'map';
 
         return (
@@ -2584,6 +3089,8 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
                 eventBus.emit('mud:panel-mode', {
                   mode: panelMode === 'map' ? 'default' : 'map',
                 });
+              } else if (isInventoryBtn) {
+                onInventory();
               } else if (isSkillsBtn) {
                 onSkills();
               } else if (isJobsBtn) {
@@ -2864,12 +3371,13 @@ export function MudHUDContainer({ session, children }: {
   const containerRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const [availableHeight, setAvailableHeight] = useState<number>(0);
-  const [panelMode, setPanelMode] = useState<PanelMode>('default');
+  const [panelMode, setPanelMode] = useState<PanelMode>('map');
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [showSkillsModal, setShowSkillsModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showQuestsModal, setShowQuestsModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [npcQuestData, setNpcQuestData] = useState<{ npcId: string; npcName: string } | null>(null);
   const [examineData, setExamineData] = useState<ExamineData | null>(null);
   const [restModalData, setRestModalData] = useState<RestModalData | null>(null);
@@ -2931,6 +3439,7 @@ export function MudHUDContainer({ session, children }: {
   useEffect(() => {
     const helpHandler = () => setShowHelpModal(true);
     const questsHandler = () => setShowQuestsModal(true);
+    const inventoryHandler = () => setShowInventoryModal(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const npcQuestHandler = (event: any) => {
       const d = event?.payload as { npcId: string; npcName: string } | undefined;
@@ -2953,6 +3462,7 @@ export function MudHUDContainer({ session, children }: {
     };
     eventBus.on('mud:open-help', helpHandler);
     eventBus.on('mud:open-quests', questsHandler);
+    eventBus.on('mud:open-inventory', inventoryHandler);
     eventBus.on('mud:open-npc-quest', npcQuestHandler);
     eventBus.on('mud:open-examine', examineHandler);
     eventBus.on('mud:open-rest', restHandler);
@@ -2960,6 +3470,7 @@ export function MudHUDContainer({ session, children }: {
     return () => {
       eventBus.off('mud:open-help', helpHandler);
       eventBus.off('mud:open-quests', questsHandler);
+      eventBus.off('mud:open-inventory', inventoryHandler);
       eventBus.off('mud:open-npc-quest', npcQuestHandler);
       eventBus.off('mud:open-examine', examineHandler);
       eventBus.off('mud:open-rest', restHandler);
@@ -3090,6 +3601,7 @@ export function MudHUDContainer({ session, children }: {
             onSkills={() => setShowSkillsModal(true)}
             onQuests={() => setShowQuestsModal(true)}
             onHelp={() => setShowHelpModal(true)}
+            onInventory={() => setShowInventoryModal(true)}
           />
           <PassagesBar branches={data.branches} />
           <BottomBar data={data} onStatsClick={() => setShowStatsModal(true)} />
@@ -3129,6 +3641,11 @@ export function MudHUDContainer({ session, children }: {
       {/* Help modal */}
       {showHelpModal && (
         <HelpModal onClose={() => setShowHelpModal(false)} />
+      )}
+
+      {/* Inventory modal */}
+      {showInventoryModal && session.character && data && (
+        <InventoryModal session={session} data={data} onClose={() => setShowInventoryModal(false)} />
       )}
 
       {/* Quests modal */}
