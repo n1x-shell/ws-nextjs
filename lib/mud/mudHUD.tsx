@@ -1294,7 +1294,7 @@ function SkillsModal({ session, onClose }: {
       <SubstrateBackground opacity={0.35} />
       <div style={{
         width: '100%', maxWidth: 440, maxHeight: '85vh',
-        background: 'rgba(10,10,10,0.92)',
+        background: 'rgba(10,10,10,0.75)',
         border: '1px solid rgba(var(--phosphor-rgb),0.25)',
         borderRadius: 4, overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
@@ -1446,7 +1446,7 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
       <SubstrateBackground opacity={0.35} />
       <div style={{
         width: '100%', maxWidth: 380,
-        background: 'rgba(10,10,10,0.92)',
+        background: 'rgba(10,10,10,0.75)',
         border: '1px solid rgba(var(--phosphor-rgb),0.25)',
         borderRadius: 4, overflow: 'hidden',
         boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
@@ -1626,7 +1626,7 @@ function LevelUpModal({ session, onClose }: {
       <SubstrateBackground opacity={0.35} />
       <div style={{
         width: '100%', maxWidth: 420,
-        background: 'rgba(10,10,10,0.92)',
+        background: 'rgba(10,10,10,0.75)',
         border: '1px solid rgba(var(--phosphor-rgb),0.25)',
         borderRadius: 4,
         overflow: 'hidden',
