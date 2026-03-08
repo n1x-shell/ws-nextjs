@@ -209,8 +209,9 @@ export default function SubstrateBackground({ opacity = 0.18 }: { opacity?: numb
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const maybeCtx = canvas.getContext('2d');
+    if (!maybeCtx) return;
+    const ctx: CanvasRenderingContext2D = maybeCtx;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
