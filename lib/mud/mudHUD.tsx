@@ -10,11 +10,15 @@ import type {
   Direction,
   Item,
   NPCType,
+  AttributeName,
+  Archetype,
+  Attributes,
 } from './types';
 import {
   xpForLevel,
   LEVEL_CAP,
   getDispositionLabel,
+  ATTRIBUTE_MAX,
 } from './types';
 import {
   getRoom,
@@ -27,11 +31,13 @@ import {
   isPlayersTurn,
 } from './combat';
 import { getFormattedShop, type ShopListing } from './shopSystem';
-import { getNPCRelation } from './persistence';
+import { getNPCRelation, saveCharacter } from './persistence';
 import { getActiveQuests } from './questEngine';
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
 import { MapPanel } from './mudMap';
+import { processLevelUp, spendAttributePoint, type LevelUpResult } from './character';
+import { isSafeHaven } from './safeHaven';
 
 // ── Style constants ─────────────────────────────────────────────────────────
 
@@ -90,6 +96,10 @@ function HUDFXStyles() {
       @keyframes mud-turn-glow {
         0%, 100% { text-shadow: 0 0 5px var(--phosphor-accent); }
         50% { text-shadow: 0 0 12px var(--phosphor-accent), 0 0 20px rgba(var(--phosphor-rgb),0.3); }
+      }
+      @keyframes mud-pulse-amber {
+        0%, 100% { background: rgba(251,191,36,0.06); box-shadow: none; }
+        50% { background: rgba(251,191,36,0.12); box-shadow: inset 0 0 8px rgba(251,191,36,0.08); }
       }
       .mud-btn {
         transition: all 0.15s ease !important;
@@ -222,6 +232,11 @@ interface PanelData {
   gear: Array<{ slot: string; item: Item }>;
   salvageEnemies: string[];
   salvageDrops: Array<{ itemId: string; name: string; taken: boolean }>;
+  pendingLevelUps: number;
+  unspentAttributePoints: number;
+  skillPointsAvailable: number;
+  archetype: Archetype;
+  attributes: Attributes;
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -317,6 +332,11 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     gear: gearEntries,
     salvageEnemies: char.pendingSalvage?.enemies.map(e => e.name) ?? [],
     salvageDrops: char.pendingSalvage?.enemies.flatMap(e => e.drops) ?? [],
+    pendingLevelUps: char.pendingLevelUps ?? 0,
+    unspentAttributePoints: char.unspentAttributePoints ?? 0,
+    skillPointsAvailable: char.skillPoints,
+    archetype: char.archetype,
+    attributes: { ...char.attributes },
   };
 }
 
@@ -1218,7 +1238,286 @@ const ACTION_BUTTONS = [
   { label: 'HELP',      command: '/mudhelp' },
 ];
 
-function ActionBar({ inCombat, panelMode }: { inCombat: boolean; panelMode: PanelMode }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Level-Up Modal ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const ATTR_LABELS: Record<AttributeName, string> = {
+  BODY: 'HP, melee, carry',
+  REFLEX: 'dodge, initiative, crit',
+  TECH: 'hack, craft, repair',
+  INT: 'XP mod, puzzles, scan',
+  COOL: 'NPC, stealth, barter',
+  GHOST: 'mesh resist, 33hz, hidden',
+};
+
+const ATTR_ORDER: AttributeName[] = ['BODY', 'REFLEX', 'TECH', 'INT', 'COOL', 'GHOST'];
+
+const INTEGRATION_LINES: Record<Archetype, string> = {
+  SOVEREIGN: 'the implant pulses. neural pathways fork. the signal strengthens.',
+  DISCONNECTED: 'your muscles ache in a new way. not damage \u2014 growth. you\'re harder now.',
+  INTEGRATED: 'the augments recalibrate. firmware updates itself. autonomic. precise.',
+};
+
+function LevelUpModal({ session, onClose }: {
+  session: MudSession;
+  onClose: () => void;
+}) {
+  const char = session.character;
+  if (!char) return null;
+
+  const [result, setResult] = useState<LevelUpResult | null>(null);
+  const [attrs, setAttrs] = useState<Attributes>({ ...char.attributes });
+  const [pointsLeft, setPointsLeft] = useState(0);
+  const [flashAttr, setFlashAttr] = useState<string | null>(null);
+  const [phase, setPhase] = useState<'narrative' | 'allocate' | 'done'>('narrative');
+
+  // Process level-up on mount
+  useEffect(() => {
+    const r = processLevelUp(char);
+    setResult(r);
+    setAttrs({ ...char.attributes });
+    setPointsLeft(char.unspentAttributePoints ?? 0);
+    // Brief narrative then transition
+    const timer = setTimeout(() => {
+      setPhase('allocate');
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 250 });
+    }, 2200);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleIncrement = (attr: AttributeName) => {
+    if (pointsLeft <= 0) return;
+    if (attrs[attr] >= ATTRIBUTE_MAX) return;
+
+    setFlashAttr(attr);
+    setTimeout(() => setFlashAttr(null), 300);
+    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 80 });
+
+    // Apply to character directly
+    spendAttributePoint(char, attr);
+    char.unspentAttributePoints = Math.max(0, (char.unspentAttributePoints ?? 1) - 1);
+
+    setAttrs({ ...char.attributes });
+    setPointsLeft(char.unspentAttributePoints);
+  };
+
+  const handleIntegrate = () => {
+    setPhase('done');
+    saveCharacter(char.handle, char);
+    eventBus.emit('crt:glitch-tier', { tier: 2, duration: 300 });
+
+    setTimeout(() => {
+      onClose();
+    }, 600);
+  };
+
+  const narrativeLine = INTEGRATION_LINES[char.archetype] ?? INTEGRATION_LINES.SOVEREIGN;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '1rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 420,
+        background: '#0a0a0a',
+        border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+        borderRadius: 4,
+        overflow: 'hidden',
+        boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08), 0 0 60px rgba(0,0,0,0.5)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '0.6rem 0.8rem',
+          borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
+          background: 'rgba(var(--phosphor-rgb),0.04)',
+        }}>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: 'var(--phosphor-accent)', letterSpacing: '0.08em',
+          }} className={S.glow}>
+            {phase === 'done' ? 'INTEGRATION COMPLETE' : 'INTEGRATION'}
+          </div>
+          {result && phase !== 'narrative' && (
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: C.dim, marginTop: '0.2rem',
+            }}>
+              level {result.oldLevel} {'\u2192'} {result.newLevel}
+              {' \u00b7 '}HP +{result.hpGain}
+              {' \u00b7 '}{result.attrPoints} attr
+              {' \u00b7 '}{result.skillPoints} skill
+            </div>
+          )}
+        </div>
+
+        {/* Narrative phase */}
+        {phase === 'narrative' && (
+          <div style={{ padding: '1.2rem 0.8rem', textAlign: 'center' }}>
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: '#cc44ff', opacity: 0.9, lineHeight: 1.8,
+              animation: 'mud-fade-in 0.5s ease-out',
+            }}>
+              {narrativeLine}
+            </div>
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: C.dim, marginTop: '1rem',
+            }}>
+              integrating...
+            </div>
+          </div>
+        )}
+
+        {/* Attribute allocation phase */}
+        {phase === 'allocate' && (
+          <div style={{ padding: '0.5rem 0.6rem' }}>
+            {/* Points counter */}
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: pointsLeft > 0 ? '#fbbf24' : C.heal,
+              textAlign: 'center', padding: '0.3rem 0', marginBottom: '0.3rem',
+              borderBottom: '1px solid rgba(var(--phosphor-rgb),0.1)',
+            }}>
+              {pointsLeft > 0
+                ? `${pointsLeft} ATTRIBUTE POINT${pointsLeft > 1 ? 'S' : ''} REMAINING`
+                : 'ALL POINTS ALLOCATED'
+              }
+            </div>
+
+            {/* Attribute rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+              {ATTR_ORDER.map(attr => {
+                const val = attrs[attr];
+                const atMax = val >= ATTRIBUTE_MAX;
+                const canAdd = pointsLeft > 0 && !atMax;
+                const isFlashing = flashAttr === attr;
+                const filled = Math.min(val, ATTRIBUTE_MAX);
+                const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(ATTRIBUTE_MAX - filled);
+
+                return (
+                  <div
+                    key={attr}
+                    role={canAdd ? 'button' : undefined}
+                    tabIndex={canAdd ? 0 : undefined}
+                    onClick={() => canAdd && handleIncrement(attr)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && canAdd) handleIncrement(attr); }}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '5.5ch 2ch 1fr auto',
+                      gap: '0.4ch',
+                      alignItems: 'center',
+                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                      padding: '0.35rem 0.4rem',
+                      borderRadius: 2,
+                      cursor: canAdd ? 'pointer' : 'default',
+                      background: isFlashing
+                        ? 'rgba(74,222,128,0.12)'
+                        : canAdd ? 'rgba(var(--phosphor-rgb),0.03)' : 'transparent',
+                      borderLeft: isFlashing
+                        ? '2px solid rgba(74,222,128,0.6)'
+                        : '2px solid transparent',
+                      transition: 'background 0.2s, border-left-color 0.2s',
+                      touchAction: 'manipulation',
+                    }}
+                  >
+                    <span style={{ color: isFlashing ? C.heal : 'var(--phosphor-green)', fontWeight: 'bold' }}>
+                      {attr}
+                    </span>
+                    <span style={{ color: isFlashing ? C.heal : C.dim, textAlign: 'right' }}>
+                      {val}
+                    </span>
+                    <span style={{
+                      color: isFlashing ? C.heal : 'rgba(var(--phosphor-rgb),0.4)',
+                      fontSize: '0.8em', letterSpacing: '-0.5px',
+                      overflow: 'hidden',
+                    }}>
+                      {bar}
+                    </span>
+                    {canAdd ? (
+                      <span style={{
+                        color: '#fbbf24',
+                        fontWeight: 'bold',
+                        width: '2.5ch', textAlign: 'center',
+                      }}>
+                        +1
+                      </span>
+                    ) : (
+                      <span style={{ width: '2.5ch' }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Skill point notice */}
+            {char.skillPoints > 0 && (
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: C.dim, textAlign: 'center',
+                padding: '0.4rem 0', marginTop: '0.2rem',
+                borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+              }}>
+                {char.skillPoints} skill point{char.skillPoints > 1 ? 's' : ''} available {'\u00b7'} use /skills
+              </div>
+            )}
+
+            {/* Integrate button */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '0.5rem 0 0.3rem' }}>
+              <button
+                className="mud-btn"
+                onClick={handleIntegrate}
+                style={{
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                  fontWeight: 'bold', letterSpacing: '0.1em',
+                  color: pointsLeft === 0 ? '#0a0a0a' : 'var(--phosphor-accent)',
+                  background: pointsLeft === 0
+                    ? 'var(--phosphor-accent)'
+                    : 'rgba(var(--phosphor-rgb),0.08)',
+                  border: `1px solid ${pointsLeft === 0 ? 'var(--phosphor-accent)' : 'rgba(var(--phosphor-rgb),0.3)'}`,
+                  padding: '0.45rem 1.5rem',
+                  cursor: 'pointer', touchAction: 'manipulation',
+                  borderRadius: 2,
+                  boxShadow: pointsLeft === 0
+                    ? '0 0 12px rgba(var(--phosphor-rgb),0.3)'
+                    : 'none',
+                }}
+              >
+                INTEGRATE
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Done phase */}
+        {phase === 'done' && (
+          <div style={{
+            padding: '1.2rem 0.8rem', textAlign: 'center',
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: '#cc44ff', lineHeight: 1.8,
+          }}>
+            the world didn't change. you did.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Action Bar ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade }: {
+  inCombat: boolean; panelMode: PanelMode;
+  showUpgrade: boolean; onUpgrade: () => void;
+}) {
   if (inCombat) return null;
 
   return (
@@ -1253,7 +1552,7 @@ function ActionBar({ inCombat, panelMode }: { inCombat: boolean; panelMode: Pane
               color: isActive ? 'var(--phosphor-accent)' : C.dim,
               background: isActive ? 'rgba(var(--phosphor-rgb),0.08)' : 'transparent',
               border: 'none',
-              borderRight: i < ACTION_BUTTONS.length - 1 ? `1px solid ${BORDER}` : 'none',
+              borderRight: `1px solid ${BORDER}`,
               borderBottom: isActive ? '2px solid var(--phosphor-accent)' : '2px solid transparent',
               padding: '0.4rem 0.2rem',
               cursor: 'pointer', touchAction: 'manipulation',
@@ -1264,6 +1563,29 @@ function ActionBar({ inCombat, panelMode }: { inCombat: boolean; panelMode: Pane
           </button>
         );
       })}
+      {showUpgrade && (
+        <button
+          className="mud-btn"
+          onClick={() => {
+            onUpgrade();
+            eventBus.emit('crt:glitch-tier', { tier: 2, duration: 200 });
+          }}
+          style={{
+            flex: 1,
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            fontWeight: 'bold', letterSpacing: '0.06em',
+            color: '#fbbf24',
+            background: 'rgba(251,191,36,0.08)',
+            border: 'none',
+            borderBottom: '2px solid rgba(251,191,36,0.5)',
+            padding: '0.4rem 0.2rem',
+            cursor: 'pointer', touchAction: 'manipulation',
+            animation: 'mud-pulse-amber 2s ease-in-out infinite',
+          }}
+        >
+          UPGRADE
+        </button>
+      )}
     </div>
   );
 }
@@ -1489,6 +1811,7 @@ export function MudHUDContainer({ session, children }: {
   const chatRef = useRef<HTMLDivElement>(null);
   const [availableHeight, setAvailableHeight] = useState<number>(0);
   const [panelMode, setPanelMode] = useState<PanelMode>('default');
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
 
   // Measure scroll parent to fill viewport + lock its scroll
   useEffect(() => {
@@ -1529,6 +1852,13 @@ export function MudHUDContainer({ session, children }: {
       eventBus.off('mud:panel-mode', handler);
       eventBus.off('mud:panel-mode-reset-non-map', resetHandler);
     };
+  }, []);
+
+  // Listen for level-up modal trigger from /levelup command
+  useEffect(() => {
+    const handler = () => setShowLevelUpModal(true);
+    eventBus.on('mud:open-levelup', handler);
+    return () => { eventBus.off('mud:open-levelup', handler); };
   }, []);
 
   // Reset panel mode on combat start
@@ -1590,6 +1920,7 @@ export function MudHUDContainer({ session, children }: {
         height: availableHeight || '100dvh',
         overflow: 'hidden',
         background: data.inCombat ? BG_COMBAT : BG_PANEL,
+        position: 'relative',
       }}
     >
       <HUDFXStyles />
@@ -1623,9 +1954,28 @@ export function MudHUDContainer({ session, children }: {
         </div>
       ) : (
         <>
-          <ActionBar inCombat={data.inCombat} panelMode={panelMode} />
+          <ActionBar
+            inCombat={data.inCombat}
+            panelMode={panelMode}
+            showUpgrade={data.pendingLevelUps > 0 && data.isSafeZone}
+            onUpgrade={() => setShowLevelUpModal(true)}
+          />
           <BottomBar data={data} />
         </>
+      )}
+
+      {/* Level-up modal overlay */}
+      {showLevelUpModal && session.character && (
+        <LevelUpModal
+          session={session}
+          onClose={() => {
+            setShowLevelUpModal(false);
+            // Trigger a save command to refresh session state in parent
+            setTimeout(() => {
+              eventBus.emit('mud:execute-command', { command: '/save' });
+            }, 100);
+          }}
+        />
       )}
     </div>
   );

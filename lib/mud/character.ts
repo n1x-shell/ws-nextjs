@@ -375,6 +375,50 @@ export function healCharacter(character: MudCharacter, amount: number): number {
   return character.hp - before;
 }
 
+// ── Process Level Up (pure stat changes, no UI) ────────────────────────────
+// Called by the level-up modal. Applies pending levels, grants points.
+
+export interface LevelUpResult {
+  oldLevel: number;
+  newLevel: number;
+  hpGain: number;
+  attrPoints: number;
+  skillPoints: number;
+}
+
+export function processLevelUp(character: MudCharacter): LevelUpResult {
+  const pending = character.pendingLevelUps ?? 0;
+  if (pending <= 0) {
+    return { oldLevel: character.level, newLevel: character.level, hpGain: 0, attrPoints: 0, skillPoints: 0 };
+  }
+
+  const oldLevel = character.level;
+  const newLevel = oldLevel + pending;
+  const oldMaxHp = character.maxHp;
+
+  character.level = newLevel;
+  character.pendingLevelUps = 0;
+
+  // Recalculate HP
+  character.maxHp = calculateMaxHp(character.attributes.BODY, character.archetype, character.level);
+  character.hp = character.maxHp; // Full heal on level-up
+  character.maxRam = calculateMaxRam(character.attributes.TECH);
+  character.ram = character.maxRam;
+
+  // Grant points
+  if (!character.unspentAttributePoints) character.unspentAttributePoints = 0;
+  character.unspentAttributePoints += pending;
+  character.skillPoints += pending;
+
+  return {
+    oldLevel,
+    newLevel,
+    hpGain: character.maxHp - oldMaxHp,
+    attrPoints: pending,
+    skillPoints: pending,
+  };
+}
+
 // ── Creation Step Descriptions (for the scripted flow) ──────────────────────
 
 export const CREATION_STEPS = {

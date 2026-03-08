@@ -87,8 +87,6 @@ import {
   ALL_SKILLS, getPointsInTree, hasFrequencyTreeAccess, hasCrossClassAccess,
   ATTRIBUTE_LEVEL_FLAVOR, type SkillTreeId,
 } from './skillTree';
-import { executeLevelUp } from './levelUpSequence';
-import { rollCombatLoot } from './lootEngine';
 import { getDiscoveredSynergies, checkNewSynergies } from './synergies';
 
 // ── ActionGlyph — tappable command button for entity panels ─────────────────
@@ -2358,7 +2356,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
               &gt;&gt; LEVEL UP AVAILABLE: {char.level} {'\u2192'} {char.level + pending}
             </MudLine>
             <MudLine color={C.accent}>
-              &gt;&gt; type /levelup to begin integration
+              &gt;&gt; tap UPGRADE in the action bar to begin integration
             </MudLine>
           </div>
         ) : (
@@ -2371,7 +2369,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
   }
 
   // ── /levelup ───────────────────────────────────────────────────────────
-  if (cmd === 'levelup' || cmd === 'lvlup' || cmd === 'level') {
+  if (cmd === 'levelup' || cmd === 'lvlup' || cmd === 'level' || cmd === 'upgrade') {
     const pending = char.pendingLevelUps ?? 0;
     if (pending <= 0) {
       addLocalMsg(
@@ -2392,29 +2390,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
-    // Kick off the level-up sequence (async interactive)
-    // We need requestInput — use the MudContext pattern
-    // For now, use the addLocalMsg + eventBus approach
-    const requestInput = (prompt: string): Promise<string> => {
-      return new Promise((resolve) => {
-        addLocalMsg(
-          <MudLine key={k('lvl-prompt')} color={C.dim}>&gt; {prompt}</MudLine>
-        );
-        const handler = (event: import('@/types/neural.types').NeuralEvent) => {
-          eventBus.off('mud:levelup-input', handler);
-          resolve(event.payload?.input ?? '');
-        };
-        eventBus.on('mud:levelup-input', handler);
-        // Set session to track we're in level-up mode
-        eventBus.emit('mud:levelup-active', { active: true });
-      });
-    };
-
-    executeLevelUp(char, addLocalMsg, requestInput, (updatedChar) => {
-      eventBus.emit('mud:levelup-active', { active: false });
-      setSession({ ...session, character: updatedChar });
-    });
-
+    // Open the level-up modal
+    eventBus.emit('mud:open-levelup');
     return { handled: true, stopPropagation: true };
   }
 
@@ -3292,7 +3269,7 @@ const MUD_COMMANDS = [
   '/look', '/go', '/exits', '/examine', '/where', '/stats', '/inventory',
   '/save', '/help', '/attack', '/hack', '/use', '/scan', '/flee',
   '/talk', '/shop', '/buy', '/sell', '/quests', '/quest', '/me', '/mudhelp', '/q',
-  '/rest', '/levelup', '/skills', '/skilltree', '/skillinfo', '/spend', '/loot',
+  '/rest', '/levelup', '/upgrade', '/skills', '/skilltree', '/skillinfo', '/spend', '/loot',
   '/take', '/salvage',
 ];
 
