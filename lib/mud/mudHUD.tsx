@@ -1286,12 +1286,12 @@ function SkillsModal({ session, onClose }: {
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
-      background: '#020308',
+      background: 'rgba(2,3,8,0.88)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '0.5rem',
       animation: 'mud-fade-in 0.3s ease-out',
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <SubstrateBackground opacity={0.18} />
+      <SubstrateBackground opacity={0.35} />
       <div style={{
         width: '100%', maxWidth: 440, maxHeight: '85vh',
         background: 'rgba(10,10,10,0.92)',
@@ -1438,12 +1438,12 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
-      background: '#020308',
+      background: 'rgba(2,3,8,0.88)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '0.5rem',
       animation: 'mud-fade-in 0.3s ease-out',
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <SubstrateBackground opacity={0.18} />
+      <SubstrateBackground opacity={0.35} />
       <div style={{
         width: '100%', maxWidth: 380,
         background: 'rgba(10,10,10,0.92)',
@@ -1618,12 +1618,12 @@ function LevelUpModal({ session, onClose }: {
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 100,
-      background: '#020308',
+      background: 'rgba(2,3,8,0.88)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '1rem',
       animation: 'mud-fade-in 0.3s ease-out',
     }}>
-      <SubstrateBackground opacity={0.18} />
+      <SubstrateBackground opacity={0.35} />
       <div style={{
         width: '100%', maxWidth: 420,
         background: 'rgba(10,10,10,0.92)',
