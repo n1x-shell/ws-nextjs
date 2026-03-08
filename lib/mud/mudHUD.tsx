@@ -4,7 +4,7 @@
 // Layout: room header → 2-col grid → [chat scrolls] → action bar → [stats + compass].
 // No position:sticky — the container fills the viewport and manages internal scroll.
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type {
   MudSession,
   Direction,
@@ -32,7 +32,7 @@ import {
   isPlayersTurn,
 } from './combat';
 import { getFormattedShop, type ShopListing } from './shopSystem';
-import { getNPCRelation, saveCharacter } from './persistence';
+import { getNPCRelation, saveCharacter, loadWorld } from './persistence';
 import { sellItem } from './shopSystem';
 import {
   getActiveQuests, getAvailableQuests, getQuestObjectiveProgress,
@@ -2020,8 +2020,11 @@ function NPCQuestModal({ session, npcId, npcName, onClose }: {
   session: MudSession; npcId: string; npcName: string; onClose: () => void;
 }) {
   const char = session.character;
-  const world = session.world;
-  if (!char || !world) return null;
+  if (!char) return null;
+
+  // Read fresh world state from persistence (not stale session.world)
+  const [tick, setTick] = useState(0);
+  const world = useMemo(() => loadWorld(char.handle), [char.handle, tick]);
 
   const quests = getNPCQuests(npcId, char, world);
   const quest = quests.length > 0 ? quests[0] : null;
@@ -2055,6 +2058,7 @@ function NPCQuestModal({ session, npcId, npcName, onClose }: {
     if (!quest) return;
     declineQuest(char.handle, quest.id);
     eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+    setTick(t => t + 1);
     onClose();
   };
 
@@ -2196,8 +2200,11 @@ function NPCQuestModal({ session, npcId, npcName, onClose }: {
 
 function QuestsModal({ session, onClose }: { session: MudSession; onClose: () => void }) {
   const char = session.character;
-  const world = session.world;
-  if (!char || !world) return null;
+  if (!char) return null;
+
+  // Read fresh world state from persistence (not stale session.world)
+  const [tick, setTick] = useState(0);
+  const world = useMemo(() => loadWorld(char.handle), [char.handle, tick]);
 
   const active = getActiveQuests(world);
   const declined = getDeclinedQuests(world);
@@ -2211,6 +2218,7 @@ function QuestsModal({ session, onClose }: { session: MudSession; onClose: () =>
       eventBus.emit('crt:glitch-tier', { tier: 2, duration: 200 });
       setExpandedId(null);
       setTab('active');
+      setTick(t => t + 1);
     }
   };
 
@@ -2218,6 +2226,7 @@ function QuestsModal({ session, onClose }: { session: MudSession; onClose: () =>
     declineQuest(char.handle, questId);
     eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
     setExpandedId(null);
+    setTick(t => t + 1);
   };
 
   const quests = tab === 'active' ? active : declined;

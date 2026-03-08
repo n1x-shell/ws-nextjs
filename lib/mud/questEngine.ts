@@ -102,6 +102,10 @@ export function declineQuest(
   const world = loadWorld(handle);
   // Remove from active if it was active
   world.activeQuests = world.activeQuests.filter(id => id !== questId);
+  // Clean up progress flags so re-accepting starts fresh
+  for (const obj of quest.objectives) {
+    delete world.worldFlags[`quest_${questId}_${obj.id}`];
+  }
   // Add to declined
   if (!world.declinedQuests) world.declinedQuests = [];
   if (!world.declinedQuests.includes(questId)) {
