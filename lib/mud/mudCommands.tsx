@@ -2332,7 +2332,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
-    const check = canEquipCyberware(match, char.archetype, char.attributes as Record<string, number>, sealed);
+    const check = canEquipCyberware(match, char.archetype, char.attributes as unknown as Record<string, number>, sealed);
     if (!check.allowed) {
       addLocalMsg(<MudNotice key={k('eq-locked')} error>{check.reason}</MudNotice>);
       return { handled: true, stopPropagation: true };

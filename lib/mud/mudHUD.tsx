@@ -2267,7 +2267,7 @@ function InventoryModal({ session, data, onClose }: {
 
     // Get candidates for an open overlay
     const overlayCandidates = augOverlay
-      ? getSlotCandidates(augOverlay, augInv, char.archetype, char.attributes as Record<string, number>, sealed)
+      ? getSlotCandidates(augOverlay, augInv, char.archetype, char.attributes as unknown as Record<string, number>, sealed)
       : [];
 
     const handleAugEquip = (slot: AugmentSlotType, item: CyberwareItem) => {
