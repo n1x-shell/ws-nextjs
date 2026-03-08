@@ -2126,7 +2126,6 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     );
 
     if (obj) {
-      // Check if hidden and player can't see it
       if (obj.hidden && obj.hiddenRequirement) {
         const attr = char.attributes[obj.hiddenRequirement.attribute];
         if (attr < obj.hiddenRequirement.minimum) {
@@ -2137,23 +2136,19 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         }
       }
 
-      addLocalMsg(
-        <div key={k('examine-obj')}>
-          <MudLine color={C.accent} bold>{obj.name}</MudLine>
-          <MudLine color={C.green} opacity={0.85}>{obj.examineText}</MudLine>
-          {/* Gated text */}
-          {obj.gatedText?.map((gate, i) => {
-            if (char.attributes[gate.attribute] >= gate.minimum) {
-              return (
-                <MudLine key={k(`gate-${i}`)} color={C.accent} opacity={0.9} style={{ marginTop: '0.3rem' }}>
-                  {gate.text}
-                </MudLine>
-              );
-            }
-            return null;
-          })}
-        </div>
-      );
+      const extra: Array<{ text: string; color: string }> = [];
+      obj.gatedText?.forEach(gate => {
+        if (char.attributes[gate.attribute] >= gate.minimum) {
+          extra.push({ text: gate.text, color: 'var(--phosphor-accent)' });
+        }
+      });
+
+      eventBus.emit('mud:open-examine', {
+        title: obj.name,
+        color: 'rgba(var(--phosphor-rgb),0.85)',
+        body: obj.examineText,
+        extra: extra.length > 0 ? extra : undefined,
+      });
       return { handled: true, stopPropagation: true };
     }
 
@@ -2164,21 +2159,13 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     );
 
     if (npc) {
-      addLocalMsg(
-        <div key={k('examine-npc')}>
-          <MudLine color={C.npc} bold>{npc.name}</MudLine>
-          <MudLine color={C.green} opacity={0.85}>{npc.description}</MudLine>
-          <MudSpacer />
-          <MudLine color={C.npc} opacity={0.7}>
-            &quot;{npc.dialogue.replace(/^"/, '').replace(/"$/, '')}&quot;
-          </MudLine>
-          {npc.services && npc.services.length > 0 && (
-            <MudLine color={C.dim} style={{ marginTop: '0.15rem' }}>
-              services: {npc.services.join(', ')}
-            </MudLine>
-          )}
-        </div>
-      );
+      eventBus.emit('mud:open-examine', {
+        title: npc.name,
+        color: '#fcd34d',
+        body: npc.description,
+        extra: [{ text: `"${npc.dialogue.replace(/^"/, '').replace(/"$/, '')}"`, color: '#fcd34d' }],
+        footer: npc.services?.length ? `services: ${npc.services.join(', ')}` : undefined,
+      });
       return { handled: true, stopPropagation: true };
     }
 
@@ -2789,73 +2776,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── /mudhelp ──────────────────────────────────────────────────────────
   if (cmd === 'mudhelp' || cmd === 'mhelp' || cmd === 'commands') {
-    const sections: Array<{ title: string; cmds: Array<{ cmd: string; desc: string }> }> = [
-      { title: 'NAVIGATION', cmds: [
-        { cmd: '/look',              desc: 'Examine your surroundings' },
-        { cmd: '/go <dir>',          desc: 'Move to a direction or named room' },
-        { cmd: '/exits',             desc: 'List available exits' },
-        { cmd: '/examine <thing>',   desc: 'Inspect an object, NPC, or detail' },
-        { cmd: '/where',             desc: 'Show current zone and room' },
-      ]},
-      { title: 'COMBAT', cmds: [
-        { cmd: '/attack [target]',   desc: 'Melee/ranged attack (1 AP)' },
-        { cmd: '/hack [name]',       desc: 'Upload quickhack (2 AP, needs RAM)' },
-        { cmd: '/use [item]',        desc: 'Use item in combat (1 AP)' },
-        { cmd: '/scan [target]',     desc: 'Analyze enemy stats (1 AP)' },
-        { cmd: '/flee',              desc: 'Attempt escape (2 AP)' },
-      ]},
-      { title: 'SOCIAL', cmds: [
-        { cmd: '/talk <npc>',        desc: 'Address an NPC directly' },
-        { cmd: '/me <action>',       desc: 'Perform an emote (NPCs notice)' },
-        { cmd: '/shop',              desc: 'Browse shop (when near vendor)' },
-        { cmd: '/buy <item>',        desc: 'Purchase from shop' },
-        { cmd: '/sell <item>',       desc: 'Sell to vendor' },
-      ]},
-      { title: 'QUEST', cmds: [
-        { cmd: '/quests',            desc: 'Show active and available quests' },
-        { cmd: '/quest <id>',        desc: 'Show quest details and progress' },
-      ]},
-      { title: 'CHARACTER', cmds: [
-        { cmd: '/stats',             desc: 'Show your character sheet' },
-        { cmd: '/inventory',         desc: 'Show carried items and gear' },
-        { cmd: '/save',              desc: 'Manual save' },
-      ]},
-      { title: 'PROGRESSION', cmds: [
-        { cmd: '/rest',              desc: 'Rest at a safe haven (heal, save, level)' },
-        { cmd: '/levelup',           desc: 'Begin level-up sequence (at safe haven)' },
-        { cmd: '/skills',            desc: 'Show all skill trees and unlocks' },
-        { cmd: '/skilltree',         desc: 'Visual skill tree display' },
-        { cmd: '/skillinfo <name>',  desc: 'Detailed skill description' },
-        { cmd: '/spend <name>',      desc: 'Unlock a skill node' },
-        { cmd: '/loot',              desc: 'Review last combat drops' },
-        { cmd: '/take <item|all>',   desc: 'Salvage items from the dead' },
-        { cmd: '/salvage',           desc: 'Take all salvage at once' },
-      ]},
-    ];
-
-    addLocalMsg(
-      <div key={k('mudhelp')}>
-        <MudLine color={C.accent} bold>&gt;&gt; TUNNELCORE — COMMANDS</MudLine>
-        {sections.map(s => (
-          <div key={k(`mh-${s.title}`)}>
-            <MudLine color={C.dim} style={{ marginTop: '0.3rem' }}>{s.title}</MudLine>
-            {s.cmds.map(c => (
-              <div key={k(`mh-${c.cmd}`)} style={{
-                paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap',
-                fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
-              }}>
-                <span style={{ color: C.accent, minWidth: '20ch', flexShrink: 0 }}>{c.cmd}</span>
-                <span style={{ color: C.dim, }}>{c.desc}</span>
-              </div>
-            ))}
-          </div>
-        ))}
-        <MudSpacer />
-        <MudLine color={C.dim}>
-          talk to NPCs by typing without / — they'll respond if they're in the room
-        </MudLine>
-      </div>
-    );
+    eventBus.emit('mud:open-help');
     return { handled: true, stopPropagation: true };
   }
 
@@ -2968,86 +2889,13 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── /quests ───────────────────────────────────────────────────────────
   if (cmd === 'quests') {
-    const world = loadWorld(handle);
-    const active = getActiveQuests(world);
-    const available = getAvailableQuests(char, world);
-
-    addLocalMsg(
-      <div key={k('quests')}>
-        <MudLine color={C.quest} bold>&gt;&gt; QUEST LOG</MudLine>
-        <MudSpacer />
-        {active.length > 0 ? (
-          <div>
-            <MudLine color={C.quest} opacity={0.7}>ACTIVE:</MudLine>
-            {active.map(q => {
-              const progress = getQuestObjectiveProgress(handle, q.id);
-              const done = progress?.objectives.filter(o => o.done).length ?? 0;
-              const total = progress?.objectives.length ?? 0;
-              return (
-                <MudLine key={k(`aq-${q.id}`)} indent color={C.quest}>
-                  {q.title} [{done}/{total}] — /quest {q.id}
-                </MudLine>
-              );
-            })}
-          </div>
-        ) : (
-          <MudLine color={C.dim}>no active quests.</MudLine>
-        )}
-        {available.length > 0 && (
-          <div>
-            <MudSpacer />
-            <MudLine color={C.dim}>AVAILABLE (talk to quest giver):</MudLine>
-            {available.map(q => (
-              <MudLine key={k(`avq-${q.id}`)} indent color={C.dim}>
-                {q.title} (from {q.giver}, Tier {q.tier})
-              </MudLine>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+    eventBus.emit('mud:open-quests');
     return { handled: true, stopPropagation: true };
   }
 
   // ── /quest <id> ───────────────────────────────────────────────────────
   if (cmd === 'quest') {
-    if (!rest) {
-      addLocalMsg(<MudNotice key={k('quest-err')} error>which quest? /quest &lt;id&gt;</MudNotice>);
-      return { handled: true, stopPropagation: true };
-    }
-    const quest = QUEST_REGISTRY[rest] ?? Object.values(QUEST_REGISTRY).find(q => q.title.toLowerCase().includes(rest.toLowerCase()));
-    if (!quest) {
-      addLocalMsg(<MudNotice key={k('quest-nf')} error>quest not found.</MudNotice>);
-      return { handled: true, stopPropagation: true };
-    }
-    const progress = getQuestObjectiveProgress(handle, quest.id);
-    const world = loadWorld(handle);
-    const isActive = world.activeQuests.includes(quest.id);
-
-    addLocalMsg(
-      <div key={k('quest-detail')}>
-        <MudLine color={C.quest} bold>{quest.title}</MudLine>
-        <MudLine color={C.dim} indent>from: {quest.giver} · tier: {quest.tier} · type: {quest.type}</MudLine>
-        <MudSpacer />
-        <MudLine color={C.green} opacity={0.85}>{quest.description}</MudLine>
-        {isActive && progress && (
-          <div>
-            <MudSpacer />
-            <MudLine color={C.quest} opacity={0.7}>OBJECTIVES:</MudLine>
-            {progress.objectives.map(o => (
-              <MudLine key={k(`qobj-${o.id}`)} indent color={o.done ? C.questDone : C.dim}>
-                {o.done ? '✓' : '○'} {o.description} ({o.current}/{o.required})
-              </MudLine>
-            ))}
-          </div>
-        )}
-        {!isActive && (
-          <MudLine color={C.dim} style={{ marginTop: '0.3rem' }}>
-            talk to {quest.giver} to start this quest.
-          </MudLine>
-        )}
-      </div>
-    );
+    eventBus.emit('mud:open-quests');
     return { handled: true, stopPropagation: true };
   }
 

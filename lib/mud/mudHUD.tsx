@@ -32,7 +32,7 @@ import {
 } from './combat';
 import { getFormattedShop, type ShopListing } from './shopSystem';
 import { getNPCRelation, saveCharacter } from './persistence';
-import { getActiveQuests } from './questEngine';
+import { getActiveQuests, getAvailableQuests, getQuestObjectiveProgress, QUEST_REGISTRY } from './questEngine';
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
 import { MapPanel } from './mudMap';
@@ -1247,9 +1247,9 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
 const ACTION_BUTTONS = [
   { label: 'INVENTORY', command: '/inventory' },
   { label: 'SKILLS',    command: '_modal' },
-  { label: 'QUESTS',    command: '/quests' },
+  { label: 'QUESTS',    command: '_modal' },
   { label: 'MAP',       command: '_toggle' },
-  { label: 'HELP',      command: '/mudhelp' },
+  { label: 'HELP',      command: '_modal' },
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1813,12 +1813,355 @@ function LevelUpModal({ session, onClose }: {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── Help Modal ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const HELP_SECTIONS = [
+  { title: 'NAVIGATION', cmds: [
+    { cmd: '/look',            desc: 'Examine your surroundings' },
+    { cmd: '/go <dir>',        desc: 'Move to a direction or room' },
+    { cmd: '/exits',           desc: 'List available exits' },
+    { cmd: '/examine <thing>', desc: 'Inspect an object or NPC' },
+    { cmd: '/where',           desc: 'Show current zone and room' },
+  ]},
+  { title: 'COMBAT', cmds: [
+    { cmd: '/attack [target]', desc: 'Melee/ranged attack (1 AP)' },
+    { cmd: '/hack [name]',     desc: 'Upload quickhack (2 AP)' },
+    { cmd: '/scan [target]',   desc: 'Analyze enemy stats (1 AP)' },
+    { cmd: '/flee',            desc: 'Attempt escape (2 AP)' },
+  ]},
+  { title: 'SOCIAL', cmds: [
+    { cmd: '/talk <npc>',      desc: 'Address an NPC' },
+    { cmd: '/shop',            desc: 'Browse shop' },
+    { cmd: '/buy / /sell',     desc: 'Trade items' },
+  ]},
+  { title: 'PROGRESSION', cmds: [
+    { cmd: '/rest',            desc: 'Rest at a safe haven' },
+    { cmd: '/take <item|all>', desc: 'Salvage from the dead' },
+    { cmd: '/save',            desc: 'Manual save' },
+  ]},
+];
+
+function HelpModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(2,3,8,0.88)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.35} />
+      <div style={{
+        width: '100%', maxWidth: 420, maxHeight: '85vh',
+        background: 'rgba(10,10,10,0.75)',
+        border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+        borderRadius: 4, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
+          background: 'rgba(var(--phosphor-rgb),0.04)',
+        }}>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: 'var(--phosphor-accent)', letterSpacing: '0.06em',
+          }} className={S.glow}>TUNNELCORE {'\u2014'} COMMANDS</span>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.4rem 0.6rem' }}>
+          {HELP_SECTIONS.map(s => (
+            <div key={s.title} style={{ marginBottom: '0.5rem' }}>
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.65em',
+                color: C.faint, letterSpacing: '0.1em', marginBottom: '0.15rem',
+              }}>{s.title}</div>
+              {s.cmds.map(c => (
+                <div key={c.cmd} style={{
+                  display: 'grid', gridTemplateColumns: '13ch 1fr', gap: '0.5ch',
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                  padding: '0.1rem 0.2rem',
+                }}>
+                  <span style={{ color: 'var(--phosphor-accent)' }}>{c.cmd}</span>
+                  <span style={{ color: C.dim }}>{c.desc}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: C.faint, padding: '0.3rem 0', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          }}>
+            type without / to talk to NPCs in the room
+          </div>
+        </div>
+        <div style={{ padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', display: 'flex', justifyContent: 'center' }}>
+          <button className="mud-btn" onClick={onClose} style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
+            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+          }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Quests Modal ───────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+function QuestsModal({ session, onClose }: { session: MudSession; onClose: () => void }) {
+  const char = session.character;
+  const world = session.world;
+  if (!char || !world) return null;
+
+  const active = getActiveQuests(world);
+  const available = getAvailableQuests(char, world);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const selectedQuest = selectedId ? (QUEST_REGISTRY[selectedId] ?? null) : null;
+  const selectedProgress = selectedId ? getQuestObjectiveProgress(char.handle, selectedId) : null;
+  const isActive = selectedId ? world.activeQuests.includes(selectedId) : false;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(2,3,8,0.88)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.35} />
+      <div style={{
+        width: '100%', maxWidth: 420, maxHeight: '85vh',
+        background: 'rgba(10,10,10,0.75)',
+        border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+        borderRadius: 4, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08)',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
+          background: 'rgba(var(--phosphor-rgb),0.04)',
+        }}>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: '#fbbf24', letterSpacing: '0.06em',
+          }} className={S.glow}>QUEST LOG</span>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.4rem 0.5rem' }}>
+          {/* Active quests */}
+          {active.length > 0 && (
+            <div style={{ marginBottom: '0.5rem' }}>
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.65em',
+                color: '#fbbf24', letterSpacing: '0.1em', marginBottom: '0.2rem',
+              }}>ACTIVE</div>
+              {active.map(q => {
+                const progress = getQuestObjectiveProgress(char.handle, q.id);
+                const done = progress?.objectives.filter(o => o.done).length ?? 0;
+                const total = progress?.objectives.length ?? 0;
+                const isSelected = selectedId === q.id;
+                return (
+                  <div key={q.id}
+                    role="button" tabIndex={0}
+                    onClick={() => setSelectedId(isSelected ? null : q.id)}
+                    style={{
+                      padding: '0.3rem 0.4rem',
+                      borderLeft: `2px solid ${isSelected ? '#fbbf24' : 'rgba(251,191,36,0.3)'}`,
+                      borderRadius: '0 3px 3px 0',
+                      marginBottom: '0.25rem',
+                      background: isSelected ? 'rgba(251,191,36,0.08)' : 'transparent',
+                      cursor: 'pointer', touchAction: 'manipulation',
+                      transition: 'background 0.2s',
+                    }}>
+                    <div style={{
+                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                      display: 'flex', justifyContent: 'space-between',
+                    }}>
+                      <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{q.title}</span>
+                      <span style={{ color: C.dim }}>[{done}/{total}]</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Available quests */}
+          {available.length > 0 && (
+            <div style={{ marginBottom: '0.5rem' }}>
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.65em',
+                color: C.faint, letterSpacing: '0.1em', marginBottom: '0.2rem',
+              }}>AVAILABLE</div>
+              {available.map(q => (
+                <div key={q.id}
+                  role="button" tabIndex={0}
+                  onClick={() => setSelectedId(selectedId === q.id ? null : q.id)}
+                  style={{
+                    padding: '0.3rem 0.4rem',
+                    borderLeft: `2px solid ${selectedId === q.id ? 'rgba(var(--phosphor-rgb),0.5)' : 'rgba(var(--phosphor-rgb),0.15)'}`,
+                    borderRadius: '0 3px 3px 0',
+                    marginBottom: '0.25rem',
+                    background: selectedId === q.id ? 'rgba(var(--phosphor-rgb),0.05)' : 'transparent',
+                    cursor: 'pointer', touchAction: 'manipulation',
+                  }}>
+                  <div style={{
+                    fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                    color: C.dim,
+                  }}>
+                    {q.title} <span style={{ color: C.faint, fontSize: '0.8em' }}>({q.giver}, T{q.tier})</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {active.length === 0 && available.length === 0 && (
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: C.faint, textAlign: 'center', padding: '1.5rem 0',
+            }}>no quests. explore and talk to NPCs.</div>
+          )}
+
+          {/* Detail panel */}
+          {selectedQuest && (
+            <div style={{
+              padding: '0.5rem',
+              borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+              marginTop: '0.2rem',
+              animation: 'mud-fade-in 0.2s ease-out',
+            }}>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: isActive ? '#fbbf24' : 'var(--phosphor-accent)', fontWeight: 'bold',
+              }}>{selectedQuest.title}</div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: '0.8em',
+                color: C.faint, marginBottom: '0.3rem',
+              }}>from: {selectedQuest.giver} {'\u00b7'} tier {selectedQuest.tier} {'\u00b7'} {selectedQuest.type}</div>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: C.dim, lineHeight: 1.6,
+              }}>{selectedQuest.description}</div>
+              {isActive && selectedProgress && (
+                <div style={{ marginTop: '0.4rem' }}>
+                  {selectedProgress.objectives.map(o => (
+                    <div key={o.id} style={{
+                      fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                      color: o.done ? C.heal : C.dim,
+                      padding: '0.1rem 0',
+                    }}>
+                      {o.done ? '\u2713' : '\u25cb'} {o.description} ({o.current}/{o.required})
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!isActive && (
+                <div style={{
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                  color: C.faint, marginTop: '0.3rem', fontStyle: 'italic',
+                }}>talk to {selectedQuest.giver} to start</div>
+              )}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', display: 'flex', justifyContent: 'center' }}>
+          <button className="mud-btn" onClick={onClose} style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
+            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+          }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Examine Modal ──────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface ExamineData {
+  title: string;
+  color: string;
+  body: string;
+  extra?: Array<{ text: string; color: string }>;
+  footer?: string;
+}
+
+function ExamineModal({ data, onClose }: { data: ExamineData; onClose: () => void }) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(2,3,8,0.88)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.35} />
+      <div style={{
+        width: '100%', maxWidth: 400,
+        background: 'rgba(10,10,10,0.75)',
+        border: `1px solid ${data.color}33`,
+        borderRadius: 4, overflow: 'hidden',
+        boxShadow: `0 0 30px ${data.color}15`,
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{
+          padding: '0.6rem 0.8rem',
+          borderBottom: `1px solid ${data.color}33`,
+          background: `${data.color}0a`,
+        }}>
+          <span style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: data.color, letterSpacing: '0.06em',
+          }}>{data.title}</span>
+        </div>
+        <div style={{ padding: '0.6rem 0.8rem' }}>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: '#d4d4d4', lineHeight: 1.7,
+          }}>{data.body}</div>
+          {data.extra?.map((ex, i) => (
+            <div key={i} style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: ex.color, marginTop: '0.4rem', lineHeight: 1.6,
+            }}>{ex.text}</div>
+          ))}
+          {data.footer && (
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: C.faint, marginTop: '0.4rem', fontStyle: 'italic',
+            }}>{data.footer}</div>
+          )}
+        </div>
+        <div style={{ padding: '0.4rem', borderTop: `1px solid ${data.color}1a`, display: 'flex', justifyContent: 'center' }}>
+          <button className="mud-btn" onClick={onClose} style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, background: 'transparent',
+            border: '1px solid rgba(var(--phosphor-rgb),0.2)', padding: '0.3rem 1.5rem',
+            cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+          }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ── Action Bar ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills }: {
+function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQuests, onHelp }: {
   inCombat: boolean; panelMode: PanelMode;
   showUpgrade: boolean; onUpgrade: () => void; onSkills: () => void;
+  onQuests: () => void; onHelp: () => void;
 }) {
   if (inCombat) return null;
 
@@ -1833,6 +2176,8 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills }: {
       {ACTION_BUTTONS.map((btn) => {
         const isMapBtn = btn.label === 'MAP';
         const isSkillsBtn = btn.label === 'SKILLS';
+        const isQuestsBtn = btn.label === 'QUESTS';
+        const isHelpBtn = btn.label === 'HELP';
         const isActive = isMapBtn && panelMode === 'map';
 
         return (
@@ -1846,6 +2191,10 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills }: {
                 });
               } else if (isSkillsBtn) {
                 onSkills();
+              } else if (isQuestsBtn) {
+                onQuests();
+              } else if (isHelpBtn) {
+                onHelp();
               } else {
                 eventBus.emit('mud:execute-command', { command: btn.command });
               }
@@ -2124,6 +2473,9 @@ export function MudHUDContainer({ session, children }: {
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [showSkillsModal, setShowSkillsModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showQuestsModal, setShowQuestsModal] = useState(false);
+  const [examineData, setExamineData] = useState<ExamineData | null>(null);
   const mapWasActiveRef = useRef(false);
 
   // Measure scroll parent to fill viewport + lock its scroll
@@ -2172,6 +2524,25 @@ export function MudHUDContainer({ session, children }: {
     const handler = () => setShowLevelUpModal(true);
     eventBus.on('mud:open-levelup', handler);
     return () => { eventBus.off('mud:open-levelup', handler); };
+  }, []);
+
+  // Listen for help/quests/examine modal triggers
+  useEffect(() => {
+    const helpHandler = () => setShowHelpModal(true);
+    const questsHandler = () => setShowQuestsModal(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const examineHandler = (event: any) => {
+      const d = event?.payload as ExamineData | undefined;
+      if (d) setExamineData(d);
+    };
+    eventBus.on('mud:open-help', helpHandler);
+    eventBus.on('mud:open-quests', questsHandler);
+    eventBus.on('mud:open-examine', examineHandler);
+    return () => {
+      eventBus.off('mud:open-help', helpHandler);
+      eventBus.off('mud:open-quests', questsHandler);
+      eventBus.off('mud:open-examine', examineHandler);
+    };
   }, []);
 
   // Save map state on combat start, restore on combat end
@@ -2292,6 +2663,8 @@ export function MudHUDContainer({ session, children }: {
             showUpgrade={data.pendingLevelUps > 0 && data.isSafeZone}
             onUpgrade={() => setShowLevelUpModal(true)}
             onSkills={() => setShowSkillsModal(true)}
+            onQuests={() => setShowQuestsModal(true)}
+            onHelp={() => setShowHelpModal(true)}
           />
           <BottomBar data={data} onStatsClick={() => setShowStatsModal(true)} />
         </div>
@@ -2325,6 +2698,21 @@ export function MudHUDContainer({ session, children }: {
       {/* Stats modal */}
       {showStatsModal && data && (
         <StatsModal data={data} onClose={() => setShowStatsModal(false)} />
+      )}
+
+      {/* Help modal */}
+      {showHelpModal && (
+        <HelpModal onClose={() => setShowHelpModal(false)} />
+      )}
+
+      {/* Quests modal */}
+      {showQuestsModal && session.character && (
+        <QuestsModal session={session} onClose={() => setShowQuestsModal(false)} />
+      )}
+
+      {/* Examine modal */}
+      {examineData && (
+        <ExamineModal data={examineData} onClose={() => setExamineData(null)} />
       )}
     </div>
   );
