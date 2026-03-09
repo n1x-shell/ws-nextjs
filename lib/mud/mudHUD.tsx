@@ -87,7 +87,6 @@ const BG_PANEL = 'rgba(10,10,10,0.75)';
 const BG_COMBAT = 'rgba(13,8,8,0.75)';
 const BORDER = 'rgba(var(--phosphor-rgb),0.15)';
 const BORDER_COMBAT = 'rgba(255,68,68,0.25)';
-const TOP_PANEL_CONTENT_H = 270; // Fixed height for top panel grid area (matches map viewport)
 // ── HUD FX Keyframes ────────────────────────────────────────────────────────
 
 function HUDFXStyles() {
@@ -3398,7 +3397,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Bottom Bar — [Identity · HP · XP · Stats] ──────────────────────────────
+// ── Bottom Bar — [Identity · HP · XP · Stats | Compass] ─────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
@@ -3407,82 +3406,97 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
 
   return (
-    <div
-      role="button" tabIndex={0}
-      onClick={onStatsClick}
-      onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
-      style={{
-        borderTop: `1px solid ${BORDER}`,
-        background: BG_PANEL,
-        flexShrink: 0,
-        position: 'relative',
-        touchAction: 'none',
-        fontFamily: 'monospace', fontSize: S.base,
-        padding: '0.35rem 0.6rem',
-        display: 'flex', flexDirection: 'column',
-        gap: '0.2rem',
-        cursor: 'pointer',
-      }}
-    >
+    <div style={{
+      display: 'flex',
+      borderTop: `1px solid ${BORDER}`,
+      background: BG_PANEL,
+      flexShrink: 0,
+      position: 'relative',
+      touchAction: 'none',
+    }}>
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
         background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
       }} />
 
-      {/* Row 1: handle — subjectId  |  Lv + currency */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-        <span style={{
-          color: 'var(--phosphor-accent)', fontWeight: 'bold',
-          letterSpacing: '0.06em',
-          textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.3)',
-        }} className={S.glow}>
-          {data.handle} {'\u2014'} {data.subjectId}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch' }}>
+      {/* Stats — left side, tappable */}
+      <div
+        role="button" tabIndex={0}
+        onClick={onStatsClick}
+        onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
+        style={{
+          flex: 1, minWidth: 0,
+          fontFamily: 'monospace', fontSize: S.base,
+          padding: '0.35rem 0.6rem',
+          display: 'flex', flexDirection: 'column',
+          gap: '0.2rem', position: 'relative',
+          cursor: 'pointer', touchAction: 'manipulation',
+        }}
+      >
+        {/* Row 1: handle — subjectId  |  Lv + currency */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{
-            color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
-            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
-            borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
-            boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
-          }}>
-            Lv.{data.level}
+            color: 'var(--phosphor-accent)', fontWeight: 'bold',
+            letterSpacing: '0.06em',
+            textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.3)',
+          }} className={S.glow}>
+            {data.handle} {'\u2014'} {data.subjectId}
           </span>
-          <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}{'\u00a2'}</span>
-          <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch' }}>
+            <span style={{
+              color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
+              border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
+              borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
+              boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
+            }}>
+              Lv.{data.level}
+            </span>
+            <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}{'\u00a2'}</span>
+            <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>
+          </div>
+        </div>
+
+        {/* Row 2: HP bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+          <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
+          <span style={{ color: hpColor, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {data.hp}/{data.maxHp}
+          </span>
+        </div>
+
+        {/* Row 3: XP bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+          <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={6} /></div>
+          <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {data.xp}/{data.xpNext}
+          </span>
+        </div>
+
+        {/* Row 4: Attributes in one horizontal row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.5ch',
+          flexWrap: 'wrap',
+          color: C.dim, fontSize: 'var(--text-base)',
+        }}>
+          {ATTR_ORDER.map((attr, i) => (
+            <span key={attr} style={{ display: 'flex', alignItems: 'center', gap: '0.3ch', whiteSpace: 'nowrap' }}>
+              {i > 0 && <span style={{ color: C.faint }}>{'\u00b7'}</span>}
+              <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
+              <span style={{ color: C.dim }}>{data.attributes[attr]}</span>
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* Row 2: HP bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', position: 'relative' }}>
-        <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
-        <span style={{ color: hpColor, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-          {data.hp}/{data.maxHp}
-        </span>
-      </div>
-
-      {/* Row 3: XP bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', position: 'relative' }}>
-        <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={6} /></div>
-        <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-          {data.xp}/{data.xpNext}
-        </span>
-      </div>
-
-      {/* Row 4: Attributes in one horizontal row */}
+      {/* Compass — right side */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: '0.5ch',
-        flexWrap: 'wrap', position: 'relative',
-        color: C.dim, fontSize: 'var(--text-base)',
+        borderLeft: `1px solid ${BORDER}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, position: 'relative',
       }}>
-        {ATTR_ORDER.map((attr, i) => (
-          <span key={attr} style={{ display: 'flex', alignItems: 'center', gap: '0.3ch', whiteSpace: 'nowrap' }}>
-            {i > 0 && <span style={{ color: C.faint }}>{'\u00b7'}</span>}
-            <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
-            <span style={{ color: C.dim }}>{data.attributes[attr]}</span>
-          </span>
-        ))}
+        <CompassRose exits={data.exits} />
       </div>
     </div>
   );
@@ -3499,7 +3513,6 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
 
   const isSalvageMode = panelMode === 'salvage' && data.salvageDrops.length > 0;
   const isShopMode = panelMode === 'shop' && !data.inCombat;
-  const isInvMode = panelMode === 'inventory' && !data.inCombat;
   const isMapMode = panelMode === 'map' && !data.inCombat;
 
   return (
@@ -3546,9 +3559,8 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         </div>
       </div>
 
-      {/* Panel grid — fixed height, layout depends on map mode */}
+      {/* Panel grid — height fits content */}
       <div style={{
-        height: TOP_PANEL_CONTENT_H,
         display: 'grid',
         gridTemplateColumns: isMapMode ? 'auto 1fr'
           : isSalvageMode ? '1fr 1fr'
@@ -3594,7 +3606,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         ) : (
           /* ── Default: 3 equal columns — Contacts | Hostiles | Objects ── */
           <>
-            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
+            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain', maxHeight: 200 }}>
               <LeftPanel
                 npcs={data.npcs} inCombat={data.inCombat}
                 consumables={data.consumables}
@@ -3602,14 +3614,14 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
                 isPlayerTurn={data.isPlayerTurn}
               />
             </div>
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain', maxHeight: 200 }}>
               <ContextPanel
                 enemies={data.enemies} shopItems={data.shopItems}
                 shopkeeper={data.shopkeeper} inCombat={data.inCombat}
                 creds={data.creds}
               />
             </div>
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain', maxHeight: 200 }}>
               <ObjectsPanel objects={data.objects} />
             </div>
           </>
@@ -3766,6 +3778,25 @@ export function MudHUDContainer({ session, children }: {
       el.scrollTop = el.scrollHeight;
     });
   }, []);
+
+  // Scroll chat to top (for room changes — show room name)
+  const scrollChatToTop = useCallback(() => {
+    const el = chatRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = 0;
+    });
+  }, []);
+
+  // Track room changes — scroll to top so room description is visible
+  const prevRoomRef = useRef(data?.currentRoomId);
+  useEffect(() => {
+    if (!data) return;
+    if (prevRoomRef.current && prevRoomRef.current !== data.currentRoomId) {
+      scrollChatToTop();
+    }
+    prevRoomRef.current = data.currentRoomId;
+  }, [data?.currentRoomId, scrollChatToTop]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // MutationObserver for auto-scroll
   useEffect(() => {
