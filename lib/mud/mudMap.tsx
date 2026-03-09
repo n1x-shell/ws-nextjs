@@ -404,7 +404,7 @@ export function MapPanel({ currentRoom, handle }: { currentRoom: string; handle:
   const cW = mapData.gridWidth * SX - GX, cH = mapData.gridHeight * SY - GY;
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <MapFXStyles />
       {/* Title bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0.5rem', background: 'rgba(var(--phosphor-rgb),0.04)', borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)' }}>
@@ -416,11 +416,11 @@ export function MapPanel({ currentRoom, handle }: { currentRoom: string; handle:
         </span>
       </div>
       {/* Map viewport */}
-      <div style={{ overflowY: 'auto', overflowX: 'auto', padding: '0.6rem 0.6rem 0.3rem', position: 'relative' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0.6rem 0.6rem 0.3rem', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         {/* Scanline overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, opacity: 0.025, background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)' }} />
         {/* Grid container */}
-        <div style={{ position: 'relative', width: cW, height: cH, margin: '0 auto' }}>
+        <div style={{ position: 'relative', width: cW, height: cH, flexShrink: 0 }}>
           {mapData.connections.map((c, i) => <ConnLine key={i} c={c} />)}
           {mapData.cells.map(cell => <RoomCell key={cell.roomId} cell={cell} currentRoomId={currentRoom} />)}
         </div>

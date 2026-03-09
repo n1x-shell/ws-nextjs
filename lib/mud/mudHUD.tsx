@@ -3642,11 +3642,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         {isMapMode ? (
           /* ── Map mode: map (auto-width) + objects (full height) ── */
           <>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
-            </div>
+            <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
             <div style={{
               borderLeft: `1px solid ${BORDER}`,
               overflowY: 'auto', overscrollBehavior: 'contain',
