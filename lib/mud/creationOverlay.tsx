@@ -65,7 +65,16 @@ function CreationCinematic({ lines, onComplete }: {
   const [charIdx, setCharIdx] = useState(0);
   const [allDone, setAllDone] = useState(false);
   const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   const speed = 28;
+
+  const fireComplete = useCallback(() => {
+    if (!doneRef.current) {
+      doneRef.current = true;
+      onCompleteRef.current();
+    }
+  }, []);
 
   // Typewriter per character
   useEffect(() => {
@@ -91,19 +100,17 @@ function CreationCinematic({ lines, onComplete }: {
     return () => clearTimeout(t);
   }, [lineIdx, charIdx, lines]);
 
-  // Auto-complete after all lines shown
+  // Auto-complete after all lines shown — no onComplete in deps (ref-stable)
   useEffect(() => {
     if (!allDone) return;
-    const t = setTimeout(() => {
-      if (!doneRef.current) { doneRef.current = true; onComplete(); }
-    }, 800);
+    const t = setTimeout(fireComplete, 800);
     return () => clearTimeout(t);
-  }, [allDone, onComplete]);
+  }, [allDone, fireComplete]);
 
   // Tap handler: skip current line or complete
   const handleTap = useCallback(() => {
     if (lineIdx >= lines.length || allDone) {
-      if (!doneRef.current) { doneRef.current = true; onComplete(); }
+      fireComplete();
       return;
     }
     if (charIdx < lines[lineIdx].length) {
@@ -112,13 +119,13 @@ function CreationCinematic({ lines, onComplete }: {
     } else {
       // Skip to next line
       if (lineIdx + 1 >= lines.length) {
-        if (!doneRef.current) { doneRef.current = true; onComplete(); }
+        fireComplete();
       } else {
         setLineIdx(p => p + 1);
         setCharIdx(0);
       }
     }
-  }, [lineIdx, charIdx, lines, allDone, onComplete]);
+  }, [lineIdx, charIdx, lines, allDone, fireComplete]);
 
   return (
     <div
