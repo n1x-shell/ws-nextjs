@@ -9,6 +9,27 @@ import { getDispositionLabel } from './types';
 import { getRoom } from './worldMap';
 import { getNPCRelation, updateNPCRelation, adjustDisposition } from './persistence';
 
+// ── N1X Network Detection ───────────────────────────────────────────────────
+// Players who earned trust 5 and collected 9+ fragments found the signal
+// through N1X's terminal. NPCs in the network treat them differently —
+// not explicitly, but as someone vouched for by a friend they don't name.
+
+const N1X_CONTACTS = new Set(['doss', 'cole', 'ren', 'mara']);
+
+function isVouchedByN1X(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem('n1x_substrate');
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    const trust = typeof s.trust === 'number' ? s.trust : 0;
+    const frags = Array.isArray(s.fragments) ? s.fragments.filter((f: string) => f !== 'f010') : [];
+    return trust >= 5 && frags.length >= 9;
+  } catch {
+    return false;
+  }
+}
+
 // ── NPC Personality Definitions ─────────────────────────────────────────────
 
 interface NPCKnowledge {
@@ -242,7 +263,12 @@ export function routeDialogue(
     if (!personality) continue;
 
     const relation = getNPCRelation(character.handle, npc.id);
-    const disposition = relation?.disposition ?? npc.startingDisposition;
+    let disposition = relation?.disposition ?? npc.startingDisposition;
+
+    // N1X network: first meeting with a contact starts warmer
+    if (!relation && N1X_CONTACTS.has(npc.id) && isVouchedByN1X()) {
+      disposition = Math.max(disposition, 15);
+    }
 
     const nameMatch = lower.includes(npc.name.toLowerCase());
 
@@ -326,6 +352,21 @@ export function buildNPCSystemPrompt(
     jobBlock = `\nIMPORTANT: the player is asking about work. you ARE a quest giver. offer them work. here are your available quest hooks:\n${kn.questHints.map(h => `- ${h}`).join('\n')}`;
   }
 
+  // N1X network vouching — subtle behavioral shift for connected players
+  const vouched = isVouchedByN1X() && N1X_CONTACTS.has(target.npcId);
+  let vouchedBlock = '';
+  if (vouched) {
+    vouchedBlock = `
+IMPORTANT CONTEXT — FRIEND OF A FRIEND:
+someone you trust put in a word for this person before they arrived. you don't say who.
+you treat them like a comrade, not a stranger. you're warmer, more direct, more willing to share what you know.
+you skip the usual wariness you'd give a new face. they earned their way here through channels you respect.
+you might say things like "heard you were coming" or "someone said you're solid" — but never explain who or how.
+you give better advice. you warn them about real dangers instead of letting them learn the hard way.
+this does NOT change your personality or voice. you're still you. just the version of you that talks to people you trust.
+NEVER mention trust levels, fragments, frequencies, or any game mechanics. this is purely how you behave.`;
+  }
+
   return `you are ${personality.name}, an NPC in TUNNELCORE.
 location: ${roomName} (drainage nexus, underground tunnel network)
 speaking to: ${character.handle} (subject ${character.subjectId}), a ${character.archetype} ${character.combatStyle} at level ${character.level}
@@ -340,7 +381,7 @@ ${disposition <= -11 ? 'you are unfriendly or hostile. short answers. may refuse
 ${disposition >= 11 ? 'you are warm toward them. more willing to share information and help.' : ''}
 
 ${recentInteractions.length > 0 ? `recent interactions with this person:\n${recentInteractions.slice(-5).join('\n')}` : 'you have not met this person before.'}${getLastEmoteContext()}
-${knowledgeBlock}${worldBlock}${jobBlock}
+${knowledgeBlock}${worldBlock}${jobBlock}${vouchedBlock}
 
 CRITICAL RULES:
 - respond in 1-4 sentences. terse. lowercase. in-character always.
