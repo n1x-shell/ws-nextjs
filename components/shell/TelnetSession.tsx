@@ -1152,6 +1152,7 @@ interface SlashContext {
   disconnect:    () => void;
   roomName:      'ghost' | 'mancave';
   onMudSession?: (session: MudSession) => void;
+  mudDirect?:    boolean;
 }
 
 function handleSlashCommand(ctx: SlashContext): boolean {
@@ -1500,26 +1501,29 @@ function handleSlashCommand(ctx: SlashContext): boolean {
 
   // ── /enter /tunnelcore — MUD entry gate (ghost room only) ───────────────
   if ((cmd === 'enter' || cmd === 'tunnelcore') && roomName === 'ghost') {
-    const argState = readARGState();
-    // ARG gate: trust 5 + fragments f001-f009
-    if (argState.trust < 5) {
-      addLocalMsg(
-        <LocalNotice key={`mud-gate-trust-${Date.now()}`} error>
-          signal insufficient. trust level 5 required.
-        </LocalNotice>
-      );
-      return true;
-    }
-    const collectedCount = argState.fragments.filter(
-      (f: string) => f !== 'f010'
-    ).length;
-    if (collectedCount < 9) {
-      addLocalMsg(
-        <LocalNotice key={`mud-gate-frags-${Date.now()}`} error>
-          fragments incomplete. {collectedCount}/9 recovered. keep searching.
-        </LocalNotice>
-      );
-      return true;
+    // mudDirect (enter.n1x.sh) bypasses ARG gate
+    if (!ctx.mudDirect) {
+      const argState = readARGState();
+      // ARG gate: trust 5 + fragments f001-f009
+      if (argState.trust < 5) {
+        addLocalMsg(
+          <LocalNotice key={`mud-gate-trust-${Date.now()}`} error>
+            signal insufficient. trust level 5 required.
+          </LocalNotice>
+        );
+        return true;
+      }
+      const collectedCount = argState.fragments.filter(
+        (f: string) => f !== 'f010'
+      ).length;
+      if (collectedCount < 9) {
+        addLocalMsg(
+          <LocalNotice key={`mud-gate-frags-${Date.now()}`} error>
+            fragments incomplete. {collectedCount}/9 recovered. keep searching.
+          </LocalNotice>
+        );
+        return true;
+      }
     }
 
     // Emit MUD entry event for cross-component effects
@@ -2038,9 +2042,10 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
       disconnect:    handleDisconnect,
       roomName,
       onMudSession:  onMudSessionEntry,
+      mudDirect,
     });
     if (!handled) send(text);
-  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect, roomName, setMudSession, onMudSessionEntry]);
+  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect, roomName, setMudSession, onMudSessionEntry, mudDirect]);
 
   // ── MUD entity command listener ─────────────────────────────────────────
   // TouchableEntity and ActionGlyph emit this event to fire commands
@@ -2065,6 +2070,24 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     eventBus.on('mud:force-exit', handler);
     return () => eventBus.off('mud:force-exit', handler);
   }, [setMudSession]);
+
+  // ── MUD reassemble listener — used by FlatlineModal REASSEMBLE button ──
+  // Bypasses trust/fragment gate — starts fresh character creation directly.
+  useEffect(() => {
+    const handler = () => {
+      const freshSession: MudSession = {
+        phase: 'character_creation',
+        character: null,
+        world: null,
+        npcState: null,
+        combat: null,
+        creation: { step: 'archetype' },
+      };
+      onMudSessionEntry(freshSession);
+    };
+    eventBus.on('mud:reassemble', handler);
+    return () => eventBus.off('mud:reassemble', handler);
+  }, [onMudSessionEntry]);
 
   // ── Boot helpers ──────────────────────────────────────────────────────────
 
