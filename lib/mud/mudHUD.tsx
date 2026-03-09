@@ -4118,9 +4118,9 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
         ref={containerRef}
         style={{
           display: 'flex', flexDirection: 'column',
-          height: availableHeight || '100dvh',
+          height: availableHeight ? availableHeight - 8 : 'calc(100dvh - 8px)',
           overflow: 'hidden', background: '#020308',
-          position: 'relative',
+          position: 'relative', marginTop: 8,
         }}
       >
         <SubstrateBackground opacity={0.4} config={{ tendrilCount: 56, sporeCount: 800, growFromEdges: true }} />
@@ -4144,10 +4144,11 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: availableHeight || '100dvh',
+        height: availableHeight ? availableHeight - 8 : 'calc(100dvh - 8px)',
         overflow: 'hidden',
         background: '#020308',
         position: 'relative',
+        marginTop: 8,
       }}
     >
       <SubstrateBackground
