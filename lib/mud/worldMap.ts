@@ -1030,7 +1030,7 @@ another face is both miracle and threat.`,
     ],
     npcs: [
       {
-        id: 'lumen', name: 'Lumen', type: 'LORE',
+        id: 'lumen', name: 'Lumen', type: 'NEUTRAL',
         faction: 'NONE',
         description: 'Indeterminate age. Could be thirty, could be fifty. Former Helixion infrastructure engineer. Three years between two walls.',
         dialogue: "\"…you're real. you're actually real. I'm — I haven't — how long has it been since — no. Don't answer that. I know how long.\"",
@@ -1190,7 +1190,6 @@ the elevator visits regularly.`,
     exits: [
       { direction: 'west', targetRoom: 'z09_r10', description: 'west (Staging Area)' },
       { direction: 'down', targetRoom: 'z11_r01', description: 'down (Abandoned Transit — service ladder)', zoneTransition: true, targetZone: 'z11' },
-      { direction: 'deep', targetRoom: 'z14_r01', description: 'deep (Substrate Level — SL-3 elevator)', locked: true, lockId: 'helixion_sl3_credentials', zoneTransition: true, targetZone: 'z14' },
     ],
     npcs: [
       {

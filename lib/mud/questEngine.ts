@@ -88,7 +88,7 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     title: 'THE SHIPMENT',
     giver: 'fex',
     tier: 2,
-    type: 'RETRIEVAL',
+    type: 'FETCH',
     description: `fex had a medical shipment coming through — supplies for the parish. her courier got intercepted by d9 in the sensor corridor. courier escaped. supplies didn't. the cargo is in a d9 seizure cache on the helixion side. cross the bulkhead. get it back.`,
     objectives: [
       { id: 'obj_cross_bulkhead', description: 'cross the bulkhead to the Helixion side', type: 'go_to', target: 'z09_r07', current: 0, required: 1, completed: false },
@@ -106,7 +106,7 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     title: 'SUPPLY LINE',
     giver: 'fex',
     tier: 2,
-    type: 'CLEARANCE',
+    type: 'MULTI',
     description: `fex wants a permanent supply corridor from the maintenance tunnels to the iron bloom server farm. the route passes through the deep access shaft but the passage is blocked by collapse. clear it. open the road.`,
     objectives: [
       { id: 'obj_reach_shaft', description: 'reach the Deep Access Shaft', type: 'go_to', target: 'z09_r11', current: 0, required: 1, completed: false },
@@ -123,7 +123,7 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     title: 'MAINTENANCE OVERRIDE',
     giver: 'hale',
     tier: 3,
-    type: 'INFILTRATION',
+    type: 'MULTI',
     description: `hale knows something is wrong beneath the campus. he's been rerouted around a section that doesn't appear on his maintenance schedule. he'll give you utility override codes — trigger a distraction, access the staging area, and document what helixion is building down there. he needs to know. the not-knowing is worse than the danger.`,
     objectives: [
       { id: 'obj_talk_hale', description: 'get utility codes from Hale', type: 'talk_to', target: 'hale', current: 0, required: 1, completed: false },
@@ -142,7 +142,7 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     title: 'THE EXCHANGE',
     giver: 'reed',
     tier: 3,
-    type: 'INVESTIGATION',
+    type: 'INVESTIGATE',
     description: `reed has been monitoring the elevator for four months. every third delivery, the exchange rate is unequal — more substrate material comes up than helixion technology goes down. either helixion is extracting independently, or the substrate is giving more than it receives. ride the elevator to SL-3. document what happens at the bottom.`,
     objectives: [
       { id: 'obj_talk_reed', description: 'talk to Reed about the discrepancy', type: 'talk_to', target: 'reed', current: 0, required: 1, completed: false },
