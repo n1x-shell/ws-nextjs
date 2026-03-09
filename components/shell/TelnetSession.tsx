@@ -1967,15 +1967,9 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
 
     // ── MUD interception: creation phase captures ALL input ──────────────
     const ms = mudSessionRef.current;
+    // ── MUD interception: creation phase — overlay handles all input via modals ──
     if (ms && ms.phase === 'character_creation' && ms.creation) {
-      const ctx: MudContext = {
-        addLocalMsg,
-        handle,
-        session: ms,
-        setSession: setMudSession,
-      };
-      const result = handleCreationInput(text, ctx);
-      if (result.handled) return; // consumed by creation — do not send to Ably
+      return; // silently consume — creation overlay handles selection
     }
 
     // ── MUD interception: active phase routes /commands ──────────────────
@@ -2220,7 +2214,10 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
   // ── Message renderer ──────────────────────────────────────────────────────
 
   const isMudActive = mudSession && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'character_creation' || mudSession.phase === 'dead');
-  const isMudHUDVisible = isMudActive && !!mudSession?.character && mudSession.phase !== 'character_creation';
+  const isMudHUDVisible = isMudActive && (
+    (!!mudSession?.character && mudSession.phase !== 'character_creation')
+    || mudSession?.phase === 'character_creation'
+  );
 
   function renderMessage(msg: RoomMsg): React.ReactNode {
     // Suppress bot messages when MUD is active
@@ -2259,7 +2256,7 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
 
           {/* ── MUD HUD Container — self-contained scroll region ── */}
           {isMudHUDVisible ? (
-            <MudHUDContainer session={mudSession}>
+            <MudHUDContainer session={mudSession} handle={handle} onSessionUpdate={setMudSession} addLocalMsg={addLocalMsg}>
               {!mudDirect && messages.length === 0 && localMsgs.length === 0 && (
                 <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
                   channel open. transmit to begin.
