@@ -3630,7 +3630,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
     }}>
       {/* Panel grid — fixed height derived from map dimensions, all modes */}
       <div style={{
-        height: panelContentH,
+        minHeight: panelContentH,
         display: 'grid',
         gridTemplateColumns: isMapMode ? 'auto 1fr'
           : isSalvageMode ? '1fr 1fr'
