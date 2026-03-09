@@ -3648,6 +3648,158 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── FlatlineModal — Permadeath overlay ──────────────────────────────────────
+// Displayed when HP reaches 0. Character is gone. REASSEMBLE to start over.
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface FlatlineData {
+  handle: string;
+  subjectId: string;
+  level: number;
+  room: string;
+}
+
+function FlatlineModal({ data, onReassemble }: {
+  data: FlatlineData;
+  onReassemble: () => void;
+}) {
+  const [phase, setPhase] = useState(0);
+
+  // Staggered reveal: 0=title, 1=body, 2=memorial, 3=button
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 600);
+    const t2 = setTimeout(() => setPhase(2), 1400);
+    const t3 = setTimeout(() => setPhase(3), 2200);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 200,
+      background: 'rgba(0,0,0,0.92)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '1.5rem',
+    }}>
+      {/* Vignette edges */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        boxShadow: 'inset 0 0 120px 40px rgba(255,20,20,0.08)',
+      }} />
+      <div style={{
+        width: '100%', maxWidth: 380,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: '1.2rem', position: 'relative', zIndex: 1,
+        textAlign: 'center',
+      }}>
+        {/* FLATLINE title */}
+        <div style={{
+          fontFamily: 'monospace', fontWeight: 'bold',
+          fontSize: 'clamp(1.6rem, 6vw, 2.2rem)',
+          color: '#ff2222',
+          letterSpacing: '0.15em',
+          textShadow: '0 0 20px rgba(255,34,34,0.6), 0 0 60px rgba(255,34,34,0.3)',
+          animation: 'flatline-pulse 2s ease-in-out infinite',
+        }}>
+          {'>>'} FLATLINE
+        </div>
+
+        {/* Body text */}
+        <div style={{
+          opacity: phase >= 1 ? 1 : 0,
+          transform: phase >= 1 ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.6s ease, transform 0.6s ease',
+          display: 'flex', flexDirection: 'column', gap: '0.5rem',
+        }}>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: 'rgba(255,255,255,0.6)', lineHeight: 1.7,
+          }}>
+            hp reached zero. the tunnels claim another.
+          </div>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: 'rgba(255,255,255,0.45)', lineHeight: 1.7,
+          }}>
+            your gear lies where you fell. permadeath is permanent.
+          </div>
+        </div>
+
+        {/* Memorial line */}
+        <div style={{
+          opacity: phase >= 2 ? 1 : 0,
+          transform: phase >= 2 ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.6s ease, transform 0.6s ease',
+          fontFamily: 'monospace', fontSize: '0.7em',
+          color: 'rgba(var(--phosphor-rgb),0.35)',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          padding: '0.6rem 0',
+          width: '100%',
+          letterSpacing: '0.04em',
+        }}>
+          {data.subjectId} {'\u2014'} LVL {data.level} {'\u2014'} signal lost at {data.room.replace(/_/g, ' ')}
+        </div>
+
+        {/* Ghost channel retained */}
+        <div style={{
+          opacity: phase >= 2 ? 1 : 0,
+          transition: 'opacity 0.6s ease',
+          fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          color: 'rgba(var(--phosphor-rgb),0.5)',
+        }}>
+          ghost channel access retained.
+        </div>
+
+        {/* REASSEMBLE button */}
+        <div style={{
+          opacity: phase >= 3 ? 1 : 0,
+          transform: phase >= 3 ? 'translateY(0)' : 'translateY(12px)',
+          transition: 'opacity 0.5s ease, transform 0.5s ease',
+          marginTop: '0.5rem',
+        }}>
+          <button
+            onClick={onReassemble}
+            style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-header)',
+              fontWeight: 'bold', letterSpacing: '0.12em',
+              color: 'var(--phosphor-accent)',
+              background: 'rgba(var(--phosphor-rgb),0.06)',
+              border: '1px solid rgba(var(--phosphor-rgb),0.3)',
+              borderRadius: 3,
+              padding: '0.7rem 2rem',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+              textShadow: '0 0 8px rgba(var(--phosphor-rgb),0.4)',
+              boxShadow: '0 0 20px rgba(var(--phosphor-rgb),0.08)',
+              transition: 'all 0.2s ease',
+            }}
+            onPointerEnter={e => {
+              e.currentTarget.style.background = 'rgba(var(--phosphor-rgb),0.12)';
+              e.currentTarget.style.borderColor = 'rgba(var(--phosphor-rgb),0.5)';
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(var(--phosphor-rgb),0.15)';
+            }}
+            onPointerLeave={e => {
+              e.currentTarget.style.background = 'rgba(var(--phosphor-rgb),0.06)';
+              e.currentTarget.style.borderColor = 'rgba(var(--phosphor-rgb),0.3)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(var(--phosphor-rgb),0.08)';
+            }}
+          >
+            [ REASSEMBLE ]
+          </button>
+        </div>
+
+        <style>{`
+          @keyframes flatline-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ── MudHUDContainer — Self-contained scroll region ──────────────────────────
 // Measures scroll parent to fill available viewport. Chat area scrolls
 // independently; panels and status bar are fixed in place.
@@ -3672,6 +3824,7 @@ export function MudHUDContainer({ session, children }: {
   const [examineData, setExamineData] = useState<ExamineData | null>(null);
   const [restModalData, setRestModalData] = useState<RestModalData | null>(null);
   const [sellModalData, setSellModalData] = useState<SellModalData | null>(null);
+  const [flatlineData, setFlatlineData] = useState<FlatlineData | null>(null);
   const mapWasActiveRef = useRef(false);
 
   // Combat FX hook — shake + glitch on hits
@@ -3766,6 +3919,17 @@ export function MudHUDContainer({ session, children }: {
       eventBus.off('mud:open-rest', restHandler);
       eventBus.off('mud:open-sell', sellHandler);
     };
+  }, []);
+
+  // Listen for flatline (player death) event
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (event: any) => {
+      const d = event?.payload as FlatlineData | undefined;
+      if (d) setFlatlineData(d);
+    };
+    eventBus.on('mud:flatline', handler);
+    return () => { eventBus.off('mud:flatline', handler); };
   }, []);
 
   // Save map state on combat start, restore on combat end
@@ -4025,6 +4189,20 @@ export function MudHUDContainer({ session, children }: {
               });
             }
             eventBus.emit('crt:glitch-tier', { tier: 1, duration: 120 });
+          }}
+        />
+      )}
+
+      {/* Flatline (death) modal */}
+      {flatlineData && (
+        <FlatlineModal
+          data={flatlineData}
+          onReassemble={() => {
+            setFlatlineData(null);
+            // Small delay so modal clears before /enter triggers creation
+            setTimeout(() => {
+              eventBus.emit('mud:execute-command', { command: '/enter' });
+            }, 150);
           }}
         />
       )}

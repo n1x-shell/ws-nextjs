@@ -1471,24 +1471,13 @@ function handleDeath(session: MudSession, addLocalMsg: AddLocalMsg, setSession: 
   const updated: MudSession = { ...session, phase: 'dead', combat: null };
   setSession(updated);
 
-  addLocalMsg(
-    <div key={k('death')}>
-      <MudSpacer />
-      <MudLine color={C.combat} glow bold>
-        &gt;&gt; FLATLINE
-      </MudLine>
-      <MudLine color={C.dim}>
-        hp reached zero. the tunnels claim another.
-      </MudLine>
-      <MudLine color={C.dim}>
-        your gear lies where you fell. permadeath is permanent.
-      </MudLine>
-      <MudSpacer />
-      <MudLine color={C.dim}>
-        ghost channel access retained. /enter to create a new character.
-      </MudLine>
-    </div>
-  );
+  // Emit flatline event — modal handles the death screen
+  eventBus.emit('mud:flatline', {
+    handle: char.handle,
+    subjectId: char.subjectId,
+    level: char.level,
+    room: char.currentRoom,
+  });
 
   eventBus.emit('neural:glitch-trigger', { intensity: 1.0 });
 }
