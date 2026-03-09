@@ -3614,6 +3614,14 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
   const gridH = mapData ? mapData.gridHeight : 5;
   const panelContentH = 26 + 15 + (gridH * SY - GY) + 22;
 
+  // Determine if context (middle) column has content
+  const hasContextContent = data.inCombat
+    || data.enemies.length > 0
+    || (data.shopkeeper && data.shopItems.length > 0);
+
+  // Default mode grid: 2 columns when middle is empty, 3 when occupied
+  const defaultCols = hasContextContent ? '1fr 1fr 1fr' : '1fr 1fr';
+
   return (
     <div style={{
       flexShrink: 0,
@@ -3627,7 +3635,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         gridTemplateColumns: isMapMode ? 'auto 1fr'
           : isSalvageMode ? '1fr 1fr'
           : isShopMode ? '1fr 1fr'
-          : '1fr 1fr 1fr',
+          : defaultCols,
         overflow: 'hidden',
       }}>
         {isMapMode ? (
@@ -3666,7 +3674,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
             </div>
           </>
         ) : (
-          /* ── Default: 3 equal columns — Contacts | Hostiles | Objects ── */
+          /* ── Default: Contacts | (Hostiles if present) | Objects ── */
           <>
             <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
               <LeftPanel
@@ -3676,13 +3684,15 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
                 isPlayerTurn={data.isPlayerTurn}
               />
             </div>
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <ContextPanel
-                enemies={data.enemies} shopItems={data.shopItems}
-                shopkeeper={data.shopkeeper} inCombat={data.inCombat}
-                creds={data.creds}
-              />
-            </div>
+            {hasContextContent && (
+              <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+                <ContextPanel
+                  enemies={data.enemies} shopItems={data.shopItems}
+                  shopkeeper={data.shopkeeper} inCombat={data.inCombat}
+                  creds={data.creds}
+                />
+              </div>
+            )}
             <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
               <ObjectsPanel objects={data.objects} />
             </div>

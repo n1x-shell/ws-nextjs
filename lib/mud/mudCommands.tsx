@@ -857,9 +857,30 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
   eventBus.emit('mud:panel-mode-reset-non-map');
 
   // Narrative-only output — NPCs, enemies, objects, exits are in the HUD panels
-  // Room header + safe zone badge are in TopPanels — don't duplicate here
   addLocalMsg(
     <div key={k('look')} data-room-entry="true">
+      {/* Room heading */}
+      <div style={{
+        fontFamily: 'monospace', fontSize: S.header, fontWeight: 'bold',
+        color: room.isSafeZone ? '#a5f3fc' : C.accent,
+        textTransform: 'uppercase', letterSpacing: '0.08em',
+        marginBottom: '0.15rem',
+        textShadow: room.isSafeZone
+          ? '0 0 8px rgba(165,243,252,0.4)'
+          : '0 0 8px rgba(var(--phosphor-rgb),0.3)',
+      }}>
+        {room.name.replace(/_/g, ' ')}
+        {room.isSafeZone && <span style={{
+          fontSize: S.base, fontWeight: 'normal', opacity: 0.7,
+          marginLeft: '0.6ch', letterSpacing: '0.04em',
+        }}>[SAFE]</span>}
+      </div>
+      <div style={{
+        fontFamily: 'monospace', fontSize: S.base,
+        color: C.dimmer, marginBottom: '0.5rem',
+      }}>
+        {zone?.name?.replace(/_/g, ' ') ?? 'UNKNOWN ZONE'}
+      </div>
       {/* Room description — flowing paragraphs */}
       {room.description.split('\n\n').map((para, pi) => (
         <div key={k(`desc-p-${pi}`)} style={{
