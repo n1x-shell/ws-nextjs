@@ -3451,7 +3451,7 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           cursor: 'pointer', touchAction: 'manipulation',
         }}
       >
-        {/* Section 1: Identity row — handle/subject left, Lv right */}
+        {/* Section 1: Identity row — handle/subject left, Lv + quest right */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{
             color: 'var(--phosphor-accent)', fontWeight: 'bold',
@@ -3460,14 +3460,28 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           }} className={S.glow}>
             {data.handle} {'\u2014'} {data.subjectId}
           </span>
-          <span style={{
-            color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
-            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
-            borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
-            boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
-          }}>
-            Lv.{data.level}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            {data.activeQuestCount > 0 && (
+              <span
+                role="button" tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
+                style={{
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24',
+                  border: '1px solid rgba(251,191,36,0.3)', padding: '0.05rem 0.3rem',
+                  borderRadius: 2, cursor: 'pointer', touchAction: 'manipulation',
+                }}
+              >{data.activeQuestCount}J</span>
+            )}
+            <span style={{
+              color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
+              border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
+              borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
+              boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
+            }}>
+              Lv.{data.level}
+            </span>
+          </div>
         </div>
 
         {/* Section 2: HP + RAM + XP bars */}
@@ -3606,44 +3620,6 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
       background: BG_PANEL,
       borderBottom: `1px solid ${BORDER}`,
     }}>
-      {/* Room header */}
-      <div style={{
-        padding: '0.3rem 0.6rem',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderBottom: `1px solid ${BORDER}`,
-        background: 'rgba(var(--phosphor-rgb),0.03)',
-      }}>
-        <span style={{
-          fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
-          color: 'var(--phosphor-accent)',
-          letterSpacing: '0.04em',
-        }} className={S.glow}>
-          {data.zoneName} {'\u2014'} {data.roomName}
-        </span>
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          {data.isSafeZone && (
-            <span style={{
-              fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.safe,
-              border: '1px solid rgba(165,243,252,0.3)', padding: '0.1rem 0.35rem',
-              borderRadius: 2, lineHeight: 1.3,
-            }}>SAFE</span>
-          )}
-          {data.activeQuestCount > 0 && (
-            <span role="button" tabIndex={0}
-              onClick={() => eventBus.emit('mud:execute-command', { command: '/jobs' })}
-              onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
-              style={{
-                fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.quest,
-                border: '1px solid rgba(251,191,36,0.35)', padding: '0.1rem 0.35rem',
-                borderRadius: 2, cursor: 'pointer', touchAction: 'manipulation',
-              }}
-            >
-              {data.activeQuestCount}J
-            </span>
-          )}
-        </div>
-      </div>
-
       {/* Panel grid — fixed height derived from map grid */}
       <div style={{
         height: panelContentH,
