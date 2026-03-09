@@ -857,19 +857,9 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
   eventBus.emit('mud:panel-mode-reset-non-map');
 
   // Narrative-only output — NPCs, enemies, objects, exits are in the HUD panels
+  // Room header + safe zone badge are in TopPanels — don't duplicate here
   addLocalMsg(
     <div key={k('look')} data-room-entry="true">
-      {/* Zone + room header */}
-      <MudLine color={C.accent} glow bold>
-        {zone?.name ?? 'UNKNOWN ZONE'} — {room.name}
-      </MudLine>
-
-      {room.isSafeZone && (
-        <MudLine color={C.safe} opacity={0.8}>[ SAFE ZONE ]</MudLine>
-      )}
-
-      <MudSpacer />
-
       {/* Room description — flowing paragraphs */}
       {room.description.split('\n\n').map((para, pi) => (
         <div key={k(`desc-p-${pi}`)} style={{

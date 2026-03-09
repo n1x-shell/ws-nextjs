@@ -426,6 +426,8 @@ function StatModal({ archetype, onConfirm }: {
 
   // ── Phase 2: Allocation — CP2077-style +/- spending ───────────────────
 
+  const [showInfo, setShowInfo] = useState(false);
+
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 300,
@@ -444,19 +446,33 @@ function StatModal({ archetype, onConfirm }: {
         position: 'relative', zIndex: 1,
         boxShadow: '0 0 40px rgba(var(--phosphor-rgb),0.06)',
       }}>
-        {/* Title */}
+        {/* Title row with tab toggle */}
         <div style={{
           padding: '0.6rem 0.8rem',
           borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)',
           background: 'rgba(var(--phosphor-rgb),0.04)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{
-            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
-            color: '#cc44ff', letterSpacing: '0.08em',
-          }}>
-            DISTRIBUTE POINTS
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch' }}>
+            <span style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+              color: '#cc44ff', letterSpacing: '0.08em',
+            }}>
+              DISTRIBUTE POINTS
+            </span>
+            <button
+              onClick={() => setShowInfo(!showInfo)}
+              style={{
+                fontFamily: 'monospace', fontSize: '0.7em',
+                color: showInfo ? 'var(--phosphor-accent)' : 'rgba(var(--phosphor-rgb),0.35)',
+                background: showInfo ? 'rgba(var(--phosphor-rgb),0.08)' : 'transparent',
+                border: `1px solid ${showInfo ? 'rgba(var(--phosphor-rgb),0.3)' : 'rgba(var(--phosphor-rgb),0.12)'}`,
+                borderRadius: 2, padding: '0.15rem 0.4rem',
+                cursor: 'pointer', touchAction: 'manipulation',
+                letterSpacing: '0.06em',
+              }}
+            >INFO</button>
+          </div>
           <span style={{
             fontFamily: 'monospace', fontSize: 'var(--text-base)', fontWeight: 'bold',
             color: allSpent ? '#4ade80' : '#fbbf24',
@@ -465,27 +481,26 @@ function StatModal({ archetype, onConfirm }: {
           </span>
         </div>
 
-        {/* Current base */}
-        <div style={{ padding: '0.5rem 0.8rem', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
-          <div style={{ color: 'rgba(var(--phosphor-rgb),0.55)', marginBottom: '0.3rem' }}>
-            current base ({ARCHETYPE_INFO[archetype].label})
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 0.5ch' }}>
-            {ATTR_ORDER.map((attr, i) => (
-              <span key={attr} style={{ whiteSpace: 'nowrap' }}>
-                {i > 0 && dot}
+        {/* INFO panel — toggleable */}
+        {showInfo && (
+          <div style={{
+            padding: '0.4rem 0.8rem',
+            borderBottom: '1px solid rgba(var(--phosphor-rgb),0.08)',
+            background: 'rgba(var(--phosphor-rgb),0.02)',
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.15rem 1ch',
+            fontFamily: 'monospace', fontSize: '0.65em', lineHeight: 1.5,
+          }}>
+            {ATTR_ORDER.map(attr => (
+              <div key={attr}>
                 <span style={{ color: STAT_COLOR[attr], fontWeight: 'bold' }}>{attr}</span>
-                <span style={{ color: 'rgba(255,255,255,0.6)', marginLeft: '0.3ch' }}>{base[attr]}</span>
-                {(bonuses[attr] ?? 0) > 0 && (
-                  <span style={{ color: 'rgba(var(--phosphor-rgb),0.4)', fontSize: '0.8em' }}>(+{bonuses[attr]})</span>
-                )}
-              </span>
+                <span style={{ color: 'rgba(255,255,255,0.3)' }}> {STAT_DESC[attr]}</span>
+              </div>
             ))}
           </div>
-        </div>
+        )}
 
         {/* Stat rows */}
-        <div style={{ padding: '0.3rem 0.8rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+        <div style={{ padding: '0.4rem 0.8rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
           {ATTR_ORDER.map(attr => {
             const val = attrs[attr];
             const baseVal = base[attr];
@@ -497,7 +512,7 @@ function StatModal({ archetype, onConfirm }: {
             return (
               <div key={attr} style={{
                 display: 'grid',
-                gridTemplateColumns: '5.5ch auto 1fr auto 2.5ch',
+                gridTemplateColumns: '6.5ch auto 1fr auto 2.5ch',
                 alignItems: 'center', gap: '0.4ch',
                 fontFamily: 'monospace', fontSize: 'var(--text-base)',
               }}>
@@ -576,22 +591,7 @@ function StatModal({ archetype, onConfirm }: {
           })}
         </div>
 
-        {/* Stat descriptions — compact */}
-        <div style={{
-          padding: '0.3rem 0.8rem 0.5rem',
-          borderTop: '1px solid rgba(var(--phosphor-rgb),0.08)',
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.1rem 1ch',
-          fontFamily: 'monospace', fontSize: '0.65em', lineHeight: 1.5,
-        }}>
-          {ATTR_ORDER.map(attr => (
-            <div key={attr}>
-              <span style={{ color: STAT_COLOR[attr], fontWeight: 'bold' }}>{attr}</span>
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}> {STAT_DESC[attr]}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Confirm button — "tell me your numbers" */}
+        {/* Confirm button */}
         <div style={{
           padding: '0.5rem 0.8rem 0.7rem',
           borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
