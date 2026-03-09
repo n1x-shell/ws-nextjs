@@ -3444,7 +3444,7 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         style={{
           flex: 1, minWidth: 0,
           fontFamily: 'monospace', fontSize: S.base,
-          padding: '0.3rem 0.5rem 0.1rem',
+          padding: '0.3rem 0.5rem 0',
           display: 'flex', flexDirection: 'column',
           justifyContent: 'space-between',
           gap: '0.25rem', position: 'relative',
@@ -3627,11 +3627,12 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
       flexShrink: 0,
       background: BG_PANEL,
       borderBottom: `1px solid ${BORDER}`,
-      paddingTop: 10,
+      paddingTop: 5,
     }}>
-      {/* Panel grid — fixed height derived from map grid */}
+      {/* Panel grid — fixed height for map mode, auto for others */}
       <div style={{
-        height: panelContentH,
+        height: isMapMode ? panelContentH : undefined,
+        maxHeight: isMapMode ? undefined : panelContentH,
         display: 'grid',
         gridTemplateColumns: isMapMode ? 'auto 1fr'
           : isSalvageMode ? '1fr 1fr'
