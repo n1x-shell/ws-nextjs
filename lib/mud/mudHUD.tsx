@@ -87,6 +87,16 @@ const BG_PANEL = 'rgba(10,10,10,0.75)';
 const BG_COMBAT = 'rgba(13,8,8,0.75)';
 const BORDER = 'rgba(var(--phosphor-rgb),0.15)';
 const BORDER_COMBAT = 'rgba(255,68,68,0.25)';
+
+// Per-attribute phosphor colors — matches character creation
+const STAT_COLOR: Record<string, string> = {
+  BODY:   '#ff6b6b',
+  REFLEX: '#fcd34d',
+  TECH:   '#d8b4fe',
+  COOL:   '#93c5fd',
+  INT:    '#67e8f9',
+  GHOST:  '#cc44ff',
+};
 // ── HUD FX Keyframes ────────────────────────────────────────────────────────
 
 function HUDFXStyles() {
@@ -414,9 +424,11 @@ function Btn({ label, command, color, borderColor, small }: {
   );
 }
 
-function Bar({ pct, color, width = '100%', height = 5 }: {
-  pct: number; color: string; width?: string; height?: number;
+function Bar({ pct, color, gradient, width = '100%', height = 5 }: {
+  pct: number; color: string; gradient?: string; width?: string; height?: number;
 }) {
+  const bg = gradient ?? color;
+  const shadow = gradient ? 'none' : `0 0 6px ${color}, 0 0 2px ${color}`;
   return (
     <div style={{
       width, height, background: 'rgba(var(--phosphor-rgb),0.06)',
@@ -425,8 +437,8 @@ function Bar({ pct, color, width = '100%', height = 5 }: {
     }}>
       <div style={{
         width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%',
-        background: color,
-        boxShadow: `0 0 6px ${color}, 0 0 2px ${color}`,
+        background: bg,
+        boxShadow: shadow,
         transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       }} />
     </div>
@@ -1614,7 +1626,7 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
                 display: 'grid', gridTemplateColumns: '5.5ch 2ch 1fr', gap: '0.4ch', alignItems: 'center',
                 fontFamily: 'monospace', fontSize: 'var(--text-base)', padding: '0.1rem 0',
               }}>
-                <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
+                <span style={{ color: STAT_COLOR[attr] ?? 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
                 <span style={{ color: C.dim, textAlign: 'right' }}>{val}</span>
                 <span style={{ color: 'rgba(var(--phosphor-rgb),0.35)', fontSize: '0.8em', letterSpacing: '-0.5px' }}>{bar}</span>
               </div>
@@ -1844,7 +1856,7 @@ function LevelUpModal({ session, onClose }: {
                       touchAction: 'manipulation',
                     }}
                   >
-                    <span style={{ color: isFlashing ? C.heal : 'var(--phosphor-green)', fontWeight: 'bold' }}>
+                    <span style={{ color: isFlashing ? C.heal : (STAT_COLOR[attr] ?? 'var(--phosphor-green)'), fontWeight: 'bold' }}>
                       {attr}
                     </span>
                     <span style={{ color: isFlashing ? C.heal : C.dim, textAlign: 'right' }}>
@@ -2485,7 +2497,7 @@ function InventoryModal({ session, data, onClose }: {
               display: 'flex', flexWrap: 'wrap', gap: '0.5ch', marginTop: '0.2rem',
             }}>
               {Object.entries(currentSlotItem.statBonuses).filter(([,v]) => v).map(([attr, val]) => (
-                <span key={attr} style={{ fontFamily: 'monospace', fontSize: '0.6em', color: 'var(--phosphor-green)' }}>+{val} {attr}</span>
+                <span key={attr} style={{ fontFamily: 'monospace', fontSize: '0.6em', color: STAT_COLOR[attr] ?? 'var(--phosphor-green)' }}>+{val} {attr}</span>
               ))}
             </div>
           </div>
@@ -2534,7 +2546,7 @@ function InventoryModal({ session, data, onClose }: {
                   <>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5ch', marginTop: '0.15rem' }}>
                       {Object.entries(item.statBonuses).filter(([,v]) => v).map(([attr, val]) => (
-                        <span key={attr} style={{ fontFamily: 'monospace', fontSize: '0.6em', color: 'var(--phosphor-green)' }}>+{val} {attr}</span>
+                        <span key={attr} style={{ fontFamily: 'monospace', fontSize: '0.6em', color: STAT_COLOR[attr] ?? 'var(--phosphor-green)' }}>+{val} {attr}</span>
                       ))}
                       {item.armorBonus ? <span style={{ fontFamily: 'monospace', fontSize: '0.6em', color: 'var(--phosphor-green)' }}>+{item.armorBonus} armor</span> : null}
                     </div>
@@ -2649,7 +2661,7 @@ function InventoryModal({ session, data, onClose }: {
                 display: 'grid', gridTemplateColumns: '5.5ch 2ch 1fr', gap: '0.4ch', alignItems: 'center',
                 fontFamily: 'monospace', fontSize: 'var(--text-base)', padding: '0.1rem 0',
               }}>
-                <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
+                <span style={{ color: STAT_COLOR[attr] ?? 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
                 <span style={{ color: C.dim, textAlign: 'right' }}>{val}</span>
                 <span style={{ color: 'rgba(var(--phosphor-rgb),0.35)', fontSize: '0.8em', letterSpacing: '-0.5px' }}>{bar}</span>
               </div>
@@ -3403,8 +3415,10 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
   const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
-  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
+
+  // Gold dot separator for stat grid
+  const dot = <span style={{ color: '#fbbf24', fontWeight: 'bold', opacity: 0.7 }}>{'\u00b7'}</span>;
 
   return (
     <div style={{
@@ -3428,9 +3442,9 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         style={{
           flex: 1, minWidth: 0,
           fontFamily: 'monospace', fontSize: S.base,
-          padding: '0.35rem 0.6rem',
+          padding: '0.3rem 0.5rem',
           display: 'flex', flexDirection: 'column',
-          gap: '0.2rem', position: 'relative',
+          gap: '0.15rem', position: 'relative',
           cursor: 'pointer', touchAction: 'manipulation',
         }}
       >
@@ -3457,37 +3471,68 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           </div>
         </div>
 
-        {/* Row 2: HP bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
-          <span style={{ color: hpColor, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+        {/* Row 2: HP bar — cyan to magenta gradient */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          <span style={{ color: '#67e8f9', width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold' }}>HP</span>
+          <div style={{ flex: 1 }}>
+            <Bar pct={hpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={6} />
+          </div>
+          <span style={{ color: hpPct > 60 ? '#67e8f9' : hpPct > 25 ? '#fbbf24' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
             {data.hp}/{data.maxHp}
           </span>
         </div>
 
         {/* Row 3: XP bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={6} /></div>
-          <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          <span style={{ color: C.xp, width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7 }}>XP</span>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
+          <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.7 }}>
             {data.xp}/{data.xpNext}
           </span>
         </div>
 
-        {/* Row 4: Attributes in one horizontal row */}
+        {/* Row 4-5: Attributes — 2 rows × 3 cols with gold dot separators */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: '0.5ch',
-          flexWrap: 'wrap',
-          color: C.dim, fontSize: 'var(--text-base)',
+          display: 'grid',
+          gridTemplateColumns: 'auto auto auto auto auto',
+          alignItems: 'center',
+          justifyContent: 'start',
+          gap: '0 0.5ch',
+          fontSize: 'var(--text-base)',
+          lineHeight: 1.6,
+          marginTop: '0.05rem',
         }}>
-          {ATTR_ORDER.map((attr, i) => (
-            <span key={attr} style={{ display: 'flex', alignItems: 'center', gap: '0.3ch', whiteSpace: 'nowrap' }}>
-              {i > 0 && <span style={{ color: C.faint }}>{'\u00b7'}</span>}
-              <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
-              <span style={{ color: C.dim }}>{data.attributes[attr]}</span>
-            </span>
-          ))}
+          {/* Row 1: BODY · REFLEX · TECH */}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: STAT_COLOR.BODY, fontWeight: 'bold' }}>BODY</span>
+            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.BODY}</span>
+          </span>
+          {dot}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: STAT_COLOR.REFLEX, fontWeight: 'bold' }}>REFLEX</span>
+            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.REFLEX}</span>
+          </span>
+          {dot}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: STAT_COLOR.TECH, fontWeight: 'bold' }}>TECH</span>
+            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.TECH}</span>
+          </span>
+
+          {/* Row 2: INT · COOL · GHOST */}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: STAT_COLOR.INT, fontWeight: 'bold' }}>INT</span>
+            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.INT}</span>
+          </span>
+          {dot}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: STAT_COLOR.COOL, fontWeight: 'bold' }}>COOL</span>
+            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.COOL}</span>
+          </span>
+          {dot}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: STAT_COLOR.GHOST, fontWeight: 'bold' }}>GHOST</span>
+            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.GHOST}</span>
+          </span>
         </div>
       </div>
 
