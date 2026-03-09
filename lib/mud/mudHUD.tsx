@@ -3779,7 +3779,7 @@ export function MudHUDContainer({ session, children }: {
     });
   }, []);
 
-  // Scroll chat so latest room entry is at top of viewport
+  // Scroll chat so latest room entry is at top of chat panel (not page)
   const scrollChatToRoomEntry = useCallback(() => {
     const el = chatRef.current;
     if (!el) return;
@@ -3787,7 +3787,8 @@ export function MudHUDContainer({ session, children }: {
       const entries = el.querySelectorAll('[data-room-entry]');
       if (entries.length > 0) {
         const last = entries[entries.length - 1] as HTMLElement;
-        last.scrollIntoView({ behavior: 'auto', block: 'start' });
+        // Offset within the scrollable chat container
+        el.scrollTop = last.offsetTop - el.offsetTop;
       }
     });
   }, []);
