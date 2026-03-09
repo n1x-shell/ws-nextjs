@@ -1,7 +1,7 @@
 // lib/mud/worldMap.ts
 // TUNNELCORE MUD — World Map
 // Room definitions, zone registry, room lookups.
-// Phase 1: Drainage Nexus only (Zone 8, 14 rooms).
+// Phase 1: Drainage Nexus (Zone 8, 14 rooms). Phase 2: Maintenance Tunnels (Zone 9, 11 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -685,11 +685,560 @@ export const ZONE_08: Zone = {
   originPoint: 'DRAINAGE',
 };
 
+// ── Zone 09: Maintenance Tunnels ────────────────────────────────────────────
+
+const Z09_ROOMS: Record<string, Room> = {
+
+  // ── 1. WEST JUNCTION ─────────────────────────────────────────────────────
+
+  z09_r01: {
+    id: 'z09_r01',
+    zone: 'z09',
+    name: 'WEST JUNCTION',
+    description:
+`a concrete junction where three tunnel corridors meet. ceiling
+low — two and a half meters — lined with cable bundles, pipe
+runs, ventilation ducts. everything functional. nothing maintained.
+dust on every horizontal surface, thick enough to record footprints.
+emergency amber strips cast the junction in flat light. some have
+failed. pockets of darkness between pools of dim glow.
+
+footprints in the dust. not yours. multiple sets, different sizes,
+going different directions. you're not the first person to find
+these tunnels. you're not alone down here.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z08_r12', description: 'west (Drainage Nexus — East Passage)', zoneTransition: true, targetZone: 'z08' },
+      { direction: 'south', targetRoom: 'z09_r02', description: 'south (Cable Gallery)' },
+      { direction: 'down', targetRoom: 'z10_r01', description: 'down (Industrial Drainage — utility shaft)', zoneTransition: true, targetZone: 'z10' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'tunnel_rats_z09', name: 'Tunnel Rats', level: 4,
+        description: 'Large. Adapted to the electrical environment. Thin fur, enlarged eyes. Scatter from light. Nest defense only.',
+        hp: 12, attributes: enemyAttrs(4), damage: 3, armorValue: 0,
+        behavior: 'passive', spawnChance: 0.6, count: [3, 4],
+        drops: [
+          { itemId: 'scrap_metal', chance: 0.4, quantityRange: [1, 2] },
+          { itemId: 'tunnel_wire', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 12,
+      },
+    ],
+    objects: [
+      { id: 'dust_footprints', name: 'dust footprints', examineText: 'Multiple sets. Some old — dust partially refilled the tracks. Some recent — sharp edges, clear tread patterns. At least three people in the past month. GHOST ≥ 4: One set leads south with purpose — regular stride, familiar route. Another wanders — exploring, hesitant. The third set is barefoot. Barefoot in maintenance tunnels. Someone lives here.' },
+      { id: 'access_panels', name: 'access panels', examineText: 'Cable termination points, electrical switchgear, valve manifolds. The residential blocks\' infrastructure, accessible from below. TECH ≥ 5: Some panels control building systems — power routing, ventilation, mesh signal distribution. You could shut down power to an entire apartment building from here. Nobody would know why.' },
+      { id: 'emergency_lighting', name: 'emergency lighting', examineText: 'Amber strips along the floor — battery-backed emergency system. Some have failed. Twenty-year lifespan. These have been running for fifteen. In five more years, the western tunnels will be completely dark. Nobody will replace them.' },
+      { id: 'cable_bundles_z09', name: 'cable bundles', examineText: 'Fiber optic and copper, bundled and secured to the ceiling with cable trays. Fiber carries mesh signal to every building above. Copper carries power. TECH ≥ 6: The mesh signal passes through this junction. You could tap it — intercept residential mesh traffic, read the data, even modify it before it reaches the apartments. Down here, you could do it from the source.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 2. CABLE GALLERY ─────────────────────────────────────────────────────
+
+  z09_r02: {
+    id: 'z09_r02',
+    zone: 'z09',
+    name: 'CABLE GALLERY',
+    description:
+`a long corridor — fifty meters, straight, wide enough for a
+maintenance cart that hasn't been here in a decade. the walls
+are cable. not decorated with cable — made of cable. thousands
+of runs, bundled and secured, covering every surface floor to
+ceiling. fiber optic bundles glow faintly — data moving through
+glass. copper runs oxidized green where condensation pooled.
+
+the gallery hums. every cable carries current or signal and the
+combined vibration creates a sound felt as much as heard. low,
+constant, sits in your chest at 60hz. not 33hz. the city's own
+frequency. infrastructure, not biology. machine, not heartbeat.
+
+at the gallery's midpoint, a side passage leads to something
+that shouldn't exist.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z09_r01', description: 'north (West Junction)' },
+      { direction: 'south', targetRoom: 'z09_r03', description: 'south (Ventilation Hub)' },
+      { direction: 'east', targetRoom: 'z09_r05', description: 'east (Forgotten Server Room)', hidden: true, hiddenRequirement: { attribute: 'GHOST', minimum: 5 } },
+    ],
+    npcs: [
+      {
+        id: 'moth', name: 'Moth', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'Small woman, fifties. Moves like the rats — quick, quiet, against the walls. Sitting at the gallery midpoint eating from a can.',
+        dialogue: "\"…don't scream. I'm not going to hurt you. I just need to know if you're alone.\"",
+        startingDisposition: -10,
+        services: ['trade', 'guide', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'cable_walls', name: 'cable walls', examineText: 'Thousands of runs. Fiber, copper, coaxial, types you don\'t recognize. Organized by layer — power at the bottom, mesh signal in the middle, legacy at the top. The legacy layer is dead — analog telephone, cable television, pre-mesh internet. Ghost infrastructure. The nervous system of a city that doesn\'t exist anymore.' },
+      { id: 'fiber_glow', name: 'fiber glow', examineText: 'Fiber optic bundles glow faintly where the emergency lighting is dim. Data — light pulses carrying mesh traffic. Millions of transmissions per second, visible as a shimmer in the glass. The residential blocks\' entire digital life flowing through this corridor. Accessible, readable, completely unprotected.' },
+      { id: 'the_hum', name: 'the hum', examineText: 'Cable vibration, power hum, the acoustic effect of thousands of current-carrying conductors in an enclosed space. Approximately 60hz — mains frequency. NOT the 33hz Substrate pulse. The city\'s own frequency. Learning to tell them apart matters.' },
+      { id: 'hidden_passage', name: 'hidden passage', examineText: 'GHOST ≥ 5: Behind a loose access panel, a narrow passage branches east. The panel has been opened and closed many times — dust pattern shows regular use. Moth doesn\'t go this way. She says the passage leads to a room that \'hums wrong.\' She means the 33hz.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 3. VENTILATION HUB ───────────────────────────────────────────────────
+
+  z09_r03: {
+    id: 'z09_r03',
+    zone: 'z09',
+    name: 'VENTILATION HUB',
+    description:
+`the corridor opens into a space that shouldn't exist beneath
+apartment buildings. a chamber — twenty meters across, fifteen
+high — dominated by industrial ventilation machinery. four massive
+air handling units, each the size of a shipping container. ductwork
+branches in every direction. the units run on automatic, cycling
+air through the residential blocks above. unattended for years.
+the noise is constant and enormous.
+
+the chamber is the city's lungs. the air you breathe in every
+residential apartment passes through these machines. the units
+also contain mesh signal repeaters — the ducts double as signal
+waveguides. you breathe the mesh. literally.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z09_r02', description: 'north (Cable Gallery)' },
+      { direction: 'south', targetRoom: 'z09_r04', description: 'south (Smuggler\'s Corridor)' },
+      { direction: 'up', targetRoom: 'z02_r07', description: 'up (Residential Blocks — Squatter Floors)', zoneTransition: true, targetZone: 'z02' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'tunnel_vermin_swarm', name: 'Tunnel Vermin Swarm', level: 5,
+        description: 'Warm air and vibration attract them. Large adapted cockroaches nesting in the ventilation housing. Swarm when disturbed.',
+        hp: 18, attributes: enemyAttrs(5), damage: 2, armorValue: 0,
+        behavior: 'passive', spawnChance: 0.5, count: [2, 4],
+        drops: [
+          { itemId: 'vermin_chitin', chance: 0.3, quantityRange: [1, 2] },
+        ],
+        xpReward: 15,
+      },
+    ],
+    objects: [
+      { id: 'air_handling_units', name: 'air handling units', examineText: 'Industrial. Enormous. Each unit processes air for approximately fifty apartment buildings. Filters clogged — years without replacement. Air quality in the blocks has been slowly degrading. Nobody above has noticed because the mesh doesn\'t flag infrastructure issues in neglected zones. The lungs of the city are failing and the city doesn\'t know.' },
+      { id: 'mesh_repeaters', name: 'mesh repeaters', examineText: 'TECH ≥ 6: Embedded in the air handling units. Mesh signal modulated onto a carrier wave propagated through the ductwork — the ducts act as waveguides distributing signal into every room in every building. You breathe mesh-frequency air. TECH ≥ 8: The repeaters can be disabled. Doing so drops mesh coverage in approximately fifty buildings. Residents would feel it as anxiety, confusion — withdrawal. The mesh is a dependency.' },
+      { id: 'the_noise', name: 'the noise', examineText: 'Constant 85-decibel roar. Conversation impossible without shouting. GHOST checks are easier here — noise covers movement, footsteps, even combat. But it also covers approaching threats. Acoustically dangerous both ways.' },
+      { id: 'renovation_cables', name: 'renovation cable runs', examineText: 'New cable installation — recent, clean, Helixion branding on the conduit. Running to the building directly above. TECH ≥ 6: These are mesh-compliance monitoring lines. When active, they extend surveillance into the tunnel infrastructure beneath the building. Moth\'s living space would be exposed. The cable junction box has standard Helixion connectors. Disable them before they go active and the monitoring never reaches down here.' },
+      { id: 'drainage_grates', name: 'drainage grates', examineText: 'Below the catwalks: grated floor sections showing utility shafts descending into darkness. Narrow — too small for comfort, large enough if desperate. GHOST ≥ 5: Warm air rises from below. Not machine warmth — organic warmth. Biological activity in the deep shafts. Something alive. Something large enough to generate heat.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 4. SMUGGLER'S CORRIDOR ───────────────────────────────────────────────
+
+  z09_r04: {
+    id: 'z09_r04',
+    zone: 'z09',
+    name: "SMUGGLER'S CORRIDOR",
+    description:
+`a long utility corridor running south from the ventilation hub.
+every twenty meters, an access panel opens onto cable infrastructure
+serving a different building. some panel numbers scratched out and
+replaced with symbols — a system of marks that means nothing to
+you and everything to someone.
+
+smuggler marks. this corridor is a contraband highway. medical
+supplies, stims, unregistered cyberware, food that didn't come
+through helixion supply chains. the marks indicate drop points,
+safe sections, timing windows.
+
+the corridor is cleaner than the rest of the western tunnels.
+someone sweeps it. someone maintains the lighting. someone cares
+about this passage because it makes them money.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z09_r03', description: 'north (Ventilation Hub)' },
+      { direction: 'east', targetRoom: 'z09_r06', description: 'east (The Bulkhead)' },
+    ],
+    npcs: [
+      {
+        id: 'fex', name: 'Fex', type: 'SHOPKEEPER',
+        faction: 'FREEMARKET',
+        description: 'Thirties. Quick, lean, perpetually amused. Leaning against a panel midway along the corridor. Waiting for a delivery or a customer.',
+        dialogue: "\"Looking for something? I probably have it. Don't have it? I can get it. Can't get it? It doesn't exist. — What's your budget?\"",
+        startingDisposition: 0,
+        services: ['trade', 'quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'smuggler_marks', name: 'smuggler marks', examineText: 'Scratched into the walls beside access panels. Circles (drop points), arrows (safe direction), crosses (avoid), stars (timing windows). GHOST ≥ 4: Standardized Freemarket smuggler notation. Used across the city\'s underground passages. Learning the system reveals an invisible navigation layer.' },
+      { id: 'access_panel_drops', name: 'access panel drops', examineText: 'Some panels modified — hinges oiled, latches replaced, interiors cleaned. Active drop points. Goods left in the cable space behind the panel, collected by the next courier. Low-tech. Highly effective.' },
+      { id: 'maintained_lighting', name: 'maintained lighting', examineText: 'Emergency lighting in this section works. All of it. Failed strips replaced. Floor swept. The difference between this corridor and the rest of the western tunnels is maintenance. Investment implies value. Value implies traffic.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 5. FORGOTTEN SERVER ROOM ─────────────────────────────────────────────
+
+  z09_r05: {
+    id: 'z09_r05',
+    zone: 'z09',
+    name: 'FORGOTTEN SERVER ROOM',
+    description:
+`behind the loose panel in the cable gallery, through a narrow
+passage that smells like old air and hot metal. a room that time
+forgot.
+
+pre-helixion server room. beige metal housings, fans spinning on
+dying bearings, LED indicators blinking in patterns that mean
+nothing to modern systems. installed when the residential blocks
+were built. managed the buildings' original systems — climate,
+security, utilities. helixion migrated everything and forgot these
+existed. running on a dedicated circuit nobody thought to cut.
+fifteen years. the data is intact.
+
+the servers hum. not at 60hz. at 33hz. every oscillator has
+drifted to the substrate's frequency. the room hums wrong.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z09_r02', description: 'west (Cable Gallery)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'old_servers', name: 'old servers', examineText: 'Pre-Helixion hardware. Decades old. Still running because nobody cut the dedicated power circuit. The data on them is intact — building management records, resident databases, communication logs. TECH ≥ 6: The resident database contains records predating Helixion\'s absorption. Names, apartment numbers, biometric profiles. Cross-reference with memorial wall entries in the Drainage Nexus and the names match. Helixion\'s recruitment targets lived in these buildings. The subjects were chosen by address.' },
+      { id: 'comm_archive', name: 'communication archive', examineText: 'Thousands of messages. Last two years before Helixion absorbed the infrastructure. Early messages normal — weather, dinner plans. Late messages anxious. \'Have you noticed the new equipment on the roof?\' \'Did you get the mandatory health screening?\' \'My neighbor hasn\'t been home in a week.\' Archive ends mid-conversation. Someone was typing \'I think something is wrong with—\' and then Helixion pulled the plug.' },
+      { id: '33hz_resonance', name: '33hz resonance', examineText: 'The servers hum at 33hz. Old oscillators drifted from 50hz mains to the Substrate\'s frequency over fifteen years. TECH ≥ 8: The drift isn\'t random. The oscillators converged. Different components, different starting frequencies, same destination. The Substrate\'s frequency doesn\'t just broadcast. It attracts. It pulls other oscillations toward itself. The servers didn\'t drift. They were tuned.' },
+    ],
+    isSafeZone: true,
+    isHidden: true,
+    hiddenRequirement: { attribute: 'GHOST', minimum: 5 },
+  },
+
+  // ── 6. THE BULKHEAD ──────────────────────────────────────────────────────
+
+  z09_r06: {
+    id: 'z09_r06',
+    zone: 'z09',
+    name: 'THE BULKHEAD',
+    description:
+`a wall of steel. floor to ceiling, wall to wall. security bulkhead
+installed when helixion built the campus — sealing campus
+infrastructure from residential, maintained from neglected,
+controlled from forgotten.
+
+heavy-gauge steel. single access door — biometric lock, magnetic
+seal, camera above the frame. this side: dust, dim light, the hum
+of neglected cables. the other side (visible through a reinforced
+window): bright clinical white, clean corridors, helixion logo
+stenciled on the wall.
+
+the door has never been opened from this side. approaching it is
+a statement. opening it is an act of war.
+
+but the bulkhead was installed by humans who think in straight
+lines. the tunnels were built by engineers who thought in systems.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z09_r04', description: 'west (Smuggler\'s Corridor)' },
+      { direction: 'east', targetRoom: 'z09_r07', description: 'east (Sensor Corridor)', locked: true, lockId: 'bulkhead_bypass' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_bulkhead', name: 'the bulkhead', examineText: 'Steel. Heavy-gauge. Installed during campus construction. The residential side sealed off as a security measure. Helixion maintained their half. Nobody maintained the other. TECH ≥ 7: The biometric lock is military-grade but the magnetic seal runs on the same power grid as the western tunnels\' emergency lighting. Cut the power and the seal fails. The biometric stays active but the door can be forced. GHOST ≥ 6: The camera above the door has a blind spot — floor level, left side. Designed for standing humans, not crawling ones.' },
+      { id: 'bulkhead_camera', name: 'bulkhead camera', examineText: 'Continuous recording. Feeds to a D9 monitoring station. Approaching within five meters triggers an alert. TECH ≥ 6: The camera feed can be looped — a 30-second recording replayed to mask approach. The loop window is enough to reach the door. Not enough to open it.' },
+      { id: 'reinforced_window', name: 'reinforced window', examineText: 'Through the glass: bright white corridors. Clean. The contrast with this side is absolute. Two different cities sharing the same underground. The window is a mirror. It shows you what the city looks like when someone is paying attention.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 7. SENSOR CORRIDOR ───────────────────────────────────────────────────
+
+  z09_r07: {
+    id: 'z09_r07',
+    zone: 'z09',
+    name: 'SENSOR CORRIDOR',
+    description:
+`past the bulkhead. the world changed.
+
+the corridor is bright — white LED strips running the ceiling's
+full length. floor clean. walls clean. air different — processed,
+temperature-controlled, antiseptic nothing. cable runs enclosed
+in sealed conduit. utility panels locked. everything neat and
+maintained and watched.
+
+sensor modules at every junction. small boxes mounted at knee
+height, chest height, ceiling level. motion detectors. thermal
+sensors. the tunnel equivalent of campus biometric monitoring.
+anything that moves through here is tracked, logged, evaluated.
+the sensors don't trigger alarms. they trigger analysis.
+
+moving through the sensor corridor is a puzzle. the sensors have
+coverage patterns. the patterns have gaps. the gaps are small
+and they move.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z09_r06', description: 'west (The Bulkhead)' },
+      { direction: 'south', targetRoom: 'z09_r09', description: 'south (Helixion Service Corridor)' },
+      { direction: 'east', targetRoom: 'z09_r08', description: 'east (The Gap)', hidden: true, hiddenRequirement: { attribute: 'GHOST', minimum: 6 } },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'd9_tunnel_patrol_sensor', name: 'D9 Tunnel Patrol', level: 12,
+        description: 'Two agents. Arrive only if sensors triggered. Professional. Combat-trained. Cover angles, subvocal mesh comms. Fighting is loud — reinforcements in 10 minutes.',
+        hp: 65, attributes: { ...enemyAttrs(12), REFLEX: 8, GHOST: 7, COOL: 7 }, damage: 12, armorValue: 5,
+        behavior: 'patrol', spawnChance: 0.0, count: [2, 2],
+        drops: [
+          { itemId: 'd9_tactical_vest', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'd9_encrypted_intel', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'agent_sidearm', chance: 0.2, quantityRange: [1, 1] },
+        ],
+        xpReward: 120,
+      },
+    ],
+    objects: [
+      { id: 'sensor_modules', name: 'sensor modules', examineText: 'Small, angular, mounted at three heights. TECH ≥ 6: Helixion MPS-3 Multi-Spectrum Sensor Platform. Motion, thermal, and pressure in a single package. Military-grade. The overkill says something — whatever Helixion protects down here, they protect it seriously. Sensors self-calibrate every 18 hours. During calibration: a 30-second gap in thermal coverage.' },
+      { id: 'clean_corridor', name: 'clean corridor', examineText: 'Spotless. Recently cleaned — no dust, no debris, no footprints. Freshly painted Helixion white. Cable conduits sealed and locked. Everything about this corridor says \'this space is observed, maintained, and controlled.\' The neglected western tunnels are thirty meters behind you. The contrast is violent.' },
+      { id: 'the_gap_entrance', name: 'the gap entrance', examineText: 'GHOST ≥ 6: Between two sensor modules — a section of wall that doesn\'t match. Same Helixion white paint but the surface beneath is different. Not poured concrete. Brick. Old brick from before the Helixion construction. The sensor coverage skips this section — a one-meter gap where neither module\'s field reaches. TECH ≥ 5: Behind the brick — a cavity. Big enough for a person.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 8. THE GAP (hidden room) ─────────────────────────────────────────────
+
+  z09_r08: {
+    id: 'z09_r08',
+    zone: 'z09',
+    name: 'THE GAP',
+    description:
+`a cavity between walls. old construction on one side — brick,
+mortar, original tunnel structure from decades before helixion.
+new construction on the other — poured concrete, the bulkhead
+extension. between them: a space roughly two meters wide and ten
+meters long.
+
+someone lives here.
+
+a sleeping pad. water container. food — helixion nutrient bars,
+wrappers precisely folded and stacked. a single LED strip,
+battery-powered, cold blue. books. hand-tools. a journal open
+to a page covered in small, precise handwriting.
+
+and a person, sitting against the old wall, watching you with
+the expression of someone who has been alone for so long that
+another face is both miracle and threat.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z09_r07', description: 'west (Sensor Corridor)' },
+    ],
+    npcs: [
+      {
+        id: 'lumen', name: 'Lumen', type: 'LORE',
+        faction: 'NONE',
+        description: 'Indeterminate age. Could be thirty, could be fifty. Former Helixion infrastructure engineer. Three years between two walls.',
+        dialogue: "\"…you're real. you're actually real. I'm — I haven't — how long has it been since — no. Don't answer that. I know how long.\"",
+        startingDisposition: -10,
+        services: ['info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'lumen_journal', name: 'journal', examineText: 'Small, precise handwriting. Engineering notes becoming personal reflections becoming fragments. Recent entries are less structured — the handwriting wavers. Three years of absolute solitude recorded in diminishing coherence.' },
+      { id: 'nutrient_bars_stacked', name: 'nutrient bar wrappers', examineText: 'Helixion standard issue. Precisely folded and stacked. She steals them during the 30-second sensor calibration window — the gap in thermal coverage she designed. Her own creation is her food source and her prison.' },
+      { id: 'old_wall', name: 'old wall', examineText: 'Brick. Pre-Helixion. The mortar is warm — not from heating, from the earth behind it. The deeper infrastructure radiates heat. Lumen sleeps against this wall. She says it breathes. She means the warmth cycles. But the word she chose was \'breathes.\'' },
+      { id: 'sensor_grid_map', name: 'sensor grid map', examineText: 'Hand-drawn on the back of blueprint paper. The sensor corridor\'s complete coverage map — every sensor\'s field, every gap, every timing window. Patrol schedule plotted over 72 hours. Calibration windows in red. This map turns the sensor corridor from impossible to difficult. Three years of observation through cracks in the wall. Perfect.' },
+    ],
+    isSafeZone: true,
+    isHidden: true,
+    hiddenRequirement: { attribute: 'GHOST', minimum: 6 },
+  },
+
+  // ── 9. HELIXION SERVICE CORRIDOR ─────────────────────────────────────────
+
+  z09_r09: {
+    id: 'z09_r09',
+    zone: 'z09',
+    name: 'HELIXION SERVICE CORRIDOR',
+    description:
+`the main service corridor beneath the helixion campus. wider than
+the sensor corridor — wide enough for vehicles. floor marked with
+guidance lines: yellow for maintenance, red for security, blue for
+logistics. ceiling high enough for automated carts that move
+supplies between campus buildings without going through public
+spaces above.
+
+the corridor runs the full length of the campus underground.
+access doors branch to buildings — each biometric-locked, each
+leading to a service elevator. from here you could reach any
+building on campus without passing through a single public space.
+
+d9 agents walk this corridor. not patrolling — moving. using the
+service infrastructure as a covert transit system. the tunnels
+are d9's circulatory system.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z09_r07', description: 'north (Sensor Corridor)' },
+      { direction: 'south', targetRoom: 'z09_r10', description: 'south (Staging Area)' },
+    ],
+    npcs: [
+      {
+        id: 'hale', name: 'Hale', type: 'QUESTGIVER',
+        faction: 'HELIXION',
+        description: 'Forties. Tired. At a maintenance console along the corridor. Working. Trying to look like he\'s only working.',
+        dialogue: "\"Don't— don't talk to me. Keep walking. — Wait. Come back. But don't look at me. Look at the console. — Something's wrong down here. I need to tell someone.\"",
+        startingDisposition: -15,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'd9_tunnel_patrol_service', name: 'D9 Tunnel Patrol', level: 13,
+        description: 'Two agents on active patrol. Purposeful movement. If you\'re in their path, they engage. If you\'re in a side niche, they pass.',
+        hp: 70, attributes: { ...enemyAttrs(13), REFLEX: 9, GHOST: 7, COOL: 8 }, damage: 13, armorValue: 6,
+        behavior: 'patrol', spawnChance: 0.4, count: [2, 2],
+        drops: [
+          { itemId: 'd9_tactical_vest', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'd9_encrypted_intel', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_d9', chance: 0.2, quantityRange: [1, 1] },
+        ],
+        xpReward: 130,
+      },
+    ],
+    objects: [
+      { id: 'guidance_lines', name: 'guidance lines', examineText: 'Yellow, red, blue. Maintenance, security, logistics. The lines organize traffic beneath the campus. Yellow leads to maintenance access. Red leads to security positions. Blue leads to supply depots. GHOST ≥ 6: A fourth line — gray, barely visible against the floor. Leads south. Toward the section Hale was rerouted around. Doesn\'t appear on any maintenance schematic.' },
+      { id: 'service_elevators', name: 'service elevators', examineText: 'Access doors every thirty meters. Each labeled with the building it serves: \'COMPLIANCE WING — SL ACCESS,\' \'RESEARCH WING — SL ACCESS.\' Biometric locks with utility override keypads. TECH ≥ 7 or Hale\'s codes: utility overrides bypass biometrics during maintenance windows.' },
+      { id: 'utility_console', name: 'utility console', examineText: 'Maintenance control terminal. Power routing, ventilation management, lighting controls for the campus infrastructure. TECH ≥ 7: With the right codes, this console can trigger building-wide system events — power fluctuations, ventilation failures, lighting malfunctions. The kind of distraction that draws security attention away from other areas.' },
+      { id: 'd9_traffic', name: 'D9 traffic', examineText: 'Watch the corridor for ten minutes. Two agents pass — walking, not patrolling. Briefcases. No uniforms. They\'re commuting. The service corridor is D9\'s highway. GHOST ≥ 7: One agent has a communication device displaying a patrol roster. Photograph it and Lumen\'s schedule map becomes complete.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 10. STAGING AREA ─────────────────────────────────────────────────────
+
+  z09_r10: {
+    id: 'z09_r10',
+    zone: 'z09',
+    name: 'STAGING AREA',
+    description:
+`past the gray line on the floor. past the door that isn't on any
+maintenance schematic. into a section converted into something
+else entirely.
+
+the corridor widens into a loading bay. concrete. high ceiling.
+vehicle access — a ramp leading to the surface, gated, large
+enough for trucks. palletized cargo, some in opaque plastic, some
+in matte gray containers marked with helixion codes. automated
+forklift sorting. the logistics are professional. the security
+is intense.
+
+the containers are HX-7C specification — same as the industrial
+district docks. same matte gray. same satellite tracking. but
+these aren't coming from the docks. they're coming from below.
+from the deep access shaft. the supply chain runs the wrong
+direction. the containers aren't arriving from outside the city.
+they're arriving from beneath it.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z09_r09', description: 'north (Helixion Service Corridor)' },
+      { direction: 'east', targetRoom: 'z09_r11', description: 'east (Deep Access Shaft)' },
+      { direction: 'up', targetRoom: 'z01_r01', description: 'up (Helixion Campus — Service Sublevel)', zoneTransition: true, targetZone: 'z01' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'staging_security', name: 'Staging Security', level: 14,
+        description: 'Armed guards on rotation. They guard the deep access shaft entrance and the cargo bay. D9 backup in 5 minutes if engaged.',
+        hp: 80, attributes: { ...enemyAttrs(14), BODY: 9, REFLEX: 8, COOL: 8 }, damage: 14, armorValue: 7,
+        behavior: 'aggressive', spawnChance: 0.8, count: [2, 2],
+        drops: [
+          { itemId: 'security_keycard_d9', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'helixion_intel', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'military_rations', chance: 0.5, quantityRange: [1, 2] },
+        ],
+        xpReward: 150,
+      },
+    ],
+    objects: [
+      { id: 'hx7c_containers', name: 'HX-7C containers', examineText: 'Matte gray. Satellite-tracked. Same spec as the Cargo Docks in the Industrial District. TECH ≥ 8: Origin codes indicate subterranean retrieval. Not manufactured. Retrieved. These hold material from the Substrate Level. The Tower is being built from two directions.' },
+      { id: 'cargo_manifest', name: 'cargo manifest', examineText: 'TECH ≥ 9: Digital manifest. Contents: \'SUBSTRATE MATERIAL — CLASS 7 — PROJECT REMEMBERER.\' Delivery frequency: weekly. Volume: increasing. Destination: Broadcast Tower construction, upper array section. TECH ≥ 10: The factory-built resonance amplifiers are designed to interface with Substrate material. The Tower\'s antenna array is a hybrid — manufactured technology wrapped around organic architecture.' },
+      { id: 'the_ramp', name: 'the ramp', examineText: 'Vehicle access to the surface. Gated. Large enough for trucks. Ramp leads to a service entrance on the campus perimeter — disguised as a utility access point. GHOST ≥ 6: Heavy truck tracks. Used at night, 0200-0400, when campus activity is minimal.' },
+      { id: 'deep_shaft_entrance', name: 'deep shaft entrance', examineText: 'Heavy door opens onto a vertical shaft — service elevator, industrial grade, descending into darkness. Three levels below this one. The lowest is labeled \'SL-3.\' TECH ≥ 7: SL-3 corresponds to the Substrate Level depth estimate. Helixion has a private elevator to the Substrate.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 11. DEEP ACCESS SHAFT ────────────────────────────────────────────────
+
+  z09_r11: {
+    id: 'z09_r11',
+    zone: 'z09',
+    name: 'DEEP ACCESS SHAFT',
+    description:
+`the service elevator. industrial grade. the car is large —
+designed for cargo, not people. reinforced steel walls. controls
+simple: three levels below, one above. the shaft descends through
+rock — not concrete, not construction. rock. the tunnel
+infrastructure ends and the earth begins.
+
+the temperature drops, then rises. the walls change — cut stone
+to something less regular, less geometric. the rock is warm. the
+air humid. and the 33hz frequency, a faint hum in the maintenance
+tunnels above, becomes a physical presence. you feel it in the
+elevator car. you feel it in your teeth.
+
+first level below: abandoned transit. second level: unfinished,
+raw tunnel. third level — SL-3 — locked. helixion credentials
+required. the panel shows it active. whatever's at the bottom,
+the elevator visits regularly.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z09_r10', description: 'west (Staging Area)' },
+      { direction: 'down', targetRoom: 'z11_r01', description: 'down (Abandoned Transit — service ladder)', zoneTransition: true, targetZone: 'z11' },
+      { direction: 'deep', targetRoom: 'z14_r01', description: 'deep (Substrate Level — SL-3 elevator)', locked: true, lockId: 'helixion_sl3_credentials', zoneTransition: true, targetZone: 'z14' },
+    ],
+    npcs: [
+      {
+        id: 'reed', name: 'Reed', type: 'QUESTGIVER',
+        faction: 'IRON_BLOOM',
+        description: 'Thirties. Controlled. In the elevator shaft\'s maintenance alcove — a small space between floors, accessible from the service ladder.',
+        dialogue: "\"Don't use the elevator. — I heard you coming. Shaft acoustics. You hear everything. — I'm Reed. Iron Bloom. Four months listening to what goes up and what comes down. The numbers don't add up.\"",
+        startingDisposition: -5,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'elevator_shaft', name: 'elevator shaft', examineText: 'Vertical. Deep. Shaft walls transition from poured concrete (campus level) to cut stone (first sub-level) to something that might be natural rock (deeper). The further down you go, the warmer the walls get, and the stronger the 33hz becomes.' },
+      { id: 'reed_alcove', name: 'Reed\'s alcove', examineText: 'Maintenance space between elevator stops. Reed made it livable: sleeping bag, water, nutrient bars, a tablet with Iron Bloom encryption running a monitoring program. Photographs pinned to the wall — cargo manifests, guard faces, time-stamped shots. Four months of intelligence, one frame at a time.' },
+      { id: 'cargo_logs', name: 'cargo logs', examineText: 'Reed\'s photographed manifests. Going down: sensor arrays, frequency modulators, neural interface hardware. Coming up: organic crystalline substrate. Volume up is 1.4× the volume down. The discrepancy is consistent across every logged exchange. Reed has highlighted this ratio in red. Circled it. Underlined it. The Substrate is giving more than it receives.' },
+      { id: 'collapsed_passage', name: 'collapsed passage', examineText: 'A side passage off the main shaft — partially blocked by structural collapse. Rubble, bent steel, broken conduit. TECH ≥ 6: The passage connects to Iron Bloom server farm infrastructure through the deep tunnels. Clearing it opens a smuggling route. The collapse looks structural but the cut marks on the steel suggest someone brought this down deliberately.' },
+      { id: 'shaft_frequency', name: 'shaft frequency', examineText: 'The 33hz is strong here. The shaft acts as a resonant column — the frequency from below amplified by the vertical structure, like sound in an organ pipe. Reed says it changes at night — intensifies. Pulses. Sounds like breathing. She says she\'s probably imagining that. She says the dreams are getting specific.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+};
+
+// ── Zone 09 Definition ──────────────────────────────────────────────────────
+
+export const ZONE_09: Zone = {
+  id: 'z09',
+  name: 'MAINTENANCE TUNNELS',
+  depth: 'shallow',
+  faction: 'NONE',
+  levelRange: [4, 14],
+  description: 'The city\'s plumbing. Cable runs, ventilation, service corridors. Neglected west, locked-down east. The bulkhead divides two worlds.',
+  atmosphere: {
+    sound: 'West: electrical hum, ventilation fans, dripping. East: sensor chirps, drone servos, D9 boots.',
+    smell: 'West: dust, copper, mold. East: recycled antiseptic air.',
+    light: 'West: emergency amber strips, some dead. East: clinical white LEDs. No shadows.',
+    temp: 'West: cool, damp. East: climate-controlled, sterile.',
+  },
+  rooms: Z09_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
-// Add zones here as they're built. Phase 1: only Drainage Nexus.
 
 const ZONE_REGISTRY: Record<string, Zone> = {
   z08: ZONE_08,
+  z09: ZONE_09,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────

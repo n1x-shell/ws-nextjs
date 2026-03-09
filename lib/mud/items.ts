@@ -739,6 +739,101 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'material', tier: 'COMMON', stackable: true,
     sellPrice: 8,
   },
+
+  // ── Zone 09: Maintenance Tunnels Items ──────────────────────────────────
+
+  // Enemy drops
+  tunnel_wire: {
+    id: 'tunnel_wire', name: 'Tunnel Wire',
+    description: 'Copper and fiber stripped from dead cable runs. moth\'s currency. the tunnels pay in infrastructure.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 3,
+  },
+  vermin_chitin: {
+    id: 'vermin_chitin', name: 'Vermin Chitin',
+    description: 'Hardened insect shell from the ventilation hub swarms. chemical-resistant. someone probably wants this.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 2,
+  },
+  d9_tactical_vest: {
+    id: 'd9_tactical_vest', name: 'D9 Tactical Vest',
+    description: 'Directorate 9 issue. lightweight composite weave. effective. wearing it is a statement about whose side you\'re on.',
+    category: 'armor', tier: 'MIL_SPEC', stackable: false,
+    slot: 'armor', armorValue: 8,
+    buyPrice: 200, sellPrice: 80,
+  },
+  d9_encrypted_intel: {
+    id: 'd9_encrypted_intel', name: 'D9 Encrypted Intel',
+    description: 'Encrypted D9 communications chip. iron bloom or someone with TECH 8 can crack it. the contents are worth the effort.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 35, loreItem: true,
+  },
+  security_keycard_d9: {
+    id: 'security_keycard_d9', name: 'D9 Security Keycard',
+    description: 'D9 corridor access. opens helixion-side doors. don\'t get caught with it.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 50,
+  },
+  helixion_intel: {
+    id: 'helixion_intel', name: 'Helixion Logistics Data',
+    description: 'Internal helixion logistics data from the staging area. supply chains, delivery schedules, cargo manifests. iron bloom pays well for this.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 40, loreItem: true,
+  },
+
+  // Quest items
+  seized_medical_supplies: {
+    id: 'seized_medical_supplies', name: 'Seized Medical Supplies',
+    description: 'Fex\'s intercepted medical shipment. vacuum-sealed crate of stims, medkits, antitox. the parish needs these.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  substrate_sample: {
+    id: 'substrate_sample', name: 'Substrate Sample',
+    description: 'Organic crystalline material from SL-3. warm to the touch. pulses faintly at 33hz. proof of the exchange between helixion and whatever lives beneath the city.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true,
+  },
+
+  // Fex's shop items
+  thermal_dampener: {
+    id: 'thermal_dampener', name: 'Thermal Dampener',
+    description: 'Masks your heat signature from thermal sensors. single use. thirty seconds of invisibility. fex sells these for a reason.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    buyPrice: 40, sellPrice: 15,
+  },
+  tunnel_rations: {
+    id: 'tunnel_rations', name: 'Tunnel Rations',
+    description: 'Vacuum-sealed. tastes like nothing. five HP worth of nothing. keeps you alive.',
+    category: 'consumable', tier: 'SCRAP', stackable: true,
+    healAmount: 5, buyPrice: 5, sellPrice: 2,
+  },
+  signal_tap: {
+    id: 'signal_tap', name: 'Signal Tap',
+    description: 'Taps into mesh cable infrastructure. TECH tool. plug in, listen, learn. the data flows through these tunnels unprotected.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    buyPrice: 35, sellPrice: 12,
+  },
+  maintenance_tools: {
+    id: 'maintenance_tools', name: 'Maintenance Tools',
+    description: 'Basic toolkit for tunnel infrastructure. wrench, wire cutters, multimeter, flashlight. the essentials for living in the walls.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 10,
+  },
+
+  // Moth's trade goods
+  moth_salvage_bundle: {
+    id: 'moth_salvage_bundle', name: "Moth's Salvage Bundle",
+    description: 'Assorted tunnel components curated by moth. wire, connectors, circuit boards. eight years of knowing what\'s worth keeping.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 15,
+  },
+  grid_map: {
+    id: 'grid_map', name: 'Sensor Grid Map',
+    description: 'Hand-drawn on the back of blueprint paper. lumen\'s complete sensor coverage map — every field, every gap, every timing window. three years of observation. perfect.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 0,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -874,4 +969,14 @@ export const KETCH_SHOP: ShopItem[] = [
   { templateId: 'data_chip', stock: 3 },
   { templateId: 'stim_pack', stock: 5 },
   { templateId: 'emp_grenade', stock: 2 },
+];
+
+export const FEX_SHOP: ShopItem[] = [
+  { templateId: 'stim_pack', stock: 8 },
+  { templateId: 'medkit', stock: 3 },
+  { templateId: 'thermal_dampener', stock: 4 },
+  { templateId: 'tunnel_rations', stock: -1 },
+  { templateId: 'signal_tap', stock: 2 },
+  { templateId: 'maintenance_tools', stock: 3 },
+  { templateId: 'antitox', stock: 5 },
 ];

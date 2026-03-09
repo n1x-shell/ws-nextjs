@@ -4,7 +4,7 @@
 
 import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
-import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP } from './items';
+import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP } from './items';
 import type { ShopItem } from './items';
 import { getNPCRelation } from './persistence';
 
@@ -15,6 +15,7 @@ export function getShopInventory(npcId: string): ShopItem[] | null {
     case 'mara': return MARA_SHOP;
     case 'cole': return COLE_SHOP;
     case 'ketch': return KETCH_SHOP;
+    case 'fex': return FEX_SHOP;
     default: return null;
   }
 }
@@ -24,6 +25,7 @@ export function getShopkeeperName(npcId: string): string {
     case 'mara': return 'Mara';
     case 'cole': return 'Cole';
     case 'ketch': return 'Ketch';
+    case 'fex': return 'Fex';
     default: return npcId;
   }
 }
