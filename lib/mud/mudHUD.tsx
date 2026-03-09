@@ -3416,6 +3416,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
   const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
+  const ramPct = data.maxRam > 0 ? (data.ram / data.maxRam) * 100 : 0;
 
   // Gold dot separator for stat grid
   const dot = <span style={{ color: '#fbbf24', fontWeight: 'bold', opacity: 0.7 }}>{'\u00b7'}</span>;
@@ -3442,10 +3443,10 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         style={{
           flex: 1, minWidth: 0,
           fontFamily: 'monospace', fontSize: S.base,
-          padding: '0.4rem 0.5rem',
+          padding: '0.3rem 0.5rem 0.1rem',
           display: 'flex', flexDirection: 'column',
           justifyContent: 'space-between',
-          gap: '0.35rem', position: 'relative',
+          gap: '0.25rem', position: 'relative',
           cursor: 'pointer', touchAction: 'manipulation',
         }}
       >
@@ -3468,24 +3469,35 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           </span>
         </div>
 
-        {/* Section 2: HP + XP bars */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-          {/* HP bar — cyan to magenta gradient */}
+        {/* Section 2: HP + RAM + XP bars */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          {/* HP bar — green, yellow at half, red below 25% */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ color: '#67e8f9', width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold' }}>HP</span>
+            <span style={{ color: hpPct > 50 ? '#4ade80' : hpPct > 25 ? '#fbbf24' : '#ff4444', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold' }}>HP</span>
             <div style={{ flex: 1 }}>
-              <Bar pct={hpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={6} />
+              <Bar pct={hpPct} color={hpPct > 50 ? '#4ade80' : hpPct > 25 ? '#fbbf24' : '#ff4444'} height={6} />
             </div>
-            <span style={{ color: hpPct > 60 ? '#67e8f9' : hpPct > 25 ? '#fbbf24' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            <span style={{ color: hpPct > 50 ? '#4ade80' : hpPct > 25 ? '#fbbf24' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
               {data.hp}/{data.maxHp}
             </span>
           </div>
 
-          {/* XP bar */}
+          {/* RAM bar — orange, red below 25% */}
+          {data.maxRam > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+              <span style={{ color: ramPct > 25 ? '#fb923c' : '#ff4444', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.9 }}>RAM</span>
+              <div style={{ flex: 1 }}><Bar pct={ramPct} color={ramPct > 25 ? '#fb923c' : '#ff4444'} height={5} /></div>
+              <span style={{ color: ramPct > 25 ? '#fb923c' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.9 }}>
+                {data.ram}/{data.maxRam}
+              </span>
+            </div>
+          )}
+
+          {/* XP bar — cyan to neon magenta gradient */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ color: C.xp, width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7 }}>XP</span>
-            <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
-            <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.7 }}>
+            <span style={{ color: '#67e8f9', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7 }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
+            <span style={{ color: '#e879f9', flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.7 }}>
               {data.xp}/{data.xpNext}
             </span>
           </div>
