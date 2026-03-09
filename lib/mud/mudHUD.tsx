@@ -55,6 +55,7 @@ import { TransientMessageOverlay } from './transientMessage';
 import { RestModal, type RestModalData } from './restModal';
 import { SellModal, type SellModalData, type SellModalResult } from './sellModal';
 import { useCombatFX, CombatFXStyles } from './combatFX';
+import { CreationOverlay } from './creationOverlay';
 import type { CyberwareItem, AugmentSlotType } from './cyberwareDB';
 import { cyberwareQualityColor, tierColor, getSlotCandidates } from './cyberwareDB';
 
@@ -3904,9 +3905,12 @@ function FlatlineModal({ data, onReassemble, onGhost }: {
 // independently; panels and status bar are fixed in place.
 // ══════════════════════════════════════════════════════════════════════════════
 
-export function MudHUDContainer({ session, children }: {
+export function MudHUDContainer({ session, children, handle, onSessionUpdate, addLocalMsg }: {
   session: MudSession;
   children: React.ReactNode;
+  handle?: string;
+  onSessionUpdate?: (s: MudSession) => void;
+  addLocalMsg?: (node: React.ReactNode) => void;
 }) {
   const data = getMudPanelData(session);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -4313,6 +4317,16 @@ export function MudHUDContainer({ session, children }: {
               eventBus.emit('mud:reassemble');
             }, 150);
           }}
+        />
+      )}
+
+      {/* Character creation overlay */}
+      {session.phase === 'character_creation' && session.creation && handle && onSessionUpdate && addLocalMsg && (
+        <CreationOverlay
+          session={session}
+          setSession={onSessionUpdate}
+          handle={handle}
+          addLocalMsg={addLocalMsg}
         />
       )}
     </div>
