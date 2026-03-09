@@ -1823,6 +1823,8 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     } else if (!ms || ms.phase === 'inactive' || ms.phase === 'dead') {
       eventBus.emit('mud:exit');
     }
+    // Lock input bar during character creation (overlay handles all interaction)
+    eventBus.emit('mud:input-locked', { locked: ms?.phase === 'character_creation' });
   }, [mudSession]);
 
   // ── MUD HUD visibility — hides InterfaceLayer nav when HUD is on screen ──

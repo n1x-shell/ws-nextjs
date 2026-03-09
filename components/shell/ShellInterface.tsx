@@ -735,6 +735,7 @@ export default function ShellInterface() {
   const [analoguesActive,  setAnaloguesActive]  = useState(false);
   const [hybridActive,     setHybridActive]     = useState(false);
   const [matrixActive,     setMatrixActive]     = useState(false);
+  const [inputLocked,      setInputLocked]      = useState(false);
   const inputRef                    = useRef<HTMLTextAreaElement>(null);
   const promptInputRef              = useRef<HTMLInputElement>(null);
   const outputRef                   = useRef<HTMLDivElement>(null);
@@ -790,6 +791,9 @@ export default function ShellInterface() {
   // ── Hybrids player open/close ─────────────────────────────────────────────
   useEventBus('shell:hybrids-open',  () => { setHybridActive(true);  setSyntheticsActive(false); setAnaloguesActive(false); });
   useEventBus('shell:hybrids-close', () => setHybridActive(false));
+
+  // ── MUD creation input lock ───────────────────────────────────────────────
+  useEventBus('mud:input-locked', (event) => setInputLocked(!!event.payload?.locked));
 
   // Sync user display — dir is handled by shell:set-directory eventBus above
   useEffect(() => {
@@ -1251,7 +1255,7 @@ export default function ShellInterface() {
             {matrixActive && <MatrixCanvas onExit={() => setMatrixActive(false)} />}
           </div>
           )} {/* end stream player ternary */}
-          {suggestions.length > 0 && !isPrompting && (!isTelnetActive() || hasMudSuggestionProvider()) && (
+          {suggestions.length > 0 && !isPrompting && !inputLocked && (!isTelnetActive() || hasMudSuggestionProvider()) && (
             <div
               style={{
                 flexShrink: 0,
@@ -1366,7 +1370,7 @@ export default function ShellInterface() {
                 <span className="cursor" />
               </div>
             </form>
-          ) : (isEnterMode && !isTelnetActive()) ? null : (
+          ) : (isEnterMode && !isTelnetActive()) || inputLocked ? null : (
             /* Normal input line — fish-style prompt or neural bus prompt */
             <form
               onSubmit={handleSubmit}
