@@ -1334,7 +1334,7 @@ export default function ShellInterface() {
               onClick={() => promptInputRef.current?.focus()}
               style={{
                 flexShrink: 0,
-                padding: '0.5rem 0.75rem',
+                padding: '0.25rem 0.75rem',
                 borderTop: '1px solid var(--phosphor-green)',
                 background: 'rgba(0,0,0,0.3)',
                 fontSize: 'var(--text-base)',
@@ -1377,7 +1377,7 @@ export default function ShellInterface() {
               onClick={() => inputRef.current?.focus()}
               style={{
                 flexShrink: 0,
-                padding: '0.5rem 0.75rem',
+                padding: '0.25rem 0.75rem',
                 borderTop: '1px solid var(--phosphor-green)',
                 background: 'rgba(0,0,0,0.3)',
                 fontSize: 'var(--text-base)',
