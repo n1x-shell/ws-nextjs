@@ -3627,7 +3627,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
       flexShrink: 0,
       background: BG_PANEL,
       borderBottom: `1px solid ${BORDER}`,
-      paddingTop: 5,
+      paddingTop: 10,
     }}>
       {/* Panel grid — fixed height derived from map grid */}
       <div style={{
