@@ -4236,9 +4236,9 @@ export function MudHUDContainer({ session, children }: {
           }}
           onReassemble={() => {
             setFlatlineData(null);
-            // Small delay so modal clears before /enter triggers creation
+            // Directly start new character creation, bypassing trust/fragment gate
             setTimeout(() => {
-              eventBus.emit('mud:execute-command', { command: '/enter' });
+              eventBus.emit('mud:reassemble');
             }, 150);
           }}
         />

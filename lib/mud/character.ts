@@ -459,16 +459,15 @@ how do you fight?`,
   attributes: {
     n1xText: `six things matter down here. you've got 12 points to distribute.
 everything starts at 3. cap is 10 at creation.
-your archetype already pushed some numbers.
-
-BODY    — hp, melee damage, carry capacity
-REFLEX  — dodge, initiative, crit rate
-TECH    — hacking, crafting, repair
-COOL    — npc disposition, barter, deception
-INT     — xp bonus, puzzles, scan depth
-GHOST   — mesh resistance, 33hz attunement, hidden content
-
-tell me your numbers.`,
+your archetype already pushed some numbers.`,
+    statDescriptions: [
+      { stat: 'BODY',   desc: 'hp, melee damage, carry capacity' },
+      { stat: 'REFLEX', desc: 'dodge, initiative, crit rate' },
+      { stat: 'TECH',   desc: 'hacking, crafting, repair' },
+      { stat: 'COOL',   desc: 'npc disposition, barter, deception' },
+      { stat: 'INT',    desc: 'xp bonus, puzzles, scan depth' },
+      { stat: 'GHOST',  desc: 'mesh resistance, 33hz attunement, hidden content' },
+    ],
   },
   origin: {
     n1xText: `one more thing. where do you start?

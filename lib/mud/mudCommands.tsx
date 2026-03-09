@@ -537,6 +537,16 @@ const C = {
   label:     'rgba(var(--phosphor-rgb),0.8)',    // section headers, labels
 };
 
+// Per-attribute phosphor colors for character creation displays
+const STAT_COLOR: Record<string, string> = {
+  BODY:   '#ff6b6b',  // red — physical
+  REFLEX: '#fcd34d',  // yellow — speed
+  TECH:   '#d8b4fe',  // purple — augment
+  COOL:   '#93c5fd',  // blue — social
+  INT:    '#67e8f9',  // cyan — mental
+  GHOST:  '#cc44ff',  // violet — frequency
+};
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 type AddLocalMsg = (node: React.ReactNode) => void;
@@ -660,19 +670,30 @@ function TypedN1XLine({ children, speed = 22, onComplete }: { children: React.Re
     completeFiredRef.current = false;
   }, [text]);
 
+  // Tap-to-skip: reveal all text instantly on click/tap
+  const handleSkip = React.useCallback(() => {
+    if (revealed < text.length) {
+      setRevealed(text.length);
+    }
+  }, [revealed, text.length]);
+
   // Render revealed text, converting \n to <br/>
   const visibleText = text.slice(0, revealed);
   const parts = visibleText.split('\n');
 
   return (
-    <div style={{
-      fontFamily: 'monospace',
-      fontSize: S.base,
-      lineHeight: 1.8,
-      color: C.n1x,
-      opacity: 0.9,
-      minHeight: '1.8em',
-    }}>
+    <div
+      onClick={handleSkip}
+      style={{
+        fontFamily: 'monospace',
+        fontSize: S.base,
+        lineHeight: 1.8,
+        color: C.n1x,
+        opacity: 0.9,
+        minHeight: '1.8em',
+        cursor: revealed < text.length ? 'pointer' : undefined,
+      }}
+    >
       {parts.map((part, i) => (
         <React.Fragment key={i}>
           {i > 0 && <br />}
@@ -712,8 +733,16 @@ function CreationQuestionBlock({ questionText, children, typingSpeed = 22 }: {
     return () => timers.forEach(clearTimeout);
   }, [typingDone, items]);
 
+  // Tap-to-skip: if typing done but children still revealing, show all
+  const handleSkip = React.useCallback(() => {
+    if (typingDone && revealed < items.length) {
+      setRevealed(items.length);
+      eventBus.emit('shell:request-scroll');
+    }
+  }, [typingDone, revealed, items.length]);
+
   return (
-    <div>
+    <div onClick={handleSkip} style={{ cursor: (typingDone && revealed < items.length) ? 'pointer' : undefined }}>
       <TypedN1XLine speed={typingSpeed} onComplete={() => setTypingDone(true)}>
         {questionText}
       </TypedN1XLine>
@@ -1011,18 +1040,34 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
         { delay: 600, node: <MudSpacer key={k('sp-attr')} /> },
         { delay: 1000, node: (
           <CreationQuestionBlock key={k('attr-q')} questionText={CREATION_STEPS.attributes.n1xText}>
-            <MudLine color={C.dim}>
-              current base (with {ARCHETYPE_INFO[archetype].label} bonuses):
-            </MudLine>
-            {(Object.keys(withBonuses) as AttributeName[]).map(attr => {
-              const val = withBonuses[attr];
-              const bonus = (bonuses[attr] ?? 0);
-              return (
-                <MudLine key={`attr-base-${attr}`} indent color={C.stat}>
-                  {attr.padEnd(8)}{val}{bonus > 0 ? ` (+${bonus} archetype)` : ''}
-                </MudLine>
-              );
-            })}
+            {/* Stat descriptions — cyan names, white descriptions */}
+            <div key="stat-descs" style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
+              {CREATION_STEPS.attributes.statDescriptions.map(({ stat, desc }) => (
+                <div key={stat}>
+                  <span style={{ color: STAT_COLOR[stat] ?? '#67e8f9', fontWeight: 'bold' }}>{stat}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.55)' }}> — {desc}</span>
+                </div>
+              ))}
+            </div>
+            <MudSpacer />
+            <MudLine color={C.n1x}>tell me your numbers.</MudLine>
+            <MudSpacer />
+            {/* Current base — inline row with middle dots and per-stat colors */}
+            <div key="base-stats" style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, opacity: 0.85 }}>
+              <span style={{ color: C.dim }}>current base ({ARCHETYPE_INFO[archetype].label}):{' '}</span>
+              {(Object.keys(withBonuses) as AttributeName[]).map((attr, i) => {
+                const val = withBonuses[attr];
+                const bonus = (bonuses[attr] ?? 0);
+                return (
+                  <span key={attr}>
+                    {i > 0 && <span style={{ color: C.dimmer }}> · </span>}
+                    <span style={{ color: STAT_COLOR[attr], fontWeight: 'bold' }}>{attr}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.7)' }}> {val}</span>
+                    {bonus > 0 && <span style={{ color: C.dimmer, fontSize: '0.85em' }}>(+{bonus})</span>}
+                  </span>
+                );
+              })}
+            </div>
             <MudSpacer />
             <MudLine color={C.dim}>
               format: BODY 7 REFLEX 5 TECH 4 COOL 3 INT 5 GHOST 6
@@ -1091,11 +1136,15 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
           <div key={k('attr-ack')}>
             <MudLine color={C.accent} glow>&gt;&gt; ATTRIBUTES LOCKED</MudLine>
             <MudSpacer />
-            {(Object.keys(attrs) as AttributeName[]).map(attr => (
-              <MudLine key={k(`attr-final-${attr}`)} indent color={C.stat}>
-                {attr.padEnd(8)}{attrs[attr]}
-              </MudLine>
-            ))}
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, paddingLeft: '2ch' }}>
+              {(Object.keys(attrs) as AttributeName[]).map((attr, i) => (
+                <span key={attr}>
+                  {i > 0 && <span style={{ color: C.dimmer }}> · </span>}
+                  <span style={{ color: STAT_COLOR[attr], fontWeight: 'bold' }}>{attr}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.7)' }}> {attrs[attr]}</span>
+                </span>
+              ))}
+            </div>
           </div>
         )},
         { delay: 800, node: <MudSpacer key={k('sp-origin')} /> },
@@ -1175,16 +1224,29 @@ export function handleCreationInput(input: string, ctx: MudContext): MudRouteRes
           <div key={k('confirm-q')}>
             <TypedN1XLine>last chance. this is what you&apos;re carrying into the tunnels.</TypedN1XLine>
             <MudSpacer />
-            <MudLine indent color={C.stat}>HANDLE     {handle}</MudLine>
-            <MudLine indent color={C.stat}>SUBJECT    {subjectId}</MudLine>
-            <MudLine indent color={C.stat}>ARCHETYPE  {ARCHETYPE_INFO[archetype].label}</MudLine>
-            <MudLine indent color={C.stat}>STYLE      {COMBAT_STYLE_INFO[combatStyle].label}</MudLine>
-            <MudLine indent color={C.stat}>ORIGIN     {choice.display}</MudLine>
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2.0, paddingLeft: '2ch' }}>
+              <div><span style={{ color: C.label }}>HANDLE</span><span style={{ color: C.dimmer }}>: </span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{handle}</span></div>
+              <div><span style={{ color: C.label }}>SUBJECT</span><span style={{ color: C.dimmer }}>: </span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{subjectId}</span></div>
+              <div><span style={{ color: C.label }}>ARCHETYPE</span><span style={{ color: C.dimmer }}>: </span><span style={{ color: C.accent }}>{ARCHETYPE_INFO[archetype].label}</span></div>
+              <div><span style={{ color: C.label }}>STYLE</span><span style={{ color: C.dimmer }}>: </span><span style={{ color: C.accent }}>{COMBAT_STYLE_INFO[combatStyle].label}</span></div>
+              <div><span style={{ color: C.label }}>ORIGIN</span><span style={{ color: C.dimmer }}>: </span><span style={{ color: C.accent }}>{choice.display}</span></div>
+            </div>
             <MudSpacer />
-            <MudLine indent color={C.dim}>BODY {attributes.BODY} · REFLEX {attributes.REFLEX} · TECH {attributes.TECH} · COOL {attributes.COOL} · INT {attributes.INT} · GHOST {attributes.GHOST}</MudLine>
+            {/* Attributes — inline with per-stat colors */}
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, paddingLeft: '2ch' }}>
+              {(Object.keys(attributes) as AttributeName[]).map((attr, i) => (
+                <span key={attr}>
+                  {i > 0 && <span style={{ color: C.dimmer }}> · </span>}
+                  <span style={{ color: STAT_COLOR[attr], fontWeight: 'bold' }}>{attr}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.7)' }}> {attributes[attr]}</span>
+                </span>
+              ))}
+            </div>
             <MudSpacer />
-            <MudLine indent color={C.stat}>HP         {calculateMaxHp(attributes.BODY, archetype, 1)}</MudLine>
-            <MudLine indent color={C.stat}>RAM        {calculateMaxRam(attributes.TECH)}</MudLine>
+            <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2.0, paddingLeft: '2ch' }}>
+              <div><span style={{ color: C.heal, fontWeight: 'bold' }}>HP</span><span style={{ color: C.dimmer }}>: </span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{calculateMaxHp(attributes.BODY, archetype, 1)}</span></div>
+              <div><span style={{ color: C.hack, fontWeight: 'bold' }}>RAM</span><span style={{ color: C.dimmer }}>: </span><span style={{ color: 'rgba(255,255,255,0.8)' }}>{calculateMaxRam(attributes.TECH)}</span></div>
+            </div>
             <MudSpacer />
             <TypedN1XLine>confirm? (y/n)</TypedN1XLine>
           </div>
@@ -1498,7 +1560,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
   if (session.phase === 'dead') {
     addLocalMsg(
       <MudNotice key={k('dead-cmd')} error>
-        you are dead. your character is gone. /enter to start over.
+        signal lost. this character is gone.
       </MudNotice>
     );
     return { handled: true, stopPropagation: true };
