@@ -70,7 +70,7 @@ const C = {
   accent:    'var(--phosphor-accent)',
   dim:       'rgba(var(--phosphor-rgb),0.75)',
   dimmer:    'rgba(var(--phosphor-rgb),0.55)',
-  faint:     'rgba(var(--phosphor-rgb),0.35)',
+  faint:     'rgba(160,165,175,0.7)',
   npc:       '#fcd34d',
   enemy:     '#ff6b6b',
   object:    'rgba(var(--phosphor-rgb),0.85)',
@@ -4203,7 +4203,6 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
             onHelp={() => setShowHelpModal(true)}
             onInventory={() => setShowInventoryModal(true)}
           />
-          <PassagesBar branches={data.branches} />
           <BottomBar data={data} onStatsClick={() => setShowStatsModal(true)} />
         </div>
       )}
