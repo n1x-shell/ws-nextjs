@@ -3659,9 +3659,10 @@ interface FlatlineData {
   room: string;
 }
 
-function FlatlineModal({ data, onReassemble }: {
+function FlatlineModal({ data, onReassemble, onGhost }: {
   data: FlatlineData;
   onReassemble: () => void;
+  onGhost: () => void;
 }) {
   const [phase, setPhase] = useState(0);
 
@@ -3750,13 +3751,42 @@ function FlatlineModal({ data, onReassemble }: {
           ghost channel access retained.
         </div>
 
-        {/* REASSEMBLE button */}
+        {/* Action buttons */}
         <div style={{
           opacity: phase >= 3 ? 1 : 0,
           transform: phase >= 3 ? 'translateY(0)' : 'translateY(12px)',
           transition: 'opacity 0.5s ease, transform 0.5s ease',
           marginTop: '0.5rem',
+          display: 'flex', gap: '0.75rem',
+          justifyContent: 'center', flexWrap: 'wrap',
         }}>
+          <button
+            onClick={onGhost}
+            style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              fontWeight: 'bold', letterSpacing: '0.1em',
+              color: 'rgba(var(--phosphor-rgb),0.6)',
+              background: 'rgba(var(--phosphor-rgb),0.03)',
+              border: '1px solid rgba(var(--phosphor-rgb),0.15)',
+              borderRadius: 3,
+              padding: '0.55rem 1.4rem',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+              transition: 'all 0.2s ease',
+            }}
+            onPointerEnter={e => {
+              e.currentTarget.style.background = 'rgba(var(--phosphor-rgb),0.08)';
+              e.currentTarget.style.borderColor = 'rgba(var(--phosphor-rgb),0.3)';
+              e.currentTarget.style.color = 'rgba(var(--phosphor-rgb),0.8)';
+            }}
+            onPointerLeave={e => {
+              e.currentTarget.style.background = 'rgba(var(--phosphor-rgb),0.03)';
+              e.currentTarget.style.borderColor = 'rgba(var(--phosphor-rgb),0.15)';
+              e.currentTarget.style.color = 'rgba(var(--phosphor-rgb),0.6)';
+            }}
+          >
+            [ GHOST CHANNEL ]
+          </button>
           <button
             onClick={onReassemble}
             style={{
@@ -4197,6 +4227,13 @@ export function MudHUDContainer({ session, children }: {
       {flatlineData && (
         <FlatlineModal
           data={flatlineData}
+          onGhost={() => {
+            setFlatlineData(null);
+            // Exit MUD, return to ghost channel
+            setTimeout(() => {
+              eventBus.emit('mud:force-exit');
+            }, 150);
+          }}
           onReassemble={() => {
             setFlatlineData(null);
             // Small delay so modal clears before /enter triggers creation
