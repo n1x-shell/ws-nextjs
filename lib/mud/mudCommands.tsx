@@ -1292,7 +1292,7 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
 
   // Narrative-only output — NPCs, enemies, objects, exits are in the HUD panels
   addLocalMsg(
-    <div key={k('look')}>
+    <div key={k('look')} data-room-entry="true">
       {/* Zone + room header */}
       <MudLine color={C.accent} glow bold>
         {zone?.name ?? 'UNKNOWN ZONE'} — {room.name}

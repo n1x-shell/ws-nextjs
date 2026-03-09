@@ -3779,24 +3779,29 @@ export function MudHUDContainer({ session, children }: {
     });
   }, []);
 
-  // Scroll chat to top (for room changes — show room name)
-  const scrollChatToTop = useCallback(() => {
+  // Scroll chat so latest room entry is at top of viewport
+  const scrollChatToRoomEntry = useCallback(() => {
     const el = chatRef.current;
     if (!el) return;
     requestAnimationFrame(() => {
-      el.scrollTop = 0;
+      const entries = el.querySelectorAll('[data-room-entry]');
+      if (entries.length > 0) {
+        const last = entries[entries.length - 1] as HTMLElement;
+        last.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
     });
   }, []);
 
-  // Track room changes — scroll to top so room description is visible
+  // Track room changes — scroll to latest room entry
   const prevRoomRef = useRef(data?.currentRoomId);
   useEffect(() => {
     if (!data) return;
     if (prevRoomRef.current && prevRoomRef.current !== data.currentRoomId) {
-      scrollChatToTop();
+      // Small delay to let the room output render first
+      setTimeout(scrollChatToRoomEntry, 80);
     }
     prevRoomRef.current = data.currentRoomId;
-  }, [data?.currentRoomId, scrollChatToTop]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data?.currentRoomId, scrollChatToRoomEntry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // MutationObserver for auto-scroll
   useEffect(() => {
