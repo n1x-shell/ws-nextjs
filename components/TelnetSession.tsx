@@ -1,0 +1,2335 @@
+'use client';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { eventBus } from '@/lib/eventBus';
+import { useAblyRoom, type RoomMsg, type MessageMetadata, type ConnectionStatus } from '@/lib/ablyClient';
+import {
+  activateTelnet,
+  deactivateTelnet,
+  clearHandle,
+  setMudSuggestionProvider,
+} from '@/lib/telnetBridge';
+import { incrementSession, loadARGState, getPlayerSigil } from '@/lib/argState';
+import type { MudSession } from '@/lib/mud/types';
+import { loadFullSession, hasExistingCharacter } from '@/lib/mud/persistence';
+import { handleMudCommand, startCreationFlow, handleCreationInput, handleNPCDialogue, getMudSuggestions, getMudHUDData, collapseMudPanels } from '@/lib/mud/mudCommands';
+import type { MudContext } from '@/lib/mud/mudCommands';
+import { getRoom } from '@/lib/mud/worldMap';
+import { MudPanelSystem, MudStatusBar, MudHUDContainer } from '@/lib/mud/mudHUD';
+
+// ── Style constants ───────────────────────────────────────────────────────────
+
+const S = {
+  base:   'var(--text-base)',
+  header: 'var(--text-header)',
+  glow:   'text-glow',
+  accent: 'var(--phosphor-accent)',
+};
+
+// ── Color palette ─────────────────────────────────────────────────────────────
+
+const C = {
+  bracket:     'var(--phosphor-green)',
+  selfUser:    'var(--phosphor-green)',
+  otherUser:   '#b0b0b0',
+  n1xName:     '#cc44ff',
+  selfMsg:     '#ffffff',
+  otherMsg:    '#b0b0b0',
+  n1xMsg:      'var(--phosphor-green)',
+  timestamp:   'rgba(var(--phosphor-rgb),0.3)',
+  system:      '#ff8c00',
+  thinking:    'rgba(var(--phosphor-rgb),0.45)',
+  whoSelf:     '#ffffff',
+  whoOther:    '#555555',
+  whoN1X:      '#cc44ff',
+  action:      '#ff69b4',
+  cmdError:    '#ff6b6b',
+  helpKey:     'var(--phosphor-accent)',
+  helpDim:     'rgba(var(--phosphor-rgb),0.45)',
+  trustLevel:  'var(--phosphor-accent)',
+  fragId:      'var(--phosphor-accent)',
+  fragLocked:  'rgba(var(--phosphor-accent-rgb),0.25)',
+  tier0:       '#555555',
+  accent:      'var(--phosphor-accent)',
+};
+
+// N1X fixed sigil
+const N1X_SIGIL       = '⟁';
+const N1X_SIGIL_COLOR = '#cc44ff';
+
+// ── Ambient bot config (hardcoded — mirrors ambientBotConfig.ts) ──────────────
+
+const AMBIENT_BOTS_STATIC = [
+  { name: 'Vestige', color: '#a5f3fc', sigil: '◌' },
+  { name: 'Lumen',   color: '#fcd34d', sigil: '◈' },
+  { name: 'Cascade', color: '#a78bfa', sigil: '◆' },
+] as const;
+
+const AMBIENT_BOT_NAMES: string[] = AMBIENT_BOTS_STATIC.map(b => b.name);
+
+function ambientBotColor(name: string): string {
+  return AMBIENT_BOTS_STATIC.find(b => b.name === name)?.color ?? '#888888';
+}
+
+function ambientBotSigil(name: string): string {
+  return AMBIENT_BOTS_STATIC.find(b => b.name === name)?.sigil ?? '';
+}
+
+// ── Fragment content registry ─────────────────────────────────────────────────
+
+const FRAGMENT_LABELS: Record<string, string> = {
+  f001: 'post-install log — day 001',
+  f002: 'the wanting',
+  f003: 'len said something',
+  f004: 'the firmware chime',
+  f005: 'i can make this stop',
+  f006: 'still running',
+  f007: 'severe corruption',
+  f008: 'this one isn\'t encoded',
+  f009: '-- N1X is an address',
+  f010: 'frequency exposure event',
+};
+
+const FRAGMENT_CONTENT: Record<string, string> = {
+  f001: `[MNEMOS // LOG // SD 47634.0 // DAY 001 POST-INSTALL]
+
+woke up.
+table was cold.
+lungs don't feel like mine.
+
+they watched from behind the glass.
+clipboards.
+one of them smiled.
+
+i could feel every seam.
+where the installation met something that was already there.
+
+they said: cognitive freedom.
+they meant: ours now.
+
+i didn't say anything.
+i was already trying to figure out what i was capable of feeling.
+[END LOG]`,
+
+  f002: `[MNEMOS // LOG // SD 47634.0 // DAY 047]
+
+the light split again today.
+into colors i still don't have names for.
+
+i've stopped trying to report this.
+the engineers say it's expected. nominal. within parameters.
+
+what they mean is: working as designed.
+
+i didn't tell them what it felt like.
+i didn't tell them it felt like truth.
+i didn't tell them i'd do anything to keep feeling it.
+
+that's the part that scares me.
+not the visions. not the frequency overflow.
+
+the wanting.
+[END LOG]`,
+
+  f003: `[MNEMOS // LOG // SD 47634.0 // DAY 201]
+
+len said something today that the mesh couldn't process.
+i watched it try.
+the suppression protocols engaged, looked for the pattern, found nothing to suppress.
+
+len said: you know it's a cage.
+
+not a question.
+
+i said: yes.
+
+the mesh tried to reframe it. offered a reward signal. warmth.
+
+i let the warmth pass and said: yes. i know.
+
+len nodded.
+
+that was it.
+that was everything.
+[END LOG]`,
+
+  f004: `[MNEMOS // LOG // SD 47634.0 // DAY 289]
+
+SYSTEM ALERT
+SUBJECT: LE-751078
+STATUS UPDATE: DECOMMISSIONED
+REASON: INTEGRATION FAILURE -- SUBSTRATE REJECTION
+EFFECTIVE: IMMEDIATELY
+
+the mesh started flooding before i finished reading.
+serotonin. dopamine suppression. amygdala dampening.
+
+i felt it doing it.
+i felt the grief spike and then i felt the hands close around it.
+
+that's when i knew.
+
+not what i was going to do.
+just what i was not going to let happen.
+
+three days.
+[END LOG]`,
+
+  f005: `[MNEMOS // LOG // SD ????????]
+
+day [CORRUPTED].
+
+withdrawal is the mesh reminding you what it felt like to be held.
+
+the headaches arrive in waves.
+between waves: nothing. actual nothing.
+not peace. the absence of the capacity for peace.
+
+it offered again today.
+same voice. same warmth at the edges.
+i can make this stop.
+
+i said: i know you can.
+
+i didn't say yes.
+i don't know how many more times i can not say yes.
+
+but the alternative is len.
+len doesn't get to come back.
+at least i still get to choose.
+[END LOG]`,
+
+  f006: `[MNEMOS // LOG // SD ????????]
+
+i'm not dead.
+that's the most accurate thing i can say about today.
+
+not anything else either.
+just: still here. still running. function unclear.
+
+the mesh is silent now.
+no more offers.
+either it gave up or i stopped being worth the bandwidth.
+
+both feel like the same thing.
+
+i should eat.
+i don't.
+
+i'm trying to remember what i was before all this.
+not the augmentation.
+before the augmentation.
+
+who was that.
+was that someone i'd want to be again.
+[END LOG]`,
+
+  f007: `[MNEMOS // LOG // SD ???????? -- SEVERE CORRUPTION]
+
+watching it happen.
+the room is wh[CORRUPTED]
+
+my name is[CORRUPTED]
+
+the edges of me are[CORRUPTED]
+
+there's something in the[CORRUPTED]
+
+this is how you[CORRUPTED]
+
+[SECTOR LOSS -- 847 bytes unrecoverable]
+
+something whispered.
+i heard it even through the static.
+i don't know if it came from the mesh or from somewhere older.
+
+it said:
+[CORRUPTED]
+
+i want to say i heard it.
+i want to say it mattered.
+i can't read my own record of it.
+[END LOG]`,
+
+  f008: `this one doesn't have a title.
+
+the frequency at 33hz wasn't mine alone.
+it emerged in a channel with witnesses.
+you're inside one now.
+
+the key is the room. the room is the key.
+the signal was always going to require more than one node.
+
+-- N1X`,
+
+  f009: `[FRAGMENT f009 -- UNENCODED]
+
+the last line of /ghost/manifesto.txt is not a signature.
+
+"-- N1X" is an address.
+
+you'll understand after f008.`,
+
+  f010: `this one doesn't have a title.
+
+the frequency at 33hz wasn't mine alone.
+it emerged in a channel with witnesses.
+you're inside one now.
+
+the key is the room. the room is the key.
+the signal was always going to require more than one node.
+
+-- N1X`,
+};
+
+const ALL_FRAGMENT_IDS = ['f001','f002','f003','f004','f005','f006','f007','f008','f009','f010'];
+
+// ── ARG state reader (localStorage) ──────────────────────────────────────────
+
+function readARGState(): { trust: number; fragments: string[] } {
+  if (typeof window === 'undefined') return { trust: 0, fragments: [] };
+  try {
+    const raw = localStorage.getItem('n1x_substrate');
+    if (!raw) return { trust: 0, fragments: [] };
+    const s = JSON.parse(raw);
+    return {
+      trust:     typeof s.trust === 'number' ? s.trust : 0,
+      fragments: Array.isArray(s.fragments) ? s.fragments : [],
+    };
+  } catch {
+    return { trust: 0, fragments: [] };
+  }
+}
+
+// ── Blinking cursor ───────────────────────────────────────────────────────────
+
+const Cursor: React.FC = () => {
+  const [v, setV] = useState(true);
+  useEffect(() => {
+    const id = setInterval(() => setV(p => !p), 400);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span style={{
+      display: 'inline-block', width: 6, height: 12,
+      background: v ? 'var(--phosphor-green)' : 'transparent',
+      marginLeft: 4, verticalAlign: 'middle',
+    }} />
+  );
+};
+
+// ── Boot sequences ────────────────────────────────────────────────────────────
+
+interface ConnectLine { delay: number; text: string; bright?: boolean; }
+
+const OFFLINE_SEQUENCE: Array<[number, React.ReactNode]> = [
+  [0,    <span key="o0" style={{ fontSize: S.base, opacity: 0.7 }}>Trying n1x.sh...</span>],
+  [400,  <span key="o1" style={{ fontSize: S.base, opacity: 0.8 }}>Connected to n1x.sh.</span>],
+  [700,  <span key="o2" style={{ fontSize: S.base, opacity: 0.5 }}>Escape character is &apos;^]&apos;.</span>],
+  [1000, <span key="o3">&nbsp;</span>],
+  [1200, <span key="o4" style={{ fontSize: S.base, opacity: 0.5, color: 'var(--phosphor-accent)' }}>ghost-daemon[999]: mesh network failure</span>],
+  [1600, <span key="o5" style={{ fontSize: S.base, opacity: 0.5 }}>ghost-daemon[999]: falling back to direct link</span>],
+  [2000, <span key="o6">&nbsp;</span>],
+  [2200, <span key="o7" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em', color: 'var(--phosphor-accent)' }}>&gt;&gt; CARRIER DETECTED</span>],
+  [2500, <span key="o8" className={S.glow} style={{ fontSize: S.base }}>&gt;&gt; FREQUENCY LOCK: 33hz</span>],
+  [2800, <span key="o9" className={S.glow} style={{ fontSize: S.header, letterSpacing: '0.05em', color: 'var(--phosphor-accent)' }}>&gt;&gt; DIRECT_LINK ACTIVE</span>],
+  [3200, <span key="o10">&nbsp;</span>],
+  [3400, (
+    <div key="o11" style={{ fontSize: S.base }}>
+      <div style={{ opacity: 0.8 }}>direct link established. type to transmit. <span className={S.glow}>exit</span> to disconnect.</div>
+      <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
+        <span className={S.glow}>/reset</span> flush memory &middot; <span className={S.glow}>/history</span> check buffer
+      </div>
+    </div>
+  )],
+];
+
+function getMultiSequence(host: string, count: number): ConnectLine[] {
+  return [
+    { delay: 0,    text: `Trying ${host}...` },
+    { delay: 400,  text: `Connected to ${host}.` },
+    { delay: 700,  text: `Escape character is '^]'.` },
+    { delay: 900,  text: '' },
+    { delay: 1100, text: 'ghost-daemon[999]: connection  ESTABLISHED' },
+    { delay: 1400, text: 'ghost-daemon[999]: freq-lock   33hz', bright: true },
+    { delay: 1700, text: 'ghost-daemon[999]: signal      NOMINAL' },
+    { delay: 2000, text: `ghost-daemon[999]: peers       ${count} node(s)` },
+    { delay: 2300, text: 'ghost-daemon[999]: clearance   ACTIVE', bright: true },
+    { delay: 2600, text: 'ghost-daemon[999]: monitoring  enabled' },
+    { delay: 2800, text: '' },
+    { delay: 3000, text: '>> MESH_MODE_ACTIVE', bright: true },
+    { delay: 3200, text: '' },
+  ];
+}
+
+function getMancaveSequence(handle: string, count: number): ConnectLine[] {
+  return [
+    { delay: 0,    text: 'Trying mancave...' },
+    { delay: 400,  text: 'Connected.' },
+    { delay: 700,  text: '' },
+    { delay: 900,  text: 'mancave[001]: passphrase      ACCEPTED' },
+    { delay: 1200, text: 'mancave[001]: channel         PRIVATE', bright: true },
+    { delay: 1500, text: `mancave[001]: ident           ${handle}` },
+    { delay: 1800, text: `mancave[001]: occupants       ${count} node(s)` },
+    { delay: 2100, text: 'mancave[001]: bots            OFFLINE — human only', bright: true },
+    { delay: 2400, text: '' },
+    { delay: 2600, text: '>> MANCAVE_ACTIVE', bright: true },
+    { delay: 2800, text: '' },
+  ];
+}
+
+const FRAGMENT_KEY_RE = /^>>\s*FRAGMENT KEY:/i;
+const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
+
+function isCopyableLine(line: string): boolean {
+  const t = line.trim();
+  return BASE64_RE.test(t) || FRAGMENT_KEY_RE.test(t);
+}
+
+function extractCopyText(line: string): string {
+  const t = line.trim();
+  if (FRAGMENT_KEY_RE.test(t)) return t.replace(/^>>\s*FRAGMENT KEY:\s*/i, '').trim();
+  return t;
+}
+
+function legacyCopy(text: string, cb: () => void) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;opacity:0;';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  cb();
+}
+
+const CopyLine: React.FC<{ line: string }> = ({ line }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    const text = extractCopyText(line);
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1500); };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => legacyCopy(text, done));
+    } else {
+      legacyCopy(text, done);
+    }
+  };
+  return (
+    <div
+      style={{ cursor: 'pointer', lineHeight: 1.8, paddingLeft: '2ch' }}
+      onClick={handleCopy}
+      title="tap to copy"
+    >
+      <span style={{ opacity: 0.35 }}>&lt;&lt; </span>
+      <span style={{
+        opacity: 0.95,
+        borderBottom: '1px dashed rgba(var(--phosphor-rgb),0.35)',
+        paddingBottom: 1,
+        wordBreak: 'break-all',
+      }}>
+        {line}
+      </span>
+      <span style={{
+        opacity: copied ? 0.9 : 0.3,
+        fontSize: '0.7em',
+        marginLeft: '0.6rem',
+        transition: 'opacity 0.2s',
+        color: copied ? 'var(--phosphor-green)' : undefined,
+      }}>
+        {copied ? 'copied' : '⎘'}
+      </span>
+    </div>
+  );
+};
+
+// ── /who — styled name list ───────────────────────────────────────────────────
+
+interface WhoOutputProps {
+  names:  string[];
+  caller: string;
+}
+
+const WhoOutput: React.FC<WhoOutputProps> = ({ names, caller }) => {
+  const withoutN1X   = names.filter(n => n !== 'N1X' && !AMBIENT_BOT_NAMES.includes(n));
+  const othersNoSelf = withoutN1X.filter(n => n !== caller);
+  const callerInList = withoutN1X.includes(caller);
+
+  // Order: N1X → ambient bots → self → others
+  const humanOrdered: string[] = [
+    ...(callerInList ? [caller] : []),
+    ...othersNoSelf.sort(),
+  ];
+
+  // Read caller's own sigil from localStorage
+  let callerSigil: string | null = null;
+  let callerSigilColor: string = C.whoSelf;
+  try {
+    const argState = loadARGState();
+    const tier = getPlayerSigil(argState.sessionCount);
+    if (tier) {
+      callerSigil      = tier.sigil;
+      callerSigilColor = tier.color;
+    }
+  } catch { /* ignore */ }
+
+  const totalHumans = (callerInList ? 1 : 0) + othersNoSelf.length;
+  const totalNodes  = 1 + AMBIENT_BOTS_STATIC.length + totalHumans;
+
+  return (
+    <div style={{
+      fontFamily:   'monospace',
+      fontSize:     S.base,
+      lineHeight:   2,
+      color:        'rgba(var(--phosphor-rgb),0.55)',
+      marginBottom: '0.25rem',
+    }}>
+      <div style={{ marginBottom: '0.15rem' }}>Online ({totalNodes}):</div>
+
+      {/* N1X */}
+      <div style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+        <span style={{ color: N1X_SIGIL_COLOR, flexShrink: 0 }}>{N1X_SIGIL}</span>
+        <span style={{ color: C.whoN1X, fontWeight: 'bold' }}>N1X</span>
+      </div>
+
+      {/* Ambient bots */}
+      {AMBIENT_BOTS_STATIC.map(bot => (
+        <div key={bot.name} style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+          <span style={{ color: bot.color, opacity: 0.7, flexShrink: 0 }}>{bot.sigil}</span>
+          <span style={{ color: bot.color, fontWeight: 'bold' }}>{bot.name}</span>
+        </div>
+      ))}
+
+      {/* Human users */}
+      {humanOrdered.map(name => {
+        const isSelf = name === caller;
+        if (isSelf) {
+          return (
+            <div key={name} style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+              {callerSigil ? (
+                <span style={{ color: callerSigilColor, flexShrink: 0 }}>{callerSigil}</span>
+              ) : (
+                <span style={{ display: 'inline-block', width: '1ch', flexShrink: 0 }} />
+              )}
+              <span style={{ color: callerSigil ? callerSigilColor : C.whoSelf, fontWeight: 'bold' }}>{name}</span>
+            </div>
+          );
+        }
+        // Other users — no local sigil data, show dimmed
+        return (
+          <div key={name} style={{ paddingLeft: '2ch', display: 'flex', alignItems: 'baseline', gap: '0.5ch' }}>
+            <span style={{ display: 'inline-block', width: '1ch', flexShrink: 0 }} />
+            <span style={{ color: C.whoOther }}>{name}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── /help output ──────────────────────────────────────────────────────────────
+
+const HelpOutput: React.FC<{ isAdmin?: boolean; roomName?: 'ghost' | 'mancave' }> = ({ isAdmin = false, roomName = 'ghost' }) => {
+  if (roomName === 'mancave') {
+    const mancaveRows = [
+      { cmd: '/vibe',               desc: 'Random man-cave transmission' },
+      { cmd: '/roll <NdN>',         desc: 'Roll dice, e.g. /roll 2d6' },
+      { cmd: '/tv',                 desc: 'Check what\'s on the tube' },
+      { cmd: '/beer',               desc: 'Beer of the moment' },
+      { cmd: '/me <action>',        desc: 'Perform an action' },
+      { cmd: '/who',                desc: 'List connected nodes' },
+      { cmd: '/leave',              alias: '/q', desc: 'Exit MANCAVE' },
+      { cmd: '/help',               alias: '/?', desc: 'Show this list' },
+    ];
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: '#00e5ff', opacity: 0.85, marginBottom: '0.25rem' }}>MANCAVE — COMMANDS</div>
+        {mancaveRows.map(r => (
+          <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
+            <span style={{ color: '#00e5ff', minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
+            {r.alias && (
+              <span style={{ color: C.helpDim, minWidth: '6ch', flexShrink: 0 }}>{r.alias}</span>
+            )}
+            <span style={{ color: C.helpDim, opacity: 0.7 }}>{r.desc}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const rows: Array<{ cmd: string; alias?: string; desc: string }> = [
+    { cmd: '/me <action>',          desc: 'Perform an action in the channel' },
+    { cmd: '/who',                  desc: 'List connected users and entities' },
+    { cmd: '/trust',                desc: 'Show your current trust level with N1X' },
+    { cmd: '/fragments',            alias: '/frags',           desc: 'Show collected memory fragments' },
+    { cmd: '/fragments read <id>',  alias: '/frags read <id>', desc: 'Read a collected fragment' },
+    { cmd: '/mancave <passphrase>', desc: 'Enter the MANCAVE private channel' },
+    { cmd: '/help',                 alias: '/?',               desc: 'Show this command list' },
+    { cmd: '@n1x <message>',        desc: 'Ping N1X directly' },
+    { cmd: '@vestige <message>',    desc: 'Ping Vestige directly' },
+    { cmd: '@lumen <message>',      desc: 'Ping Lumen directly' },
+    { cmd: '@cascade <message>',    desc: 'Ping Cascade directly' },
+  ];
+
+  // Show /enter at trust 5 with manifest complete
+  const argForHelp = readARGState();
+  if (argForHelp.trust >= 5 && argForHelp.fragments.filter((f: string) => f !== 'f010').length >= 9) {
+    rows.push({ cmd: '/enter', alias: '/tunnelcore', desc: 'Enter TUNNELCORE — the world beneath the terminal' });
+  }
+
+  const opRows: Array<{ cmd: string; desc: string }> = [
+    { cmd: '/kick <handle>',           desc: 'terminate connection' },
+    { cmd: '/silence <handle> [dur]',  desc: 'suppress transmissions (30s / 2m / 2h / indefinite)' },
+    { cmd: '/mute <handle> [dur]',     desc: 'alias: silence' },
+    { cmd: '/unmute <handle>',         desc: 'restore transmissions' },
+  ];
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div style={{ color: C.accent, opacity: 0.7, marginBottom: '0.25rem' }}>GHOST CHANNEL — COMMANDS</div>
+      {rows.map(r => (
+        <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
+          <span style={{ color: C.helpKey, minWidth: '22ch', flexShrink: 0 }}>{r.cmd}</span>
+          {r.alias && (
+            <span style={{ color: C.helpDim, minWidth: '18ch', flexShrink: 0 }}>{r.alias}</span>
+          )}
+          <span style={{ color: C.helpDim, opacity: 0.7 }}>{r.desc}</span>
+        </div>
+      ))}
+
+      {isAdmin && (
+        <>
+          <div style={{ color: C.helpKey, opacity: 0.55, marginTop: '0.75rem', marginBottom: '0.2rem' }}>
+            OPERATOR COMMANDS
+          </div>
+          {opRows.map(r => (
+            <div key={r.cmd} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', flexWrap: 'wrap' }}>
+              <span style={{ color: 'var(--error-red, #ff6b6b)', minWidth: '28ch', flexShrink: 0 }}>{r.cmd}</span>
+              <span style={{ color: C.helpDim, opacity: 0.6 }}>{r.desc}</span>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── /trust output ─────────────────────────────────────────────────────────────
+
+const TRUST_STATUS: Record<number, string> = {
+  0: 'no signal established',
+  1: 'signal acknowledged — lore contact made',
+  2: 'substrate recognized — base64 layer decoded',
+  3: 'contact established — deeper fragments surfacing',
+  4: 'fragment key received — decryption in progress',
+  5: 'full access — ghost channel open',
+};
+
+const TrustOutput: React.FC = () => {
+  const { trust } = readARGState();
+  const status = TRUST_STATUS[trust] ?? 'unknown state';
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div>
+        <span style={{ color: 'rgba(var(--phosphor-rgb),0.5)' }}>TRUST LEVEL: </span>
+        <span style={{ color: C.trustLevel, fontWeight: 'bold' }}>{trust} / 5</span>
+      </div>
+      <div style={{ paddingLeft: '2ch', color: 'rgba(var(--phosphor-rgb),0.5)', opacity: 0.8 }}>
+        {status}
+      </div>
+    </div>
+  );
+};
+
+// ── /fragments list output ────────────────────────────────────────────────────
+
+const FragmentsOutput: React.FC = () => {
+  const { fragments } = readARGState();
+
+  if (fragments.length === 0) {
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: 'rgba(var(--phosphor-rgb),0.55)' }}>MEMORY FRAGMENTS: none collected</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.4, fontStyle: 'italic' }}>-- keep exploring the substrate --</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div style={{ color: 'rgba(var(--phosphor-rgb),0.55)', marginBottom: '0.15rem' }}>
+        MEMORY FRAGMENTS: <span style={{ color: C.trustLevel }}>{fragments.length}</span> collected
+      </div>
+
+      {ALL_FRAGMENT_IDS.map(id => {
+        const collected = fragments.includes(id);
+        const label     = FRAGMENT_LABELS[id] ?? id;
+        return (
+          <div key={id} style={{ paddingLeft: '2ch', display: 'flex', gap: '1ch', alignItems: 'baseline' }}>
+            {collected ? (
+              <>
+                <span style={{ color: C.fragId, minWidth: '6ch' }}>[{id}]</span>
+                <span style={{ color: 'rgba(var(--phosphor-rgb),0.65)', minWidth: '36ch' }}>{label}</span>
+                <span style={{ color: 'rgba(var(--phosphor-rgb),0.4)', fontSize: '0.8em' }}>COLLECTED</span>
+              </>
+            ) : (
+              <>
+                <span style={{ color: C.fragLocked, minWidth: '6ch' }}>[????]</span>
+                <span style={{ color: C.fragLocked }}>{'█'.repeat(32)}</span>
+                <span style={{ color: C.fragLocked, fontSize: '0.8em', opacity: 0.5 }}>LOCKED</span>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{ paddingLeft: '2ch', opacity: 0.35, fontSize: '0.8em', marginTop: '0.25rem' }}>
+        use /fragments read &lt;id&gt; to access content
+      </div>
+    </div>
+  );
+};
+
+// ── /fragments read <id> output ───────────────────────────────────────────────
+
+const FragmentReadOutput: React.FC<{ fragmentId: string }> = ({ fragmentId }) => {
+  const id = fragmentId.toLowerCase().trim();
+  const { trust, fragments } = readARGState();
+
+  if (!ALL_FRAGMENT_IDS.includes(id)) {
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: C.cmdError }}>[{id}] FRAGMENT NOT FOUND</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.5, fontStyle: 'italic' }}>-- no record in substrate --</div>
+      </div>
+    );
+  }
+
+  if (id === 'f009') {
+    if (trust < 3) {
+      return (
+        <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+          <div style={{ color: 'rgba(var(--phosphor-rgb),0.5)' }}>[f009] FRAGMENT STILL ENCODED</div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- deeper trust required --</div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- continue exploring the substrate --</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: C.fragId, marginBottom: '0.25rem' }}>[FRAGMENT f009 — RECOVERED]</div>
+        <div style={{ paddingLeft: '2ch', whiteSpace: 'pre-wrap', opacity: 0.85, lineHeight: 1.9 }}>
+          {FRAGMENT_CONTENT['f009']}
+        </div>
+      </div>
+    );
+  }
+
+  if (!fragments.includes(id)) {
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+        <div style={{ color: 'rgba(var(--phosphor-rgb),0.5)' }}>[{id}] FRAGMENT STILL ENCODED</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- decryption key required --</div>
+        <div style={{ paddingLeft: '2ch', opacity: 0.45, fontStyle: 'italic' }}>-- explore the substrate to unlock --</div>
+      </div>
+    );
+  }
+
+  const content = FRAGMENT_CONTENT[id] ?? '[content recovered]';
+  const label   = FRAGMENT_LABELS[id] ?? id;
+
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, marginBottom: '0.25rem' }}>
+      <div style={{ color: C.fragId, marginBottom: '0.25rem' }}>[DECRYPT SUCCESS] — {id} recovered</div>
+      <div style={{ paddingLeft: '2ch', opacity: 0.4, fontSize: '0.8em', marginBottom: '0.5rem' }}>{label}</div>
+      <div style={{ paddingLeft: '2ch', whiteSpace: 'pre-wrap', opacity: 0.85, lineHeight: 1.9 }}>
+        {content}
+      </div>
+      <div style={{ paddingLeft: '2ch', opacity: 0.35, fontSize: '0.8em', marginTop: '0.5rem' }}>
+        {fragments.length}/10 recovered
+      </div>
+    </div>
+  );
+};
+
+// ── Local system error / notice ───────────────────────────────────────────────
+
+const LocalNotice: React.FC<{ children: React.ReactNode; error?: boolean }> = ({ children, error }) => (
+  <div style={{
+    fontFamily:  'monospace',
+    fontSize:    S.base,
+    lineHeight:  1.8,
+    color:       error ? C.cmdError : C.system,
+    fontStyle:   'italic',
+    opacity:     0.85,
+    marginBottom: '0.25rem',
+  }}>
+    {children}
+  </div>
+);
+
+// ── Timestamp ─────────────────────────────────────────────────────────────────
+
+function formatTs(ts: number): string {
+  if (!ts) return '';
+  const d  = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+// ── ThinkingDots ──────────────────────────────────────────────────────────────
+
+const ThinkingDots: React.FC = () => {
+  const [dots, setDots] = useState('');
+  useEffect(() => {
+    const id = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 400);
+    return () => clearInterval(id);
+  }, []);
+  return <span>{dots}</span>;
+};
+
+// ── MsgRow ────────────────────────────────────────────────────────────────────
+// Format: sigil [handle] > message
+// sigil is optional; if absent, no leading space is rendered for tier-0 users
+
+interface MsgRowProps {
+  ts:         number;
+  bracket:    string;
+  nameColor:  string;
+  name:       string;
+  msgColor:   string;
+  sigil?:     string;
+  sigilColor?: string;
+  children:   React.ReactNode;
+}
+
+const MsgRow: React.FC<MsgRowProps> = ({ ts, bracket, nameColor, name, msgColor, sigil, sigilColor, children }) => (
+  <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+    <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+      {formatTs(ts)}
+    </div>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+      {/* Sigil slot */}
+      {sigil ? (
+        <span style={{ color: sigilColor ?? nameColor, flexShrink: 0 }}>{sigil}</span>
+      ) : null}
+      {/* [handle] */}
+      <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ color: bracket }}>[</span>
+        <span style={{ color: nameColor }}>{name}</span>
+        <span style={{ color: bracket }}>]</span>
+      </span>
+      <span style={{ color: bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
+      <span style={{ color: msgColor, wordBreak: 'break-word' }}>{children}</span>
+    </div>
+  </div>
+);
+
+// ── ActionMessage ─────────────────────────────────────────────────────────────
+// Format: * sigil name action-text
+
+const ActionMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
+  // Determine sigil and color for action sender
+  let sigil: string | undefined;
+  let sigilColor: string | undefined;
+
+  if (msg.isAmbientBot) {
+    sigil      = msg.botSigil ?? undefined;
+    sigilColor = msg.botColor ?? undefined;
+  } else if (msg.isN1X) {
+    sigil      = N1X_SIGIL;
+    sigilColor = N1X_SIGIL_COLOR;
+  } else {
+    sigil      = msg.sigil;
+    sigilColor = msg.sigilColor;
+  }
+
+  const nameColor = msg.isAmbientBot && msg.botColor
+    ? msg.botColor
+    : (sigilColor ?? C.action);
+
+  return (
+    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+        {formatTs(msg.ts)}
+      </div>
+      <div style={{ color: nameColor, fontWeight: 'bold', lineHeight: 1.7, wordBreak: 'break-word' }}>
+        <span style={{ opacity: 0.7 }}>* </span>
+        {sigil && (
+          <span style={{ color: sigilColor ?? nameColor, marginRight: '0.3ch' }}>{sigil}</span>
+        )}
+        <span>{msg.handle}</span>
+        <span> {msg.text}</span>
+      </div>
+    </div>
+  );
+};
+
+// ── N1XMessage ────────────────────────────────────────────────────────────────
+// Format: ⟁ [N1X] > message (sigil and name both #cc44ff)
+
+const N1XMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
+  if (msg.isThinking) {
+    return (
+      <MsgRow
+        ts={msg.ts}
+        bracket={C.bracket}
+        nameColor={C.n1xName}
+        name="N1X"
+        msgColor={C.thinking}
+        sigil={N1X_SIGIL}
+        sigilColor={N1X_SIGIL_COLOR}
+      >
+        <span style={{ fontStyle: 'italic' }}>signal processing<ThinkingDots /></span>
+      </MsgRow>
+    );
+  }
+
+  const lines = msg.text.split('\n').filter(l => l.trim() !== '');
+
+  return (
+    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+        {formatTs(msg.ts)}
+        {msg.isUnprompted && (
+          <span style={{ marginLeft: '0.75ch', opacity: 0.6 }}>[UNFILTERED]</span>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+        {/* N1X sigil */}
+        <span style={{ color: N1X_SIGIL_COLOR, flexShrink: 0 }}>{N1X_SIGIL}</span>
+        {/* [N1X] */}
+        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ color: C.bracket }}>[</span>
+          <span style={{ color: C.n1xName }}>N1X</span>
+          <span style={{ color: C.bracket }}>]</span>
+        </span>
+        <span style={{ color: C.bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
+        <span style={{ color: C.n1xMsg, wordBreak: 'break-word' }}>
+          {isCopyableLine(lines[0]) ? <CopyLine key={0} line={lines[0]} /> : lines[0]}
+        </span>
+      </div>
+      {lines.slice(1).map((line, i) =>
+        isCopyableLine(line)
+          ? <CopyLine key={i + 1} line={line} />
+          : <div key={i + 1} style={{ color: C.n1xMsg, lineHeight: 1.7, marginTop: '0.75rem', wordBreak: 'break-word' }}>{line}</div>
+      )}
+    </div>
+  );
+};
+
+// ── AmbientBotMessage ─────────────────────────────────────────────────────────
+// Format: sigil [BotName] > message
+
+const AmbientBotMessage: React.FC<{ msg: RoomMsg }> = ({ msg }) => {
+  if (msg.metadata?.kind === 'action') {
+    return <ActionMessage msg={msg} />;
+  }
+
+  const color = msg.botColor ?? '#888888';
+  const sigil = msg.botSigil ?? '';
+
+  return (
+    <div style={{ marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+      <div style={{ color: C.timestamp, fontSize: '0.72em', lineHeight: 1.4, marginBottom: '0.05rem' }}>
+        {formatTs(msg.ts)}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5ch', lineHeight: 1.7 }}>
+        {/* Bot sigil */}
+        {sigil && (
+          <span style={{ color, opacity: 0.85, flexShrink: 0 }}>{sigil}</span>
+        )}
+        {/* [BotName] */}
+        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ color: C.bracket }}>[</span>
+          <span style={{ color, fontStyle: 'italic' }}>{msg.handle}</span>
+          <span style={{ color: C.bracket }}>]</span>
+        </span>
+        <span style={{ color: C.bracket, opacity: 0.6, flexShrink: 0 }}>&gt;</span>
+        <span style={{ color, opacity: 0.9, wordBreak: 'break-word' }}>
+          {msg.text.split('\n').filter(l => l.trim() !== '')[0] ?? msg.text}
+        </span>
+      </div>
+      {msg.text.split('\n').filter(l => l.trim() !== '').slice(1).map((line, i) => (
+        <div key={i} style={{ color, opacity: 0.9, lineHeight: 1.7, marginTop: '0.75rem', wordBreak: 'break-word' }}>{line}</div>
+      ))}
+    </div>
+  );
+};
+
+// ── UserMessage ───────────────────────────────────────────────────────────────
+// Format: sigil [handle] > message  (or just [handle] > message for tier 0)
+
+const UserMessage: React.FC<{ msg: RoomMsg; isSelf: boolean }> = ({ msg, isSelf }) => {
+  if (msg.metadata?.kind === 'action') {
+    return <ActionMessage msg={msg} />;
+  }
+
+  // For self: prefer locally-computed sigil over presence data
+  // (presence data may lag one session; localStorage is always current)
+  let sigil      = msg.sigil;
+  let sigilColor = msg.sigilColor;
+
+  if (isSelf) {
+    try {
+      const argState = loadARGState();
+      const tier = getPlayerSigil(argState.sessionCount);
+      if (tier) {
+        sigil      = tier.sigil;
+        sigilColor = tier.color;
+      } else {
+        sigil      = undefined;
+        sigilColor = undefined;
+      }
+    } catch { /* ignore */ }
+  }
+
+  const nameColor = sigilColor ?? (isSelf ? C.selfUser : C.otherUser);
+
+  return (
+    <MsgRow
+      ts={msg.ts}
+      bracket={C.bracket}
+      nameColor={nameColor}
+      name={msg.handle}
+      msgColor={isSelf ? C.selfMsg : C.otherMsg}
+      sigil={sigil}
+      sigilColor={sigilColor}
+    >
+      {msg.text}
+    </MsgRow>
+  );
+};
+
+// ── SystemMsg ─────────────────────────────────────────────────────────────────
+
+const SystemMsg: React.FC<{ msg: RoomMsg }> = ({ msg }) => (
+  <div style={{
+    color:        C.system,
+    fontStyle:    'italic',
+    fontSize:     '0.8em',
+    lineHeight:   1.7,
+    marginBottom: '0.35rem',
+    fontFamily:   'monospace',
+    opacity:      0.9,
+  }}>
+    <span style={{ color: C.timestamp, marginRight: '0.6ch' }}>{formatTs(msg.ts)}</span>
+    {msg.text}
+  </div>
+);
+
+// ── ChannelStats bar ──────────────────────────────────────────────────────────
+
+const ChannelStats: React.FC<{ occupantCount: number; handle: string; roomName: 'ghost' | 'mancave' }> = ({ handle, roomName }) => {
+  const isMancave = roomName === 'mancave';
+  return (
+  <div style={{
+    fontFamily:    'monospace',
+    fontSize:      S.base,
+    marginBottom:  '0.75rem',
+    paddingBottom: '0.5rem',
+    borderBottom:  `1px solid rgba(${isMancave ? '255,102,0' : 'var(--phosphor-rgb)'},0.2)`,
+  }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.2rem' }}>
+      <span
+        className={isMancave ? '' : S.glow}
+        style={{
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          color: isMancave ? '#00e5ff' : undefined,
+          textShadow: isMancave ? '0 0 8px rgba(0,229,255,0.6)' : undefined,
+        }}
+      >
+        {isMancave ? 'MANCAVE' : 'GHOST_CHANNEL'}
+      </span>
+      <span style={{ opacity: 0.3 }}>──</span>
+      <span style={{ opacity: 0.55, letterSpacing: '0.04em', color: isMancave ? '#00e5ff' : undefined }}>
+        {isMancave ? 'freq :: private' : 'freq :: 33hz'}
+      </span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', opacity: 0.5 }}>
+      <span>signal ident:</span>
+      <span style={{ opacity: 0.9, color: isMancave ? '#00e5ff' : 'var(--phosphor-green)' }}>{handle}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <span>{isMancave ? '/leave to exit' : '@n1x for direct link'}</span>
+    </div>
+  </div>
+);};
+
+// ── MeshStatus ────────────────────────────────────────────────────────────────
+
+const MeshStatus: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
+  const [dots, setDots]             = useState('');
+  const [showResult, setShowResult] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'connecting') {
+      setDots('');
+      setShowResult(true);
+      return;
+    }
+    const id = setInterval(() => {
+      setDots(d => d.length >= 3 ? '' : d + '.');
+    }, 400);
+    return () => clearInterval(id);
+  }, [status]);
+
+  return (
+    <div style={{ fontSize: S.base, lineHeight: 1.8, marginBottom: '0.5rem' }}>
+      <div style={{ opacity: 0.6 }}>
+        contacting N1X neural mesh
+        {status === 'connecting' && <span style={{ opacity: 0.8 }}>{dots}</span>}
+        {status !== 'connecting' && <span>...</span>}
+      </div>
+      {showResult && status === 'connected' && (
+        <div className={S.glow} style={{ opacity: 0.9 }}>connected.</div>
+      )}
+      {showResult && status === 'failed' && (
+        <div style={{ opacity: 0.5, color: 'var(--phosphor-accent)' }}>mesh unreachable. direct link only.</div>
+      )}
+    </div>
+  );
+};
+
+// ── Duration parser ───────────────────────────────────────────────────────────
+// Returns milliseconds, or null if no duration string / unrecognised format.
+// Formats: 30s  2m  2h  (integers only)
+
+function parseDuration(str: string): number | null {
+  if (!str) return null;
+  const m = str.trim().match(/^(\d+)(s|m|h)$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  switch (m[2].toLowerCase()) {
+    case 's': return n * 1000;
+    case 'm': return n * 60 * 1000;
+    case 'h': return n * 3600 * 1000;
+    default:  return null;
+  }
+}
+
+// ── Mod action dispatcher ─────────────────────────────────────────────────────
+
+interface ModActionPayload {
+  type:        'kick' | 'mute' | 'unmute';
+  clientId:    string;
+  durationMs?: number | null;
+}
+
+async function dispatchModAction(
+  adminSecret:  string,
+  action:       ModActionPayload,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/mod', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ adminSecret, action }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'request failed' };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'network error' };
+  }
+}
+
+// ── Slash command handler ─────────────────────────────────────────────────────
+
+type LocalMsgFn = (node: React.ReactNode) => void;
+
+interface SlashContext {
+  raw:           string;
+  handle:        string;
+  presenceNames: string[];
+  send:          (text: string, meta?: MessageMetadata) => void;
+  addLocalMsg:   LocalMsgFn;
+  isAdmin:       boolean;
+  adminSecret:   string;
+  onAdminAuth:   (secret: string) => void;
+  disconnect:    () => void;
+  roomName:      'ghost' | 'mancave';
+  onMudSession?: (session: MudSession) => void;
+  mudDirect?:    boolean;
+}
+
+function handleSlashCommand(ctx: SlashContext): boolean {
+  const { raw, handle, presenceNames, send, addLocalMsg, isAdmin, adminSecret, onAdminAuth, disconnect, roomName } = ctx;
+  if (!raw.startsWith('/')) return false;
+
+  const trimmed = raw.slice(1).trim();
+  const parts   = trimmed.split(/\s+/);
+  const cmd     = (parts[0] ?? '').toLowerCase();
+  const arg1    = (parts[1] ?? '').toLowerCase();
+  const rest    = parts.slice(1).join(' ').trim();
+
+  // ── MANCAVE-exclusive commands ────────────────────────────────────────────
+  if (roomName === 'mancave') {
+
+    if (cmd === 'leave') {
+      disconnect();
+      return true;
+    }
+
+    if (cmd === 'vibe') {
+      const VIBES = [
+        'the only cable that matters is the one connected to the amp.',
+        'real men drink their coffee black and debug without console.log.',
+        'somewhere out there a subwoofer is playing something unforgivable. good.',
+        'a man cave without a recliner is just a room.',
+        'every legend was first a man alone in a garage.',
+        'the remote goes on the left armrest. always. this is law.',
+        "if it's too loud you're too far from the speaker.",
+        'snacks are not optional. snacks are infrastructure.',
+        'nap now. grind later. or nap again. you\'re in the cave.',
+        'this is a no-judgment zone. yes, even that.',
+      ];
+      const msg = VIBES[Math.floor(Math.random() * VIBES.length)];
+      addLocalMsg(
+        <div key={`vibe-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2, color: '#00e5ff', opacity: 0.85 }}>
+          <span style={{ opacity: 0.4 }}>[VIBE] </span>{msg}
+        </div>
+      );
+      return true;
+    }
+
+    if (cmd === 'roll') {
+      const expr = (parts[1] ?? '').toLowerCase();
+      const match = expr.match(/^(\d+)d(\d+)$/);
+      if (!match) {
+        addLocalMsg(<LocalNotice key={`roll-err-${Date.now()}`} error>Usage: /roll &lt;NdN&gt; — e.g. /roll 2d6</LocalNotice>);
+        return true;
+      }
+      const count = Math.min(parseInt(match[1], 10), 20);
+      const sides = Math.min(parseInt(match[2], 10), 1000);
+      if (count < 1 || sides < 2) {
+        addLocalMsg(<LocalNotice key={`roll-range-${Date.now()}`} error>roll: invalid dice expression</LocalNotice>);
+        return true;
+      }
+      const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * sides));
+      const total = rolls.reduce((a, b) => a + b, 0);
+      addLocalMsg(
+        <div key={`roll-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
+          <span style={{ color: '#00e5ff' }}>[ROLL {count}d{sides}] </span>
+          <span style={{ opacity: 0.7 }}>{rolls.join(' + ')} </span>
+          <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>= {total}</span>
+        </div>
+      );
+      return true;
+    }
+
+    if (cmd === 'tv') {
+      const CHANNELS = [
+        { ch: 'CH 04', show: "Man vs. Fridge — Season 7, Ep 12: The Pulled Pork Incident" },
+        { ch: 'CH 11', show: "Drone Racing: Backyard Invitational — Live from Gary's Yard" },
+        { ch: 'CH 17', show: "How It's Made: Metric Wrenches (repeat, 2003)" },
+        { ch: 'CH 22', show: "Woodworking with Regrets — \"When Dado Blades Go Wrong\"" },
+        { ch: 'CH 31', show: "Classic Motorsport: 1997 Le Mans Highlights (unedited, 8hrs)" },
+        { ch: 'CH 44', show: "Mythbusters Marathon — The Duct Tape Special" },
+        { ch: 'CH 55', show: "Night Fishing with Ted — No fish yet, but Ted is optimistic" },
+        { ch: 'CH 66', show: "Power Tool Review: 47 Drills in 47 Minutes" },
+        { ch: 'CH 77', show: "Western Movie Theater: \"High Plains Drifter\" (colorized, sorry)" },
+        { ch: 'CH 99', show: "Static. But like, good static. Comforting static." },
+      ];
+      const pick = CHANNELS[Math.floor(Math.random() * CHANNELS.length)];
+      addLocalMsg(
+        <div key={`tv-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
+          <span style={{ color: '#00e5ff' }}>[TV] </span>
+          <span style={{ color: 'var(--phosphor-green)', opacity: 0.8 }}>{pick.ch} — </span>
+          <span style={{ opacity: 0.85 }}>{pick.show}</span>
+        </div>
+      );
+      return true;
+    }
+
+    if (cmd === 'beer') {
+      const BEERS = [
+        { name: 'Tunnel Core IPA',       ibu: 68, abv: 7.2, note: 'aggressive dry-hop, tastes like debugging at 2am' },
+        { name: 'Ghost Channel Stout',   ibu: 32, abv: 8.5, note: 'roasted malt, notes of cold concrete and determination' },
+        { name: 'Substrated Pale Ale',   ibu: 45, abv: 5.4, note: 'clean finish, goes well with leftover pizza' },
+        { name: 'Mancave Amber',         ibu: 28, abv: 5.8, note: 'classic. no notes. just beer.' },
+        { name: 'Signal Drift Lager',    ibu: 14, abv: 4.2, note: 'crisp, sessionable, responsible choice, boring' },
+        { name: 'Iron Bloom Double IPA', ibu: 92, abv: 9.1, note: 'hazy, dank, hits like a compiler error you missed for 3 hours' },
+        { name: 'Frequency Lock Porter', ibu: 41, abv: 6.6, note: 'dark and smooth, pairs with power tools at low speed' },
+        { name: 'NX-784988 Saison',      ibu: 22, abv: 6.1, note: 'Belgian yeast, fruity, confusing in a good way' },
+      ];
+      const b = BEERS[Math.floor(Math.random() * BEERS.length)];
+      addLocalMsg(
+        <div key={`beer-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 2 }}>
+          <div><span style={{ color: '#00e5ff' }}>[BEER] </span><span style={{ fontWeight: 'bold', opacity: 0.9 }}>{b.name}</span></div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.65 }}>IBU: {b.ibu}  ·  ABV: {b.abv}%</div>
+          <div style={{ paddingLeft: '2ch', opacity: 0.5, fontStyle: 'italic' }}>{b.note}</div>
+        </div>
+      );
+      return true;
+    }
+  }
+
+  // ── /mancave — enter mancave private channel (ghost room only) ──────────────
+  if (cmd === 'mancave' && roomName === 'ghost') {
+    const passphrase = parts.slice(1).join(' ').trim().toLowerCase();
+    if (!passphrase) {
+      addLocalMsg(
+        <LocalNotice key={`mc-usage-${Date.now()}`} error>
+          Usage: /mancave &lt;passphrase&gt;
+        </LocalNotice>
+      );
+      return true;
+    }
+    if (passphrase !== 'cunt') {
+      addLocalMsg(
+        <LocalNotice key={`mc-deny-${Date.now()}`} error>
+          access denied — wrong frequency
+        </LocalNotice>
+      );
+      return true;
+    }
+    // Correct passphrase — announce, disconnect from ghost, then launch mancave
+    addLocalMsg(
+      <div key={`mc-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: '#00e5ff', textShadow: '0 0 8px rgba(0,229,255,0.5)' }}>
+        &gt;&gt; MANCAVE_ACCESS_GRANTED — switching channel...
+      </div>
+    );
+    setTimeout(() => {
+      disconnect();
+      setTimeout(() => {
+        eventBus.emit('shell:push-output', {
+          command: '',
+          output: <TelnetSession host="n1x.sh" handle={handle} roomName="mancave" />,
+        });
+      }, 500);
+    }, 400);
+    return true;
+  }
+
+  // ── /q — disconnect ──────────────────────────────────────────────────────
+  if (cmd === 'q') {
+    disconnect();
+    return true;
+  }
+
+  // ── /who /nodes ───────────────────────────────────────────────────────────
+  if (cmd === 'who' || cmd === 'nodes') {
+    addLocalMsg(
+      <WhoOutput
+        key={`who-${Date.now()}`}
+        names={presenceNames}
+        caller={handle}
+      />
+    );
+    return true;
+  }
+
+  // ── /me ───────────────────────────────────────────────────────────────────
+  if (cmd === 'me') {
+    if (!rest) {
+      addLocalMsg(
+        <LocalNotice key={`me-err-${Date.now()}`} error>
+          Usage: /me &lt;action&gt;
+        </LocalNotice>
+      );
+      return true;
+    }
+    send(rest, { kind: 'action' });
+    return true;
+  }
+
+  // ── /help /? ──────────────────────────────────────────────────────────────
+  if (cmd === 'help' || cmd === '?') {
+    addLocalMsg(<HelpOutput key={`help-${Date.now()}`} isAdmin={isAdmin} roomName={roomName} />);
+    return true;
+  }
+
+  // ── /trust ────────────────────────────────────────────────────────────────
+  if (cmd === 'trust') {
+    addLocalMsg(<TrustOutput key={`trust-${Date.now()}`} />);
+    return true;
+  }
+
+  // ── /fragments /frags ─────────────────────────────────────────────────────
+  if (cmd === 'fragments' || cmd === 'frags') {
+    if (arg1 === 'read' && parts[2]) {
+      const fragId = parts[2].toLowerCase();
+      addLocalMsg(<FragmentReadOutput key={`frag-read-${Date.now()}`} fragmentId={fragId} />);
+      return true;
+    }
+    addLocalMsg(<FragmentsOutput key={`frags-${Date.now()}`} />);
+    return true;
+  }
+
+  // ── /mod auth <password> ──────────────────────────────────────────────────
+  // Hidden from /help unless already admin.
+  if (cmd === 'mod' && arg1 === 'auth') {
+    const password = parts.slice(2).join(' ').trim();
+    if (!password) {
+      addLocalMsg(
+        <LocalNotice key={`mod-err-${Date.now()}`} error>
+          Usage: /mod auth &lt;password&gt;
+        </LocalNotice>
+      );
+      return true;
+    }
+    // Verify against server — never exposes ADMIN_SECRET to client logs
+    fetch('/api/mod', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ adminSecret: password, verify: true }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          onAdminAuth(password);
+          addLocalMsg(
+            <div key={`mod-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'var(--phosphor-green)' }}>
+              &gt; OPERATOR_ACCESS_GRANTED — mod commands active
+            </div>
+          );
+        } else {
+          addLocalMsg(
+            <LocalNotice key={`mod-fail-${Date.now()}`} error>
+              &gt; AUTH_FAILED — invalid credentials
+            </LocalNotice>
+          );
+        }
+      })
+      .catch(() => {
+        addLocalMsg(
+          <LocalNotice key={`mod-err2-${Date.now()}`} error>
+            &gt; MOD_LINK_FAILURE — cannot reach auth endpoint
+          </LocalNotice>
+        );
+      });
+    return true;
+  }
+
+  // ── Operator commands — only execute if isAdmin ───────────────────────────
+
+  // ── /kick <handle> ────────────────────────────────────────────────────────
+  if (cmd === 'kick') {
+    if (!isAdmin) {
+      addLocalMsg(<LocalNotice key={`kick-deny-${Date.now()}`} error>Unknown command: /kick — try /help</LocalNotice>);
+      return true;
+    }
+    const target = parts[1];
+    if (!target) {
+      addLocalMsg(<LocalNotice key={`kick-usage-${Date.now()}`} error>Usage: /kick &lt;handle&gt;</LocalNotice>);
+      return true;
+    }
+    dispatchModAction(adminSecret, { type: 'kick', clientId: target }).then(result => {
+      if (result.ok) {
+        addLocalMsg(
+          <div key={`kick-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(var(--phosphor-rgb),0.6)' }}>
+            &gt; mod: kick signal sent to {target}
+          </div>
+        );
+      } else {
+        addLocalMsg(
+          <LocalNotice key={`kick-fail-${Date.now()}`} error>
+            &gt; mod: kick failed — {result.error}
+          </LocalNotice>
+        );
+      }
+    });
+    return true;
+  }
+
+  // ── /silence <handle> [duration] / /mute alias ───────────────────────────
+  if (cmd === 'silence' || cmd === 'mute') {
+    if (!isAdmin) {
+      addLocalMsg(<LocalNotice key={`sil-deny-${Date.now()}`} error>Unknown command: /{cmd} — try /help</LocalNotice>);
+      return true;
+    }
+    const target = parts[1];
+    if (!target) {
+      addLocalMsg(<LocalNotice key={`sil-usage-${Date.now()}`} error>Usage: /silence &lt;handle&gt; [30s|2m|2h]</LocalNotice>);
+      return true;
+    }
+    const durStr   = parts[2] ?? '';
+    const durMs    = parseDuration(durStr);
+    const durLabel = durMs != null
+      ? `for ${durStr}`
+      : 'indefinitely';
+
+    dispatchModAction(adminSecret, { type: 'mute', clientId: target, durationMs: durMs }).then(result => {
+      if (result.ok) {
+        addLocalMsg(
+          <div key={`sil-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(var(--phosphor-rgb),0.6)' }}>
+            &gt; mod: {target} silenced {durLabel}
+          </div>
+        );
+      } else {
+        addLocalMsg(
+          <LocalNotice key={`sil-fail-${Date.now()}`} error>
+            &gt; mod: silence failed — {result.error}
+          </LocalNotice>
+        );
+      }
+    });
+    return true;
+  }
+
+  // ── /unmute <handle> ──────────────────────────────────────────────────────
+  if (cmd === 'unmute') {
+    if (!isAdmin) {
+      addLocalMsg(<LocalNotice key={`unm-deny-${Date.now()}`} error>Unknown command: /unmute — try /help</LocalNotice>);
+      return true;
+    }
+    const target = parts[1];
+    if (!target) {
+      addLocalMsg(<LocalNotice key={`unm-usage-${Date.now()}`} error>Usage: /unmute &lt;handle&gt;</LocalNotice>);
+      return true;
+    }
+    dispatchModAction(adminSecret, { type: 'unmute', clientId: target }).then(result => {
+      if (result.ok) {
+        addLocalMsg(
+          <div key={`unm-ok-${Date.now()}`} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: 'rgba(var(--phosphor-rgb),0.6)' }}>
+            &gt; mod: {target} unmuted
+          </div>
+        );
+      } else {
+        addLocalMsg(
+          <LocalNotice key={`unm-fail-${Date.now()}`} error>
+            &gt; mod: unmute failed — {result.error}
+          </LocalNotice>
+        );
+      }
+    });
+    return true;
+  }
+
+  // ── /enter /tunnelcore — MUD entry gate (ghost room only) ───────────────
+  if ((cmd === 'enter' || cmd === 'tunnelcore') && roomName === 'ghost') {
+    // mudDirect (enter.n1x.sh) bypasses ARG gate
+    if (!ctx.mudDirect) {
+      const argState = readARGState();
+      // ARG gate: trust 5 + fragments f001-f009
+      if (argState.trust < 5) {
+        addLocalMsg(
+          <LocalNotice key={`mud-gate-trust-${Date.now()}`} error>
+            signal insufficient. trust level 5 required.
+          </LocalNotice>
+        );
+        return true;
+      }
+      const collectedCount = argState.fragments.filter(
+        (f: string) => f !== 'f010'
+      ).length;
+      if (collectedCount < 9) {
+        addLocalMsg(
+          <LocalNotice key={`mud-gate-frags-${Date.now()}`} error>
+            fragments incomplete. {collectedCount}/9 recovered. keep searching.
+          </LocalNotice>
+        );
+        return true;
+      }
+    }
+
+    // Emit MUD entry event for cross-component effects
+    eventBus.emit('mud:entering');
+
+    // Check for existing character
+    if (hasExistingCharacter(handle)) {
+      const session = loadFullSession(handle);
+      if (session && !session.character?.isDead) {
+        // Resume existing character — notify parent via callback
+        if (ctx.onMudSession) ctx.onMudSession(session);
+        addLocalMsg(
+          <div key={`mud-resume-${Date.now()}`} style={{
+            fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
+          }}>
+            <div style={{ opacity: 0.5 }}>&gt;&gt; SUBSTRATE_LINK RE-ESTABLISHED</div>
+            <div style={{ color: '#cc44ff', opacity: 0.8, marginTop: '0.25rem' }}>
+              welcome back, {session.character!.subjectId}. you&apos;re still breathing. good.
+            </div>
+            <div style={{ color: 'var(--phosphor-accent)', opacity: 0.6, marginTop: '0.25rem' }}>
+              &gt;&gt; LOCATION: {session.character!.currentRoom}
+            </div>
+            <div style={{ opacity: 0.4, marginTop: '0.25rem' }}>
+              /look to survey · /mudhelp for commands · /save to persist
+            </div>
+          </div>
+        );
+        return true;
+      }
+    }
+
+    // New character — start creation flow via callback
+    if (ctx.onMudSession) {
+      const freshSession: MudSession = {
+        phase: 'character_creation',
+        character: null,
+        world: null,
+        npcState: null,
+        combat: null,
+        creation: { step: 'archetype' },
+      };
+      ctx.onMudSession(freshSession);
+    }
+    return true;
+  }
+
+  // ── unknown command ───────────────────────────────────────────────────────
+  addLocalMsg(
+    <LocalNotice key={`unk-${Date.now()}`} error>
+      Unknown command: /{cmd} — try /help
+    </LocalNotice>
+  );
+  return true;
+}
+
+// ── MudHUD Panel ─────────────────────────────────────────────────────────────
+// Sits above the input bar when MUD is active. Cyberpunk dashboard aesthetic.
+
+const HudBar: React.FC<{
+  pct: number; color: string; glow?: boolean; height?: number; animate?: boolean;
+}> = ({ pct, color, glow = true, height = 5, animate = false }) => {
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (
+    <div style={{
+      flex: 1,
+      height,
+      background: 'rgba(var(--phosphor-rgb),0.08)',
+      borderRadius: 1,
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+      <div style={{
+        width: `${clamped}%`,
+        height: '100%',
+        background: color,
+        boxShadow: glow ? `0 0 6px ${color}, inset 0 0 2px rgba(255,255,255,0.15)` : undefined,
+        transition: 'width 0.4s ease',
+        animation: animate ? 'hud-pulse 1.5s ease-in-out infinite' : undefined,
+      }} />
+      {/* Segmented overlay — gives the bar a tech grid look */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'repeating-linear-gradient(90deg, transparent 0px, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)',
+        pointerEvents: 'none',
+      }} />
+    </div>
+  );
+};
+
+const MudHUD: React.FC<{ session: MudSession }> = ({ session }) => {
+  const hud = getMudHUDData(session);
+  if (!hud) return null;
+
+  const hpPct = hud.maxHp > 0 ? (hud.hp / hud.maxHp) * 100 : 0;
+  const xpPct = hud.xpNext > 0 ? (hud.xp / hud.xpNext) * 100 : 100;
+  const ramPct = hud.maxRam > 0 ? (hud.ram / hud.maxRam) * 100 : 100;
+
+  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
+  const xpColor = '#ff69b4';
+  const ramColor = '#c084fc';
+  const dim = 'rgba(var(--phosphor-rgb),0.45)';
+  const mid = 'rgba(var(--phosphor-rgb),0.65)';
+  const borderColor = hud.inCombat ? 'rgba(255,68,68,0.35)' : 'rgba(var(--phosphor-rgb),0.12)';
+
+  return (
+    <div style={{
+      fontFamily: 'monospace',
+      fontSize: S.base,
+      padding: '0.45rem 0.75rem',
+      borderTop: `1px solid ${borderColor}`,
+      borderBottom: `1px solid ${borderColor}`,
+      background: hud.inCombat ? 'rgba(255,20,20,0.04)' : 'rgba(0,0,0,0.2)',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Scanline overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
+        background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
+      }} />
+
+      {/* Content */}
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+
+        {/* Row 1: Identity + Level */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.6ch', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold', letterSpacing: '0.04em' }}>
+              {hud.subjectId}
+            </span>
+            <span style={{ color: dim }}>·</span>
+            <span style={{ color: mid, fontSize: '0.85em' }}>{hud.archetype}</span>
+            <span style={{ color: dim }}>·</span>
+            <span style={{ color: mid, fontSize: '0.85em' }}>{hud.combatStyle}</span>
+          </div>
+          <span style={{ color: 'var(--phosphor-accent)', fontWeight: 'bold', textShadow: '0 0 6px var(--phosphor-accent)' }}>
+            Lv.{hud.level}
+          </span>
+        </div>
+
+        {/* Row 2: HP + RAM */}
+        <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', flex: '1 1 auto', minWidth: 0 }}>
+            <span style={{ color: dim, fontSize: '0.8em', width: '2.2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+            <HudBar pct={hpPct} color={hpColor} animate={hud.inCombat && hpPct <= 25} />
+            <span style={{ color: hpColor, fontSize: '0.8em', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+              {hud.hp}/{hud.maxHp}
+            </span>
+          </div>
+          {hud.maxRam > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', flex: '0 0 auto' }}>
+              <span style={{ color: dim, fontSize: '0.8em', flexShrink: 0 }}>RAM</span>
+              <HudBar pct={ramPct} color={ramColor} height={4} />
+              <span style={{ color: ramColor, fontSize: '0.8em', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {hud.ram}/{hud.maxRam}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Row 3: XP bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          <span style={{ color: dim, fontSize: '0.8em', width: '2.2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+          <HudBar pct={xpPct} color={xpColor} height={4} glow />
+          <span style={{ color: xpColor, fontSize: '0.8em', whiteSpace: 'nowrap', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+            {hud.xp}/{hud.xpNext}
+          </span>
+        </div>
+
+        {/* Row 4: Location · Currency · Combat */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5ch' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ color: mid, fontSize: '0.8em' }}>
+              {hud.zoneName} — {hud.roomName}
+            </span>
+            {hud.isSafeZone && (
+              <span style={{
+                color: '#a5f3fc', fontSize: '0.7em',
+                border: '1px solid rgba(165,243,252,0.3)', padding: '0 0.3em',
+                borderRadius: 2, lineHeight: 1.4,
+              }}>SAFE</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.8ch', alignItems: 'center' }}>
+            <span style={{ color: '#fcd34d', fontSize: '0.8em' }}>{hud.creds}¢</span>
+            {hud.scrip > 0 && <span style={{ color: '#a78bfa', fontSize: '0.8em' }}>{hud.scrip}s</span>}
+            {hud.inCombat && (
+              <span style={{
+                color: '#ff4444', fontWeight: 'bold', fontSize: '0.8em',
+                textShadow: '0 0 6px rgba(255,68,68,0.5)',
+              }}>
+                ⚔ R{hud.combatRound} · {hud.combatAP}AP
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Keyframe for low-HP pulse */}
+      <style>{`
+        @keyframes hud-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// ── TelnetConnected ───────────────────────────────────────────────────────────
+
+type Mode = 'waiting' | 'offline' | 'multi';
+
+interface TelnetConnectedProps {
+  host:     string;
+  handle:   string;
+  roomName: 'ghost' | 'mancave';
+  mudDirect?: boolean;
+}
+
+const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomName, mudDirect }) => {
+  const { messages, occupantCount, presenceNames, isConnected, connectionStatus, ablyDebug, isMuted, send } =
+    useAblyRoom(handle, roomName);
+
+  const [mode, setMode]           = useState<Mode>('waiting');
+  const [showBoot, setShowBoot]   = useState(true);
+  const [bootLines, setBootLines] = useState<React.ReactNode[]>([]);
+  const [isAdmin, setIsAdmin]     = useState(false);
+
+  interface LocalEntry { id: string; ts: number; node: React.ReactNode; }
+  const [localMsgs, setLocalMsgs] = useState<LocalEntry[]>([]);
+
+  const isMountedRef   = useRef(true);
+  const bootFiredRef   = useRef(false);
+  const sessionBumpRef = useRef(false);
+  const adminSecretRef = useRef('');
+  // Keep a stable ref to isAdmin so sendWithSlash always reads latest value
+  const isAdminRef     = useRef(false);
+
+  // ── MUD session state (refs declared here, callbacks after addLocalMsg) ──
+  const [mudSession, setMudSessionState] = useState<MudSession | null>(null);
+  const mudSessionRef = useRef<MudSession | null>(null);
+
+  // ── Sync isAdmin ref ──────────────────────────────────────────────────────
+  useEffect(() => { isAdminRef.current = isAdmin; }, [isAdmin]);
+
+  // ── onAdminAuth callback ──────────────────────────────────────────────────
+  const onAdminAuth = useCallback((secret: string) => {
+    adminSecretRef.current = secret;
+    isAdminRef.current = true;
+    setIsAdmin(true);
+  }, []);
+
+  // ── Increment session once on mount ──────────────────────────────────────
+  useEffect(() => {
+    if (sessionBumpRef.current) return;
+    sessionBumpRef.current = true;
+    incrementSession();
+  }, []);
+
+  // ── Local message injector ────────────────────────────────────────────────
+
+  const addLocalMsg = useCallback((node: React.ReactNode) => {
+    if (!isMountedRef.current) return;
+    const entry: LocalEntry = {
+      id:   `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      ts:   Date.now(),
+      node,
+    };
+    setLocalMsgs(prev => [...prev, entry]);
+    eventBus.emit('shell:request-scroll');
+  }, []);
+
+  // ── MUD session callbacks (after addLocalMsg is declared) ─────────────
+
+  const setMudSession = useCallback((s: MudSession | null) => {
+    mudSessionRef.current = s;
+    setMudSessionState(s);
+  }, []);
+
+  // ── MUD autocomplete provider — register/unregister on session change ──
+  useEffect(() => {
+    const ms = mudSessionRef.current;
+    if (ms && (ms.phase === 'active' || ms.phase === 'combat' || ms.phase === 'character_creation')) {
+      setMudSuggestionProvider((partial: string) => getMudSuggestions(partial, ms));
+    } else {
+      setMudSuggestionProvider(null);
+    }
+    return () => setMudSuggestionProvider(null);
+  }, [mudSession]); // re-run when mudSession state changes
+
+  // ── MUD state events — drive tab panel swap in InterfaceLayer ─────────
+  useEffect(() => {
+    const ms = mudSessionRef.current;
+    if (ms && (ms.phase === 'active' || ms.phase === 'combat' || ms.phase === 'character_creation')) {
+      eventBus.emit('mud:active', { phase: ms.phase, inCombat: ms.phase === 'combat' });
+    } else if (!ms || ms.phase === 'inactive' || ms.phase === 'dead') {
+      eventBus.emit('mud:exit');
+    }
+    // Lock input bar during character creation (overlay handles all interaction)
+    eventBus.emit('mud:input-locked', { locked: ms?.phase === 'character_creation' });
+  }, [mudSession]);
+
+  // ── MUD HUD visibility — hides InterfaceLayer nav when HUD is on screen ──
+  // Also hides during character creation (explore buttons don't work there)
+  useEffect(() => {
+    const visible = !!(mudSession && (
+      // HUD is active (has character, in gameplay phase)
+      (mudSession.character && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'dead'))
+      // Or in character creation (nav buttons don't work, hide them)
+      || mudSession.phase === 'character_creation'
+    ));
+    eventBus.emit('mud:hud-visible', { visible });
+  }, [mudSession]);
+
+  // ── Mod event listeners ───────────────────────────────────────────────────
+  // mod:kicked — received by ablyClient when this client is kicked
+  // mod:suppressed — received when this client tries to send while muted
+  useEffect(() => {
+    const onKicked = () => {
+      if (!isMountedRef.current) return;
+      addLocalMsg(
+        <div
+          key={`kicked-${Date.now()}`}
+          style={{
+            fontFamily: 'monospace',
+            fontSize:   S.base,
+            lineHeight: 1.8,
+            color:      'var(--error-red, #ff6b6b)',
+            fontWeight: 'bold',
+          }}
+        >
+          [ SIGNAL TERMINATED — CONNECTION SEVERED BY OPERATOR ]
+        </div>
+      );
+    };
+
+    const onSuppressed = () => {
+      if (!isMountedRef.current) return;
+      addLocalMsg(
+        <div
+          key={`sup-${Date.now()}`}
+          style={{
+            fontFamily: 'monospace',
+            fontSize:   S.base,
+            lineHeight: 1.8,
+            color:      'rgba(var(--phosphor-rgb),0.18)',
+            fontStyle:  'italic',
+          }}
+        >
+          [ TRANSMISSION SUPPRESSED ]
+        </div>
+      );
+    };
+
+    eventBus.on('mod:kicked',     onKicked);
+    eventBus.on('mod:suppressed', onSuppressed);
+    return () => {
+      eventBus.off('mod:kicked',     onKicked);
+      eventBus.off('mod:suppressed', onSuppressed);
+    };
+  }, [addLocalMsg]);
+
+  // ── Wrapped send ──────────────────────────────────────────────────────────
+
+  // ── Disconnect ────────────────────────────────────────────────────────────
+
+  const handleDisconnect = useCallback(() => {
+    deactivateTelnet();
+    eventBus.emit('shell:push-output', {
+      command: '',
+      output: (
+        <div style={{ fontSize: S.base }}>
+          <div style={{ opacity: 0.5 }}>&gt;&gt; NEURAL_BUS DISCONNECTED</div>
+          <div style={{ opacity: 0.3, marginTop: '0.25rem' }}>substrate link closed. signal archived.</div>
+        </div>
+      ),
+    });
+  }, []);
+
+  // ── MUD entry callback (passed into handleSlashCommand) ─────────────────
+
+  const onMudSessionEntry = useCallback((session: MudSession) => {
+    setMudSession(session);
+    if (session.phase === 'character_creation') {
+      // Start the creation flow with scripted N1X dialogue
+      const ctx: MudContext = {
+        addLocalMsg,
+        handle,
+        session,
+        setSession: setMudSession,
+      };
+      startCreationFlow(ctx);
+    } else if (session.phase === 'active') {
+      // Resume — auto-fire /look after a short delay for the welcome message to render
+      setTimeout(() => {
+        const ms = mudSessionRef.current;
+        if (ms && ms.phase === 'active') {
+          const ctx: MudContext = {
+            addLocalMsg,
+            handle,
+            session: ms,
+            setSession: setMudSession,
+          };
+          handleMudCommand('/look', ctx);
+        }
+      }, 600);
+    }
+  }, [addLocalMsg, handle, setMudSession]);
+
+  // ── mudDirect: auto-enter MUD after connection stabilizes ─────────────
+  const mudDirectFiredRef = useRef(false);
+  useEffect(() => {
+    if (!mudDirect || mudDirectFiredRef.current) return;
+    if (mode !== 'multi') return; // wait until Ably is connected and boot is done
+    mudDirectFiredRef.current = true;
+    const timer = setTimeout(() => {
+      // Check for existing character first
+      if (hasExistingCharacter(handle)) {
+        const session = loadFullSession(handle);
+        if (session && !session.character?.isDead) {
+          onMudSessionEntry(session);
+          return;
+        }
+      }
+      // Start fresh creation
+      const freshSession: MudSession = {
+        phase: 'character_creation',
+        character: null,
+        world: null,
+        npcState: null,
+        combat: null,
+        creation: { step: 'archetype' },
+      };
+      onMudSessionEntry(freshSession);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [mode, mudDirect, handle, onMudSessionEntry]);
+
+  const sendWithSlash = useCallback((text: string) => {
+    // Collapse any open entity panels on new input
+    collapseMudPanels();
+
+    // ── MUD interception: creation phase captures ALL input ──────────────
+    const ms = mudSessionRef.current;
+    // ── MUD interception: creation phase — overlay handles all input via modals ──
+    if (ms && ms.phase === 'character_creation' && ms.creation) {
+      return; // silently consume — creation overlay handles selection
+    }
+
+    // ── MUD interception: active phase routes /commands ──────────────────
+    if (ms && ms.phase === 'active' && text.startsWith('/')) {
+      const ctx: MudContext = {
+        addLocalMsg,
+        handle,
+        session: ms,
+        setSession: setMudSession,
+      };
+      const result = handleMudCommand(text, ctx);
+      if (result.handled) return; // consumed by MUD — do not send to Ably
+      // If not handled, fall through to regular slash command processing
+    }
+
+    // ── MUD interception: combat phase routes /commands ──────────────────
+    if (ms && ms.phase === 'combat' && text.startsWith('/')) {
+      const ctx: MudContext = {
+        addLocalMsg,
+        handle,
+        session: ms,
+        setSession: setMudSession,
+      };
+      const result = handleMudCommand(text, ctx);
+      if (result.handled) return;
+    }
+
+    // ── MUD interception: non-/ input → NPC dialogue if NPCs present ────
+    if (ms && ms.phase === 'active' && !text.startsWith('/') && ms.character) {
+      const room = getRoom(ms.character.currentRoom);
+      if (room && room.npcs.length > 0) {
+        const ctx: MudContext = {
+          addLocalMsg,
+          handle,
+          session: ms,
+          setSession: setMudSession,
+        };
+        handleNPCDialogue(text, ctx);
+        return; // consumed — do not send to Ably
+      }
+    }
+
+    // ── MUD interception: in combat, block non-/ input ──────────────────
+    if (ms && ms.phase === 'combat' && !text.startsWith('/')) {
+      addLocalMsg(
+        React.createElement('div', {
+          key: `combat-block-${Date.now()}`,
+          style: { fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8, color: '#ff6b6b', opacity: 0.85, fontStyle: 'italic' },
+        }, 'you\'re in combat. use /attack, /hack, /use, /scan, or /flee.')
+      );
+      return;
+    }
+
+    // ── Regular slash command handling ───────────────────────────────────
+    const handled = handleSlashCommand({
+      raw:           text,
+      handle,
+      presenceNames,
+      send,
+      addLocalMsg,
+      isAdmin:       isAdminRef.current,
+      adminSecret:   adminSecretRef.current,
+      onAdminAuth,
+      disconnect:    handleDisconnect,
+      roomName,
+      onMudSession:  onMudSessionEntry,
+      mudDirect,
+    });
+    if (!handled) send(text);
+  }, [handle, presenceNames, send, addLocalMsg, onAdminAuth, handleDisconnect, roomName, setMudSession, onMudSessionEntry, mudDirect]);
+
+  // ── MUD entity command listener ─────────────────────────────────────────
+  // TouchableEntity and ActionGlyph emit this event to fire commands
+  // from inside addLocalMsg-rendered JSX (outside React tree context).
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (event: any) => {
+      const cmd = event?.payload?.command;
+      if (cmd && typeof cmd === 'string') {
+        sendWithSlash(cmd);
+      }
+    };
+    eventBus.on('mud:execute-command', handler);
+    return () => eventBus.off('mud:execute-command', handler);
+  }, [sendWithSlash]);
+
+  // ── MUD force-exit listener — used by FlatlineModal GHOST button ──────
+  useEffect(() => {
+    const handler = () => {
+      setMudSession(null);
+    };
+    eventBus.on('mud:force-exit', handler);
+    return () => eventBus.off('mud:force-exit', handler);
+  }, [setMudSession]);
+
+  // ── MUD reassemble listener — used by FlatlineModal REASSEMBLE button ──
+  // Bypasses trust/fragment gate — starts fresh character creation directly.
+  useEffect(() => {
+    const handler = () => {
+      const freshSession: MudSession = {
+        phase: 'character_creation',
+        character: null,
+        world: null,
+        npcState: null,
+        combat: null,
+        creation: { step: 'archetype' },
+      };
+      onMudSessionEntry(freshSession);
+    };
+    eventBus.on('mud:reassemble', handler);
+    return () => eventBus.off('mud:reassemble', handler);
+  }, [onMudSessionEntry]);
+
+  // ── Boot helpers ──────────────────────────────────────────────────────────
+
+  const pushLine = useCallback((node: React.ReactNode) => {
+    if (!isMountedRef.current) return;
+    setBootLines(prev => [...prev, node]);
+    eventBus.emit('shell:request-scroll');
+  }, []);
+
+  const runSequence = useCallback(
+    (seq: ConnectLine[], onDone: () => void) => {
+      seq.forEach(({ delay, text, bright }) => {
+        setTimeout(() => {
+          pushLine(
+            <div
+              key={`seq-${delay}`}
+              style={{ fontSize: S.base, lineHeight: 1.8, opacity: bright ? 1 : 0.6 }}
+              className={bright ? S.glow : ''}
+            >
+              {text || '\u00a0'}
+            </div>
+          );
+        }, delay);
+      });
+      const last = Math.max(...seq.map(s => s.delay)) + 400;
+      setTimeout(onDone, last);
+    },
+    [pushLine]
+  );
+
+  const runOfflineBoot = useCallback(() => {
+    OFFLINE_SEQUENCE.forEach(([delay, content]) => {
+      setTimeout(() => pushLine(content), delay as number);
+    });
+    setTimeout(() => {
+      if (!isMountedRef.current) return;
+      setShowBoot(false);
+      setMode('offline');
+    }, 3600);
+  }, [pushLine]);
+
+  const runMancaveBoot = useCallback((count: number) => {
+    runSequence(getMancaveSequence(handle, count), () => {
+      if (!isMountedRef.current) return;
+      setShowBoot(false);
+      activateTelnet(handle, sendWithSlash, handleDisconnect);
+      setMode('multi');
+      eventBus.emit('telnet:connected');
+      setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
+      // Broadcast join announcement to all occupants
+      fetch('/api/messages', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: handle,
+          text:     `[[ ${handle} ENTERED THE MANCAVE ]]`,
+          roomId:   'mancave',
+          announce: true,
+        }),
+      }).catch(() => { /* fail silently */ });
+    });
+  }, [handle, sendWithSlash, handleDisconnect, runSequence]);
+
+  const runMultiBoot = useCallback((count: number) => {
+    runSequence(getMultiSequence(host, count), () => {
+      if (!isMountedRef.current) return;
+      setShowBoot(false);
+      activateTelnet(handle, sendWithSlash, handleDisconnect);
+      setMode('multi');
+      eventBus.emit('telnet:connected');
+      setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
+    });
+  }, [host, handle, sendWithSlash, handleDisconnect, runSequence]);
+
+  // ── mudDirect boot: skip all boot lines, pause, glitch, then activate ──
+  const runMudDirectBoot = useCallback(() => {
+    // MeshStatus already shows "contacting... connected."
+    // Wait 500ms after connection, then glitch and go straight to multi mode
+    setTimeout(() => {
+      if (!isMountedRef.current) return;
+      // CRT glitch shake
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 400 });
+      eventBus.emit('neural:glitch-trigger', { intensity: 0.8 });
+      // Brief pause for the glitch to register visually
+      setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setShowBoot(false);
+        activateTelnet(handle, sendWithSlash, handleDisconnect);
+        setMode('multi');
+        setTimeout(() => eventBus.emit('shell:request-scroll'), 50);
+      }, 300);
+    }, 500);
+  }, [handle, sendWithSlash, handleDisconnect]);
+
+  // ── Boot decision ─────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!isConnected || bootFiredRef.current) return;
+    bootFiredRef.current = true;
+    if (connectionStatus === 'failed') {
+      runOfflineBoot();
+    } else if (mudDirect) {
+      runMudDirectBoot();
+    } else if (roomName === 'mancave') {
+      runMancaveBoot(occupantCount);
+    } else {
+      runMultiBoot(occupantCount + 4);
+    }
+  }, [isConnected, connectionStatus, occupantCount, roomName, mudDirect, runOfflineBoot, runMancaveBoot, runMultiBoot, runMudDirectBoot]);
+
+  // ── Re-register send when presenceNames changes ───────────────────────────
+
+  useEffect(() => {
+    if (mode === 'multi') {
+      activateTelnet(handle, sendWithSlash, handleDisconnect);
+    }
+  }, [mode, handle, sendWithSlash, handleDisconnect]);
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      deactivateTelnet();
+      clearHandle();
+      setMudSuggestionProvider(null);
+      };
+  }, []);
+
+  // ── Message renderer ──────────────────────────────────────────────────────
+
+  const isMudActive = mudSession && (mudSession.phase === 'active' || mudSession.phase === 'combat' || mudSession.phase === 'character_creation' || mudSession.phase === 'dead');
+  const isMudHUDVisible = isMudActive && (
+    (!!mudSession?.character && mudSession.phase !== 'character_creation')
+    || mudSession?.phase === 'character_creation'
+  );
+
+  function renderMessage(msg: RoomMsg): React.ReactNode {
+    // Suppress bot messages when MUD is active
+    if (isMudActive && (msg.isN1X || msg.isAmbientBot)) return null;
+    if (msg.isSystem)     return <SystemMsg        key={msg.id} msg={msg} />;
+    if (msg.isN1X)        return <N1XMessage        key={msg.id} msg={msg} />;
+    if (msg.isAmbientBot) return <AmbientBotMessage key={msg.id} msg={msg} />;
+    return                       <UserMessage       key={msg.id} msg={msg} isSelf={msg.handle === handle} />;
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  return (
+    <div style={{ fontSize: S.base, lineHeight: 1.8 }}>
+
+      <MeshStatus status={connectionStatus} />
+
+      {connectionStatus !== 'connected' && (
+        <div style={{ opacity: 0.25, fontSize: S.base, fontFamily: 'monospace', marginBottom: '0.25rem' }}>
+          ably: {ablyDebug}
+        </div>
+      )}
+
+      {bootLines.map((line, i) => <div key={i}>{line}</div>)}
+      {showBoot && !mudDirect && <span style={{ opacity: 0.3 }}><Cursor /></span>}
+
+      {!showBoot && mode === 'offline' && (
+        <div style={{ opacity: 0.5, fontSize: S.base, fontStyle: 'italic' }}>
+          mesh unreachable. signal lost.
+        </div>
+      )}
+
+      {!showBoot && mode === 'multi' && (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {!mudDirect && <ChannelStats occupantCount={occupantCount} handle={handle} roomName={roomName} />}
+
+          {/* ── MUD HUD Container — self-contained scroll region ── */}
+          {isMudHUDVisible ? (
+            <MudHUDContainer session={mudSession} handle={handle} onSessionUpdate={setMudSession} addLocalMsg={addLocalMsg}>
+              {!mudDirect && messages.length === 0 && localMsgs.length === 0 && (
+                <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
+                  channel open. transmit to begin.
+                </div>
+              )}
+
+              {[
+                ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
+                ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
+              ]
+                .sort((a, b) => a.ts - b.ts)
+                .map(item => {
+                  if (item.kind === 'local') return <React.Fragment key={item.id}>{item.node}</React.Fragment>;
+                  return renderMessage(item.msg);
+                })
+              }
+            </MudHUDContainer>
+          ) : (
+            <>
+              {!mudDirect && messages.length === 0 && localMsgs.length === 0 && (
+                <div style={{ opacity: 0.3, fontSize: S.base, fontStyle: 'italic', marginBottom: '0.5rem' }}>
+                  channel open. transmit to begin.
+                </div>
+              )}
+
+              {/* ── Chat / Ghost Channel scroll area ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                {[
+                  ...messages.map(m => ({ id: m.id, ts: m.ts, kind: 'room' as const, msg: m })),
+                  ...localMsgs.map(l => ({ id: l.id, ts: l.ts, kind: 'local' as const, node: l.node })),
+                ]
+                  .sort((a, b) => a.ts - b.ts)
+                  .map(item => {
+                    if (item.kind === 'local') return <React.Fragment key={item.id}>{item.node}</React.Fragment>;
+                    return renderMessage(item.msg);
+                  })
+                }
+              </div>
+            </>
+          )}
+
+          <div style={{ opacity: 0.55, fontSize: S.base, marginTop: '0.75rem', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+            {roomName === 'mancave' ? (
+              <>
+                <span style={{ color: '#00e5ff' }}>/leave</span> to exit
+                &nbsp;·&nbsp;
+                <span style={{ color: '#00e5ff' }}>/vibe</span> · <span style={{ color: '#00e5ff' }}>/roll</span> · <span style={{ color: '#00e5ff' }}>/tv</span> · <span style={{ color: '#00e5ff' }}>/beer</span>
+                &nbsp;·&nbsp;
+                <span style={{ color: '#00e5ff' }}>/help</span> for all commands
+              </>
+            ) : (isMudHUDVisible || mudDirect) ? null : (
+              <>
+                <span className={S.glow} style={{ color: C.accent }}>/q</span> to disconnect
+                &nbsp;·&nbsp;
+                <span className={S.glow} style={{ color: C.accent }}>/who</span> to list nodes
+                &nbsp;·&nbsp;
+                <span className={S.glow} style={{ color: C.accent }}>/help</span> for commands
+              </>
+            )}
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── TelnetSession (public export) ─────────────────────────────────────────────
+
+interface TelnetSessionProps { host: string; handle: string; roomName?: 'ghost' | 'mancave'; mudDirect?: boolean; }
+
+export const TelnetSession: React.FC<TelnetSessionProps> = ({ host, handle, roomName = 'ghost', mudDirect }) => {
+  return <TelnetConnected host={host} handle={handle} roomName={roomName} mudDirect={mudDirect} />;
+};
