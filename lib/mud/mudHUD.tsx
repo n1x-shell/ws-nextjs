@@ -1042,6 +1042,11 @@ function PlayerCard({ data }: { data: PanelData }) {
         animation: data.isPlayerTurn ? 'mud-turn-glow 2s ease-in-out infinite' : 'none',
       }} className={data.isPlayerTurn ? S.glow : undefined}>
         {data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle} ({data.subjectId})
+        {data.isPlayerTurn && (
+          <span style={{ marginLeft: '0.5ch', color: data.playerAP >= 2 ? 'var(--phosphor-accent)' : '#fbbf24', fontWeight: 'normal' }}>
+            [{data.playerAP} AP]
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>

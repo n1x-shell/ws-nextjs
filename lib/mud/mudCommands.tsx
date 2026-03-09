@@ -1348,8 +1348,12 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
   // Advance past player's turn
   let next = advanceTurn(combat);
 
-  // Process each enemy turn until it's the player's turn again
-  while (next.nextId !== 'player') {
+  // Process each enemy turn until it's the player's turn again.
+  // Safety counter prevents infinite loops if all combatants are dead.
+  let safety = 0;
+  const maxIterations = combat.turnOrder.length + 1;
+  while (next.nextId !== 'player' && safety < maxIterations) {
+    safety++;
     const enemy = getEnemyById(combat, next.nextId) ?? getAllLivingEnemies(combat).find(e => e.id === next.nextId);
     if (!enemy || enemy.hp <= 0) {
       next = advanceTurn(combat);
@@ -1380,7 +1384,6 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
     }
 
     next = advanceTurn(combat);
-    if (next.newRound) break; // New round = back to player
   }
 
   syncCombatToCharacter(combat, char);
@@ -1568,6 +1571,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       const result = resolvePlayerAttack(combat, target.id, char);
       if ('error' in result) {
         addLocalMsg(<MudNotice key={k('atk-err')} error>{result.error}</MudNotice>);
+        setSession({ ...session });
         return { handled: true, stopPropagation: true };
       }
 
@@ -1731,6 +1735,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       const result = resolveQuickhack(combat, target.id, hack.id, char);
       if ('error' in result) {
         addLocalMsg(<MudNotice key={k('hack-err')} error>{result.error}</MudNotice>);
+        // Refresh HUD so player sees remaining AP and knows they can still act
+        setSession({ ...session });
         return { handled: true, stopPropagation: true };
       }
 
@@ -1855,6 +1861,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       const result = useItemInCombat(combat, char, idx);
       if (result.error) {
         addLocalMsg(<MudNotice key={k('use-err')} error>{result.error}</MudNotice>);
+        setSession({ ...session });
         return { handled: true, stopPropagation: true };
       }
 
@@ -1892,6 +1899,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       const result = scanEnemy(combat, target.id, char);
       if ('error' in result) {
         addLocalMsg(<MudNotice key={k('scan-err')} error>{result.error}</MudNotice>);
+        setSession({ ...session });
         return { handled: true, stopPropagation: true };
       }
 
@@ -1938,6 +1946,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       const result = attemptFlee(combat, char);
       if ('error' in result) {
         addLocalMsg(<MudNotice key={k('flee-err')} error>{result.error}</MudNotice>);
+        setSession({ ...session });
         return { handled: true, stopPropagation: true };
       }
 
