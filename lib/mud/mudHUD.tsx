@@ -3607,12 +3607,12 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
   }, [data.currentRoomId, data.handle, data.zoneId]);
 
   // Map panel pixel breakdown:
-  //   title bar:   0.25rem padding*2 + ~16px font + 1px border = ~26px
+  //   title bar:   0.25rem padding*2 + 12px font + 1px border + line-height = ~34px
   //   viewport:    0.6rem padTop + 0.3rem padBot = ~15px
   //   grid:        gridHeight * SY - GY
   //   room label:  0.4rem margin + ~16px font = ~22px
   const gridH = mapData ? mapData.gridHeight : 5;
-  const panelContentH = 26 + 15 + (gridH * SY - GY) + 22;
+  const panelContentH = 34 + 15 + (gridH * SY - GY) + 22;
 
   // Determine if context (middle) column has content
   const hasContextContent = data.inCombat
@@ -3627,6 +3627,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
       flexShrink: 0,
       background: BG_PANEL,
       borderBottom: `1px solid ${BORDER}`,
+      paddingTop: 2,
     }}>
       {/* Panel grid — fixed height derived from map grid */}
       <div style={{
