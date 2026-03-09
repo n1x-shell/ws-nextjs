@@ -1256,7 +1256,6 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
 
   return (
     <div style={{
-      aspectRatio: '1',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       gap: '0.4rem', padding: '0.3rem',
     }}>
