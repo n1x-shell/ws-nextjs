@@ -3629,10 +3629,9 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
       borderBottom: `1px solid ${BORDER}`,
       paddingTop: 5,
     }}>
-      {/* Panel grid — fixed height for map mode, auto for others */}
+      {/* Panel grid — fixed height derived from map dimensions, all modes */}
       <div style={{
-        height: isMapMode ? panelContentH : undefined,
-        maxHeight: isMapMode ? undefined : panelContentH,
+        height: panelContentH,
         display: 'grid',
         gridTemplateColumns: isMapMode ? 'auto 1fr'
           : isSalvageMode ? '1fr 1fr'
