@@ -416,20 +416,23 @@ export function MapPanel({ currentRoom, handle }: { currentRoom: string; handle:
         </span>
       </div>
       {/* Map viewport */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0.6rem 0.6rem 0.3rem', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ flex: 1, overflow: 'auto', position: 'relative', minHeight: 0 }}>
         {/* Scanline overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, opacity: 0.025, background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)' }} />
-        {/* Grid container */}
-        <div style={{ position: 'relative', width: cW, height: cH, flexShrink: 0 }}>
-          {mapData.connections.map((c, i) => <ConnLine key={i} c={c} />)}
-          {mapData.cells.map(cell => <RoomCell key={cell.roomId} cell={cell} currentRoomId={currentRoom} />)}
-        </div>
-        {/* Current room label */}
-        {current && (
-          <div style={{ textAlign: 'center', marginTop: '0.4rem', fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'var(--phosphor-accent)', letterSpacing: '0.06em', textShadow: '0 0 8px rgba(var(--phosphor-rgb),0.3)' }}>
-            {'\u25C6'} {current.name}
+        {/* Centering wrapper */}
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100%', padding: '0.4rem 0.6rem' }}>
+          {/* Grid container */}
+          <div style={{ position: 'relative', width: cW, height: cH, flexShrink: 0 }}>
+            {mapData.connections.map((c, i) => <ConnLine key={i} c={c} />)}
+            {mapData.cells.map(cell => <RoomCell key={cell.roomId} cell={cell} currentRoomId={currentRoom} />)}
           </div>
-        )}
+          {/* Current room label */}
+          {current && (
+            <div style={{ textAlign: 'center', marginTop: '0.4rem', fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'var(--phosphor-accent)', letterSpacing: '0.06em', textShadow: '0 0 8px rgba(var(--phosphor-rgb),0.3)', flexShrink: 0 }}>
+              {'\u25C6'} {current.name}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

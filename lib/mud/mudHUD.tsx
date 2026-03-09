@@ -3633,7 +3633,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         minHeight: isMapMode ? panelContentH : undefined,
         maxHeight: isMapMode ? undefined : panelContentH,
         display: 'grid',
-        gridTemplateColumns: isMapMode ? 'auto 1fr'
+        gridTemplateColumns: isMapMode ? '2fr 1fr'
           : isSalvageMode ? '1fr 1fr'
           : isShopMode ? '1fr 1fr'
           : defaultCols,
