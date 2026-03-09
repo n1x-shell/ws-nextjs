@@ -3642,7 +3642,11 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         {isMapMode ? (
           /* ── Map mode: map (auto-width) + objects (full height) ── */
           <>
-            <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
+            </div>
             <div style={{
               borderLeft: `1px solid ${BORDER}`,
               overflowY: 'auto', overscrollBehavior: 'contain',
@@ -4118,9 +4122,9 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
         ref={containerRef}
         style={{
           display: 'flex', flexDirection: 'column',
-          height: availableHeight ? availableHeight - 8 : 'calc(100dvh - 8px)',
+          height: availableHeight ? availableHeight - 10 : 'calc(100dvh - 10px)',
           overflow: 'hidden', background: '#020308',
-          position: 'relative', marginTop: 8,
+          position: 'relative', marginTop: 10,
         }}
       >
         <SubstrateBackground opacity={0.4} config={{ tendrilCount: 56, sporeCount: 800, growFromEdges: true }} />
@@ -4144,11 +4148,11 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: availableHeight ? availableHeight - 8 : 'calc(100dvh - 8px)',
+        height: availableHeight ? availableHeight - 10 : 'calc(100dvh - 10px)',
         overflow: 'hidden',
         background: '#020308',
         position: 'relative',
-        marginTop: 8,
+        marginTop: 10,
       }}
     >
       <SubstrateBackground
