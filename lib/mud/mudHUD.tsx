@@ -4124,6 +4124,31 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
     });
   }, []);
 
+  // During character creation, render a minimal container with just the overlay
+  if (!data && session.phase === 'character_creation') {
+    return (
+      <div
+        ref={containerRef}
+        style={{
+          display: 'flex', flexDirection: 'column',
+          height: availableHeight || '100dvh',
+          overflow: 'hidden', background: '#020308',
+          position: 'relative',
+        }}
+      >
+        <SubstrateBackground opacity={0.4} config={{ tendrilCount: 56, sporeCount: 800, growFromEdges: true }} />
+        {handle && onSessionUpdate && addLocalMsg && (
+          <CreationOverlay
+            session={session}
+            setSession={onSessionUpdate}
+            handle={handle}
+            addLocalMsg={addLocalMsg}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (!data) return <>{children}</>;
 
   return (
