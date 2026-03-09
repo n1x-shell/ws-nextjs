@@ -87,6 +87,7 @@ const BG_PANEL = 'rgba(10,10,10,0.75)';
 const BG_COMBAT = 'rgba(13,8,8,0.75)';
 const BORDER = 'rgba(var(--phosphor-rgb),0.15)';
 const BORDER_COMBAT = 'rgba(255,68,68,0.25)';
+const TOP_PANEL_CONTENT_H = 270; // Fixed height for top panel grid area (matches map viewport)
 // ── HUD FX Keyframes ────────────────────────────────────────────────────────
 
 function HUDFXStyles() {
@@ -119,6 +120,10 @@ function HUDFXStyles() {
       @keyframes mud-pulse-amber {
         0%, 100% { background: rgba(251,191,36,0.06); box-shadow: none; }
         50% { background: rgba(251,191,36,0.12); box-shadow: inset 0 0 8px rgba(251,191,36,0.08); }
+      }
+      @keyframes mud-pulse-phosphor-btn {
+        0%, 100% { background: rgba(var(--phosphor-rgb),0.06); box-shadow: none; }
+        50% { background: rgba(var(--phosphor-rgb),0.14); box-shadow: inset 0 0 8px rgba(var(--phosphor-rgb),0.1); }
       }
       .mud-btn {
         transition: all 0.15s ease !important;
@@ -3356,6 +3361,9 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
               padding: '0.4rem 0.2rem',
               cursor: 'pointer', touchAction: 'manipulation',
               letterSpacing: '0.06em', textTransform: 'uppercase',
+              fontWeight: isActive ? 'bold' : 'normal',
+              animation: isActive ? 'mud-pulse-phosphor-btn 2s ease-in-out infinite' : 'none',
+              textShadow: isActive ? '0 0 8px rgba(var(--phosphor-rgb),0.5)' : 'none',
             }}
           >
             {btn.label}
@@ -3390,7 +3398,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Bottom Bar — [Stats | Compass 1:1] ──────────────────────────────────────
+// ── Bottom Bar — [Identity · HP · XP · Stats] ──────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
@@ -3399,75 +3407,82 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
 
   return (
-    <div style={{
-      display: 'flex',
-      borderTop: `1px solid ${BORDER}`,
-      background: BG_PANEL,
-      flexShrink: 0,
-      position: 'relative',
-      touchAction: 'none',
-    }}>
+    <div
+      role="button" tabIndex={0}
+      onClick={onStatsClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
+      style={{
+        borderTop: `1px solid ${BORDER}`,
+        background: BG_PANEL,
+        flexShrink: 0,
+        position: 'relative',
+        touchAction: 'none',
+        fontFamily: 'monospace', fontSize: S.base,
+        padding: '0.35rem 0.6rem',
+        display: 'flex', flexDirection: 'column',
+        gap: '0.2rem',
+        cursor: 'pointer',
+      }}
+    >
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
         background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
       }} />
 
-      {/* Stats — fills remaining width — tappable for full stats modal */}
-      <div
-        role="button" tabIndex={0}
-        onClick={onStatsClick}
-        onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
-        style={{
-        flex: 1, minWidth: 0,
-        fontFamily: 'monospace', fontSize: S.base,
-        padding: '0.4rem 0.6rem',
-        display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        gap: '0.25rem', position: 'relative',
-        cursor: 'pointer', touchAction: 'manipulation',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-          <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
-          <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-            {data.hp}/{data.maxHp}
-          </span>
-          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
+      {/* Row 1: handle — subjectId  |  Lv + currency */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+        <span style={{
+          color: 'var(--phosphor-accent)', fontWeight: 'bold',
+          letterSpacing: '0.06em',
+          textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.3)',
+        }} className={S.glow}>
+          {data.handle} {'\u2014'} {data.subjectId}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch' }}>
           <span style={{
-            color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0,
+            color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
             border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
             borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
             boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
           }}>
             Lv.{data.level}
           </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
-          <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-            {data.xp}/{data.xpNext}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1ch' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
-            <span style={{ color: '#fcd34d', fontSize: 'var(--text-base)', fontWeight: 'bold', letterSpacing: '0.04em' }}>CREDS</span>
-            <span style={{ color: '#fff', fontSize: 'var(--text-base)' }}>{data.creds}</span>
-          </span>
-          <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
-            <span style={{ color: '#a78bfa', fontSize: 'var(--text-base)', fontWeight: 'bold', letterSpacing: '0.04em' }}>SCRIP</span>
-            <span style={{ color: '#fff', fontSize: 'var(--text-base)' }}>{data.scrip}</span>
-          </span>
+          <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}{'\u00a2'}</span>
+          <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>
         </div>
       </div>
 
-      {/* Compass — right side, 1:1 */}
+      {/* Row 2: HP bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', position: 'relative' }}>
+        <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
+        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={6} /></div>
+        <span style={{ color: hpColor, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          {data.hp}/{data.maxHp}
+        </span>
+      </div>
+
+      {/* Row 3: XP bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', position: 'relative' }}>
+        <span style={{ color: C.dim, width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={6} /></div>
+        <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+          {data.xp}/{data.xpNext}
+        </span>
+      </div>
+
+      {/* Row 4: Attributes in one horizontal row */}
       <div style={{
-        borderLeft: `1px solid ${BORDER}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0, position: 'relative',
+        display: 'flex', alignItems: 'center', gap: '0.5ch',
+        flexWrap: 'wrap', position: 'relative',
+        color: C.dim, fontSize: 'var(--text-base)',
       }}>
-        <CompassRose exits={data.exits} />
+        {ATTR_ORDER.map((attr, i) => (
+          <span key={attr} style={{ display: 'flex', alignItems: 'center', gap: '0.3ch', whiteSpace: 'nowrap' }}>
+            {i > 0 && <span style={{ color: C.faint }}>{'\u00b7'}</span>}
+            <span style={{ color: 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
+            <span style={{ color: C.dim }}>{data.attributes[attr]}</span>
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -3487,29 +3502,22 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
   const isInvMode = panelMode === 'inventory' && !data.inCombat;
   const isMapMode = panelMode === 'map' && !data.inCombat;
 
-  const showRightTop = !data.inCombat;
-  const showRightBottom = !isShopMode && (
-    data.inCombat || data.enemies.length > 0 || isSalvageMode ||
-    (data.shopkeeper !== null && data.shopItems.length > 0 && panelMode === 'default')
-  );
-  const showRight = showRightTop || showRightBottom;
-
   return (
     <div style={{
       flexShrink: 0,
-      background: data.inCombat ? BG_COMBAT : BG_PANEL,
-      borderBottom: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
+      background: BG_PANEL,
+      borderBottom: `1px solid ${BORDER}`,
     }}>
       {/* Room header */}
       <div style={{
         padding: '0.3rem 0.6rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderBottom: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
-        background: data.inCombat ? 'rgba(255,20,20,0.06)' : 'rgba(var(--phosphor-rgb),0.03)',
+        borderBottom: `1px solid ${BORDER}`,
+        background: 'rgba(var(--phosphor-rgb),0.03)',
       }}>
         <span style={{
           fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
-          color: data.inCombat ? C.combat : 'var(--phosphor-accent)',
+          color: 'var(--phosphor-accent)',
           letterSpacing: '0.04em',
         }} className={S.glow}>
           {data.zoneName} {'\u2014'} {data.roomName}
@@ -3538,64 +3546,75 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         </div>
       </div>
 
-      {/* Panel grid */}
+      {/* Panel grid — fixed height, layout depends on map mode */}
       <div style={{
+        height: TOP_PANEL_CONTENT_H,
         display: 'grid',
-        gridTemplateColumns: showRight ? '2fr 1fr' : '1fr',
-        /* bg on outer div */
+        gridTemplateColumns: isMapMode ? 'auto 1fr'
+          : isSalvageMode ? '1fr 1fr'
+          : isShopMode ? '1fr 1fr'
+          : '1fr 1fr 1fr',
+        overflow: 'hidden',
       }}>
         {isMapMode ? (
-          <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
+          /* ── Map mode: map (auto-width) + objects (full height) ── */
+          <>
+            <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
+            <div style={{
+              borderLeft: `1px solid ${BORDER}`,
+              overflowY: 'auto', overscrollBehavior: 'contain',
+            }}>
+              <ObjectsPanel objects={data.objects} />
+            </div>
+          </>
         ) : isSalvageMode ? (
-          <SalvageDropsPanel drops={data.salvageDrops} />
+          /* ── Salvage mode: drops + context ── */
+          <>
+            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <SalvageDropsPanel drops={data.salvageDrops} />
+            </div>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <SalvageContextPanel enemyNames={data.salvageEnemies} />
+            </div>
+          </>
         ) : isShopMode ? (
-          <ShopStockPanel
-            shopItems={data.shopItems}
-            shopkeeperName={data.npcs.find(n => n.hasShop)?.name ?? 'VENDOR'}
-            creds={data.creds}
-          />
+          /* ── Shop mode: stock + player items ── */
+          <>
+            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <ShopStockPanel
+                shopItems={data.shopItems}
+                shopkeeperName={data.npcs.find(n => n.hasShop)?.name ?? 'VENDOR'}
+                creds={data.creds}
+              />
+            </div>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <ShopPlayerPanel inventory={data.inventory} />
+            </div>
+          </>
         ) : (
-          <LeftPanel
-            npcs={data.npcs} inCombat={data.inCombat}
-            consumables={data.consumables}
-            playerRam={data.playerRam} playerMaxRam={data.playerMaxRam}
-            isPlayerTurn={data.isPlayerTurn}
-          />
-        )}
-
-        {showRight && (
-          <div style={{
-            display: 'flex', flexDirection: 'column',
-            borderLeft: `1px solid ${data.inCombat ? BORDER_COMBAT : BORDER}`,
-          }}>
-            {showRightTop && (
-              isInvMode ? (
-                <InventoryPanel inventory={data.inventory} gear={data.gear} />
-              ) : isShopMode ? (
-                <ShopPlayerPanel inventory={data.inventory} />
-              ) : (
-                <ObjectsPanel objects={data.objects} />
-              )
-            )}
-            {showRightTop && showRightBottom && (
-              <div style={{ borderTop: `1px solid ${BORDER}` }} />
-            )}
-            {showRightBottom && (
-              isSalvageMode ? (
-                <SalvageContextPanel enemyNames={data.salvageEnemies} />
-              ) : (
-                <ContextPanel
-                  enemies={data.enemies} shopItems={data.shopItems}
-                  shopkeeper={data.shopkeeper} inCombat={data.inCombat}
-                  creds={data.creds}
-                />
-              )
-            )}
-          </div>
+          /* ── Default: 3 equal columns — Contacts | Hostiles | Objects ── */
+          <>
+            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <LeftPanel
+                npcs={data.npcs} inCombat={data.inCombat}
+                consumables={data.consumables}
+                playerRam={data.playerRam} playerMaxRam={data.playerMaxRam}
+                isPlayerTurn={data.isPlayerTurn}
+              />
+            </div>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <ContextPanel
+                enemies={data.enemies} shopItems={data.shopItems}
+                shopkeeper={data.shopkeeper} inCombat={data.inCombat}
+                creds={data.creds}
+              />
+            </div>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <ObjectsPanel objects={data.objects} />
+            </div>
+          </>
         )}
       </div>
-
-
     </div>
   );
 }

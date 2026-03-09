@@ -401,7 +401,7 @@ export function MapPanel({ currentRoom, handle }: { currentRoom: string; handle:
   const cW = mapData.gridWidth * SX - GX, cH = mapData.gridHeight * SY - GY;
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <MapFXStyles />
       {/* Title bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0.5rem', background: 'rgba(var(--phosphor-rgb),0.04)', borderBottom: '1px solid rgba(var(--phosphor-rgb),0.15)' }}>
@@ -413,7 +413,7 @@ export function MapPanel({ currentRoom, handle }: { currentRoom: string; handle:
         </span>
       </div>
       {/* Map viewport */}
-      <div style={{ overflowY: 'auto', overflowX: 'auto', maxHeight: 220, padding: '0.6rem 0.6rem 0.3rem', position: 'relative' }}>
+      <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1, padding: '0.6rem 0.6rem 0.3rem', position: 'relative' }}>
         {/* Scanline overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, opacity: 0.025, background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)' }} />
         {/* Grid container */}
