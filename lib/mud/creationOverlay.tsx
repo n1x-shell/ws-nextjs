@@ -710,6 +710,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'intro_cinematic':
       return (
         <CreationCinematic
+          key={phase}
           lines={introLines}
           onComplete={() => glitchAndAdvance('archetype_modal')}
         />
@@ -718,6 +719,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'archetype_modal':
       return (
         <SelectionModal
+          key={phase}
           title="WHAT DID YOU DO?"
           options={CREATION_STEPS.archetype.options.map(o => ({
             key: o.key, display: o.display, description: o.description,
@@ -736,6 +738,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'archetype_response':
       return (
         <CreationCinematic
+          key={phase}
           lines={[N1X_RESPONSE[archetype!] ?? '...']}
           onComplete={() => glitchAndAdvance('combat_cinematic')}
         />
@@ -744,6 +747,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'combat_cinematic':
       return (
         <CreationCinematic
+          key={phase}
           lines={combatLines}
           onComplete={() => glitchAndAdvance('combat_modal')}
         />
@@ -752,6 +756,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'combat_modal':
       return (
         <SelectionModal
+          key={phase}
           title="HOW DO YOU FIGHT?"
           options={CREATION_STEPS.combatStyle.options.map(o => ({
             key: o.key, display: o.display, description: o.description,
@@ -769,6 +774,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'combat_response':
       return (
         <CreationCinematic
+          key={phase}
           lines={[N1X_RESPONSE[combatStyle!] ?? '...']}
           onComplete={() => glitchAndAdvance('stats_cinematic')}
         />
@@ -777,6 +783,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'stats_cinematic':
       return (
         <CreationCinematic
+          key={phase}
           lines={statsLines}
           onComplete={() => glitchAndAdvance('stats_modal')}
         />
@@ -785,6 +792,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
     case 'stats_modal':
       return (
         <StatModal
+          key={phase}
           archetype={archetype!}
           onConfirm={(attrs) => finalize(attrs)}
         />
