@@ -273,6 +273,9 @@ export function generateMapData(currentRoomId: string, visitedRooms: Set<string>
 
 const CW = 38, CH = 22, GX = 14, GY = 10, SX = CW + GX, SY = CH + GY;
 
+// Exported for external panel height calculation
+export { SY, GY };
+
 function MapFXStyles() {
   return <style>{`
     @keyframes mud-map-pulse {

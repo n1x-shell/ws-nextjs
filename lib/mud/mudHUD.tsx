@@ -42,7 +42,7 @@ import {
 } from './questEngine';
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
-import { MapPanel } from './mudMap';
+import { MapPanel, generateMapData, SY, GY } from './mudMap';
 import { processLevelUp, spendAttributePoint, type LevelUpResult } from './character';
 import {
   getAvailableTrees, getTreeDisplay, getPointsInTree,
@@ -225,6 +225,7 @@ interface PanelExit {
 interface PanelData {
   roomName: string;
   zoneName: string;
+  zoneId: string;
   isSafeZone: boolean;
   npcs: PanelNPC[];
   enemies: PanelEnemy[];
@@ -346,7 +347,7 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     .map(([slot, item]) => ({ slot, item: item! }));
 
   return {
-    roomName: room.name, zoneName: zone?.name ?? 'UNKNOWN', isSafeZone: room.isSafeZone,
+    roomName: room.name, zoneName: zone?.name ?? 'UNKNOWN', zoneId: room.zone, isSafeZone: room.isSafeZone,
     npcs, enemies, objects, exits,
     inCombat, isPlayerTurn,
     shopkeeper: shopNPC?.id ?? null, shopItems,
@@ -3515,6 +3516,20 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
   const isShopMode = panelMode === 'shop' && !data.inCombat;
   const isMapMode = panelMode === 'map' && !data.inCombat;
 
+  // Compute map grid dimensions to derive fixed panel height
+  const mapData = useMemo(() => {
+    const world = loadWorld(data.handle);
+    return generateMapData(data.currentRoomId, new Set(world.visitedRooms), data.zoneId);
+  }, [data.currentRoomId, data.handle, data.zoneId]);
+
+  // Map panel pixel breakdown:
+  //   title bar:   0.25rem padding*2 + ~16px font + 1px border = ~26px
+  //   viewport:    0.6rem padTop + 0.3rem padBot = ~15px
+  //   grid:        gridHeight * SY - GY
+  //   room label:  0.4rem margin + ~16px font = ~22px
+  const gridH = mapData ? mapData.gridHeight : 5;
+  const panelContentH = 26 + 15 + (gridH * SY - GY) + 22;
+
   return (
     <div style={{
       flexShrink: 0,
@@ -3559,8 +3574,9 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         </div>
       </div>
 
-      {/* Panel grid — height fits content */}
+      {/* Panel grid — fixed height derived from map grid */}
       <div style={{
+        height: panelContentH,
         display: 'grid',
         gridTemplateColumns: isMapMode ? 'auto 1fr'
           : isSalvageMode ? '1fr 1fr'
@@ -3606,7 +3622,7 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
         ) : (
           /* ── Default: 3 equal columns — Contacts | Hostiles | Objects ── */
           <>
-            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain', maxHeight: 200 }}>
+            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
               <LeftPanel
                 npcs={data.npcs} inCombat={data.inCombat}
                 consumables={data.consumables}
@@ -3614,14 +3630,14 @@ function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode 
                 isPlayerTurn={data.isPlayerTurn}
               />
             </div>
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain', maxHeight: 200 }}>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
               <ContextPanel
                 enemies={data.enemies} shopItems={data.shopItems}
                 shopkeeper={data.shopkeeper} inCombat={data.inCombat}
                 creds={data.creds}
               />
             </div>
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain', maxHeight: 200 }}>
+            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
               <ObjectsPanel objects={data.objects} />
             </div>
           </>
@@ -3787,8 +3803,10 @@ export function MudHUDContainer({ session, children }: {
       const entries = el.querySelectorAll('[data-room-entry]');
       if (entries.length > 0) {
         const last = entries[entries.length - 1] as HTMLElement;
-        // Offset within the scrollable chat container
-        el.scrollTop = last.offsetTop - el.offsetTop;
+        // Use getBoundingClientRect for precise relative offset
+        const containerRect = el.getBoundingClientRect();
+        const entryRect = last.getBoundingClientRect();
+        el.scrollTop += entryRect.top - containerRect.top;
       }
     });
   }, []);
