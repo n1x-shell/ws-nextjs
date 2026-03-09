@@ -2057,6 +2057,15 @@ const TelnetConnected: React.FC<TelnetConnectedProps> = ({ host, handle, roomNam
     return () => eventBus.off('mud:execute-command', handler);
   }, [sendWithSlash]);
 
+  // ── MUD force-exit listener — used by FlatlineModal GHOST button ──────
+  useEffect(() => {
+    const handler = () => {
+      setMudSession(null);
+    };
+    eventBus.on('mud:force-exit', handler);
+    return () => eventBus.off('mud:force-exit', handler);
+  }, [setMudSession]);
+
   // ── Boot helpers ──────────────────────────────────────────────────────────
 
   const pushLine = useCallback((node: React.ReactNode) => {
