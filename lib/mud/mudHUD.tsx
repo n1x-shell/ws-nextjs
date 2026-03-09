@@ -3442,13 +3442,14 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         style={{
           flex: 1, minWidth: 0,
           fontFamily: 'monospace', fontSize: S.base,
-          padding: '0.3rem 0.5rem',
+          padding: '0.4rem 0.5rem',
           display: 'flex', flexDirection: 'column',
-          gap: '0.15rem', position: 'relative',
+          justifyContent: 'space-between',
+          gap: '0.35rem', position: 'relative',
           cursor: 'pointer', touchAction: 'manipulation',
         }}
       >
-        {/* Row 1: handle — subjectId  |  Lv + currency */}
+        {/* Section 1: Identity row — handle/subject left, Lv right */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{
             color: 'var(--phosphor-accent)', fontWeight: 'bold',
@@ -3457,82 +3458,93 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           }} className={S.glow}>
             {data.handle} {'\u2014'} {data.subjectId}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8ch' }}>
-            <span style={{
-              color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
-              border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
-              borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
-              boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
-            }}>
-              Lv.{data.level}
+          <span style={{
+            color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
+            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
+            borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
+            boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
+          }}>
+            Lv.{data.level}
+          </span>
+        </div>
+
+        {/* Section 2: HP + XP bars */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          {/* HP bar — cyan to magenta gradient */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ color: '#67e8f9', width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold' }}>HP</span>
+            <div style={{ flex: 1 }}>
+              <Bar pct={hpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={6} />
+            </div>
+            <span style={{ color: hpPct > 60 ? '#67e8f9' : hpPct > 25 ? '#fbbf24' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
+              {data.hp}/{data.maxHp}
             </span>
+          </div>
+
+          {/* XP bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ color: C.xp, width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7 }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
+            <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.7 }}>
+              {data.xp}/{data.xpNext}
+            </span>
+          </div>
+        </div>
+
+        {/* Section 3: Attributes (2×3 grid) + Currency bottom-right */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          {/* Attributes — 2 rows × 3 cols */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto auto auto auto auto',
+            alignItems: 'center',
+            justifyContent: 'start',
+            gap: '0 0.5ch',
+            fontSize: 'var(--text-base)',
+            lineHeight: 1.6,
+          }}>
+            {/* Row 1: BODY · REFLEX · TECH */}
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ color: STAT_COLOR.BODY, fontWeight: 'bold' }}>BODY</span>
+              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.BODY}</span>
+            </span>
+            {dot}
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ color: STAT_COLOR.REFLEX, fontWeight: 'bold' }}>REFLEX</span>
+              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.REFLEX}</span>
+            </span>
+            {dot}
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ color: STAT_COLOR.TECH, fontWeight: 'bold' }}>TECH</span>
+              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.TECH}</span>
+            </span>
+
+            {/* Row 2: INT · COOL · GHOST */}
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ color: STAT_COLOR.INT, fontWeight: 'bold' }}>INT</span>
+              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.INT}</span>
+            </span>
+            {dot}
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ color: STAT_COLOR.COOL, fontWeight: 'bold' }}>COOL</span>
+              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.COOL}</span>
+            </span>
+            {dot}
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <span style={{ color: STAT_COLOR.GHOST, fontWeight: 'bold' }}>GHOST</span>
+              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.GHOST}</span>
+            </span>
+          </div>
+
+          {/* Currency — bottom right */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.6ch',
+            flexShrink: 0, whiteSpace: 'nowrap',
+          }}>
             <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}{'\u00a2'}</span>
+            {dot}
             <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>
           </div>
-        </div>
-
-        {/* Row 2: HP bar — cyan to magenta gradient */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-          <span style={{ color: '#67e8f9', width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold' }}>HP</span>
-          <div style={{ flex: 1 }}>
-            <Bar pct={hpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={6} />
-          </div>
-          <span style={{ color: hpPct > 60 ? '#67e8f9' : hpPct > 25 ? '#fbbf24' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-            {data.hp}/{data.maxHp}
-          </span>
-        </div>
-
-        {/* Row 3: XP bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-          <span style={{ color: C.xp, width: '2ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7 }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={5} /></div>
-          <span style={{ color: C.xp, flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.7 }}>
-            {data.xp}/{data.xpNext}
-          </span>
-        </div>
-
-        {/* Row 4-5: Attributes — 2 rows × 3 cols with gold dot separators */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto auto auto auto auto',
-          alignItems: 'center',
-          justifyContent: 'start',
-          gap: '0 0.5ch',
-          fontSize: 'var(--text-base)',
-          lineHeight: 1.6,
-          marginTop: '0.05rem',
-        }}>
-          {/* Row 1: BODY · REFLEX · TECH */}
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <span style={{ color: STAT_COLOR.BODY, fontWeight: 'bold' }}>BODY</span>
-            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.BODY}</span>
-          </span>
-          {dot}
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <span style={{ color: STAT_COLOR.REFLEX, fontWeight: 'bold' }}>REFLEX</span>
-            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.REFLEX}</span>
-          </span>
-          {dot}
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <span style={{ color: STAT_COLOR.TECH, fontWeight: 'bold' }}>TECH</span>
-            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.TECH}</span>
-          </span>
-
-          {/* Row 2: INT · COOL · GHOST */}
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <span style={{ color: STAT_COLOR.INT, fontWeight: 'bold' }}>INT</span>
-            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.INT}</span>
-          </span>
-          {dot}
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <span style={{ color: STAT_COLOR.COOL, fontWeight: 'bold' }}>COOL</span>
-            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.COOL}</span>
-          </span>
-          {dot}
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <span style={{ color: STAT_COLOR.GHOST, fontWeight: 'bold' }}>GHOST</span>
-            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.GHOST}</span>
-          </span>
         </div>
       </div>
 
@@ -3915,7 +3927,9 @@ export function MudHUDContainer({ session, children }: {
     // Lock the scroll parent — HUD owns the viewport now.
     // Chat area inside the HUD has its own overflow:auto.
     const prevOverflow = scrollParent.style.overflowY;
+    const prevPadding = scrollParent.style.padding;
     scrollParent.style.overflowY = 'hidden';
+    scrollParent.style.padding = '0';
 
     const measure = () => setAvailableHeight(scrollParent.clientHeight);
     measure();
@@ -3924,6 +3938,7 @@ export function MudHUDContainer({ session, children }: {
     return () => {
       ro.disconnect();
       scrollParent.style.overflowY = prevOverflow;
+      scrollParent.style.padding = prevPadding;
     };
   }, []);
 
