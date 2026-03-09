@@ -458,7 +458,7 @@ how do you fight?`,
   },
   attributes: {
     n1xText: `six things matter down here. you've got 12 points to distribute.
-everything starts at 3. cap is 10 at creation.
+everything starts at 3. no single stat above 10.
 your archetype already pushed some numbers.`,
     statDescriptions: [
       { stat: 'BODY',   desc: 'hp, melee damage, carry capacity' },

@@ -302,6 +302,7 @@ function StatModal({ archetype, onConfirm }: {
   const bonuses = ARCHETYPE_INFO[archetype].bonusAttributes;
   const [attrs, setAttrs] = useState<Attributes>({ ...base });
   const [modalPhase, setModalPhase] = useState<'intro' | 'allocate'>('intro');
+  const [showInfo, setShowInfo] = useState(false);
 
   const spent = useMemo(() => {
     let total = 0;
@@ -425,8 +426,6 @@ function StatModal({ archetype, onConfirm }: {
   }
 
   // ── Phase 2: Allocation — CP2077-style +/- spending ───────────────────
-
-  const [showInfo, setShowInfo] = useState(false);
 
   return (
     <div style={{
@@ -679,7 +678,7 @@ export function CreationOverlay({ session, setSession, handle, addLocalMsg }: {
   const statsLines = useMemo(() => [
     "six things matter down here.",
     `you've got ${ATTRIBUTE_BONUS_POINTS} points to distribute.`,
-    "everything starts at 3. cap is 10 at creation.",
+    "everything starts at 3. no single stat above 10.",
     "your archetype already pushed some numbers.",
   ], []);
 
