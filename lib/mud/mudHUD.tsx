@@ -305,6 +305,13 @@ interface PanelData {
   ramMaxSegments: number;
   styleDie: number;
   combatPosition?: string;
+  // ── Blades/Cortex mechanics ──
+  stress: number;
+  maxStress: number;
+  traumas: string[];
+  surge: number;
+  roomTraits: import('./types').RoomTrait[];
+  complications: import('./types').Complication[];
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -442,6 +449,12 @@ export function getMudPanelData(session: MudSession): PanelData | null {
         : session.combat.currentApproach === 'desperate' ? 'desperate'
         : 'controlled')
       : undefined,
+    stress: char.stress ?? 0,
+    maxStress: char.maxStress ?? 8,
+    traumas: char.traumas ?? [],
+    surge: inCombat && session.combat ? (session.combat.surge ?? 0) : 0,
+    roomTraits: room.traitDice ?? [],
+    complications: inCombat && session.combat ? (session.combat.complications ?? []) : [],
   };
 }
 
@@ -1193,6 +1206,15 @@ function PlayerCard({ data }: { data: PanelData }) {
       }} className={data.isPlayerTurn ? S.glow : undefined}>
         <span>{data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle}</span>
         <div style={{ display: 'flex', gap: '0.3ch', alignItems: 'center' }}>
+          {data.surge > 0 && (
+            <span style={{
+              color: '#fcd34d', fontWeight: 'bold',
+              border: '1px solid rgba(252,211,77,0.4)', padding: '0.05rem 0.3rem',
+              borderRadius: 2, fontSize: 'var(--text-base)',
+              textShadow: '0 0 6px rgba(252,211,77,0.4)',
+              animation: 'mud-god-pulse 2s ease-in-out infinite',
+            }}>{'\u2605'} {data.surge}</span>
+          )}
           <span style={{
             color: 'var(--phosphor-accent)', fontWeight: 'bold',
             border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.3rem',
@@ -1214,29 +1236,34 @@ function PlayerCard({ data }: { data: PanelData }) {
         {data.armorMaxSegments > 0 ? (
           <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
         ) : <div />}
+        <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRSS" compact />
         {hasRam ? (
           <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
         ) : <div />}
-        {data.criticalFilled > 0 ? (
+        {data.criticalFilled > 0 && (
           <ClockBar filled={data.criticalFilled} segments={data.criticalSegments} color="#ff2222" label="CRIT" compact />
-        ) : <div />}
+        )}
+        {data.traumas.length > 0 && (
+          <div style={{ fontFamily: 'monospace', fontSize: '8px', color: '#ff6b6b', gridColumn: '1 / -1', opacity: 0.8 }}>
+            TRAUMA: {data.traumas.join(' · ')}
+          </div>
+        )}
       </div>
 
-      {/* Action row: currency + flee + consumables */}
+      {/* Action row: surge actions + currency + flee + consumables */}
       <div style={{
         borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
         paddingTop: '0.25rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.3rem',
         flexWrap: 'wrap',
       }}>
-        <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
-          <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>CREDS</span>
-          <span style={{ color: '#fff' }}>{data.creds}</span>
-          <span style={{ color: C.faint }}>{'\u00b7'}</span>
-          <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>SCRIP</span>
-          <span style={{ color: '#fff' }}>{data.scrip}</span>
-        </div>
         <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {data.surge > 0 && (
+            <>
+              <Btn label={`\u2605PUSH`} command="/push" color="#fcd34d" borderColor="rgba(252,211,77,0.4)" small />
+              <Btn label={`\u2605ASSET`} command="/asset" color="#fcd34d" borderColor="rgba(252,211,77,0.4)" small />
+            </>
+          )}
           {data.consumables.map(item => (
             <Btn key={item.id}
               label={`${item.name}${item.quantity > 1 ? '\u00d7' + item.quantity : ''}`}
@@ -1720,6 +1747,12 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
           <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, marginTop: '0.1rem' }}>
             style die: d{data.styleDie}
           </div>
+          <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRESS" />
+          {data.traumas.length > 0 && (
+            <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#ff6b6b', marginTop: '0.1rem' }}>
+              TRAUMAS: {data.traumas.join(' · ')}
+            </div>
+          )}
         </div>
 
         {/* Attributes */}
@@ -3536,6 +3569,7 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         {data.armorMaxSegments > 0 ? (
           <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
         ) : <div />}
+        <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRSS" compact />
         {data.ramMaxSegments > 0 ? (
           <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
         ) : <div />}
@@ -3544,6 +3578,11 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
           <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
         </div>
+        {data.traumas.length > 0 && (
+          <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b', gridColumn: '1 / -1' }}>
+            TRAUMA: {data.traumas.join(' · ')}
+          </div>
+        )}
       </div>
 
       {/* Row 4: Attributes + currency */}
@@ -3629,8 +3668,20 @@ function RoomHeader({ data }: { data: PanelData }) {
           {data.zoneName}
         </span>
       </div>
-      {/* Room trait dice badges (when room traits are defined) */}
-      <div style={{ display: 'flex', gap: '0.4ch', flexShrink: 0 }}>
+      {/* Room trait dice badges + enemy count */}
+      <div style={{ display: 'flex', gap: '0.4ch', flexShrink: 0, alignItems: 'center' }}>
+        {data.roomTraits.map((trait, i) => (
+          <span key={i} style={{
+            fontFamily: 'monospace', fontSize: '9px',
+            color: trait.color ?? '#fbbf24',
+            border: `1px solid ${(trait.color ?? '#fbbf24')}44`,
+            padding: '0 0.3rem', borderRadius: 2,
+            background: `${(trait.color ?? '#fbbf24')}0a`,
+            whiteSpace: 'nowrap',
+          }}>
+            {trait.name} d{trait.die}
+          </span>
+        ))}
         {data.enemies.length > 0 && !data.inCombat && (
           <span style={{
             fontFamily: 'monospace', fontSize: '9px',
@@ -3676,6 +3727,26 @@ function CombatHeader({ data }: { data: PanelData }) {
           {data.isPlayerTurn ? 'YOUR MOVE' : 'WAITING...'}
         </span>
       </div>
+
+      {/* Room traits in combat */}
+      {data.roomTraits.length > 0 && (
+        <div style={{
+          padding: '0.15rem 0.6rem',
+          borderBottom: `1px solid ${BORDER_COMBAT}`,
+          display: 'flex', gap: '0.4ch',
+        }}>
+          {data.roomTraits.map((trait, i) => (
+            <span key={i} style={{
+              fontFamily: 'monospace', fontSize: '9px',
+              color: trait.color ?? '#fbbf24',
+              border: `1px solid ${(trait.color ?? '#fbbf24')}33`,
+              padding: '0 0.3rem', borderRadius: 2,
+            }}>
+              {trait.name} d{trait.die}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Enemy strips — 2 lines per enemy */}
       <div style={{ padding: '0.3rem 0.5rem' }}>

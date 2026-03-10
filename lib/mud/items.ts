@@ -1242,6 +1242,63 @@ export function createItem(templateId: string, quantity: number = 1): Item | nul
   };
 }
 
+// ── Clock System Item Helpers ──────────────────────────────────────────────
+// Compute dice/segment values from existing item data at runtime.
+// No data migration needed — these derive from tier.
+
+import type { ItemTier as Tier } from './types';
+
+/** Die size a weapon contributes to pools. Based on tier. */
+export function getWeaponDieSize(item: Item): number {
+  if (!item.damage && item.category !== 'weapon_melee' && item.category !== 'weapon_ranged') return 0;
+  switch (item.tier) {
+    case 'SCRAP': return 4;
+    case 'COMMON': return 6;
+    case 'MIL_SPEC': return 8;
+    case 'HELIXION': return 10;
+    case 'PROTOTYPE': return 12;
+    default: return 6;
+  }
+}
+
+/** Armor clock segments. Based on tier. */
+export function getArmorSegments(item: Item): number {
+  if (item.category !== 'armor') return 0;
+  switch (item.tier) {
+    case 'SCRAP': return 2;
+    case 'COMMON': return 3;
+    case 'MIL_SPEC': return 4;
+    case 'HELIXION': return 5;
+    case 'PROTOTYPE': return 6;
+    default: return 0;
+  }
+}
+
+/** Harm clock segments drained by a healing item. */
+export function getHealDrain(item: Item): number {
+  if (!item.healAmount) return 0;
+  // Convert legacy healAmount to clock drain
+  // Small heal (10-15): 1 segment. Medium (20-30): 2. Large (50+): 3-4.
+  if (item.healAmount >= 999) return 99; // full heal items
+  if (item.healAmount >= 50) return 4;
+  if (item.healAmount >= 30) return 3;
+  if (item.healAmount >= 20) return 2;
+  return 1;
+}
+
+/** Get item display stat line for clock system */
+export function getItemStatLine(item: Item): string {
+  const parts: string[] = [];
+  const die = getWeaponDieSize(item);
+  if (die > 0) parts.push(`d${die}`);
+  const segs = getArmorSegments(item);
+  if (segs > 0) parts.push(`${segs} seg`);
+  const drain = getHealDrain(item);
+  if (drain > 0 && drain < 99) parts.push(`-${drain} harm`);
+  if (drain >= 99) parts.push('full restore');
+  return parts.join(' · ');
+}
+
 // ── Starting Gear Sets ──────────────────────────────────────────────────────
 // Based on archetype + combat style per the design doc.
 

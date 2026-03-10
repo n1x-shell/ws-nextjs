@@ -95,6 +95,16 @@ export function loadCharacter(handle: string): MudCharacter | null {
   if (char.styleDie === undefined || char.styleDie === 0) {
     char.styleDie = getStyleDieSize(char);
   }
+  if (!char.completedMilestones) {
+    char.completedMilestones = [];
+  }
+  if (char.stress === undefined) {
+    char.stress = 0;
+    char.maxStress = 8;
+  }
+  if (!char.traumas) {
+    char.traumas = [];
+  }
 
   return char;
 }

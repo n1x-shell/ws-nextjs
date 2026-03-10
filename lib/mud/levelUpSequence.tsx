@@ -7,9 +7,7 @@ import React from 'react';
 import type { MudCharacter, Archetype, AttributeName } from './types';
 import {
   xpForLevel, LEVEL_CAP, calculateMaxHp, calculateMaxRam,
-  HP_PER_LEVEL,
 } from './types';
-import { spendAttributePoint } from './character';
 import { saveCharacter } from './persistence';
 import { calculateHarmSegments } from './clockEngine';
 import { getStyleDieSize } from './dicePool';
@@ -270,11 +268,8 @@ function showStatGains(
 
   const harmGain = character.harmSegments - oldHarmSegs;
 
-  // Grant attribute and skill points
-  const attrPoints = levels;
+  // Grant skill points only — attributes grow via milestones
   const skillPoints = levels;
-  if (!character.unspentAttributePoints) character.unspentAttributePoints = 0;
-  character.unspentAttributePoints += attrPoints;
   character.skillPoints += skillPoints;
 
   const title = isMulti
@@ -288,115 +283,15 @@ function showStatGains(
       <Spacer />
       <Line color={C.stat} bold>&gt;&gt; BASE GAINS:</Line>
       {harmGain > 0 && <Line indent color={C.stat}>harm clock: +{harmGain} segments ({oldHarmSegs} \u2192 {character.harmSegments})</Line>}
-      <Line indent color={C.stat}>skill points: +{skillPoints} (0 \u2192 {character.skillPoints} available)</Line>
-      <Line indent color={C.stat}>attribute points: +{attrPoints} (0 \u2192 {character.unspentAttributePoints} available)</Line>
+      <Line indent color={C.stat}>skill points: +{skillPoints} ({character.skillPoints} available)</Line>
       <Line indent color={C.dim}>all clocks restored. style die: d{character.styleDie}</Line>
     </div>
   );
 
-  // Phase 3: Attribute allocation
-  setTimeout(() => {
-    beginAttributeAllocation(character, addLocalMsg, requestInput, onComplete);
-  }, 1200);
-}
-
-async function beginAttributeAllocation(
-  character: MudCharacter,
-  addLocalMsg: AddLocalMsg,
-  requestInput: (prompt: string) => Promise<string>,
-  onComplete: (character: MudCharacter) => void,
-): Promise<void> {
-  while ((character.unspentAttributePoints ?? 0) > 0) {
-    const points = character.unspentAttributePoints!;
-    const attrs = character.attributes;
-
-    addLocalMsg(
-      <div key={k('attr-alloc')}>
-        <Spacer />
-        <Line color={C.accent} bold>
-          &gt;&gt; ATTRIBUTE ALLOCATION — {points} point{points > 1 ? 's' : ''} available
-        </Line>
-        <Spacer />
-        <Line color={C.dim}>&gt;&gt; current attributes:</Line>
-        {(['BODY', 'REFLEX', 'TECH', 'INT', 'COOL', 'GHOST'] as AttributeName[]).map(attr => (
-          <Line key={k(`attr-${attr}`)} indent color={C.stat}>
-            {attr.padEnd(8)} {attrs[attr].toString().padStart(2)}  <AttributeBar value={attrs[attr]} />
-          </Line>
-        ))}
-        <Spacer />
-        <Line color={C.dim}>&gt;&gt; type an attribute name to increase:</Line>
-      </div>
-    );
-
-    const input = await requestInput('attribute> ');
-    const attrName = input.trim().toUpperCase() as AttributeName;
-    const validAttrs: AttributeName[] = ['BODY', 'REFLEX', 'TECH', 'INT', 'COOL', 'GHOST'];
-
-    if (!validAttrs.includes(attrName)) {
-      addLocalMsg(
-        <Line key={k('attr-err')} color={C.error}>
-          invalid attribute. choose: BODY, REFLEX, TECH, INT, COOL, or GHOST
-        </Line>
-      );
-      continue;
-    }
-
-    // Show preview with flavor text
-    const flavor = ATTRIBUTE_LEVEL_FLAVOR[attrName];
-    const newVal = character.attributes[attrName] + 1;
-
-    addLocalMsg(
-      <div key={k('attr-preview')}>
-        <Line color={C.accent}>&gt;&gt; {attrName} {character.attributes[attrName]} \u2192 {newVal}</Line>
-        <Line color={C.n1x} style={{ opacity: 0.9 }}>&gt;&gt; {flavor}</Line>
-        <Line color={C.dim}>&gt;&gt; [confirm? y/n]</Line>
-      </div>
-    );
-
-    const confirm = await requestInput('confirm> ');
-    if (confirm.trim().toLowerCase() !== 'y' && confirm.trim().toLowerCase() !== 'yes') {
-      addLocalMsg(
-        <Line key={k('attr-cancel')} color={C.dim}>cancelled. choose again.</Line>
-      );
-      continue;
-    }
-
-    // Apply
-    const result = spendAttributePoint(character, attrName);
-    if (!result.success) {
-      addLocalMsg(
-        <Line key={k('attr-fail')} color={C.error}>{result.error}</Line>
-      );
-      continue;
-    }
-
-    character.unspentAttributePoints = (character.unspentAttributePoints ?? 1) - 1;
-
-    addLocalMsg(
-      <Line key={k('attr-done')} color={C.heal} glow>
-        &gt;&gt; {attrName} increased to {character.attributes[attrName]}.
-      </Line>
-    );
-
-    // Recalculate derived stats
-    if (attrName === 'BODY') {
-      character.maxHp = calculateMaxHp(character.attributes.BODY, character.archetype, character.level);
-      character.hp = character.maxHp;
-      character.harmSegments = calculateHarmSegments(character.attributes.BODY, character.archetype);
-    }
-    if (attrName === 'TECH') {
-      character.maxRam = calculateMaxRam(character.attributes.TECH);
-      character.ram = character.maxRam;
-      character.ramSegments = character.maxRam;
-    }
-
-    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 120 });
-  }
-
-  // Phase 4: Skill Point Notification
+  // Skip attribute allocation — go straight to skill notice
   setTimeout(() => {
     showSkillPointNotice(character, addLocalMsg, onComplete);
-  }, 600);
+  }, 1200);
 }
 
 function showSkillPointNotice(

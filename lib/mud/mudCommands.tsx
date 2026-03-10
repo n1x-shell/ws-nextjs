@@ -1188,6 +1188,8 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
   if (spawned.length === 0) return;
 
   const combat = initClockCombat(char, spawned);
+  // Copy room trait dice into combat state
+  if (room.traitDice) combat.roomTraits = room.traitDice;
   const updated = { ...session, phase: 'combat' as const, combat };
   setSession(updated);
   saveCombat(char.handle, combat);
@@ -1288,7 +1290,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   if (session.phase === 'combat' && session.combat) {
     const combat = session.combat;
-    const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'help', '?', 'skills', 'skillinfo', 'sinfo', 'loot'];
+    const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'push', 'asset', 'resist', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'help', '?', 'skills', 'skillinfo', 'sinfo', 'loot'];
 
     if (!COMBAT_CMDS.includes(cmd)) {
       addLocalMsg(
@@ -1390,7 +1392,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
             </MudLine>
           ))}
           {res.result.heroicOpportunity && (
-            <MudLine color={C.accent} glow>{'★'} heroic opportunity</MudLine>
+            <MudLine color="#fcd34d" glow>{'★'} SURGE earned — max roll [{res.combat.surge ?? 0}/3]</MudLine>
           )}
         </div>
       );
@@ -1732,6 +1734,72 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
+    // ── /push (spend 1 surge for +1d6 on next roll) ──────────────────
+    if (cmd === 'push') {
+      if ((combat.surge ?? 0) < 1) {
+        addLocalMsg(<MudNotice key={k('push-none')} error>no surge points. earn them by rolling max values.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+      // Set a flag that the next attack/hack uses +1d6 push die
+      session.combat = { ...combat, surge: combat.surge - 1 };
+      addLocalMsg(
+        <MudLine key={k('push-ok')} color="#fcd34d" glow>
+          {'★'} SURGE spent — +1d6 PUSH die on your next action. [{combat.surge - 1}/3]
+        </MudLine>
+      );
+      saveCombat(char.handle, session.combat);
+      setSession({ ...session });
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── /asset (spend 1 surge to create temporary d6 asset) ─────────
+    if (cmd === 'asset') {
+      if ((combat.surge ?? 0) < 1) {
+        addLocalMsg(<MudNotice key={k('asset-none')} error>no surge points.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+      const assetName = rest || 'MOMENTUM';
+      session.combat = {
+        ...combat,
+        surge: combat.surge - 1,
+        complications: [
+          ...(combat.complications ?? []),
+          {
+            id: `asset_${Date.now()}`,
+            name: assetName.toUpperCase(),
+            die: 6 as const,
+            owner: 'player_asset',
+            source: 'surge',
+            duration: 3,
+          },
+        ],
+      };
+      addLocalMsg(
+        <MudLine key={k('asset-ok')} color="#fcd34d" glow>
+          {'★'} SURGE spent — created {assetName.toUpperCase()} d6 asset (3 rounds). [{combat.surge - 1}/3]
+        </MudLine>
+      );
+      saveCombat(char.handle, session.combat);
+      setSession({ ...session });
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── /resist (spend stress or surge to reduce incoming harm) ──────
+    if (cmd === 'resist') {
+      // This command is mainly used reactively during enemy phase,
+      // but can also be used proactively to clear a complication
+      if (!rest) {
+        addLocalMsg(
+          <MudNotice key={k('resist-usage')}>
+            /resist is used during enemy attacks. costs 0-2 stress.
+            if you have {'★'} surge, you can /resist free (costs 1 surge instead).
+          </MudNotice>
+        );
+        return { handled: true, stopPropagation: true };
+      }
+      return { handled: true, stopPropagation: true };
+    }
+
     // Fall through to stats/inv/save/mudhelp below
   }
 
@@ -2045,6 +2113,14 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         <MudLine indent color={C.stat}>
           STYLE DIE  d{char.styleDie ?? 6}
         </MudLine>
+        <MudLine indent color={char.stress > 0 ? '#fbbf24' : C.stat}>
+          STRESS     {'█'.repeat(char.stress ?? 0)}{'░'.repeat((char.maxStress ?? 8) - (char.stress ?? 0))} [{char.stress ?? 0}/{char.maxStress ?? 8}]
+        </MudLine>
+        {(char.traumas ?? []).length > 0 && (
+          <MudLine indent color="#ff6b6b">
+            TRAUMAS    {(char.traumas ?? []).join(' · ')}
+          </MudLine>
+        )}
         <MudSpacer />
         {(Object.keys(char.attributes) as AttributeName[]).map(attr => {
           const val = char.attributes[attr];

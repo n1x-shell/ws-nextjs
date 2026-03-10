@@ -178,6 +178,11 @@ export interface MudCharacter {
   crossClassTree?: string;
   uniqueDrops: string[];
   discoveredSynergies: string[];
+  completedMilestones: string[];
+  // ── Stress system (Blades) ──
+  stress: number;           // current stress (0-8)
+  maxStress: number;        // always 8
+  traumas: string[];        // permanent complications from stress overflow
   lastCombatLoot?: string[];
   pendingSalvage?: {
     enemies: Array<{
@@ -329,6 +334,15 @@ export interface ClockCombatState {
   sourceEnemies: RoomEnemy[];
   environmentClocks: string[];
   narrativeContext: string;
+  // ── Blades/Cortex mechanics ──
+  surge: number;                // current surge points (0-3, reset per combat)
+  complications: Complication[]; // active complications on all participants
+  roomTraits: RoomTrait[];       // copied from room at combat init
+  pendingResist?: {              // set when enemy harm is incoming, cleared after player responds
+    harmTicks: number;
+    attribute: AttributeName;
+    source: string;
+  };
 }
 
 export type ClockCombatEnd =
@@ -449,6 +463,35 @@ export interface Room {
   fastTravelType?: 'transit_station' | 'drainage_access' | 'signal_relay' | 'iron_bloom_shuttle';
   fastTravelRequirement?: { attribute: AttributeName; minimum: number };
   environmentalClocks?: import('./clockEngine').ClockTemplate[];
+  // ── Room trait dice (Cortex-style scene traits) ──
+  traitDice?: RoomTrait[];
+}
+
+export interface RoomTrait {
+  name: string;
+  die: import('./dicePool').DieSize;
+  /** Actions this trait helps (adds to pool). Empty = universal. */
+  benefitsActions?: import('./dicePool').ActionType[];
+  /** Actions this trait hinders (adds complication). */
+  hindersActions?: import('./dicePool').ActionType[];
+  color?: string;
+}
+
+// ── Complication (Cortex-style stepping dice) ───────────────────────────────
+// Replaces segment-based status effects. Steps d6 → d8 → d10 → d12 → OUT.
+
+export interface Complication {
+  id: string;
+  name: string;
+  die: import('./dicePool').DieSize;
+  /** Who has this complication: 'player' or enemy id */
+  owner: string;
+  /** Which pools this complication opposes (empty = all) */
+  opposesActions?: import('./dicePool').ActionType[];
+  /** Source that created it */
+  source: string;
+  /** Rounds remaining (-1 = permanent until treated) */
+  duration: number;
 }
 
 // ── Zone ────────────────────────────────────────────────────────────────────
@@ -587,6 +630,26 @@ export function getPriceModifier(disposition: DispositionLabel): number {
     case 'DEVOTED':    return 0.75;
   }
 }
+
+// ── Milestones (attribute advancement) ──────────────────────────────────────
+// Attributes don't grow from level-up. They grow from specific triggers.
+
+export interface Milestone {
+  id: string;
+  attribute: AttributeName;
+  trigger: MilestoneTrigger;
+  description: string;          // shown when earned
+  flavor: string;               // in-character narration
+}
+
+export type MilestoneTrigger =
+  | { type: 'quest_complete'; questId: string }
+  | { type: 'zone_enter'; zoneId: string }
+  | { type: 'level_reach'; level: number }
+  | { type: 'kills_total'; count: number }
+  | { type: 'skill_unlock'; skillId: string }
+  | { type: 'boss_defeat'; enemyId: string }
+  | { type: 'flag'; flag: string };
 
 // ── MUD Session State ──────────────────────────────────────────────────────
 

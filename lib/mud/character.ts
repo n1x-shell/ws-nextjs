@@ -254,6 +254,10 @@ export function buildCharacter(
     unspentAttributePoints: 0,
     uniqueDrops: [],
     discoveredSynergies: [],
+    completedMilestones: [],
+    stress: 0,
+    maxStress: 8,
+    traumas: [],
   };
 
   return character;
@@ -400,7 +404,7 @@ export interface LevelUpResult {
   oldLevel: number;
   newLevel: number;
   hpGain: number;
-  attrPoints: number;
+  attrPoints: number;  // always 0 now — attributes grow via milestones
   skillPoints: number;
 }
 
@@ -417,9 +421,9 @@ export function processLevelUp(character: MudCharacter): LevelUpResult {
   character.level = newLevel;
   character.pendingLevelUps = 0;
 
-  // Recalculate HP
+  // Recalculate HP (legacy compat)
   character.maxHp = calculateMaxHp(character.attributes.BODY, character.archetype, character.level);
-  character.hp = character.maxHp; // Full heal on level-up
+  character.hp = character.maxHp;
   character.maxRam = calculateMaxRam(character.attributes.TECH);
   character.ram = character.maxRam;
 
@@ -431,16 +435,14 @@ export function processLevelUp(character: MudCharacter): LevelUpResult {
   const armorItem = character.gear?.armor;
   if (armorItem) character.armorSegments = armorSegmentsForTier(armorItem.tier);
 
-  // Grant points
-  if (!character.unspentAttributePoints) character.unspentAttributePoints = 0;
-  character.unspentAttributePoints += pending;
+  // Grant skill points only — no attribute points (attributes grow via milestones)
   character.skillPoints += pending;
 
   return {
     oldLevel,
     newLevel,
     hpGain: character.maxHp - oldMaxHp,
-    attrPoints: pending,
+    attrPoints: 0,
     skillPoints: pending,
   };
 }

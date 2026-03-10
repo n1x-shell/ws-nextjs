@@ -12,6 +12,7 @@ import type { DieSize, ActionType, ApproachType, RollResult, ActionOutcome, Pool
 import {
   assemblePool, rollPool, resolveOutcome, assessAction,
   attributeToDie, rollDie, getOutcomeTier, getStyleDieSize, formatPoolCompact,
+  countSurgeEarned, SURGE_MAX,
 } from './dicePool';
 import type { Clock, ClockTrigger } from './clockEngine';
 import {
@@ -171,6 +172,7 @@ export function initClockCombat(character: MudCharacter, enemies: RoomEnemy[], r
     playerClocks: { harm: 'player_harm', critical: 'player_critical', armor: armorClockId, downed: null, ram: ramClockId },
     turnPhase: 'player_choose', approachChosen: false,
     log: [], sourceEnemies: enemies, environmentClocks, narrativeContext: '',
+    surge: 0, complications: [], roomTraits: [],
   };
 }
 
@@ -223,10 +225,14 @@ export function resolvePlayerAction(combat: ClockCombatState, character: MudChar
   const targetId = combat.currentTargetId;
   const maxTier = Math.max(1, ...combat.enemies.filter(e => !e.defeated).map(e => e.tier));
 
-  const pool = assemblePool({ character, action, approach, combatClocks: combat.clocks, enemyTier: maxTier });
+  const pool = assemblePool({ character, action, approach, combatClocks: combat.clocks, enemyTier: maxTier, roomTraits: combat.roomTraits, complications: combat.complications });
   const result = rollPool(pool);
   const context = assessAction(character, action, approach, combat.clocks, maxTier);
   const outcome = resolveOutcome(result, context.position, context.effect);
+
+  // Track surge earned from max-value dice
+  const surgeEarned = countSurgeEarned(result);
+  const newSurge = Math.min(SURGE_MAX, (combat.surge ?? 0) + surgeEarned);
 
   const clockChanges: ClockChange[] = [];
   let clocks = [...combat.clocks];
@@ -294,7 +300,7 @@ export function resolvePlayerAction(combat: ClockCombatState, character: MudChar
   const narrativePrompt = `action:${action} outcome:${outcome.tier} target:${target?.name ?? '?'} changes:${clockChanges.map(c => `${c.clockName}:${c.from}->${c.to}`).join(',')}`;
 
   return {
-    combat: { ...combat, clocks, enemies: updatedEnemies, turnPhase: 'enemy_action', approachChosen: false, currentAction: undefined, currentApproach: undefined, currentTargetId: undefined, log: [...combat.log, logEntry], narrativeContext: narrativePrompt },
+    combat: { ...combat, clocks, enemies: updatedEnemies, turnPhase: 'enemy_action', approachChosen: false, currentAction: undefined, currentApproach: undefined, currentTargetId: undefined, log: [...combat.log, logEntry], narrativeContext: narrativePrompt, surge: newSurge },
     result, outcome, clockChanges, triggered, narrativePrompt,
   };
 }

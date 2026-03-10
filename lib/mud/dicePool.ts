@@ -99,6 +99,9 @@ export interface PoolContext {
   environmentalFactors?: string[];
   combatClocks?: Clock[];
   enemyTier?: number;
+  roomTraits?: import('./types').RoomTrait[];
+  complications?: import('./types').Complication[];
+  surgeSpent?: boolean;  // +1d6 push die
 }
 
 // ── Pool Assembly ──────────────────────────────────────────────────────────
@@ -235,21 +238,86 @@ export function assemblePool(ctx: PoolContext): PoolDie[] {
   const skillDice = getSkillPoolDice(character, action);
   pool.push(...skillDice);
 
-  // 6. Complication dice from status/environmental clocks
+  // 6. Room trait dice (Cortex scene traits)
+  if (ctx.roomTraits) {
+    for (const trait of ctx.roomTraits) {
+      const benefits = !trait.benefitsActions || trait.benefitsActions.length === 0 || trait.benefitsActions.includes(action);
+      const hinders = trait.hindersActions?.includes(action);
+
+      if (hinders) {
+        pool.push({
+          label: trait.name,
+          size: trait.die,
+          source: 'complication',
+          isComplication: true,
+        });
+      } else if (benefits) {
+        pool.push({
+          label: trait.name,
+          size: trait.die,
+          source: 'environment',
+        });
+      }
+    }
+  }
+
+  // 7. Complication dice (Cortex stepping dice — d6/d8/d10/d12)
+  if (ctx.complications) {
+    const playerComps = ctx.complications.filter(c => c.owner === 'player');
+    for (const comp of playerComps) {
+      const opposes = !comp.opposesActions || comp.opposesActions.length === 0 || comp.opposesActions.includes(action);
+      if (opposes) {
+        pool.push({
+          label: comp.name,
+          size: comp.die,
+          source: 'complication',
+          isComplication: true,
+        });
+      }
+    }
+  }
+
+  // 8. Trauma dice (permanent complications from stress overflow)
+  if (character.traumas && character.traumas.length > 0) {
+    // Each trauma adds a d6 complication to relevant pools
+    for (const trauma of character.traumas) {
+      const traumaDie: DieSize = character.traumas.length >= 3 ? 8 : 6;
+      pool.push({
+        label: trauma,
+        size: traumaDie,
+        source: 'complication',
+        isComplication: true,
+      });
+    }
+  }
+
+  // 9. Surge push die (spend 1 surge for +1d6)
+  if (ctx.surgeSpent) {
+    pool.push({
+      label: 'PUSH',
+      size: 6,
+      source: 'surge',
+    });
+  }
+
+  // Legacy: status clock complications from combat clocks
   if (ctx.combatClocks) {
     const statusClocks = ctx.combatClocks.filter(
       c => c.category === 'status' && c.owner === 'player' && c.filled > 0,
     );
     for (const sc of statusClocks) {
-      pool.push({
-        label: sc.name,
-        size: sc.filled >= 2 ? 8 : 6,
-        source: 'complication',
-        isComplication: true,
-      });
+      // Only add if not already covered by Complication system
+      const alreadyCovered = ctx.complications?.some(comp => comp.id === sc.id);
+      if (!alreadyCovered) {
+        pool.push({
+          label: sc.name,
+          size: sc.filled >= 2 ? 8 : 6,
+          source: 'complication',
+          isComplication: true,
+        });
+      }
     }
 
-    // Environmental clocks above 50% add complication dice
     const envClocks = ctx.combatClocks.filter(
       c => c.category === 'environment' && clockPercent(c) > 50,
     );
@@ -636,4 +704,113 @@ export function formatRollCompact(result: RollResult): string {
   const tier = result.botch ? 'BOTCH' : getOutcomeTier(result.total).toUpperCase();
   str += `    TOTAL: ${result.total} → ${tier}`;
   return str;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Resistance Rolls (Blades) ──────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+export interface ResistResult {
+  die: DieSize;
+  roll: number;
+  stressCost: number;       // 0-2 stress segments spent
+  ticksNegated: number;     // harm ticks removed
+  totalAfterResist: number; // remaining harm ticks
+}
+
+/**
+ * Roll a resistance check. Player spends stress to reduce incoming harm.
+ * Roll = relevant attribute die. Result determines stress cost:
+ *   max value (6 on d6, 8 on d8, etc.) = 0 stress, full resist
+ *   upper half = 1 stress, partial resist
+ *   lower half = 2 stress, minor resist
+ */
+export function rollResistance(
+  attrValue: number,
+  incomingTicks: number,
+): ResistResult {
+  const die = attributeToDie(attrValue);
+  const roll = rollDie(die);
+  const halfMax = Math.ceil(die / 2);
+
+  let stressCost: number;
+  let ticksNegated: number;
+
+  if (roll === die) {
+    // Max roll — full resist, 0 stress
+    stressCost = 0;
+    ticksNegated = incomingTicks;
+  } else if (roll >= halfMax) {
+    // Upper half — 1 stress, negate most
+    stressCost = 1;
+    ticksNegated = Math.max(1, incomingTicks - 1);
+  } else {
+    // Lower half — 2 stress, negate some
+    stressCost = 2;
+    ticksNegated = Math.max(1, Math.floor(incomingTicks / 2));
+  }
+
+  return {
+    die,
+    roll,
+    stressCost,
+    ticksNegated,
+    totalAfterResist: Math.max(0, incomingTicks - ticksNegated),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Complication Stepping (Cortex) ─────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+import type { Complication } from './types';
+
+/** Step a complication die up. Returns null if stepped past d12 (target is OUT). */
+export function stepComplicationUp(comp: Complication): Complication | null {
+  const next = stepUp(comp.die);
+  if (comp.die === 12) return null; // already d12, stepping up = OUT
+  return { ...comp, die: next };
+}
+
+/** Step a complication die down. Returns null if stepped below d4 (removed). */
+export function stepComplicationDown(comp: Complication): Complication | null {
+  if (comp.die <= 4) return null; // removed
+  return { ...comp, die: stepDown(comp.die) };
+}
+
+/** Create a new complication on a target. */
+export function createComplication(
+  name: string,
+  owner: string,
+  source: string,
+  initialDie: DieSize = 6,
+  duration: number = -1,
+  opposesActions?: ActionType[],
+): Complication {
+  return {
+    id: `comp_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
+    name,
+    die: initialDie,
+    owner,
+    source,
+    duration,
+    opposesActions,
+  };
+}
+
+/** Get display indicator for complication die step. */
+export function complicationStepDisplay(die: DieSize): string {
+  const steps = die === 4 ? '' : die === 6 ? '▲' : die === 8 ? '▲▲' : die === 10 ? '▲▲▲' : '▲▲▲▲';
+  return `d${die} ${steps}`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Surge Points ───────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+export const SURGE_MAX = 3;
+
+/** Count surge-worthy dice (rolled max value) in a roll result. */
+export function countSurgeEarned(result: RollResult): number {
+  return result.pool.filter(d => !d.isComplication && d.value === d.size).length;
 }
