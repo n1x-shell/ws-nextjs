@@ -504,7 +504,7 @@ function Bar({ pct, color, gradient, width = '100%', height = 5 }: {
 
 
 // ── Segmented Clock Bar ────────────────────────────────────────────────────
-// Renders clocks as segmented blocks: ██░░░░ [2/6]
+// Renders clocks as segmented blocks: HARM ██░░░░ 2/6
 
 function ClockBar({ filled, segments, color, label, inverted, compact }: {
   filled: number; segments: number; color: string; label: string;
@@ -513,39 +513,63 @@ function ClockBar({ filled, segments, color, label, inverted, compact }: {
 }) {
   if (segments <= 0) return null;
 
-  const displayFilled = inverted ? (segments - filled) : filled;
-  const displayEmpty = segments - displayFilled;
   const pct = segments > 0 ? (filled / segments) * 100 : 0;
 
-  // Color shift based on fill (harm clocks get redder as they fill)
+  // Color logic: harm clocks shift red as they fill; inverted clocks shift red as they drain
   const barColor = !inverted
     ? (pct > 66 ? '#ff4444' : pct > 33 ? '#fbbf24' : color)
-    : (pct > 66 ? '#ff4444' : color); // inverted: red when mostly consumed
+    : (pct > 66 ? '#ff4444' : color);
 
-  const segW = compact ? '0.85ch' : '1ch';
-  const segH = compact ? '8px' : '10px';
+  // For the counter text: inverted shows remaining, normal shows filled
+  const countText = inverted ? `${segments - filled}/${segments}` : `${filled}/${segments}`;
+
+  const segSize = compact ? 6 : 8;
+  const gap = compact ? 2 : 2;
+  const fontSize = compact ? '10px' : 'var(--text-base)';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
-      <span style={{ color: C.faint, width: compact ? '3ch' : '4ch', flexShrink: 0, textAlign: 'right', fontSize: compact ? '9px' : 'var(--text-base)' }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '0.6ch',
+      fontFamily: 'monospace', fontSize,
+      lineHeight: 1,
+    }}>
+      <span style={{
+        color: C.faint, flexShrink: 0,
+        whiteSpace: 'nowrap',
+        fontSize,
+        letterSpacing: '0.04em',
+      }}>
         {label}
       </span>
-      <div style={{ display: 'flex', gap: '1px', alignItems: 'center' }}>
+      <div style={{
+        display: 'flex', gap: `${gap}px`, alignItems: 'center', flexShrink: 0,
+      }}>
         {Array.from({ length: segments }).map((_, i) => {
-          const isFilled = inverted ? (i < segments - filled) : (i < filled);
+          const active = inverted ? (i < segments - filled) : (i < filled);
           return (
             <div key={i} style={{
-              width: segW, height: segH,
-              background: isFilled ? barColor : 'rgba(var(--phosphor-rgb),0.08)',
-              boxShadow: isFilled ? `0 0 3px ${barColor}` : 'none',
+              width: segSize, height: segSize,
               borderRadius: 1,
-              transition: 'background 0.3s ease',
+              background: active
+                ? barColor
+                : 'rgba(var(--phosphor-rgb),0.1)',
+              boxShadow: active
+                ? `0 0 4px ${barColor}, inset 0 0 1px rgba(255,255,255,0.15)`
+                : 'inset 0 0 1px rgba(var(--phosphor-rgb),0.08)',
+              border: active
+                ? `1px solid ${barColor}`
+                : '1px solid rgba(var(--phosphor-rgb),0.06)',
+              transition: 'all 0.3s ease',
             }} />
           );
         })}
       </div>
-      <span style={{ color: barColor, fontSize: compact ? '9px' : 'var(--text-base)', flexShrink: 0, minWidth: '4ch', textAlign: 'right' }}>
-        {inverted ? `${segments - filled}/${segments}` : `${filled}/${segments}`}
+      <span style={{
+        color: barColor, flexShrink: 0,
+        textAlign: 'right', opacity: 0.85,
+        whiteSpace: 'nowrap',
+      }}>
+        {countText}
       </span>
     </div>
   );
@@ -978,31 +1002,30 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
       <div>
         <TitleBar color={C.enemy} borderColor={BORDER_COMBAT}>HOSTILES</TitleBar>
         <div style={{ padding: '0.2rem 0.35rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          {enemies.map(e => {
-            const hpPct = e.maxHp && e.maxHp > 0 ? ((e.hp ?? 0) / e.maxHp) * 100 : 100;
-            return (
-              <div key={e.id}>
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                }}>
-                  <span style={{ color: C.enemy, fontWeight: 'bold' }}>{e.name}</span>
-                  <span style={{ color: C.enemy, fontSize: 'var(--text-base)' }}>
-                    {e.hp !== undefined ? `${e.hp}/${e.maxHp}` : '???'}
-                  </span>
-                </div>
-                <Bar pct={hpPct} color="#ff4444" />
-                {e.effects && e.effects.length > 0 && (
-                  <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack }}>
-                    [{e.effects.join(', ')}]
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: '0.2rem', marginTop: '0.1rem' }}>
-                  <Btn label="ATK" command={`/attack ${e.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.4)" small />
-                  <Btn label="SCAN" command={`/scan ${e.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.3)" small />
-                </div>
+          {enemies.map(e => (
+            <div key={e.id}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                marginBottom: '0.15rem',
+              }}>
+                <span style={{ color: C.enemy, fontWeight: 'bold' }}>{e.name}</span>
+                <span style={{ color: C.faint, fontSize: '9px' }}>{e.tier ? `T${e.tier}` : ''}</span>
               </div>
-            );
-          })}
+              <ClockBar filled={e.harmFilled ?? 0} segments={e.harmSegments ?? (e.maxHp ?? 4)} color="#ff6b6b" label="HARM" compact />
+              {(e.armorSegments ?? 0) > 0 && (
+                <ClockBar filled={e.armorFilled ?? 0} segments={e.armorSegments!} color="#60a5fa" label="ARMOR" inverted compact />
+              )}
+              {e.effects && e.effects.length > 0 && (
+                <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginTop: '0.1rem' }}>
+                  [{e.effects.join(', ')}]
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '0.2rem', marginTop: '0.15rem' }}>
+                <Btn label="ATK" command={`/attack ${e.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.4)" small />
+                <Btn label="SCAN" command={`/scan ${e.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.3)" small />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -1112,20 +1135,12 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
         </span>
       </div>
 
-      {/* HARM clock — segmented */}
-      <ClockBar
-        filled={harmFilled} segments={harmSegs}
-        color="#ff4444" label="HARM"
-        compact={compact}
-      />
+      {/* HARM clock */}
+      <ClockBar filled={harmFilled} segments={harmSegs} color="#ff6b6b" label="HARM" compact={compact} />
 
-      {/* ARMOR clock — inverted (filled = consumed) */}
+      {/* ARMOR clock */}
       {hasArmor && (
-        <ClockBar
-          filled={armorFilled} segments={armorSegs}
-          color="#6699ff" label="ARMR"
-          inverted compact={compact}
-        />
+        <ClockBar filled={armorFilled} segments={armorSegs} color="#60a5fa" label="ARMOR" inverted compact={compact} />
       )}
 
       {/* Status effects */}
@@ -1201,46 +1216,24 @@ function PlayerCard({ data }: { data: PanelData }) {
         </span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-        {/* HARM clock */}
-        <ClockBar
-          filled={data.harmFilled} segments={data.harmSegments}
-          color="var(--phosphor-green)" label="HARM"
-        />
-
-        {/* CRITICAL clock — only show if has ticks */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" />
         {data.criticalFilled > 0 && (
-          <ClockBar
-            filled={data.criticalFilled} segments={data.criticalSegments}
-            color="#ff2222" label="CRIT"
-          />
+          <ClockBar filled={data.criticalFilled} segments={data.criticalSegments} color="#ff2222" label="CRIT" />
         )}
-
-        {/* ARMOR clock — inverted (show remaining) */}
         {data.armorMaxSegments > 0 && (
-          <ClockBar
-            filled={data.armorFilled} segments={data.armorMaxSegments}
-            color="#6699ff" label="ARMR"
-            inverted
-          />
+          <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted />
         )}
-
-        {/* XP bar — keep as smooth bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '4ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', minWidth: '4ch', flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap' }}>XP</span>
           <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={6} /></div>
           <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '4ch', textAlign: 'right' }}>
             {data.xp}/{data.xpNext}
           </span>
         </div>
 
-        {/* RAM clock — inverted (show remaining) */}
         {hasRam && (
-          <ClockBar
-            filled={data.ramFilled} segments={data.ramMaxSegments}
-            color="#c084fc" label="RAM"
-            inverted
-          />
+          <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted />
         )}
       </div>
 
@@ -3620,39 +3613,22 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           </div>
         </div>
 
-        {/* Section 2: HARM + ARMOR + RAM + XP clocks */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-          {/* HARM clock — shows harm taken (0 = full health) */}
-          <ClockBar
-            filled={data.harmFilled} segments={data.harmSegments}
-            color="var(--phosphor-green)" label="HARM" compact
-          />
-
-          {/* ARMOR clock — inverted (remaining segments) */}
+        {/* Section 2: Clock bars — HARM + ARMOR + RAM + XP */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
           {data.armorMaxSegments > 0 && (
-            <ClockBar
-              filled={data.armorFilled} segments={data.armorMaxSegments}
-              color="#6699ff" label="ARMR" inverted compact
-            />
+            <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
           )}
-
-          {/* RAM clock — inverted (remaining segments) */}
           {data.ramMaxSegments > 0 && (
-            <ClockBar
-              filled={data.ramFilled} segments={data.ramMaxSegments}
-              color="#c084fc" label="RAM" inverted compact
-            />
+            <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
           )}
-
-          {/* XP bar — keep as smooth gradient */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ color: '#67e8f9', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7, fontSize: '9px' }}>XP</span>
-            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
-            <span style={{ color: '#e879f9', flexShrink: 0, minWidth: '4ch', textAlign: 'right', opacity: 0.7 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+            <span style={{ color: '#67e8f9', minWidth: '3.5ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7, fontSize: '10px', whiteSpace: 'nowrap' }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={6} /></div>
+            <span style={{ color: '#e879f9', flexShrink: 0, minWidth: '4ch', textAlign: 'right', opacity: 0.7, fontSize: '10px' }}>
               {data.xp}/{data.xpNext}
             </span>
           </div>
-
           {data.godMode && (
             <span style={{
               color: '#ffcc00', fontWeight: 'bold', fontSize: '8px',
