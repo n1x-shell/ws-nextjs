@@ -375,7 +375,7 @@ export interface FleeResult {
   success: boolean; damageTaken?: number; flavorText: string;
 }
 
-export function attemptFlee(combat: CombatState, character: MudCharacter): FleeResult | { error: string } {
+export function attemptFlee(combat: CombatState, character: MudCharacter, godMode?: boolean): FleeResult | { error: string } {
   const player = getPlayer(combat);
   if (!player) return { error: 'no player' };
   if (player.ap < 2) return { error: 'not enough AP (need 2)' };
@@ -394,7 +394,8 @@ export function attemptFlee(combat: CombatState, character: MudCharacter): FleeR
   // Failed — free attack from strongest enemy
   const attacker = enemies[0];
   if (attacker) {
-    const dmg = Math.max(1, (attacker.attributes.BODY + d6()) - getArmorValue(player.gear));
+    const rawDmg = Math.max(1, (attacker.attributes.BODY + d6()) - getArmorValue(player.gear));
+    const dmg = godMode ? 0 : rawDmg;
     player.hp = Math.max(0, player.hp - dmg);
     character.hp = player.hp;
     return { success: false, damageTaken: dmg, flavorText: `you turn to run — ${attacker.name} catches you with a parting blow.` };
@@ -412,7 +413,7 @@ export interface EnemyAction {
   flavorText: string;
 }
 
-export function processEnemyTurn(combat: CombatState, enemyId: string): EnemyAction {
+export function processEnemyTurn(combat: CombatState, enemyId: string, godMode?: boolean): EnemyAction {
   const enemy = getCombatant(combat, enemyId);
   const player = getPlayer(combat);
   if (!enemy || !player) return { attackerId: enemyId, attackerName: '?', action: 'nothing', flavorText: '' };
@@ -453,6 +454,7 @@ export function processEnemyTurn(combat: CombatState, enemyId: string): EnemyAct
       damage = enemy.attributes.BODY + d6();
       if (isCrit) damage *= 2;
       damage = Math.max(1, damage - getArmorValue(player.gear));
+      if (godMode) damage = 0;
       player.hp = Math.max(0, player.hp - damage);
     }
 

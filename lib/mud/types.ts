@@ -170,6 +170,7 @@ export interface MudCharacter {
   createdAt: number;
   lastSaved: number;
   isDead: boolean;
+  godMode?: boolean;         // debug: invincible when true (hidden /godmode command)
   // ── Progression (added by progression systems) ────────────────────────
   pendingLevelUps: number;      // levels earned but not yet integrated at safe haven
   unspentAttributePoints: number; // attribute points awaiting allocation

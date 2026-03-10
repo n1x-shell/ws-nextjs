@@ -937,7 +937,7 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
       continue;
     }
 
-    const action = processEnemyTurn(combat, next.nextId);
+    const action = processEnemyTurn(combat, next.nextId, char.godMode);
     if (action.flavorText) {
       addLocalMsg(
         <div key={k(`enemy-act-${action.attackerId}`)} style={{ marginBottom: '0.5rem' }}>
@@ -1509,7 +1509,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
     // ── /flee ───────────────────────────────────────────────────────────
     if (cmd === 'flee' || cmd === 'run') {
-      const result = attemptFlee(combat, char);
+      const result = attemptFlee(combat, char, char.godMode);
       if ('error' in result) {
         addLocalMsg(<MudNotice key={k('flee-err')} error>{result.error}</MudNotice>);
         setSession({ ...session });
@@ -2667,6 +2667,47 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     );
     // Let the ghost channel /q handler also disconnect
     return { handled: false };
+  }
+
+  // ── Hidden debug commands (not in /help or MUD_COMMANDS) ─────────────
+
+  if (cmd === 'nofog') {
+    eventBus.emit('mud:open-nofog');
+    return { handled: true, stopPropagation: true };
+  }
+
+  if (cmd === 'fogon') {
+    eventBus.emit('mud:close-nofog');
+    return { handled: true, stopPropagation: true };
+  }
+
+  if (cmd === 'godmode') {
+    char.godMode = !char.godMode;
+    char.hp = char.maxHp;
+    // Sync combat HP if in combat
+    if (session.combat) {
+      const player = session.combat.combatants.find(c => c.type === 'player');
+      if (player) { player.hp = char.maxHp; }
+    }
+    saveCharacter(char.handle, char);
+    addLocalMsg(
+      <div key={k('godmode')} style={{ fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8 }}>
+        <MudLine color={char.godMode ? '#ffcc00' : C.dim} bold>
+          {'>> GOD MODE: '}{char.godMode ? 'ON' : 'OFF'}
+        </MudLine>
+        <MudLine color={C.dim}>
+          {char.godMode ? 'invincible. hp locked at maximum.' : 'mortality restored.'}
+        </MudLine>
+      </div>
+    );
+    setSession({ ...session });
+    return { handled: true, stopPropagation: true };
+  }
+
+  if (cmd === 'kill') {
+    char.hp = 0;
+    handleDeath(session, addLocalMsg, setSession);
+    return { handled: true, stopPropagation: true };
   }
 
   // ── Block all non-MUD commands ────────────────────────────────────────

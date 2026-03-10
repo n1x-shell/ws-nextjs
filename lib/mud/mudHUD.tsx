@@ -56,6 +56,7 @@ import { RestModal, type RestModalData } from './restModal';
 import { SellModal, type SellModalData, type SellModalResult } from './sellModal';
 import { useCombatFX, CombatFXStyles } from './combatFX';
 import { CreationOverlay } from './creationOverlay';
+import { NofogMap } from './nofogMap';
 import type { CyberwareItem, AugmentSlotType } from './cyberwareDB';
 import { cyberwareQualityColor, tierColor, getSlotCandidates } from './cyberwareDB';
 
@@ -190,6 +191,10 @@ function HUDFXStyles() {
       .mud-shop-row:hover {
         background: rgba(var(--phosphor-rgb),0.04);
       }
+      @keyframes mud-god-pulse {
+        0%, 100% { opacity: 1; text-shadow: 0 0 6px rgba(255,204,0,0.4); }
+        50% { opacity: 0.7; text-shadow: 0 0 12px rgba(255,204,0,0.7); }
+      }
     `}</style>
   );
 }
@@ -277,6 +282,7 @@ interface PanelData {
   ram: number;
   maxRam: number;
   branches: Array<{ id: string; name: string }>;
+  godMode: boolean;
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -386,6 +392,7 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     ram: char.ram,
     maxRam: char.maxRam,
     branches,
+    godMode: !!char.godMode,
   };
 }
 
@@ -1083,6 +1090,16 @@ function PlayerCard({ data }: { data: PanelData }) {
         }}>
           Lv.{data.level}
         </span>
+        {data.godMode && (
+          <span style={{
+            color: '#ffcc00', fontWeight: 'bold', fontSize: 'var(--text-base)', flexShrink: 0,
+            border: '1px solid rgba(255,204,0,0.4)', padding: '0.05rem 0.35rem',
+            borderRadius: 2, letterSpacing: '0.06em',
+            textShadow: '0 0 6px rgba(255,204,0,0.4)',
+          }}>
+            GOD
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
@@ -3494,6 +3511,17 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
             <span style={{ color: hpPct > 50 ? '#4ade80' : hpPct > 25 ? '#fbbf24' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
               {data.hp}/{data.maxHp}
             </span>
+            {data.godMode && (
+              <span style={{
+                color: '#ffcc00', fontWeight: 'bold', fontSize: '8px',
+                border: '1px solid rgba(255,204,0,0.4)', padding: '0 3px',
+                borderRadius: 2, letterSpacing: '0.08em', flexShrink: 0,
+                textShadow: '0 0 6px rgba(255,204,0,0.4)',
+                animation: 'mud-god-pulse 2s ease-in-out infinite',
+              }}>
+                GOD
+              </span>
+            )}
           </div>
 
           {/* RAM bar — orange, red below 25% */}
@@ -3915,6 +3943,7 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
   const [restModalData, setRestModalData] = useState<RestModalData | null>(null);
   const [sellModalData, setSellModalData] = useState<SellModalData | null>(null);
   const [flatlineData, setFlatlineData] = useState<FlatlineData | null>(null);
+  const [showNofogMap, setShowNofogMap] = useState(false);
   const mapWasActiveRef = useRef(false);
 
   // Combat FX hook — shake + glitch on hits
@@ -4023,6 +4052,18 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
     };
     eventBus.on('mud:flatline', handler);
     return () => { eventBus.off('mud:flatline', handler); };
+  }, []);
+
+  // Listen for nofog map overlay events
+  useEffect(() => {
+    const openHandler = () => setShowNofogMap(true);
+    const closeHandler = () => setShowNofogMap(false);
+    eventBus.on('mud:open-nofog', openHandler);
+    eventBus.on('mud:close-nofog', closeHandler);
+    return () => {
+      eventBus.off('mud:open-nofog', openHandler);
+      eventBus.off('mud:close-nofog', closeHandler);
+    };
   }, []);
 
   // Save map state on combat start, restore on combat end
@@ -4308,6 +4349,14 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
             }
             eventBus.emit('crt:glitch-tier', { tier: 1, duration: 120 });
           }}
+        />
+      )}
+
+      {/* Nofog world map overlay (debug) */}
+      {showNofogMap && session.character && session.world && (
+        <NofogMap
+          session={session}
+          onClose={() => setShowNofogMap(false)}
         />
       )}
 
