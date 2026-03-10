@@ -294,6 +294,17 @@ interface PanelData {
   maxRam: number;
   branches: Array<{ id: string; name: string }>;
   godMode: boolean;
+  // ── Clock system fields ──
+  harmFilled: number;
+  harmSegments: number;
+  criticalFilled: number;
+  criticalSegments: number;
+  armorFilled: number;
+  armorMaxSegments: number;
+  ramFilled: number;
+  ramMaxSegments: number;
+  styleDie: number;
+  combatPosition?: string;
 }
 
 export function getMudPanelData(session: MudSession): PanelData | null {
@@ -416,6 +427,21 @@ export function getMudPanelData(session: MudSession): PanelData | null {
     maxRam: char.maxRam,
     branches,
     godMode: !!char.godMode,
+    // Clock data
+    harmFilled: inCombat && session.combat ? (getPlayerHarmClock(session.combat)?.filled ?? 0) : 0,
+    harmSegments: char.harmSegments || 6,
+    criticalFilled: inCombat && session.combat ? (session.combat.clocks.find(c => c.id === 'player_critical')?.filled ?? 0) : 0,
+    criticalSegments: char.criticalSegments || 4,
+    armorFilled: inCombat && session.combat ? (getPlayerArmorClock(session.combat)?.filled ?? 0) : 0,
+    armorMaxSegments: char.armorSegments || 0,
+    ramFilled: inCombat && session.combat ? (getPlayerRamClock(session.combat)?.filled ?? 0) : 0,
+    ramMaxSegments: char.ramSegments || char.maxRam,
+    styleDie: char.styleDie || 6,
+    combatPosition: inCombat && session.combat?.currentApproach
+      ? (session.combat.currentApproach === 'aggressive' ? 'risky'
+        : session.combat.currentApproach === 'desperate' ? 'desperate'
+        : 'controlled')
+      : undefined,
   };
 }
 
@@ -472,6 +498,55 @@ function Bar({ pct, color, gradient, width = '100%', height = 5 }: {
         boxShadow: shadow,
         transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       }} />
+    </div>
+  );
+}
+
+
+// ── Segmented Clock Bar ────────────────────────────────────────────────────
+// Renders clocks as segmented blocks: ██░░░░ [2/6]
+
+function ClockBar({ filled, segments, color, label, inverted, compact }: {
+  filled: number; segments: number; color: string; label: string;
+  inverted?: boolean; // armor/RAM: filled=consumed, empty=remaining
+  compact?: boolean;
+}) {
+  if (segments <= 0) return null;
+
+  const displayFilled = inverted ? (segments - filled) : filled;
+  const displayEmpty = segments - displayFilled;
+  const pct = segments > 0 ? (filled / segments) * 100 : 0;
+
+  // Color shift based on fill (harm clocks get redder as they fill)
+  const barColor = !inverted
+    ? (pct > 66 ? '#ff4444' : pct > 33 ? '#fbbf24' : color)
+    : (pct > 66 ? '#ff4444' : color); // inverted: red when mostly consumed
+
+  const segW = compact ? '0.85ch' : '1ch';
+  const segH = compact ? '8px' : '10px';
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
+      <span style={{ color: C.faint, width: compact ? '3ch' : '4ch', flexShrink: 0, textAlign: 'right', fontSize: compact ? '9px' : 'var(--text-base)' }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', gap: '1px', alignItems: 'center' }}>
+        {Array.from({ length: segments }).map((_, i) => {
+          const isFilled = inverted ? (i < segments - filled) : (i < filled);
+          return (
+            <div key={i} style={{
+              width: segW, height: segH,
+              background: isFilled ? barColor : 'rgba(var(--phosphor-rgb),0.08)',
+              boxShadow: isFilled ? `0 0 3px ${barColor}` : 'none',
+              borderRadius: 1,
+              transition: 'background 0.3s ease',
+            }} />
+          );
+        })}
+      </div>
+      <span style={{ color: barColor, fontSize: compact ? '9px' : 'var(--text-base)', flexShrink: 0, minWidth: '4ch', textAlign: 'right' }}>
+        {inverted ? `${segments - filled}/${segments}` : `${filled}/${segments}`}
+      </span>
     </div>
   );
 }
@@ -1003,9 +1078,14 @@ function ContextPanel({ enemies, shopItems, shopkeeper, inCombat, creds }: {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: boolean; compact?: boolean }) {
-  const hpKnown = enemy.hp !== undefined && enemy.maxHp !== undefined;
-  const hpPct = hpKnown && enemy.maxHp! > 0 ? ((enemy.hp ?? 0) / enemy.maxHp!) * 100 : 0;
-  const isLow = hpPct < 30 && hpPct > 0;
+  const harmFilled = enemy.harmFilled ?? 0;
+  const harmSegs = enemy.harmSegments ?? (enemy.maxHp ?? 4);
+  const harmPct = harmSegs > 0 ? (harmFilled / harmSegs) * 100 : 0;
+  const isLow = harmPct > 70;
+
+  const armorFilled = enemy.armorFilled ?? 0;
+  const armorSegs = enemy.armorSegments ?? 0;
+  const hasArmor = armorSegs > 0;
 
   return (
     <div className="mud-card-slide" style={{
@@ -1028,26 +1108,29 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
           {enemy.name}
         </span>
         <span style={{ color: C.faint, fontSize: compact ? '0.8em' : 'var(--text-base)' }}>
-          {enemy.level > 0 ? `Lv.${enemy.level}` : ''}
+          {enemy.tier ? `T${enemy.tier}` : enemy.level > 0 ? `Lv.${enemy.level}` : ''}
         </span>
       </div>
 
-      {hpKnown ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', marginBottom: '0.35rem' }}>
-          <span style={{ color: C.faint, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-          <div style={{ flex: 1 }}><Bar pct={hpPct} color="#ff4444" height={6} /></div>
-          <span style={{ color: isLow ? '#ff6b6b' : C.enemy, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right', fontWeight: isLow ? 'bold' : 'normal' }}>
-            {enemy.hp}/{enemy.maxHp}
-          </span>
-        </div>
-      ) : (
-        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginBottom: '0.15rem' }}>
-          HP ???
-        </div>
+      {/* HARM clock — segmented */}
+      <ClockBar
+        filled={harmFilled} segments={harmSegs}
+        color="#ff4444" label="HARM"
+        compact={compact}
+      />
+
+      {/* ARMOR clock — inverted (filled = consumed) */}
+      {hasArmor && (
+        <ClockBar
+          filled={armorFilled} segments={armorSegs}
+          color="#6699ff" label="ARMR"
+          inverted compact={compact}
+        />
       )}
 
+      {/* Status effects */}
       {enemy.effects && enemy.effects.length > 0 && (
-        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginBottom: '0.35rem', display: 'flex', gap: '0.4ch', flexWrap: 'wrap' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginTop: '0.25rem', display: 'flex', gap: '0.4ch', flexWrap: 'wrap' }}>
           {enemy.effects.map((eff, i) => (
             <span key={i} style={{ padding: '0.1rem 0.3rem', border: '1px solid rgba(192,132,252,0.25)', borderRadius: 2, background: 'rgba(192,132,252,0.06)' }}>
               {eff.toUpperCase()}
@@ -1056,7 +1139,14 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
+      {/* Behavior hint */}
+      {enemy.behavior && (
+        <div style={{ fontFamily: 'monospace', fontSize: '8px', color: C.faint, marginTop: '0.2rem', opacity: 0.7 }}>
+          {enemy.behavior}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
         <Btn label="ATK" command={`/attack ${enemy.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.5)" small />
         {hasRam && <Btn label="HACK" command={`/hack short_circuit`} color={C.hack} borderColor="rgba(192,132,252,0.5)" small />}
         <Btn label="SCAN" command={`/scan ${enemy.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.35)" small />
@@ -1066,11 +1156,8 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
 }
 
 function PlayerCard({ data }: { data: PanelData }) {
-  const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
-  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
-  const hasRam = data.playerMaxRam > 0;
-  const ramPct = hasRam ? (data.playerRam / data.playerMaxRam) * 100 : 0;
+  const hasRam = data.ramMaxSegments > 0;
 
   return (
     <div className="mud-card-slide" style={{
@@ -1087,62 +1174,74 @@ function PlayerCard({ data }: { data: PanelData }) {
         borderBottom: `1px solid ${data.isPlayerTurn ? 'rgba(var(--phosphor-rgb),0.15)' : 'rgba(var(--phosphor-rgb),0.08)'}`,
         color: data.isPlayerTurn ? 'var(--phosphor-accent)' : C.dim,
         letterSpacing: '0.06em',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         animation: data.isPlayerTurn ? 'mud-turn-glow 2s ease-in-out infinite' : 'none',
       }} className={data.isPlayerTurn ? S.glow : undefined}>
-        {data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle} ({data.subjectId})
-        {data.isPlayerTurn && (
-          <span style={{ marginLeft: '0.5ch', color: data.playerAP >= 2 ? 'var(--phosphor-accent)' : '#fbbf24', fontWeight: 'normal' }}>
-            [{data.playerAP} AP]
-          </span>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>HP</span>
-        <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
-        <span style={{ color: hpColor, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-          {data.hp}/{data.maxHp}
+        <span>
+          {data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle} ({data.subjectId})
         </span>
-        <span style={{ color: C.faint, fontSize: 'var(--text-base)' }}>{'\u00b7'}</span>
-        <span style={{
-          color: 'var(--phosphor-accent)', fontSize: 'var(--text-base)', fontWeight: 'bold', flexShrink: 0,
-          border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
-          borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
-          boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
-        }}>
-          Lv.{data.level}
-        </span>
-        {data.godMode && (
+        <span style={{ display: 'flex', gap: '0.3ch', alignItems: 'center' }}>
           <span style={{
-            color: '#ffcc00', fontWeight: 'bold', fontSize: 'var(--text-base)', flexShrink: 0,
-            border: '1px solid rgba(255,204,0,0.4)', padding: '0.05rem 0.35rem',
-            borderRadius: 2, letterSpacing: '0.06em',
-            textShadow: '0 0 6px rgba(255,204,0,0.4)',
+            color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
+            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
+            borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
           }}>
-            GOD
+            Lv.{data.level}
           </span>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-        <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
-        <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
-        <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-          {data.xp}/{data.xpNext}
+          {data.godMode && (
+            <span style={{
+              color: '#ffcc00', fontWeight: 'bold', fontSize: 'var(--text-base)', flexShrink: 0,
+              border: '1px solid rgba(255,204,0,0.4)', padding: '0.05rem 0.35rem',
+              borderRadius: 2, letterSpacing: '0.06em',
+              textShadow: '0 0 6px rgba(255,204,0,0.4)',
+            }}>
+              GOD
+            </span>
+          )}
         </span>
       </div>
 
-      {hasRam && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+        {/* HARM clock */}
+        <ClockBar
+          filled={data.harmFilled} segments={data.harmSegments}
+          color="var(--phosphor-green)" label="HARM"
+        />
+
+        {/* CRITICAL clock — only show if has ticks */}
+        {data.criticalFilled > 0 && (
+          <ClockBar
+            filled={data.criticalFilled} segments={data.criticalSegments}
+            color="#ff2222" label="CRIT"
+          />
+        )}
+
+        {/* ARMOR clock — inverted (show remaining) */}
+        {data.armorMaxSegments > 0 && (
+          <ClockBar
+            filled={data.armorFilled} segments={data.armorMaxSegments}
+            color="#6699ff" label="ARMR"
+            inverted
+          />
+        )}
+
+        {/* XP bar — keep as smooth bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '2ch', flexShrink: 0, textAlign: 'right' }}>RM</span>
-          <div style={{ flex: 1 }}><Bar pct={ramPct} color={C.hack} height={7} /></div>
-          <span style={{ color: C.hack, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-            {data.playerRam}/{data.playerMaxRam}
+          <span style={{ color: C.dim, fontSize: 'var(--text-base)', width: '4ch', flexShrink: 0, textAlign: 'right' }}>XP</span>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={6} /></div>
+          <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '4ch', textAlign: 'right' }}>
+            {data.xp}/{data.xpNext}
           </span>
         </div>
-      )}
 
+        {/* RAM clock — inverted (show remaining) */}
+        {hasRam && (
+          <ClockBar
+            filled={data.ramFilled} segments={data.ramMaxSegments}
+            color="#c084fc" label="RAM"
+            inverted
+          />
+        )}
       </div>
 
       <div style={{
@@ -1201,7 +1300,7 @@ function CombatPanels({ data }: { data: PanelData }) {
           color: C.combat, letterSpacing: '0.08em',
           animation: 'mud-header-pulse 2.5s ease-in-out infinite',
         }} className={S.glow}>
-          {'\u2694'} COMBAT {'\u2014'} Round {data.combatRound}
+          {'\u2694'} COMBAT {'\u2014'} Round {data.combatRound}{data.combatPosition ? ` \u2014 ${data.combatPosition.toUpperCase()}` : ''}
         </span>
         <span style={{
           fontFamily: 'monospace', fontSize: 'var(--text-base)',
@@ -3454,9 +3553,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 // ══════════════════════════════════════════════════════════════════════════════
 
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
-  const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
-  const ramPct = data.maxRam > 0 ? (data.ram / data.maxRam) * 100 : 0;
 
   // Gold dot separator for stat grid
   const dot = <span style={{ color: '#fbbf24', fontWeight: 'bold', opacity: 0.7 }}>{'\u00b7'}</span>;
@@ -3523,49 +3620,51 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           </div>
         </div>
 
-        {/* Section 2: HP + RAM + XP bars */}
+        {/* Section 2: HARM + ARMOR + RAM + XP clocks */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-          {/* HP bar — green, yellow at half, red below 25% */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ color: hpPct > 50 ? '#4ade80' : hpPct > 25 ? '#fbbf24' : '#ff4444', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold' }}>HP</span>
-            <div style={{ flex: 1 }}>
-              <Bar pct={hpPct} color={hpPct > 50 ? '#4ade80' : hpPct > 25 ? '#fbbf24' : '#ff4444'} height={6} />
-            </div>
-            <span style={{ color: hpPct > 50 ? '#4ade80' : hpPct > 25 ? '#fbbf24' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right' }}>
-              {data.hp}/{data.maxHp}
-            </span>
-            {data.godMode && (
-              <span style={{
-                color: '#ffcc00', fontWeight: 'bold', fontSize: '8px',
-                border: '1px solid rgba(255,204,0,0.4)', padding: '0 3px',
-                borderRadius: 2, letterSpacing: '0.08em', flexShrink: 0,
-                textShadow: '0 0 6px rgba(255,204,0,0.4)',
-                animation: 'mud-god-pulse 2s ease-in-out infinite',
-              }}>
-                GOD
-              </span>
-            )}
-          </div>
+          {/* HARM clock — shows harm taken (0 = full health) */}
+          <ClockBar
+            filled={data.harmFilled} segments={data.harmSegments}
+            color="var(--phosphor-green)" label="HARM" compact
+          />
 
-          {/* RAM bar — orange, red below 25% */}
-          {data.maxRam > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-              <span style={{ color: ramPct > 25 ? '#fb923c' : '#ff4444', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.9 }}>RAM</span>
-              <div style={{ flex: 1 }}><Bar pct={ramPct} color={ramPct > 25 ? '#fb923c' : '#ff4444'} height={5} /></div>
-              <span style={{ color: ramPct > 25 ? '#fb923c' : '#ff4444', flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.9 }}>
-                {data.ram}/{data.maxRam}
-              </span>
-            </div>
+          {/* ARMOR clock — inverted (remaining segments) */}
+          {data.armorMaxSegments > 0 && (
+            <ClockBar
+              filled={data.armorFilled} segments={data.armorMaxSegments}
+              color="#6699ff" label="ARMR" inverted compact
+            />
           )}
 
-          {/* XP bar — cyan to neon magenta gradient */}
+          {/* RAM clock — inverted (remaining segments) */}
+          {data.ramMaxSegments > 0 && (
+            <ClockBar
+              filled={data.ramFilled} segments={data.ramMaxSegments}
+              color="#c084fc" label="RAM" inverted compact
+            />
+          )}
+
+          {/* XP bar — keep as smooth gradient */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ color: '#67e8f9', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7 }}>XP</span>
+            <span style={{ color: '#67e8f9', width: '3ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7, fontSize: '9px' }}>XP</span>
             <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
-            <span style={{ color: '#e879f9', flexShrink: 0, minWidth: '5ch', textAlign: 'right', opacity: 0.7 }}>
+            <span style={{ color: '#e879f9', flexShrink: 0, minWidth: '4ch', textAlign: 'right', opacity: 0.7 }}>
               {data.xp}/{data.xpNext}
             </span>
           </div>
+
+          {data.godMode && (
+            <span style={{
+              color: '#ffcc00', fontWeight: 'bold', fontSize: '8px',
+              border: '1px solid rgba(255,204,0,0.4)', padding: '0 3px',
+              borderRadius: 2, letterSpacing: '0.08em', flexShrink: 0,
+              textShadow: '0 0 6px rgba(255,204,0,0.4)',
+              animation: 'mud-god-pulse 2s ease-in-out infinite',
+              alignSelf: 'flex-start',
+            }}>
+              GOD
+            </span>
+          )}
         </div>
 
         {/* Section 3: Attributes (2×3 grid) + Currency bottom-right */}
