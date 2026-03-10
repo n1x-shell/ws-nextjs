@@ -2108,17 +2108,24 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
-    // Success — open rest modal instead of inline text
+    // Success — open rest modal with clock data
     const pending = result.pendingLevels ?? 0;
+    // Calculate pre-rest harm from HP state (harm = segments × (1 - hp/maxHp))
+    const harmSegs = char.harmSegments || 6;
+    const preRestHarm = Math.round(harmSegs * (1 - ((char.hp - (result.hpRestored ?? 0)) / char.maxHp)));
+    const armorSegs = char.armorSegments || 0;
+    const ramSegs = char.ramSegments || char.maxRam;
+    const preRestRamUsed = Math.round(ramSegs * (1 - ((char.ram - (result.ramRestored ?? 0)) / Math.max(1, char.maxRam))));
+
     eventBus.emit('mud:open-rest', {
       location: getSafeHaven(char.currentRoom)?.name ?? 'SAFE HAVEN',
       flavorText: result.flavorText ?? 'you rest.',
-      hpBefore: char.hp - (result.hpRestored ?? 0),
-      hpAfter: char.hp,
-      maxHp: char.maxHp,
-      ramBefore: char.ram - (result.ramRestored ?? 0),
-      ramAfter: char.ram,
-      maxRam: char.maxRam,
+      harmBefore: Math.max(0, preRestHarm),
+      harmSegments: harmSegs,
+      armorBefore: 0, // armor resets to full
+      armorSegments: armorSegs,
+      ramBefore: Math.max(0, preRestRamUsed),
+      ramSegments: ramSegs,
       pendingLevelUps: pending,
       level: char.level,
     });

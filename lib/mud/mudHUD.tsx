@@ -1690,8 +1690,6 @@ function SkillsModal({ session, onClose }: {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void }) {
-  const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
-  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
 
   return (
@@ -1726,24 +1724,22 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
           }}>{data.archetype} {'\u00b7'} {data.combatStyle} {'\u00b7'} Level {data.level}</div>
         </div>
 
-        {/* Bars */}
-        <div style={{ padding: '0.5rem 0.8rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.3rem' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>HP</span>
-            <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
-            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: hpColor }}>{data.hp}/{data.maxHp}</span>
-          </div>
-          {data.maxRam > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.3rem' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>RAM</span>
-              <div style={{ flex: 1 }}><Bar pct={(data.ram / data.maxRam) * 100} color={C.hack} height={7} /></div>
-              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack }}>{data.ram}/{data.maxRam}</span>
-            </div>
+        {/* Clock Bars */}
+        <div style={{ padding: '0.5rem 0.8rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" />
+          {data.armorMaxSegments > 0 && (
+            <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted />
+          )}
+          {data.ramMaxSegments > 0 && (
+            <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted />
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>XP</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, flexShrink: 0, whiteSpace: 'nowrap' }}>XP</span>
             <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
             <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.xp }}>{data.xp}/{data.xpNext}</span>
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, marginTop: '0.1rem' }}>
+            style die: d{data.styleDie}
           </div>
         </div>
 
@@ -1802,11 +1798,11 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
 // ══════════════════════════════════════════════════════════════════════════════
 
 const ATTR_LABELS: Record<AttributeName, string> = {
-  BODY: 'HP, melee, carry',
-  REFLEX: 'dodge, initiative, crit',
-  TECH: 'hack, craft, repair',
-  INT: 'XP mod, puzzles, scan',
-  COOL: 'NPC, stealth, barter',
+  BODY: 'harm clock, melee die, carry',
+  REFLEX: 'ranged die, flee pool',
+  TECH: 'hack die, RAM segments',
+  INT: 'XP mod, scan die',
+  COOL: 'NPC, stealth die, barter',
   GHOST: 'mesh resist, 33hz, hidden',
 };
 
@@ -1910,7 +1906,6 @@ function LevelUpModal({ session, onClose }: {
               color: C.dim, marginTop: '0.2rem',
             }}>
               level {result.oldLevel} {'\u2192'} {result.newLevel}
-              {' \u00b7 '}HP +{result.hpGain}
               {' \u00b7 '}{result.attrPoints} attr
               {' \u00b7 '}{result.skillPoints} skill
             </div>
@@ -2288,8 +2283,8 @@ function InventoryModal({ session, data, onClose }: {
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>
                             {item.name}
-                            {item.damage ? ` [${item.damage} dmg]` : ''}
-                            {item.armorValue ? ` [${item.armorValue} def]` : ''}
+                            {item.damage ? ` [d${item.tier === 'SCRAP' ? 4 : item.tier === 'COMMON' ? 6 : item.tier === 'MIL_SPEC' ? 8 : item.tier === 'HELIXION' ? 10 : 12}]` : ''}
+                            {item.armorValue ? ` [${item.tier === 'SCRAP' ? 2 : item.tier === 'COMMON' ? 3 : item.tier === 'MIL_SPEC' ? 4 : item.tier === 'HELIXION' ? 5 : 6} seg]` : ''}
                           </span>
                         ) : (
                           <span style={{
@@ -2747,8 +2742,6 @@ function InventoryModal({ session, data, onClose }: {
   };
 
   const renderStats = () => {
-    const hpPct = data.maxHp > 0 ? (data.hp / data.maxHp) * 100 : 0;
-    const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
     const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
 
     return (
@@ -2761,22 +2754,17 @@ function InventoryModal({ session, data, onClose }: {
           {data.archetype} {'\u00b7'} {data.combatStyle} {'\u00b7'} Level {data.level}
         </div>
 
-        {/* Bars */}
-        <div style={{ marginBottom: '0.4rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.25rem' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>HP</span>
-            <div style={{ flex: 1 }}><Bar pct={hpPct} color={hpColor} height={7} /></div>
-            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: hpColor }}>{data.hp}/{data.maxHp}</span>
-          </div>
-          {data.maxRam > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', marginBottom: '0.25rem' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>RAM</span>
-              <div style={{ flex: 1 }}><Bar pct={(data.ram / data.maxRam) * 100} color={C.hack} height={7} /></div>
-              <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.hack }}>{data.ram}/{data.maxRam}</span>
-            </div>
+        {/* Clock Bars */}
+        <div style={{ marginBottom: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" />
+          {data.armorMaxSegments > 0 && (
+            <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted />
+          )}
+          {data.ramMaxSegments > 0 && (
+            <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted />
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, width: '3ch' }}>XP</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, flexShrink: 0, whiteSpace: 'nowrap' }}>XP</span>
             <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={7} /></div>
             <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.xp }}>{data.xp}/{data.xpNext}</span>
           </div>

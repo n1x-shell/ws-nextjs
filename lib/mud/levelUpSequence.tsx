@@ -11,6 +11,8 @@ import {
 } from './types';
 import { spendAttributePoint } from './character';
 import { saveCharacter } from './persistence';
+import { calculateHarmSegments } from './clockEngine';
+import { getStyleDieSize } from './dicePool';
 import { eventBus } from '@/lib/eventBus';
 import {
   ATTRIBUTE_LEVEL_FLAVOR,
@@ -247,19 +249,26 @@ function showStatGains(
   onComplete: (character: MudCharacter) => void,
 ): void {
   const levels = endLevel - startLevel;
-  const hpGain = levels * HP_PER_LEVEL;
-  const oldMaxHp = character.maxHp;
+  const oldHarmSegs = character.harmSegments || 6;
 
   // Apply the actual level changes
   character.level = endLevel;
   character.pendingLevelUps = 0;
 
-  // Recalculate HP
+  // Recalculate HP (legacy compat)
   const newMaxHp = calculateMaxHp(character.attributes.BODY, character.archetype, character.level);
   character.maxHp = newMaxHp;
-  character.hp = newMaxHp; // Full heal on level-up
+  character.hp = newMaxHp;
   character.maxRam = calculateMaxRam(character.attributes.TECH);
   character.ram = character.maxRam;
+
+  // Recalculate clock segments
+  character.harmSegments = calculateHarmSegments(character.attributes.BODY, character.archetype);
+  character.criticalSegments = 4;
+  character.ramSegments = character.maxRam;
+  character.styleDie = getStyleDieSize(character);
+
+  const harmGain = character.harmSegments - oldHarmSegs;
 
   // Grant attribute and skill points
   const attrPoints = levels;
@@ -278,9 +287,10 @@ function showStatGains(
       <Line color={C.accent} glow bold>&gt;&gt; {title}</Line>
       <Spacer />
       <Line color={C.stat} bold>&gt;&gt; BASE GAINS:</Line>
-      <Line indent color={C.stat}>HP: +{newMaxHp - oldMaxHp} ({oldMaxHp} \u2192 {newMaxHp})</Line>
+      {harmGain > 0 && <Line indent color={C.stat}>harm clock: +{harmGain} segments ({oldHarmSegs} \u2192 {character.harmSegments})</Line>}
       <Line indent color={C.stat}>skill points: +{skillPoints} (0 \u2192 {character.skillPoints} available)</Line>
       <Line indent color={C.stat}>attribute points: +{attrPoints} (0 \u2192 {character.unspentAttributePoints} available)</Line>
+      <Line indent color={C.dim}>all clocks restored. style die: d{character.styleDie}</Line>
     </div>
   );
 
@@ -372,10 +382,12 @@ async function beginAttributeAllocation(
     if (attrName === 'BODY') {
       character.maxHp = calculateMaxHp(character.attributes.BODY, character.archetype, character.level);
       character.hp = character.maxHp;
+      character.harmSegments = calculateHarmSegments(character.attributes.BODY, character.archetype);
     }
     if (attrName === 'TECH') {
       character.maxRam = calculateMaxRam(character.attributes.TECH);
       character.ram = character.maxRam;
+      character.ramSegments = character.maxRam;
     }
 
     eventBus.emit('crt:glitch-tier', { tier: 1, duration: 120 });

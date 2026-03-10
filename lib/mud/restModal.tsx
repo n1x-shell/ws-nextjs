@@ -1,8 +1,7 @@
 // lib/mud/restModal.tsx
-// TUNNELCORE MUD — Rest Modal
+// TUNNELCORE MUD — Rest Modal (Clock-Based)
 // Modal overlay triggered by rest at a safe haven.
-// Shows: location name, flavor text, HP bar animation, save confirmation,
-// pending level-ups. Dismiss on any tap/keypress.
+// Shows: location name, flavor text, clock drain animation, save confirmation.
 
 import React, { useState, useEffect, useCallback } from 'react';
 import SubstrateBackground from './substrateBackground';
@@ -12,12 +11,20 @@ import SubstrateBackground from './substrateBackground';
 export interface RestModalData {
   location: string;
   flavorText: string;
-  hpBefore: number;
-  hpAfter: number;
-  maxHp: number;
+  // Clock data
+  harmBefore: number;
+  harmSegments: number;
+  armorBefore: number;
+  armorSegments: number;
   ramBefore: number;
-  ramAfter: number;
-  maxRam: number;
+  ramSegments: number;
+  // Legacy compat (ignored if clock data present)
+  hpBefore?: number;
+  hpAfter?: number;
+  maxHp?: number;
+  ramBefore_legacy?: number;
+  ramAfter?: number;
+  maxRam?: number;
   pendingLevelUps: number;
   level: number;
 }
@@ -40,7 +47,7 @@ export function RestModal({ data, onClose }: {
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<'narrative' | 'restore' | 'done'>('narrative');
-  const [hpDisplay, setHpDisplay] = useState(data.hpBefore);
+  const [harmDisplay, setHarmDisplay] = useState(data.harmBefore);
   const [showLevelUp, setShowLevelUp] = useState(false);
 
   // Phase transitions
@@ -49,12 +56,13 @@ export function RestModal({ data, onClose }: {
     return () => clearTimeout(t1);
   }, []);
 
-  // HP bar animation
+  // Clock drain animation — harm drains to 0
   useEffect(() => {
     if (phase !== 'restore') return;
-    const diff = data.hpAfter - data.hpBefore;
+    const target = 0;
+    const diff = data.harmBefore - target;
     if (diff <= 0) {
-      setHpDisplay(data.hpAfter);
+      setHarmDisplay(0);
       const t = setTimeout(() => {
         setPhase('done');
         if (data.pendingLevelUps > 0) {
@@ -64,18 +72,17 @@ export function RestModal({ data, onClose }: {
       return () => clearTimeout(t);
     }
 
-    const steps = Math.min(diff, 30);
+    const steps = Math.min(diff, 20);
     const stepMs = 600 / steps;
-    let current = data.hpBefore;
     let step = 0;
 
     const interval = setInterval(() => {
       step++;
-      current = Math.round(data.hpBefore + (diff * step / steps));
-      setHpDisplay(Math.min(current, data.hpAfter));
+      const current = Math.round(data.harmBefore - (diff * step / steps));
+      setHarmDisplay(Math.max(0, current));
       if (step >= steps) {
         clearInterval(interval);
-        setHpDisplay(data.hpAfter);
+        setHarmDisplay(0);
         setTimeout(() => {
           setPhase('done');
           if (data.pendingLevelUps > 0) {
@@ -90,24 +97,41 @@ export function RestModal({ data, onClose }: {
 
   // Dismiss on any key
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (phase === 'done' || (phase === 'restore' && hpDisplay === data.hpAfter)) {
+    if (phase === 'done' || (phase === 'restore' && harmDisplay === 0)) {
       onClose();
     }
-    // Allow early dismiss after narrative
     if (phase !== 'narrative') {
       e.preventDefault();
     }
-  }, [phase, hpDisplay, data.hpAfter, onClose]);
+  }, [phase, harmDisplay, onClose]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  const hpPct = data.maxHp > 0 ? (hpDisplay / data.maxHp) * 100 : 0;
-  const hpColor = hpPct > 60 ? 'var(--phosphor-green)' : hpPct > 25 ? '#fbbf24' : '#ff4444';
-  const hpRestored = data.hpAfter - data.hpBefore;
-  const ramRestored = data.ramAfter - data.ramBefore;
+  const harmDrained = data.harmBefore;
+  const armorRestored = data.armorSegments - data.armorBefore;
+  const ramRestored = data.ramSegments - data.ramBefore;
+
+  // Segment rendering helper
+  const renderSegments = (filled: number, total: number, color: string) => {
+    const segSize = 8;
+    return (
+      <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+        {Array.from({ length: total }).map((_, i) => (
+          <div key={i} style={{
+            width: segSize, height: segSize,
+            borderRadius: 1,
+            background: i < filled ? color : 'rgba(var(--phosphor-rgb),0.1)',
+            boxShadow: i < filled ? `0 0 4px ${color}` : 'none',
+            border: i < filled ? `1px solid ${color}` : '1px solid rgba(var(--phosphor-rgb),0.06)',
+            transition: 'all 0.15s ease',
+          }} />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -118,9 +142,7 @@ export function RestModal({ data, onClose }: {
         padding: '1rem',
         animation: 'mud-fade-in 0.3s ease-out',
       }}
-      onClick={() => {
-        if (phase !== 'narrative') onClose();
-      }}
+      onClick={() => { if (phase !== 'narrative') onClose(); }}
     >
       <SubstrateBackground opacity={0.35} />
       <RestFXStyles />
@@ -130,8 +152,7 @@ export function RestModal({ data, onClose }: {
           width: '100%', maxWidth: 400,
           background: 'rgba(10,10,10,0.75)',
           border: '1px solid rgba(var(--phosphor-rgb),0.25)',
-          borderRadius: 4,
-          overflow: 'hidden',
+          borderRadius: 4, overflow: 'hidden',
           boxShadow: '0 0 30px rgba(var(--phosphor-rgb),0.08), 0 0 60px rgba(0,0,0,0.5)',
           position: 'relative', zIndex: 1,
         }}
@@ -158,8 +179,7 @@ export function RestModal({ data, onClose }: {
         }}>
           <div style={{
             fontFamily: 'monospace', fontSize: 'var(--text-base)',
-            color: C.dim, lineHeight: 1.8,
-            fontStyle: 'italic',
+            color: C.dim, lineHeight: 1.8, fontStyle: 'italic',
             animation: 'mud-fade-in 0.5s ease-out',
           }}>
             {data.flavorText.split('\n').map((line, i) => (
@@ -168,65 +188,58 @@ export function RestModal({ data, onClose }: {
           </div>
         </div>
 
-        {/* Restore phase — HP bar animation */}
+        {/* Restore phase — clock drain animation */}
         {phase !== 'narrative' && (
-          <div style={{
-            padding: '0.6rem 0.8rem',
-            animation: 'mud-fade-in 0.4s ease-out',
-          }}>
-            {/* HP bar */}
+          <div style={{ padding: '0.6rem 0.8rem', animation: 'mud-fade-in 0.4s ease-out' }}>
+            {/* HARM clock draining */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: '0.6ch',
-              marginBottom: '0.4rem',
+              marginBottom: '0.4rem', fontFamily: 'monospace', fontSize: 'var(--text-base)',
             }}>
-              <span style={{
-                fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                color: C.dim, width: '3ch', flexShrink: 0,
-              }}>HP</span>
-              <div style={{
-                flex: 1, height: 8,
-                background: 'rgba(var(--phosphor-rgb),0.06)',
-                borderRadius: 1, overflow: 'hidden',
-                border: '1px solid rgba(var(--phosphor-rgb),0.06)',
-              }}>
-                <div className="mud-rest-hp-fill" style={{
-                  width: `${hpPct}%`, height: '100%',
-                  background: hpColor,
-                  boxShadow: `0 0 8px ${hpColor}, 0 0 3px ${hpColor}`,
-                  transition: 'width 0.15s ease-out',
-                }} />
-              </div>
-              <span style={{
-                fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                color: hpColor, flexShrink: 0, minWidth: '7ch', textAlign: 'right',
-              }}>
-                {hpDisplay}/{data.maxHp}
+              <span style={{ color: C.dim, flexShrink: 0, whiteSpace: 'nowrap' }}>HARM</span>
+              {renderSegments(harmDisplay, data.harmSegments, harmDisplay > 0 ? '#fbbf24' : '#4ade80')}
+              <span style={{ color: harmDisplay > 0 ? '#fbbf24' : '#4ade80', flexShrink: 0 }}>
+                {harmDisplay}/{data.harmSegments}
               </span>
             </div>
+
+            {/* ARMOR restored */}
+            {data.armorSegments > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.6ch',
+                marginBottom: '0.4rem', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              }}>
+                <span style={{ color: C.dim, flexShrink: 0, whiteSpace: 'nowrap' }}>ARMOR</span>
+                {renderSegments(data.armorSegments, data.armorSegments, '#60a5fa')}
+                <span style={{ color: '#60a5fa', flexShrink: 0 }}>
+                  {data.armorSegments}/{data.armorSegments}
+                </span>
+              </div>
+            )}
+
+            {/* RAM restored */}
+            {data.ramSegments > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.6ch',
+                marginBottom: '0.4rem', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              }}>
+                <span style={{ color: C.dim, flexShrink: 0, whiteSpace: 'nowrap' }}>RAM</span>
+                {renderSegments(data.ramSegments, data.ramSegments, '#c084fc')}
+                <span style={{ color: '#c084fc', flexShrink: 0 }}>
+                  {data.ramSegments}/{data.ramSegments}
+                </span>
+              </div>
+            )}
 
             {/* Restore summary */}
             {phase === 'done' && (
               <div style={{ animation: 'mud-fade-in 0.3s ease-out' }}>
-                {hpRestored > 0 && (
-                  <div style={{
-                    fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                    color: C.heal, padding: '0.1rem 0',
-                  }}>
-                    +{hpRestored} HP restored
+                {harmDrained > 0 && (
+                  <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.heal, padding: '0.1rem 0' }}>
+                    harm cleared. all clocks restored.
                   </div>
                 )}
-                {ramRestored > 0 && (
-                  <div style={{
-                    fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                    color: '#d8b4fe', padding: '0.1rem 0',
-                  }}>
-                    +{ramRestored} RAM restored
-                  </div>
-                )}
-                <div style={{
-                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                  color: C.faint, padding: '0.1rem 0',
-                }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, padding: '0.1rem 0' }}>
                   state saved.
                 </div>
               </div>
@@ -235,29 +248,21 @@ export function RestModal({ data, onClose }: {
             {/* Pending level-ups */}
             {showLevelUp && data.pendingLevelUps > 0 && (
               <div style={{
-                marginTop: '0.5rem',
-                padding: '0.5rem',
+                marginTop: '0.5rem', padding: '0.5rem',
                 borderTop: '1px solid rgba(251,191,36,0.15)',
                 animation: 'mud-fade-in 0.4s ease-out',
               }}>
-                <div style={{
-                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                  color: C.n1x, lineHeight: 1.8, opacity: 0.9,
-                }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.n1x, lineHeight: 1.8, opacity: 0.9 }}>
                   &gt; something inside you is reorganizing.
                 </div>
                 <div style={{
                   fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                  color: C.amber, fontWeight: 'bold',
-                  marginTop: '0.3rem',
+                  color: C.amber, fontWeight: 'bold', marginTop: '0.3rem',
                   textShadow: '0 0 6px rgba(251,191,36,0.3)',
                 }}>
                   LEVEL UP AVAILABLE: {data.level} {'\u2192'} {data.level + data.pendingLevelUps}
                 </div>
-                <div style={{
-                  fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                  color: C.dim, marginTop: '0.1rem',
-                }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, marginTop: '0.1rem' }}>
                   tap UPGRADE in the action bar
                 </div>
               </div>
@@ -265,27 +270,18 @@ export function RestModal({ data, onClose }: {
           </div>
         )}
 
-        {/* Dismiss prompt */}
+        {/* Dismiss */}
         {phase === 'done' && (
           <div style={{
-            padding: '0.5rem 0.8rem',
-            borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+            padding: '0.4rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
             display: 'flex', justifyContent: 'center',
           }}>
-            <button
-              className="mud-btn"
-              onClick={onClose}
-              style={{
-                fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                color: C.dim, background: 'transparent',
-                border: '1px solid rgba(var(--phosphor-rgb),0.2)',
-                padding: '0.3rem 1.5rem',
-                cursor: 'pointer', borderRadius: 2,
-                touchAction: 'manipulation',
-              }}
-            >
-              CONTINUE
-            </button>
+            <button className="mud-btn" onClick={onClose} style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim,
+              background: 'transparent', border: '1px solid rgba(var(--phosphor-rgb),0.2)',
+              padding: '0.3rem 1.5rem', cursor: 'pointer', borderRadius: 2,
+              touchAction: 'manipulation',
+            }}>CONTINUE</button>
           </div>
         )}
       </div>
@@ -296,9 +292,6 @@ export function RestModal({ data, onClose }: {
 function RestFXStyles() {
   return (
     <style>{`
-      .mud-rest-hp-fill {
-        animation: mud-rest-glow 1.5s ease-in-out infinite;
-      }
       @keyframes mud-rest-glow {
         0%, 100% { filter: brightness(1); }
         50% { filter: brightness(1.3); }

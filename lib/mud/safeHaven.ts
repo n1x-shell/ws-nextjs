@@ -6,6 +6,7 @@
 import type { MudCharacter, MudSession, MudWorldState } from './types';
 import { saveFullSession } from './persistence';
 import { getRoom } from './worldMap';
+import { decayClocks } from './clockEngine';
 
 // ── Safe Haven Definition ──────────────────────────────────────────────────
 
@@ -266,6 +267,11 @@ export function executeRest(
 
   // TODO: Clear non-permanent status effects when effect system is implemented
   const debuffsCleared = 0;
+
+  // Decay world-persistent clocks (heat clocks decay on rest)
+  if (world.activeClocks && world.activeClocks.length > 0) {
+    world.activeClocks = decayClocks(world.activeClocks);
+  }
 
   // Save state
   saveFullSession(char.handle, session);
