@@ -2,6 +2,7 @@
 // TUNNELCORE MUD — World Map
 // Room definitions, zone registry, room lookups.
 // Phase 1: Drainage Nexus (Zone 8, 14 rooms). Phase 2: Maintenance Tunnels (Zone 9, 11 rooms).
+// Phase 3: Industrial District (Zone 3, 15 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -1894,9 +1895,880 @@ export const ZONE_04: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 03: Industrial District ────────────────────────────────────────────
+
+const Z03_ROOMS: Record<string, Room> = {
+
+  // ── 1. THE WATERFRONT ──────────────────────────────────────────────────────
+
+  z03_r01: {
+    id: 'z03_r01',
+    zone: 'z03',
+    name: 'THE WATERFRONT',
+    description:
+`The city ends here. A broad concrete embankment runs along
+the waterline — cracked, stained with chemical residue,
+studded with rusted bollards and mooring hooks. The water
+is the color of spent coolant: gray-green, opaque, with
+an oily film that catches the light in sick rainbows.
+
+Fog rolls in from the water most mornings and hangs between
+the warehouse buildings until the factories heat up enough
+to burn it off. The air tastes like salt and sulfur.
+
+To the north, cargo cranes stand against the sky. To the
+west, the factory sprawl begins. South along the embankment,
+runoff channels drain factory waste into the water in
+streams of yellow and orange.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z03_r02', description: 'north (Cargo Docks)' },
+      { direction: 'west', targetRoom: 'z03_r09', description: 'west (Wolf Garage)' },
+      { direction: 'south', targetRoom: 'z03_r04', description: 'south (Runoff Channel)' },
+    ],
+    npcs: [
+      {
+        id: 'dock_workers', name: 'Dock Workers', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Manual laborers. Mesh-compliant, too busy and too tired to care about anything except the next shift.',
+        dialogue: "A man eating from a tin container glances at you with the professional disinterest of someone who's learned not to notice things.",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [
+      {
+        id: 'dock_scavenger_waterfront', name: 'Dock Scavenger', level: 4,
+        description: 'Desperate. Armed with improvised weapons. Picks through what washes up. Skittish during the day — attacks the wounded or outnumbered.',
+        hp: 14, attributes: enemyAttrs(4), damage: 3, armorValue: 1,
+        behavior: 'passive', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'scrap_metal', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'improvised_weapon', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'fringe_salvage', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 18,
+      },
+    ],
+    objects: [
+      { id: 'waterline', name: 'waterline', examineText: 'The water shouldn\'t be this color. Chemical runoff from twenty years of industrial processing. Nothing lives in it. Nothing has lived in it for a decade.' },
+      { id: 'mooring_hooks', name: 'mooring hooks', examineText: 'Rusted solid. Some of these berths haven\'t held a ship in years. The active berths are further north at the Cargo Docks.' },
+      { id: 'lunch_tins', name: 'lunch tins', examineText: 'Synth-protein and rice. One of the dock workers has a real tomato — stands out like a gemstone against the gray. He eats it slowly. Real food is currency out here.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 2. CARGO DOCKS ────────────────────────────────────────────────────────
+
+  z03_r02: {
+    id: 'z03_r02',
+    zone: 'z03',
+    name: 'CARGO DOCKS',
+    description:
+`The active section of the waterfront. Cargo cranes tower
+overhead, automated arms swinging containers from ship to
+shore. Stacks of shipping containers form corridors and
+canyons — metal walls in faded colors, labels in languages
+from places you've never been.
+
+A workforce of fifty moves through the yard in high-vis
+vests, guided by mesh-integrated logistics. Every container
+has a destination. The system doesn't ask what's inside the
+containers marked with Helixion's logo and a classification
+code that doesn't appear in any public manifest.
+
+A supervisor's office sits elevated on a gantry, overlooking
+the yard. Lights on. Someone's watching.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z03_r01', description: 'south (The Waterfront)' },
+      { direction: 'west', targetRoom: 'z03_r05', description: 'west (Factory Row)' },
+      { direction: 'east', targetRoom: 'z03_r03', description: 'east (Salvage Yard)' },
+      { direction: 'up', targetRoom: 'z03_r14', description: 'up (Dock Boss Office)' },
+    ],
+    npcs: [
+      {
+        id: 'dock_laborers', name: 'Dock Laborers', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'On the clock. Won\'t stop to talk unless it\'s between shifts. They know which containers are restricted.',
+        dialogue: "\"Can't talk. Shift runs until six. Come back then. Or don't.\"",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [
+      {
+        id: 'dock_scavenger_docks', name: 'Dock Scavenger', level: 5,
+        description: 'Night spawn. The scavengers hit the cargo yard after dark, trying to crack containers before security loops back.',
+        hp: 18, attributes: enemyAttrs(5), damage: 4, armorValue: 1,
+        behavior: 'passive', spawnChance: 0.4, count: [2, 3],
+        drops: [
+          { itemId: 'scrap_metal', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'improvised_weapon', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'fringe_salvage', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 20,
+      },
+      {
+        id: 'corporate_security_docks', name: 'Corporate Security', level: 7,
+        description: 'Private military contractor. Patrols the Helixion container section. Protects the containers, not the workers.',
+        hp: 32, attributes: { ...enemyAttrs(7), REFLEX: 5 }, damage: 8, armorValue: 5,
+        behavior: 'patrol', spawnChance: 0.3, count: [1, 1],
+        drops: [
+          { itemId: 'milspec_sidearm', chance: 0.15, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_basic', chance: 0.2, quantityRange: [1, 1] },
+          { itemId: 'ballistic_vest_helixion', chance: 0.1, quantityRange: [1, 1] },
+        ],
+        xpReward: 50,
+      },
+    ],
+    objects: [
+      { id: 'helixion_containers', name: 'helixion containers', examineText: 'Matte gray, Helixion logo, classification code HX-7C. The manifest system doesn\'t list contents — just \'PRIORITY INFRASTRUCTURE COMPONENTS.\' TECH ≥ 6: The containers communicate with a dedicated satellite uplink. Whatever\'s inside, Helixion tracks it from orbit. INT ≥ 7: The delivery schedule matches the Broadcast Tower construction timeline.' },
+      { id: 'cargo_cranes', name: 'cargo cranes', examineText: 'Automated. The arms swing on pre-programmed routes. Each container weighs tons and the cranes move them like playing cards. TECH ≥ 5: The automation algorithm is Helixion-designed. The cranes prioritize HX-coded containers. Everything else waits.' },
+      { id: 'manifest_terminal', name: 'manifest terminal', examineText: 'Shipping records. Most containers are mundane — raw materials, consumer goods, food supplies. TECH ≥ 6: The HX-7C containers have arrival dates but no origin ports listed. They come from nowhere. Fifteen have arrived in the last month. The frequency is increasing.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 3. SALVAGE YARD ───────────────────────────────────────────────────────
+
+  z03_r03: {
+    id: 'z03_r03',
+    zone: 'z03',
+    name: 'SALVAGE YARD',
+    description:
+`South of the main docks, where the embankment curves into a
+shallow bay. Wreckage, industrial waste, things that fell off
+ships and were never claimed. The deposit has been formalized
+into a salvage operation — a fenced acre of sorted metal,
+electronics, machine parts, and unidentifiable debris.
+
+The yard is technically legal. The dock authority tolerates it
+because the scavengers keep the waterline clear. In practice
+it's a marketplace for anything too stolen, too broken, or
+too questionable to sell through normal channels.
+
+A man with a cutting torch is dismantling something that used
+to be a security drone. The Helixion logo on its chassis has
+been partially ground off. He doesn't look up.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z03_r02', description: 'north (Cargo Docks)' },
+    ],
+    npcs: [
+      {
+        id: 'salvage_workers', name: 'Salvage Workers', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'Independent operators. 2-3 present. Buy, sell, trade salvage. Low-tier gear at low prices.',
+        dialogue: "\"You buying or selling? Either way, don't touch the weird bin.\"",
+        startingDisposition: 0,
+        services: ['shop'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'dock_scavenger_yard', name: 'Dock Scavenger', level: 5,
+        description: 'Territorial over prime salvage spots. Will fight if you start taking high-value scrap without buying.',
+        hp: 18, attributes: enemyAttrs(5), damage: 4, armorValue: 1,
+        behavior: 'territorial', spawnChance: 0.4, count: [2, 3],
+        drops: [
+          { itemId: 'scrap_metal', chance: 0.6, quantityRange: [1, 3] },
+          { itemId: 'improvised_weapon', chance: 0.25, quantityRange: [1, 1] },
+          { itemId: 'fringe_salvage', chance: 0.4, quantityRange: [1, 2] },
+        ],
+        xpReward: 20,
+      },
+      {
+        id: 'feral_augment_yard', name: 'Feral Augment', level: 5,
+        description: 'Wanders in from the southern ruins. Attracted by the metal and the noise.',
+        hp: 20, attributes: { ...enemyAttrs(5), BODY: 5, REFLEX: 4 }, damage: 5, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0.25, count: [1, 1],
+        drops: [
+          { itemId: 'damaged_implant', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'scrap_cyberware', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 28,
+      },
+    ],
+    objects: [
+      { id: 'drone_chassis', name: 'drone chassis', examineText: 'Helixion security drone. Pulled from the water or shot down — hard to tell. The man with the torch is stripping its targeting array. TECH ≥ 5: The serial links to campus perimeter inventory. This drone was active three weeks ago.' },
+      { id: 'salvage_piles', name: 'salvage piles', examineText: 'Metal sorted by type: ferrous in one pile, aluminum in another, copper carefully coiled. Electronics sorted by condition: working, repairable, components-only. A bin labeled \'WEIRD\' contains items nobody can identify.' },
+      { id: 'weird_bin', name: 'weird bin', examineText: 'The black fluid is warm. Not body-warm — fever-warm. It moves when you tilt the tube, slower than liquid should. GHOST ≥ 5: The chip in the bin hums at 33hz. It\'s a fragment of a neural lattice. Not Helixion\'s — older. Someone dredged this from the deep water.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 4. RUNOFF CHANNEL ─────────────────────────────────────────────────────
+
+  z03_r04: {
+    id: 'z03_r04',
+    zone: 'z03',
+    name: 'RUNOFF CHANNEL',
+    description:
+`A concrete channel running from the factory district to the
+waterfront, carrying the effluent of Helixion's manufacturing
+process. The liquid is the wrong color — yellow-orange,
+viscous, steaming faintly in the cooler air. The smell is
+sharp enough to make your eyes water from ten meters away.
+
+The channel is three meters wide and two deep. Metal grating
+bridges it at intervals. At the base, the runoff feeds into a
+larger drainage pipe that descends underground — the connection
+to the Industrial Drainage system and eventually the tunnels
+where the Parish lives.
+
+The concrete walls are stained permanently. Chemical etchings
+that almost look like writing. Almost.
+
+A dead feral augment lies at the channel's edge. It tried
+to drink the water. That was a mistake.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z03_r01', description: 'north (The Waterfront)' },
+      { direction: 'down', targetRoom: 'z10_r01', description: 'down (Industrial Drainage)', zoneTransition: true, targetZone: 'z10' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'feral_augment_runoff', name: 'Feral Augment', level: 6,
+        description: 'Drawn to the chemical warmth of the runoff. Aggressive, disoriented by the fumes.',
+        hp: 24, attributes: { ...enemyAttrs(6), BODY: 5, REFLEX: 4 }, damage: 6, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'damaged_implant', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'scrap_cyberware', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 30,
+      },
+    ],
+    objects: [
+      { id: 'runoff_liquid', name: 'runoff liquid', examineText: 'Don\'t touch it. TECH ≥ 4: cadmium, chromium compounds, and something synthetic that doesn\'t match any known industrial byproduct. This is what Helixion\'s factories produce as waste. This is what filters down to the Parish.' },
+      { id: 'chemical_etchings', name: 'chemical etchings', examineText: 'The runoff has carved patterns into the concrete over years. Branching, fractal, like river deltas or neural pathways. GHOST ≥ 6: They\'re not random. The chemical reactions follow the same substrate patterns that run beneath the city. The runoff is toxic — but the stone underneath remembers what it used to be.' },
+      { id: 'dead_augment', name: 'dead augment', examineText: 'Face-down at the channel\'s edge. Hands blistered where they touched the liquid. Augmented arm gone from chrome to green. Whatever they were before Helixion, whatever they were after, they ended here, thirsty enough to drink poison.' },
+      { id: 'drainage_pipe', name: 'drainage pipe', examineText: 'The channel narrows into a large pipe descending at a steep angle. You can hear the liquid echoing below — falling for a long time. This feeds the Industrial Drainage system. Everything Helixion pours out up here ends up in the tunnels where people live.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 5. FACTORY ROW ────────────────────────────────────────────────────────
+
+  z03_r05: {
+    id: 'z03_r05',
+    zone: 'z03',
+    name: 'FACTORY ROW',
+    description:
+`A wide industrial boulevard lined with factory buildings.
+The road surface is heavy-duty composite, scarred by years
+of cargo vehicles. To the east, active factories hum — lit,
+guarded, smoke rising from stacks. To the west, dead
+factories stand dark — windows broken, gates chained, the
+machinery inside visible through gaps like bones through skin.
+
+The contrast is the district in miniature. Helixion keeps
+half the infrastructure alive because it needs it. The other
+half rots because it doesn't. The Chrome Wolves live in the
+gap between the two.
+
+A Wolf patrol — three augmented figures on modified
+motorcycles — rolls down the boulevard at walking speed.
+They're not looking for trouble. They're showing the flag.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z02_r01', description: 'north (Residential Blocks — Transit Station)', zoneTransition: true, targetZone: 'z02' },
+      { direction: 'south', targetRoom: 'z03_r02', description: 'south (Cargo Docks)' },
+      { direction: 'east', targetRoom: 'z03_r06', description: 'east (Active Factory)' },
+      { direction: 'west', targetRoom: 'z03_r07', description: 'west (Dead Factory)' },
+    ],
+    npcs: [
+      {
+        id: 'factory_workers', name: 'Factory Workers', type: 'NEUTRAL',
+        faction: 'HELIXION',
+        description: 'Shift workers heading to or from the active factories. Mesh-compliant, tired, carrying lunch pails.',
+        dialogue: "One of them nods. The others don't. Nobody talks near the Wolves.",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [
+      {
+        id: 'chrome_wolves_patrol', name: 'Chrome Wolves Patrol', level: 7,
+        description: 'On motorcycles. Not hostile by default — they patrol and observe. If the player\'s Chrome Wolves disposition is Hostile, they engage. Otherwise they nod and pass.',
+        hp: 30, attributes: { ...enemyAttrs(7), BODY: 6, REFLEX: 5, COOL: 5 }, damage: 7, armorValue: 4,
+        behavior: 'patrol', spawnChance: 0.6, count: [2, 3],
+        drops: [
+          { itemId: 'wolf_token', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'chrome_components', chance: 0.25, quantityRange: [1, 1] },
+          { itemId: 'creds_pouch', chance: 0.5, quantityRange: [10, 20] },
+        ],
+        xpReward: 45,
+      },
+    ],
+    objects: [
+      { id: 'active_factories', name: 'active factories', examineText: 'Lit up. Running. The nearest one has HELIXION MANUFACTURING — DIVISION 7 on the gate. Behind the fence: loading bays, smokestacks, the hum of heavy machinery. Corporate security patrols the perimeter.' },
+      { id: 'dead_factories', name: 'dead factories', examineText: 'Dark. Chained gates, broken windows, graffiti. The Chrome Wolves\' territory starts where the chain-link ends. Some buildings have been converted — welding light through windows, music, cooking. Others are truly dead.' },
+      { id: 'wolf_motorcycles', name: 'wolf motorcycles', examineText: 'Modified. Heavy frames, augmented engines. The riders\' augmentations match their bikes — chrome arms, enhanced optics, the kind of body modification that says \'I chose this.\' Augmentation is identity, not compromise.' },
+      { id: 'road_scars', name: 'road scars', examineText: 'Composite road surface gouged by years of heavy vehicles. Some scars fresh — cargo trucks. Some old — tracks from machines that no longer exist, leading to factories that no longer run. The road remembers everything.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 6. ACTIVE FACTORY ─────────────────────────────────────────────────────
+
+  z03_r06: {
+    id: 'z03_r06',
+    zone: 'z03',
+    name: 'ACTIVE FACTORY',
+    description:
+`HELIXION MANUFACTURING — DIVISION 7. The fence is three
+meters of reinforced chain-link topped with sensor wire.
+The gate is manned by corporate security in tactical gear
+— private military contractors. Cheaper than campus
+enforcers. Less augmented. Still armed enough to kill you.
+
+Inside the fence: a loading bay, a parking lot, and the
+factory building itself — massive concrete, no ground-floor
+windows. Narrow observation slits on the upper level glow
+blue-white. Smokestacks exhale thin gray-white vapor. The
+air near the building tastes metallic.
+
+Workers enter through biometric turnstiles. They don't exit
+during shift. Eight-hour rotations. What they build inside,
+they can't discuss — the mesh doesn't let them form the words.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z03_r05', description: 'west (Factory Row)' },
+      { direction: 'in', targetRoom: 'z03_r12', description: 'in (Foreman\'s Office) — requires keycard or escort' },
+    ],
+    npcs: [
+      {
+        id: 'factory_shift_workers', name: 'Shift Workers', type: 'NEUTRAL',
+        faction: 'HELIXION',
+        description: 'Factory-grade mesh suppression. They can talk about their commute, their lunch, the weather. They cannot talk about their work.',
+        dialogue: "\"Work is— it's— the weather's been cold lately.\" The sentence starts and then changes. They don't notice.",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [
+      {
+        id: 'corporate_security_factory', name: 'Corporate Security', level: 8,
+        description: 'Patrol the fence perimeter. Will engage if the player enters without authorization. Won\'t chase beyond the fence line.',
+        hp: 38, attributes: { ...enemyAttrs(8), REFLEX: 6 }, damage: 9, armorValue: 5,
+        behavior: 'patrol', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'milspec_sidearm', chance: 0.15, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_basic', chance: 0.2, quantityRange: [1, 1] },
+          { itemId: 'ballistic_vest_helixion', chance: 0.1, quantityRange: [1, 1] },
+        ],
+        xpReward: 55,
+      },
+    ],
+    objects: [
+      { id: 'biometric_turnstile', name: 'biometric turnstile', examineText: 'Full scan — retinal, neural signature, mesh compliance check. TECH ≥ 7: The scanner also performs a real-time memory audit. If a worker has formed specific memories about the production process since their last scan, those memories are flagged for mesh suppression. They forget what they built before they get home.' },
+      { id: 'smokestacks', name: 'smokestacks', examineText: 'Thin vapor. Not traditional combustion exhaust. TECH ≥ 6: The chemical signature includes aerosolized neural paste byproducts. Whatever they\'re building, it interfaces with human neurology.' },
+      { id: 'observation_windows', name: 'observation windows', examineText: 'Narrow slits. Blue-white light. You can\'t see inside from this angle. But you can hear something through the walls — not machinery. A hum. Low, steady. GHOST ≥ 5: 33hz. The factory is resonating. The production process uses the frequency.' },
+      { id: 'security_checkpoint', name: 'security checkpoint', examineText: 'Helixion perimeter patrol station. Two guards, a barrier arm, camera coverage. The checkpoint has been edging further into the street — twenty meters past the fence line. Into wolf territory. TECH ≥ 7: The camera network links to campus security. Destroying this checkpoint blinds them. Hacking it shows them ghosts.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 7. DEAD FACTORY ───────────────────────────────────────────────────────
+
+  z03_r07: {
+    id: 'z03_r07',
+    zone: 'z03',
+    name: 'DEAD FACTORY',
+    description:
+`One of a dozen factories that stopped running when Helixion
+consolidated manufacturing. The gate is open — chain cut
+years ago. Loading bay doors hang at angles. Inside: a
+cavernous floor of silent machinery, conveyor belts frozen
+mid-transport, control panels dark.
+
+The Chrome Wolves have claimed the perimeter but not the
+interior. The interior belongs to whatever's still moving
+inside — factory automata never deactivated, running their
+last program on emergency battery. The sound of their
+servos echoing in the dark is the loneliest noise in the
+district.
+
+Tools and salvage are scattered near the entrance — Wolf
+scouts strip what they can from the accessible areas.
+The deeper sections haven't been cleared.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z03_r05', description: 'east (Factory Row)' },
+      { direction: 'west', targetRoom: 'z03_r10', description: 'west (The Wolf Den)' },
+      { direction: 'in', targetRoom: 'z03_r08', description: 'in (Automata Floor)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'chrome_wolves_scout', name: 'Chrome Wolves Scout', level: 7,
+        description: 'Working the perimeter, stripping salvage. Not hostile if Wolf disposition is Neutral or better.',
+        hp: 28, attributes: { ...enemyAttrs(7), REFLEX: 5, COOL: 5 }, damage: 6, armorValue: 3,
+        behavior: 'territorial', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'salvage', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'wolf_token', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 40,
+      },
+      {
+        id: 'feral_augment_factory', name: 'Feral Augment', level: 6,
+        description: 'Lurking in the deeper sections near the automata.',
+        hp: 24, attributes: { ...enemyAttrs(6), BODY: 5, REFLEX: 4 }, damage: 6, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0.3, count: [1, 1],
+        drops: [
+          { itemId: 'damaged_implant', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'scrap_cyberware', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 30,
+      },
+    ],
+    objects: [
+      { id: 'frozen_machinery', name: 'frozen machinery', examineText: 'Assembly equipment for — checking the old signage — consumer electronics. Before Helixion pivoted to neural technology, this factory made things that plugged into walls, not brains. The production line is a fossil.' },
+      { id: 'wolf_salvage', name: 'wolf salvage', examineText: 'The Wolves strip copper, circuit boards, servo motors, anything repurposable. Efficient and organized — labeled containers, sorted materials. They run their operation like a business. Because it is one.' },
+      { id: 'automata_sounds', name: 'automata sounds', examineText: 'Listen. Deeper in the building — the click-whir of robotic arms cycling through assembly motions. The hiss of pneumatic grippers closing on nothing. They\'re building ghosts. Emergency batteries have kept them going for years. Nobody turned them off because nobody knows how.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 8. AUTOMATA FLOOR ─────────────────────────────────────────────────────
+
+  z03_r08: {
+    id: 'z03_r08',
+    zone: 'z03',
+    name: 'AUTOMATA FLOOR',
+    description:
+`The deep interior of the dead factory. Emergency lighting
+casts everything in red. The production line stretches the
+length of the building — and every station is active.
+
+Robotic arms swing and grip and place and weld, performing
+the exact sequence they were doing when the power was cut
+years ago. Emergency batteries keep the servos alive. The
+arms assemble nothing — grippers close on empty air, welders
+fire at bare conveyor belt, quality scanners check products
+that don't exist.
+
+Some automata have degraded. Movements jerky, off-axis. A
+welding arm fires its torch at the ceiling. One unit has
+torn itself from its mounting and drags itself along the
+floor by one arm, still trying to reach its station.
+
+They're dangerous because they don't know you're here and
+they don't care. You're an obstacle between them and a task
+they'll never complete.`,
+    exits: [
+      { direction: 'out', targetRoom: 'z03_r07', description: 'out (Dead Factory)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'industrial_automaton', name: 'Industrial Automaton', level: 7,
+        description: 'Running programs. Attacks because you enter their operational radius, not because they choose to. Predictable patterns. High damage. TECH ≥ 6 can deactivate individuals.',
+        hp: 40, attributes: { ...enemyAttrs(7), BODY: 7, TECH: 1 }, damage: 10, armorValue: 5,
+        behavior: 'aggressive', spawnChance: 0.8, count: [3, 4],
+        drops: [
+          { itemId: 'servo_core', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'power_cell_depleted', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'salvage', chance: 0.3, quantityRange: [1, 2] },
+        ],
+        xpReward: 35,
+      },
+    ],
+    objects: [
+      { id: 'control_panel', name: 'control panel', examineText: 'Master control for the production line. Dark — main power is cut. But the emergency override is still active. TECH ≥ 9: You can interface and send a shutdown command to all units. The floor goes quiet for the first time in years. The silence is louder than the machines.' },
+      { id: 'dragging_automaton', name: 'dragging automaton', examineText: 'It tore itself free from its mounting. Base plate still attached to the floor, bolts sheared. It drags itself with one arm, the other hanging useless, trailing sparks. It\'s trying to reach station 14. It will never reach station 14. It will try until its battery dies. GHOST ≥ 4: You feel something. Not the frequency. Something simpler. Sympathy.' },
+      { id: 'emergency_batteries', name: 'emergency batteries', examineText: 'Industrial-grade power cells. Running for years on reserve. Worth significant CREDS if salvaged — the Wolves would pay well. Removing them kills the automata. The factory finally stops. Is that mercy or murder? They\'re machines. It shouldn\'t matter. It does.' },
+      { id: 'loot_cache', name: 'loot cache', examineText: 'A worker\'s locker behind station 14. Inside: a photograph, a data chip with a goodbye message to someone named \'Eli,\' and a high-quality toolkit. The last worker on this line left their things behind. The automaton is trying to deliver them to a station nobody will ever staff again.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 9. WOLF GARAGE ────────────────────────────────────────────────────────
+
+  z03_r09: {
+    id: 'z03_r09',
+    zone: 'z03',
+    name: 'WOLF GARAGE',
+    description:
+`A converted warehouse where the Chrome Wolves maintain
+their vehicles and do first-line augmentation work. Roll-up
+doors open onto the waterfront side. Inside: motorcycles in
+various states of assembly, welding stations, a hydraulic
+lift with a truck on it, and the constant sound of metal
+being shaped by people who love metal.
+
+The Wolves here are mechanics first. Their chrome isn't just
+combat augmentation — it's art. Modified arms with custom
+engraving. Optical implants with aesthetic irises. They
+modify themselves the way they modify their machines:
+constantly, deliberately, with pride.
+
+The air smells like motor oil, hot metal, and the ozone
+signature of active cyberware. Music plays from a speaker
+bolted to the ceiling — heavy, rhythmic, the bass shaking
+the tools on the workbenches.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z03_r01', description: 'east (The Waterfront)' },
+      { direction: 'north', targetRoom: 'z03_r10', description: 'north (The Wolf Den)' },
+    ],
+    npcs: [
+      {
+        id: 'wolf_mechanics', name: 'Wolf Mechanics', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'Chrome Wolves faction. 3-4 present. Neutral if disposition ≥ 0. Talk about machines, augmentation, Wolf philosophy.',
+        dialogue: "\"My body, my blueprint. That's the creed. You want to understand the Wolves? Start there.\"",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'motorcycle_line', name: 'motorcycle line', examineText: 'Eight machines in various stages. The closest is stripped to the frame — engine out, being rebuilt with salvaged Helixion power cells. The furthest is complete: matte black, low-slung, engine housing engraved with a wolf skull. Every machine is unique. Mass production is what Helixion does. The Wolves make things by hand.' },
+      { id: 'hydraulic_lift', name: 'hydraulic lift', examineText: 'A cargo truck on the lift. Undercarriage modified — concealed compartment large enough for four people, lined with mesh-dampening material. A smuggling vehicle.' },
+      { id: 'custom_chrome', name: 'custom chrome', examineText: 'A workbench covered in augmentation components — fingers, wrist joints, optical lenses. Each hand-finished. One forearm assembly has been engraved: \'MY BODY, MY BLUEPRINT.\' The Wolves\' creed.' },
+      { id: 'music_speaker', name: 'music speaker', examineText: 'Bolted to a ceiling beam. The bass is physical — you feel it in your chest. The Wolves work to music the way other people work to silence. The rhythm matches their hammer strikes. The garage runs on beat.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 10. THE WOLF DEN ──────────────────────────────────────────────────────
+
+  z03_r10: {
+    id: 'z03_r10',
+    zone: 'z03',
+    name: 'THE WOLF DEN',
+    description:
+`The largest of the dead factories, fully converted. The
+exterior is reinforced — welded steel plates over the original
+walls, firing positions cut into the upper level, the Helixion
+logo on the smokestack replaced with a spray-painted wolf
+skull the size of a car.
+
+Inside: a community. The factory floor divided into zones —
+common area with tables and cooking stations, workshop wing,
+sleeping quarters in the old offices, a raised platform at
+the far end where the pack's leadership holds court.
+Everything industrial-aesthetic by choice, not poverty.
+
+Fifty to sixty Chrome Wolves live and operate from the Den.
+The air smells like grilled meat, engine grease, and ozone.
+Someone is always working. Someone is always eating. Someone
+is always sparring in the corner. The Den never sleeps.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z03_r07', description: 'east (Dead Factory)' },
+      { direction: 'south', targetRoom: 'z03_r09', description: 'south (Wolf Garage)' },
+      { direction: 'north', targetRoom: 'z03_r11', description: 'north (Ripperdoc Clinic)' },
+      { direction: 'west', targetRoom: 'z03_r15', description: 'west (District Border)' },
+    ],
+    npcs: [
+      {
+        id: 'chrome_wolves_members', name: 'Chrome Wolves', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'Faction. 6-8 present. Sparring, cooking, repairing gear, playing cards. Loud, physical, direct.',
+        dialogue: "A Wolf looks you over. \"New face. You here for work or just passing through? Don't lie.\"",
+        startingDisposition: 0,
+      },
+      {
+        id: 'voss', name: 'Voss', type: 'QUESTGIVER',
+        faction: 'CHROME_WOLVES',
+        description: 'Wolf Lieutenant. Massive augmentation — both arms chrome, targeting optic, subdermal armor. Speaks in short sentences. Means every word.',
+        dialogue: "\"Talk is cheap. Chrome isn't. Show me what you're made of — literally — and we'll see if there's a conversation worth having.\"",
+        startingDisposition: 0,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'welded_throne', name: 'welded throne', examineText: 'Motorcycle frames welded into a seat. Not comfortable — that\'s the point. The command position in the Wolf pack isn\'t a reward. It\'s a station. Voss sits in it like she was built for it. She probably was.' },
+      { id: 'sparring_corner', name: 'sparring corner', examineText: 'Two Wolves fighting bare-knuckle with augmented arms. The impacts sound like car crashes. They\'re grinning. One lands a hit that cracks a wall tile and they both laugh. This is how the Wolves calibrate.' },
+      { id: 'wolf_banner', name: 'wolf banner', examineText: 'A flag above the platform: matte black, wolf skull in chrome paint, the words \'MY BODY, MY BLUEPRINT.\' Tattooed, engraved, or painted on nearly every Wolf in the Den. Not a motto. An oath.' },
+      { id: 'cooking_stations', name: 'cooking stations', examineText: 'Real meat on a grill made from a factory press. The Wolves eat well — actual food, not synthesized. They cook in the open and share without asking. You\'re either pack or you\'re not. If you are, you eat.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 11. RIPPERDOC CLINIC ──────────────────────────────────────────────────
+
+  z03_r11: {
+    id: 'z03_r11',
+    zone: 'z03',
+    name: 'RIPPERDOC CLINIC',
+    description:
+`A converted factory office suite, three rooms deep. The
+front room is a waiting area — metal chairs, a table with
+old magazines nobody reads, a sign that says "NO REFUNDS"
+in three languages. The middle room is prep — sterilization,
+cyberware components in labeled drawers, diagnostics.
+
+The back room is the operating theater. A surgical chair
+under industrial work lights. Nerve threaders, bone anchors,
+neural sync calibrators. The chair has restraint straps.
+Not for control. For when the pain reflex kicks and the
+patient tries to leave mid-procedure.
+
+A woman in surgical scrubs and a leather apron is cleaning
+tools. Her own augmentations are subtle — you'd miss them
+if you weren't looking. Her left hand has too many degrees
+of articulation.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z03_r10', description: 'south (The Wolf Den)' },
+    ],
+    npcs: [
+      {
+        id: 'dr_costa', name: 'Dr. Rin Costa', type: 'SHOPKEEPER',
+        faction: 'CHROME_WOLVES',
+        description: 'Ripperdoc. Forties. Precise. Former Helixion biomedical engineer. Operates under Wolf protection.',
+        dialogue: "\"Sit down. Shirt off. Let me see what they did to you before I decide what I can do for you.\"",
+        startingDisposition: 5,
+        services: ['shop', 'heal'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'cyberware_drawers', name: 'cyberware drawers', examineText: 'Labeled, organized, temperature-controlled. Fingers, eyes, subdermal plating, reflex enhancers. Catalogued with source notes — some Wolf salvage, some Freemarket imports, some Helixion. Serial numbers that match campus inventory. Stolen. Every piece of chrome in this drawer used to be inside someone Helixion owned.' },
+      { id: 'surgical_chair', name: 'surgical chair', examineText: 'Industrial. Leather worn smooth. Restraint straps adjustable. Neural contact array in the headrest — she monitors brain activity during installation. Pain management: a local anesthetic injector and a bite guard. She apologizes for the bite guard. It\'s necessary.' },
+      { id: 'dr_costa_augments', name: 'dr costa\'s hands', examineText: 'Her hands. The articulation is wrong — too many joints, too precise. She can rotate her fingers independently on axes human fingers don\'t have. Surgical augmentation designed for surgical augmentation. She modified herself to be better at modifying others.' },
+      { id: 'no_refunds_sign', name: 'no refunds sign', examineText: '\'NO REFUNDS.\' Three languages. She means it. The sign is old. Beneath it, someone scratched: \'But she\'s never needed to offer one.\'' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 12. FOREMAN'S OFFICE ──────────────────────────────────────────────────
+
+  z03_r12: {
+    id: 'z03_r12',
+    zone: 'z03',
+    name: "FOREMAN'S OFFICE",
+    description:
+`Ground floor, past the turnstile, through a corridor of
+industrial gray. The foreman's office is glass-walled,
+overlooking the factory floor through observation windows
+with blinds always half-closed. Inside: a desk buried in
+production schedules, a coffee machine running since morning,
+and a man who looks like he hasn't slept properly in months.
+
+The view through the window shows the factory floor —
+automated assembly arms, conveyor systems, workers in
+clean-room suits performing tasks the glass muffles into
+pantomime. What they're assembling is not immediately
+identifiable. Components. Modular. Designed to connect
+in sequences that look biological.`,
+    exits: [
+      { direction: 'out', targetRoom: 'z03_r06', description: 'out (Active Factory)' },
+      { direction: 'in', targetRoom: 'z03_r13', description: 'in (Assembly Line) — restricted' },
+    ],
+    npcs: [
+      {
+        id: 'brenn', name: 'Karl Brenn', type: 'QUESTGIVER',
+        faction: 'HELIXION',
+        description: 'Factory foreman. Fifties. Big hands, quiet voice. Scared. He knows what they\'re building. The mesh won\'t let him say it.',
+        dialogue: "\"I can't— the words don't— give me a minute.\"",
+        startingDisposition: -15,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'production_schedules', name: 'production schedules', examineText: 'Stacked on the desk. Numbers, timelines, component codes. TECH ≥ 6: The production rate has doubled in three months. Whatever the factory is building, Helixion wants it faster. The schedule for next month is blank — marked only \'FINAL ASSEMBLY.\'' },
+      { id: 'coffee_machine', name: 'coffee machine', examineText: 'Running since morning. The pot is half-full of something that used to be coffee. Brenn drinks it because it\'s the only thing the mesh doesn\'t regulate.' },
+      { id: 'observation_window', name: 'observation window', examineText: 'The factory floor through half-closed blinds. Workers in clean-room suits at stations. Automated arms handling the large pieces. The workers do the fine connections — neural-grade circuitry that machines aren\'t delicate enough to handle.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 13. ASSEMBLY LINE ─────────────────────────────────────────────────────
+
+  z03_r13: {
+    id: 'z03_r13',
+    zone: 'z03',
+    name: 'ASSEMBLY LINE',
+    description:
+`The factory floor. Clean-room environment — filtered air,
+controlled humidity, precision equipment humming. Workers
+in sealed suits perform tasks at stations along a conveyor.
+Automated arms handle heavy assembly. The workers do fine
+work — connecting neural-grade circuitry machines aren't
+delicate enough to handle.
+
+On the conveyor: components. Each one a curved panel, roughly
+a meter long, covered in neural resonance amplification
+circuitry. They look like scales. Or feathers. Or the
+segments of a spine. Hundreds of them, tested, calibrated,
+packed into matte-gray containers.
+
+HX-7C.
+
+This is what's inside the containers. This is what the
+Broadcast Tower is made of.`,
+    exits: [
+      { direction: 'out', targetRoom: 'z03_r12', description: 'out (Foreman\'s Office)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'corporate_security_assembly', name: 'Corporate Security', level: 9,
+        description: 'Interior guards. Better equipped than perimeter. If the player is here without authorization, they engage and trigger factory lockdown.',
+        hp: 42, attributes: { ...enemyAttrs(9), REFLEX: 6, COOL: 6 }, damage: 10, armorValue: 6,
+        behavior: 'patrol', spawnChance: 0.6, count: [1, 2],
+        drops: [
+          { itemId: 'milspec_sidearm', chance: 0.2, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_basic', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'ballistic_vest_helixion', chance: 0.15, quantityRange: [1, 1] },
+        ],
+        xpReward: 65,
+      },
+      {
+        id: 'automated_defense', name: 'Automated Defense', level: 9,
+        description: 'Factory security system. Activates on lockdown. Ceiling-mounted suppressant dispensers — chemical damage per turn.',
+        hp: 40, attributes: { ...enemyAttrs(9), TECH: 7 }, damage: 6, armorValue: 7,
+        behavior: 'aggressive', spawnChance: 0.4, count: [1, 1],
+        drops: [
+          { itemId: 'security_components', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 50,
+      },
+    ],
+    objects: [
+      { id: 'resonance_amplifiers', name: 'resonance amplifiers', examineText: 'Each panel is a neural resonance amplifier. Circuitry designed to receive a frequency input and amplify it across a specific range. The input frequency is calibrated to 33hz. Hundreds of these, assembled into the Broadcast Tower\'s spire, would turn a natural phenomenon into a city-wide neural broadcast.' },
+      { id: 'production_terminal', name: 'production terminal', examineText: 'TECH ≥ 8: The production manifest. Component specifications. Delivery schedules. Assembly instructions for the Broadcast Tower\'s resonance array. The amplifiers are arranged in a Fibonacci spiral, each one reinforcing the next. The design is beautiful. It\'s also a machine for ending human autonomy.' },
+      { id: 'worker_stations', name: 'worker stations', examineText: 'The workers\' hands move with mechanical precision — the mesh guiding their motor functions. The final connections require human neural proximity — the circuitry calibrates to living tissue during assembly. The workers are part of the manufacturing process. Their bodies are tools.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 14. DOCK BOSS OFFICE ──────────────────────────────────────────────────
+
+  z03_r14: {
+    id: 'z03_r14',
+    zone: 'z03',
+    name: 'DOCK BOSS OFFICE',
+    description:
+`An elevated office on a gantry above the cargo yard. The
+windows are floor-to-ceiling, overlooking the dock operation.
+From up here you can see every crane, every container, every
+worker, and the water beyond.
+
+The office is functional — a desk, three monitors showing
+manifests and security feeds, a filing cabinet that hasn't
+been opened digitally because the man behind the desk doesn't
+trust digital. An ashtray with a cigarette burning. A bottle
+of something amber. Two glasses, one clean.
+
+He was expecting you. Or someone like you. Sooner or later,
+everyone with questions about the Helixion shipments ends up
+in this office.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z03_r02', description: 'down (Cargo Docks)' },
+    ],
+    npcs: [
+      {
+        id: 'oyunn', name: 'Oyunn', type: 'SHOPKEEPER',
+        faction: 'FREEMARKET',
+        description: 'Dock Boss. Fifties. Heavy. Patient. Controls the dock operation. Helixion needs the docks and Oyunn runs them.',
+        dialogue: "\"The second glass is for you. Sit down. I hear things and you want things. Let's see if those facts meet in the middle.\"",
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'security_feeds', name: 'security feeds', examineText: 'Three monitors. The dock yard from four angles. Every crane, every container, every worker. Oyunn sees everything that happens on his docks. He also sees what doesn\'t happen — the gaps in the schedules, the containers that arrive without manifests.' },
+      { id: 'filing_cabinet', name: 'filing cabinet', examineText: 'Physical records. Fifteen years of dock operations on paper. Oyunn doesn\'t trust digital because digital can be erased. Paper endures. The drawer labeled \'HX\' is thicker than the others.' },
+      { id: 'amber_bottle', name: 'amber bottle', examineText: 'No label. The liquid is the color of old honey. The second glass is clean and turned upright — he poured it when he heard your footsteps on the gantry stairs. He\'s been doing this long enough to know the sound of someone with questions.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 15. DISTRICT BORDER ───────────────────────────────────────────────────
+
+  z03_r15: {
+    id: 'z03_r15',
+    zone: 'z03',
+    name: 'DISTRICT BORDER',
+    description:
+`The Chrome Wolf territory thins at the western edge, where
+the factories give way to waste ground — rubble, rusted
+fencing, dead lots. The air smells different here: less
+machine oil, more dust and something else. Sweat. Blood.
+The copper tang of violence conducted as entertainment.
+
+A path of beaten dirt leads through a gap in the fencing
+toward a structure that used to be a water treatment plant.
+The concrete basin has been repurposed. Lights blaze from
+within. You can hear the crowd before you see them —
+cheering, jeering, the impact sounds of bodies hitting
+bodies with modifications that make the impacts louder than
+they should be.
+
+A man sits at a folding table near the entrance, taking
+bets. He looks at you like a butcher looks at a cut of
+meat. Evaluating.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z03_r10', description: 'east (The Wolf Den)' },
+      { direction: 'west', targetRoom: 'z06_r01', description: 'west (Fight Pits)', zoneTransition: true, targetZone: 'z06' },
+    ],
+    npcs: [
+      {
+        id: 'rade', name: 'Rade', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'Fight Pit operator. Indeterminate age. Lean. Missing left ear, replaced with a low-grade audio implant. Every sentence prices you.',
+        dialogue: "\"Fighter or spectator? Fighters go left. Spectators go right. Spectators pay at the door. Fighters pay with what's under their skin.\"",
+        startingDisposition: 0,
+        services: ['quest', 'shop'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'feral_augment_border', name: 'Feral Augment', level: 7,
+        description: 'In the waste ground between districts. Disoriented, territorial.',
+        hp: 28, attributes: { ...enemyAttrs(7), BODY: 6, REFLEX: 5 }, damage: 7, armorValue: 2,
+        behavior: 'territorial', spawnChance: 0.35, count: [1, 2],
+        drops: [
+          { itemId: 'damaged_implant', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'scrap_cyberware', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 35,
+      },
+    ],
+    objects: [
+      { id: 'pit_entrance', name: 'pit entrance', examineText: 'The repurposed water treatment plant. The basin is the arena. The bleachers are scaffolding. The lights are industrial floods. They watch people break each other in a place where the mesh can\'t see.' },
+      { id: 'betting_table', name: 'betting table', examineText: 'Rade\'s operation. Handwritten odds on a whiteboard. Tonight\'s card lists fighters by nickname — Chrome Jaw, Deadswitch, Moth, The Silencer. Rade crosses out names that don\'t come back and he doesn\'t erase them. The whiteboard is a history of damage.' },
+      { id: 'waste_ground', name: 'waste ground', examineText: 'No-man\'s-land between Industrial and Fringe. No faction claims it. Rubble and fencing create a natural boundary — a demilitarized zone of neglect.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+};
+
+// ── Zone 03 Definition ──────────────────────────────────────────────────────
+
+export const ZONE_03: Zone = {
+  id: 'z03',
+  name: 'INDUSTRIAL DISTRICT',
+  depth: 'surface',
+  faction: 'CHROME_WOLVES',
+  levelRange: [4, 12],
+  description: 'Factories, docks, Chrome Wolves. The city\'s mechanical heart. Helixion runs the active half. The Wolves claimed the dead half. Between them: rust, heat, and everything the city makes and throws away.',
+  atmosphere: {
+    sound: 'Docks: gulls, cargo cranes, water. Factories: pneumatic hammers, silence from dead ones. Wolf territory: engines, metal music, surgical tools.',
+    smell: 'Machine oil. Sulfur. Chemical runoff. Wolf territory adds ozone and grilled meat.',
+    light: 'Docks: fog, gray water. Factory strip: sodium floods at active sites, dark at dead ones. Wolf territory: welding sparks, neon.',
+    temp: 'Hot near active factories. Cool at the waterfront. The Wolf Den is warm — bodies and engines.',
+  },
+  rooms: Z03_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
+  z03: ZONE_03,
   z04: ZONE_04,
   z08: ZONE_08,
   z09: ZONE_09,

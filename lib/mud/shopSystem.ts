@@ -4,7 +4,7 @@
 
 import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
-import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP } from './items';
+import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP } from './items';
 import type { ShopItem } from './items';
 import { getNPCRelation } from './persistence';
 
@@ -19,6 +19,10 @@ export function getShopInventory(npcId: string): ShopItem[] | null {
     case 'oska': return OSKA_SHOP;
     case 'kai': return KAI_SHOP;
     case 'cache': return CACHE_SHOP;
+    case 'salvage_workers': return SALVAGE_SHOP;
+    case 'oyunn': return OYUNN_SHOP;
+    case 'rade': return RADE_SHOP;
+    case 'dr_costa': return COSTA_SHOP;
     default: return null;
   }
 }
@@ -32,6 +36,10 @@ export function getShopkeeperName(npcId: string): string {
     case 'oska': return 'Oska';
     case 'kai': return 'Kai';
     case 'cache': return 'Scavenger Cache';
+    case 'salvage_workers': return 'Salvage Yard';
+    case 'oyunn': return 'Oyunn';
+    case 'rade': return 'Rade';
+    case 'dr_costa': return 'Dr. Costa';
     default: return npcId;
   }
 }

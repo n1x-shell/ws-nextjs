@@ -947,6 +947,120 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'utility', tier: 'SCRAP', stackable: false,
     buyPrice: 10, sellPrice: 4,
   },
+
+  // ── Zone 03: Industrial District Items ──────────────────────────────────
+
+  // Enemy drops
+  improvised_weapon: {
+    id: 'improvised_weapon', name: 'Improvised Weapon',
+    description: 'pipe with bolts welded to it. desperate craftsmanship.',
+    category: 'weapon_melee', tier: 'SCRAP', stackable: false,
+    slot: 'weapon_primary', damage: 3, damageType: 'melee', sellPrice: 4,
+  },
+  wolf_token: {
+    id: 'wolf_token', name: 'Wolf Token',
+    description: 'chrome wolf identification chip. proves you dealt with one of theirs.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 15,
+  },
+  chrome_components: {
+    id: 'chrome_components', name: 'Chrome Components',
+    description: 'augmentation parts. hand-finished. wolf standard.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 20,
+  },
+  servo_core: {
+    id: 'servo_core', name: 'Servo Core',
+    description: 'industrial automaton motor unit. still warm. still trying.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 18,
+  },
+  security_components: {
+    id: 'security_components', name: 'Security Components',
+    description: 'automated defense system parts. helixion manufacture.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 30,
+  },
+  milspec_sidearm: {
+    id: 'milspec_sidearm', name: 'Mil-Spec Sidearm',
+    description: 'corporate security issue. clean. efficient. soulless.',
+    category: 'weapon_ranged', tier: 'MIL_SPEC', stackable: false,
+    slot: 'weapon_primary', damage: 8, damageType: 'ranged', buyPrice: 150, sellPrice: 60,
+  },
+
+  // Quest items
+  confiscated_cyberware: {
+    id: 'confiscated_cyberware', name: 'Confiscated Cyberware',
+    description: 'augmentations taken from decommissioned subjects. serial numbers match parish records.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    questItem: true, loreItem: true,
+  },
+  production_manifest: {
+    id: 'production_manifest', name: 'Production Manifest',
+    description: 'factory output records. proves helixion is manufacturing broadcast tower resonance amplifiers.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true, loreItem: true,
+  },
+
+  // Salvage Yard goods
+  salvage_weapon: {
+    id: 'salvage_weapon', name: 'Salvage Blade',
+    description: 'sharpened metal from the yard. crude but it\'ll cut.',
+    category: 'weapon_melee', tier: 'SCRAP', stackable: false,
+    slot: 'weapon_primary', damage: 4, damageType: 'melee', buyPrice: 12, sellPrice: 5,
+  },
+  salvage_armor: {
+    id: 'salvage_armor', name: 'Scrap Plating',
+    description: 'metal plates wired together. blocks something. maybe.',
+    category: 'armor', tier: 'SCRAP', stackable: false,
+    slot: 'armor', armorValue: 2, buyPrice: 15, sellPrice: 6,
+  },
+  weird_chip: {
+    id: 'weird_chip', name: 'Humming Chip',
+    description: 'dredged from deep water. hums at 33hz. older than helixion.',
+    category: 'lore', tier: 'COMMON', stackable: false,
+    sellPrice: 25, loreItem: true,
+  },
+
+  // Oyunn's shop stock
+  cargo_manifest: {
+    id: 'cargo_manifest', name: 'Cargo Manifest',
+    description: 'dock shipping records. shows what arrives and when. hx-7c schedules included.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 30, sellPrice: 10,
+  },
+  dock_worker_contact: {
+    id: 'dock_worker_contact', name: 'Dock Contact',
+    description: 'name and shift schedule. gets you into restricted dock areas.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 8,
+  },
+  shipping_route: {
+    id: 'shipping_route', name: 'Shipping Route',
+    description: 'smuggling path in and out of the city via the waterfront.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 40, sellPrice: 15,
+  },
+  oyunn_silence: {
+    id: 'oyunn_silence', name: 'Oyunn\'s Discretion',
+    description: 'a promise. your dock activity goes unrecorded. one-time use.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 50, sellPrice: 0,
+  },
+
+  // Rade's shop stock
+  pit_entry_ticket: {
+    id: 'pit_entry_ticket', name: 'Pit Entry',
+    description: 'spectator pass. one night. the view from the basin\'s edge.',
+    category: 'utility', tier: 'SCRAP', stackable: true,
+    buyPrice: 10, sellPrice: 3,
+  },
+  fighter_registration: {
+    id: 'fighter_registration', name: 'Fighter Card',
+    description: 'registered combatant. your name on the whiteboard. rade takes 20%.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 0,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -1116,4 +1230,33 @@ export const CACHE_SHOP: ShopItem[] = [
   { templateId: 'canned_food', stock: 3 },
   { templateId: 'scrap_metal', stock: -1 },
   { templateId: 'fringe_flashlight', stock: 1 },
+];
+
+// ── Zone 03: Industrial District Shops ──────────────────────────────────────
+
+export const SALVAGE_SHOP: ShopItem[] = [
+  { templateId: 'salvage_weapon', stock: 2 },
+  { templateId: 'salvage_armor', stock: 2 },
+  { templateId: 'scrap_metal', stock: -1 },
+  { templateId: 'stim_pack', stock: 3 },
+  { templateId: 'weird_chip', stock: 1 },
+];
+
+export const OYUNN_SHOP: ShopItem[] = [
+  { templateId: 'cargo_manifest', stock: 3 },
+  { templateId: 'dock_worker_contact', stock: 2 },
+  { templateId: 'shipping_route', stock: 1 },
+  { templateId: 'oyunn_silence', stock: 2 },
+];
+
+export const RADE_SHOP: ShopItem[] = [
+  { templateId: 'pit_entry_ticket', stock: -1 },
+  { templateId: 'fighter_registration', stock: 1 },
+  { templateId: 'stim_pack', stock: 5 },
+];
+
+export const COSTA_SHOP: ShopItem[] = [
+  { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'medkit', stock: 5 },
+  { templateId: 'neural_stabilizer', stock: 3 },
 ];
