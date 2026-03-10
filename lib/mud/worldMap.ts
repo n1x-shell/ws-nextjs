@@ -37,7 +37,7 @@ almost look intentional. Salvaged glow-strips mark the path north.
 Someone scratched into the wall near the ladder:
 "THE PARISH DOESN'T OWE YOU ANYTHING. BUT THEY WON'T TURN YOU AWAY."`,
     exits: [
-      { direction: 'up', targetRoom: 'z04_r01', description: 'up (Fringe — Ruins)', zoneTransition: true, targetZone: 'z04' },
+      { direction: 'up', targetRoom: 'z04_r07', description: 'up (Fringe — Drainage Access)', zoneTransition: true, targetZone: 'z04' },
       { direction: 'north', targetRoom: 'z08_r02', description: 'north (The Narrows)' },
     ],
     npcs: [],
@@ -1233,9 +1233,671 @@ export const ZONE_09: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 04: The Fringe ─────────────────────────────────────────────────────
+
+const Z04_ROOMS: Record<string, Room> = {
+
+  // ── 1. THE BORDER ─────────────────────────────────────────────────────────
+
+  z04_r01: {
+    id: 'z04_r01',
+    zone: 'z04',
+    name: 'THE BORDER',
+    description:
+`you can see the exact line. on one side — the residential blocks.
+streetlamps that work. pavement without cracks. mesh signal at
+full strength. on the other side — the fringe. no lamps. no
+signal. the pavement breaks within three meters.
+
+the air changes. the hum of the mesh thins and dies. each step
+west drops the signal strength. for someone with standard implants
+this would feel like unease — a manufactured reluctance. for you
+it feels like a hand letting go.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z02_r01', description: 'east (Residential Blocks — Outer Blocks)', zoneTransition: true, targetZone: 'z02' },
+      { direction: 'west', targetRoom: 'z04_r02', description: 'west (Rubble Streets)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_line', name: 'the line', examineText: 'The last maintained streetlamp — still lit — and then darkness. The pavement changes within three meters. There\'s no fence. No sign. Just the place where maintenance stopped and nobody came back.' },
+      { id: 'mesh_boundary', name: 'mesh boundary', examineText: 'GHOST ≥ 3: You can feel it — the mesh signal dropping like a cliff edge. Full strength on one side. Nothing on the other. The transition zone is less than ten meters wide. Helixion didn\'t fade coverage gradually. They cut it.' },
+      { id: 'last_streetlamp', name: 'last streetlamp', examineText: 'Still powered. Still lit. The maintenance boundary runs exactly to this pole and not one meter further. It illuminates the broken pavement ahead like a spotlight on the threshold of something the city doesn\'t want to see.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 2. RUBBLE STREETS ─────────────────────────────────────────────────────
+
+  z04_r02: {
+    id: 'z04_r02',
+    zone: 'z04',
+    name: 'RUBBLE STREETS',
+    description:
+`the streets are still streets — you can see where the lanes were,
+where the sidewalks ran. but everything is broken. potholes deep
+enough to break an ankle. road buckled upward from root systems.
+cars abandoned so long they've become landscape — rusted to the
+color of the buildings, windows gone, interiors colonized by moss.
+
+buildings on either side. five to eight stories. standing but
+sagging. some apartments still have curtains. the curtains don't
+move. nobody's home. nobody's been home for a long time.
+
+a dog watches you from a doorway. thin and alert and not afraid.
+it's deciding if you're food or competition.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z04_r01', description: 'east (The Border)' },
+      { direction: 'west', targetRoom: 'z04_r03', description: 'west (Collapsed Overpass)' },
+      { direction: 'south', targetRoom: 'z04_r06', description: 'south (The Waking Room)' },
+      { direction: 'north', targetRoom: 'z04_r08', description: 'north (The Clinic)' },
+    ],
+    npcs: [
+      {
+        id: 'oska', name: 'Oska', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'Thirties. Quick eyes, steady hands. Sitting on the hood of an abandoned car, a hand-drawn map spread across the windshield.',
+        dialogue: "\"I draw what's real. The city forgot this place exists but I haven't. You want to know where you're going, or you want to learn by falling through a floor?\"",
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'feral_dogs', name: 'Feral Dogs', level: 2,
+        description: 'Pack hunters. Thin but not starving. Won\'t attack alone — they circle, then commit.',
+        hp: 8, attributes: enemyAttrs(2), damage: 2, armorValue: 0,
+        behavior: 'territorial', spawnChance: 0.5, count: [2, 3],
+        drops: [],
+        xpReward: 6,
+      },
+      {
+        id: 'fringe_scavenger', name: 'Scavenger', level: 2,
+        description: 'Solo. Won\'t attack unless you\'re carrying visible salvage. Flight-first — runs if losing.',
+        hp: 12, attributes: enemyAttrs(2), damage: 3, armorValue: 1,
+        behavior: 'territorial', spawnChance: 0.4, count: [1, 1],
+        drops: [
+          { itemId: 'scrap_metal', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'nutrient_bar', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'fringe_salvage', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 10,
+      },
+    ],
+    objects: [
+      { id: 'abandoned_cars', name: 'abandoned cars', examineText: 'Rusted beyond recognition. One has a child\'s car seat in the back, straps still buckled. Nobody drove out. They just stopped.' },
+      { id: 'sagging_buildings', name: 'sagging buildings', examineText: 'Five stories. Pre-Helixion residential. Structural steel visible where the façade has fallen — orange with rust but holding. The buildings lean against each other like exhausted soldiers.' },
+      { id: 'curtained_windows', name: 'curtained windows', examineText: 'Curtains. Still hanging. Faded by years of sun but still there. Someone chose those curtains. Someone hung them with care. That someone left or died and the curtains stayed. The Fringe is full of choices that outlasted the people who made them.' },
+      { id: 'feral_dog', name: 'feral dog', examineText: 'Mixed breed. Thin but surviving. The pack is three or four, moving between buildings. The dog is deciding which kind of person you are.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 3. COLLAPSED OVERPASS ─────────────────────────────────────────────────
+
+  z04_r03: {
+    id: 'z04_r03',
+    zone: 'z04',
+    name: 'COLLAPSED OVERPASS',
+    description:
+`the highway overpass that once carried traffic over the western
+district has partially collapsed. the eastern half still stands —
+a concrete ribbon fifty meters above, guardrails rusted, weeds
+growing from the joints. the western half fell.
+
+the collapse created new geography. concrete slabs the size of
+rooms leaning against each other. passages through the rubble.
+the impact zone is a canyon of broken highway and twisted rebar.
+
+graffiti on the standing section, high up: "WE DIDN'T LEAVE.
+YOU LEFT US." beneath it, a list of names. people who survived
+the collapse. people who are still here.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z04_r02', description: 'east (Rubble Streets)' },
+      { direction: 'south', targetRoom: 'z04_r06', description: 'south (The Waking Room)' },
+      { direction: 'west', targetRoom: 'z04_r04', description: 'west (Underpass)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'fringe_scavenger', name: 'Scavenger', level: 3,
+        description: 'Territorial. Patched clothing, improvised weapon. Claims this section of rubble.',
+        hp: 15, attributes: enemyAttrs(3), damage: 4, armorValue: 1,
+        behavior: 'territorial', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'scrap_metal', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'nutrient_bar', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'fringe_salvage', chance: 0.4, quantityRange: [1, 2] },
+        ],
+        xpReward: 12,
+      },
+    ],
+    objects: [
+      { id: 'graffiti', name: 'graffiti', examineText: '"WE DIDN\'T LEAVE. YOU LEFT US." The letters are large and steady — someone took their time. Beneath it, a list of names. Not scratched like the Memorial Alcove — painted deliberately. People who survived. People who are still here.' },
+      { id: 'collapse_rubble', name: 'collapse rubble', examineText: 'The fallen highway created passages — some cleared by scavengers, some accidental gaps. Structurally unpredictable. Some sections compacted solid. Others shift when you breathe on them.' },
+      { id: 'standing_overpass', name: 'standing overpass', examineText: 'The eastern half held. Fifty meters of highway with nowhere to go. Weeds in the expansion joints. Guardrails rusted through. From below it looks like a bridge to a place that doesn\'t exist anymore.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 4. UNDERPASS ──────────────────────────────────────────────────────────
+
+  z04_r04: {
+    id: 'z04_r04',
+    zone: 'z04',
+    name: 'UNDERPASS',
+    description:
+`beneath the standing section of the overpass the world narrows.
+the highway deck blocks the sky. support pillars create a
+colonnade of stained concrete — each one tagged with graffiti,
+each one holding the weight of a road nobody drives.
+
+the underpass is the main passage deeper. scavengers leave markers
+here — warnings, directions, trade offers scratched into the
+pillars. an informal economy of information conducted in concrete
+dust.
+
+the light is dim. the ground is damp. water collects from overpass
+drainage that no longer routes anywhere useful.
+
+something deeper in the underpass is watching you.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z04_r03', description: 'east (Collapsed Overpass)' },
+      { direction: 'south', targetRoom: 'z04_r05', description: 'south (Scavenger Cache)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'ruin_stalker', name: 'Ruin Stalker', level: 5,
+        description: 'Lurks in the deeper shadows between pillars. The first stalker encounter. Doesn\'t attack immediately — follows, closing distance when you\'re not looking.',
+        hp: 25, attributes: enemyAttrs(5), damage: 6, armorValue: 2,
+        behavior: 'ambush', spawnChance: 0.5, count: [1, 1],
+        drops: [
+          { itemId: 'hoarded_salvage', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'stalker_lore_scrap', chance: 0.2, quantityRange: [1, 1] },
+        ],
+        xpReward: 30,
+      },
+    ],
+    objects: [
+      { id: 'pillar_markings', name: 'pillar markings', examineText: 'Scavenger shorthand scratched into concrete. Arrows with dates — passage reports. "SOUTH CLEAR 3/12." "DOGS EAST." "STALKER — AVOID AFTER DARK." A crude trade board: "HAVE: COPPER WIRE. NEED: FOOD. LEAVE AT PILLAR 6." The Fringe has no mesh. So they write on walls. The oldest technology.' },
+      { id: 'pooled_water', name: 'pooled water', examineText: 'Rainwater collects here. The overpass drainage broke years ago and now it pools beneath the pillars. Clearer than the drainage below but not clean. Reflects the underpass columns like a dark mirror.' },
+      { id: 'shadow_movement', name: 'shadow movement', examineText: 'GHOST ≥ 4: At the edge of visibility, between the furthest pillars — movement. Not animal. Human-shaped but wrong. Too slow. Too patient. It\'s watching you the way stone watches: without effort, without urgency, without end.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 5. SCAVENGER CACHE ────────────────────────────────────────────────────
+
+  z04_r05: {
+    id: 'z04_r05',
+    zone: 'z04',
+    name: 'SCAVENGER CACHE',
+    description:
+`beneath the standing overpass, sheltered from rain, a communal
+supply point. not a shop — an arrangement. shelves made from
+car hoods and concrete blocks, stocked by dozens of people over
+years. items grouped by type: food, water, materials, tools,
+medical. some have prices scratched on paper tags. some are
+marked "TAKE IF NEED."
+
+the economy is trust and everyone knows the penalty for
+breaking it.
+
+a fire pit sits in the center. warm. someone was here recently.
+the fringe is empty but the cache fire is always warm.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z04_r04', description: 'north (Underpass)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'cache_shelves', name: 'cache shelves', examineText: 'Car hoods on concrete blocks. Stocked by dozens over years. Items grouped by type. Some have prices on paper tags. Some marked "TAKE IF NEED." The economy is trust.' },
+      { id: 'honor_system_note', name: 'honor system note', examineText: 'Scratched into the wall above the shelves: "TAKE WHAT YOU NEED. LEAVE WHAT YOU CAN. STEAL AND YOU\'RE ON YOUR OWN." Multiple authors over time. Below, in a different hand: "THE CACHE KEEPS US ALIVE. RESPECT IT." Below that: "DARO STOLE FOOD 8/3. DON\'T HELP DARO."' },
+      { id: 'fire_pit', name: 'fire pit', examineText: 'Blackened stone ring. Ash from a hundred fires. The scorch marks on the overpass concrete above are deep — years of use. It\'s warm. Someone was here recently.' },
+      { id: 'stolen_blueprints', name: 'old blueprints', examineText: 'Rolled paper, hand-drawn. Drainage schematics — pre-Helixion notation. Name in the corner: Kai Morrow. Every tunnel, every junction, every connection. A scavenger traded these thinking they were worthless.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 6. THE WAKING ROOM ───────────────────────────────────────────────────
+
+  z04_r06: {
+    id: 'z04_r06',
+    zone: 'z04',
+    name: 'THE WAKING ROOM',
+    description:
+`you open your eyes.
+
+ceiling. stained plaster, cracked in patterns that look like
+river systems. daylight through a broken window. dust floating
+in the light, slow, like it has nowhere to be. your body is on
+a mattress on the floor. the mattress is old. the floor is
+concrete.
+
+you don't know where you are. your hands go to your temples —
+instinct — and find nothing. no implants. no neural interface.
+no mesh connection. your head is bare skin and bone and silence.
+
+in the silence, you hear your own heartbeat. you haven't heard
+your own heartbeat in years. maybe ever.
+
+a woman sits on a chair across the room. she's been watching
+you. waiting for you to wake up.
+
+"easy. you're safe. drink this. i'll explain what i can."`,
+    exits: [
+      { direction: 'north', targetRoom: 'z04_r02', description: 'north (Rubble Streets)' },
+      { direction: 'south', targetRoom: 'z04_r09', description: 'south (Deep Ruins)' },
+    ],
+    npcs: [
+      {
+        id: 'lira', name: 'Lira', type: 'QUESTGIVER',
+        faction: 'NONE',
+        description: 'Thirties. Lean, strong, tired. Natural mesh rejector. She finds people who\'ve been dumped and gives them a start.',
+        dialogue: "\"Easy. You're safe. That's step one. Step two is you drink this water. Step three is I tell you everything I know, which isn't enough, but it's more than you have.\"",
+        startingDisposition: 25,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'the_mattress', name: 'the mattress', examineText: 'Old. Stained. But someone put a clean blanket on it — folded, placed. Lira prepared for you. Or for whoever was next. A bottle of water and a nutrient bar on the floor beside it. This mattress has saved lives. It doesn\'t look like much. It doesn\'t have to.' },
+      { id: 'broken_window', name: 'broken window', examineText: 'The glass is gone. The frame is intact. Through it: the Fringe. Gray buildings against gray sky. No movement. No sound except wind. It tells you everything — you\'re somewhere the world stopped looking.' },
+      { id: 'your_temples', name: 'your temples', examineText: 'You touch the skin where implants should be. Smooth. Scarred faintly — healed over. Someone removed hardware with skill but not kindness. The mesh would connect here. It doesn\'t. The silence in your skull is deafening and it is yours.' },
+      { id: 'lira_chair', name: 'lira\'s chair', examineText: 'Plastic. Cracked. Taped together. She\'s sat in it many times. Water bottles and nutrient bar wrappers around it — the remains of other mornings like this one, other people like you. You\'re not the first. That should be comforting. It isn\'t.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 7. DRAINAGE ACCESS ────────────────────────────────────────────────────
+
+  z04_r07: {
+    id: 'z04_r07',
+    zone: 'z04',
+    name: 'DRAINAGE ACCESS',
+    description:
+`a service hatch in the basement of a partially collapsed building.
+the ground floor is accessible — upper floors are not. the
+basement is reached by a concrete stairway descending into
+darkness and the smell of water.
+
+the hatch is set into the basement floor — heavy steel, municipal
+markings faded. pried open so many times the lock is stripped.
+below: a vertical shaft with maintenance rungs leading down into
+the drainage system. you can hear water. you can smell rust.
+
+glow-strips on the shaft walls — parish markers. they're telling
+you the way down is safe. that someone is waiting at the bottom.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z04_r09', description: 'north (Deep Ruins)' },
+      { direction: 'down', targetRoom: 'z08_r01', description: 'down (Drainage Nexus — South Entry)', zoneTransition: true, targetZone: 'z08' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'feral_dogs', name: 'Feral Dogs', level: 2,
+        description: 'Denned in the collapsed building\'s ground floor. Not aggressive unless cornered.',
+        hp: 8, attributes: enemyAttrs(2), damage: 2, armorValue: 0,
+        behavior: 'territorial', spawnChance: 0.4, count: [1, 2],
+        drops: [],
+        xpReward: 6,
+      },
+    ],
+    objects: [
+      { id: 'service_hatch', name: 'service hatch', examineText: 'Municipal infrastructure. Markings read "DRAINAGE ACCESS — AUTHORIZED PERSONNEL ONLY." The lock has been defeated so many times it\'s decorative. Hinges greased — someone maintains this. Below: rungs descending into darkness and the sound of water.' },
+      { id: 'parish_glow_strips', name: 'glow-strips', examineText: 'Bioluminescent strips — the same kind used in the Drainage Nexus. Green-cyan glow, faint but visible in the shaft\'s darkness. Parish route markers. If you see the glow-strips, you\'re going the right way.' },
+      { id: 'collapsed_stairwell', name: 'collapsed stairwell', examineText: 'Building stairway collapsed at the second floor. Concrete and rebar blocking upward passage. Below the collapse, stairs continue to the basement. The building failed upward and held downward. Sometimes the way down is all that\'s left.' },
+      {
+        id: 'shaft_sounds', name: 'shaft sounds',
+        examineText: 'Water flowing — not a trickle, a channel. Echoes suggesting large spaces. Metallic groaning of old pipes.',
+        gatedText: [{ attribute: 'GHOST', minimum: 3, text: 'GHOST ≥ 3: Beneath the water sounds — a hum. 33hz. Rising through the drainage system like heat through a chimney. The frequency is down there.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 8. THE CLINIC ─────────────────────────────────────────────────────────
+
+  z04_r08: {
+    id: 'z04_r08',
+    zone: 'z04',
+    name: 'THE CLINIC',
+    description:
+`st. agatha's community hospital. the sign is still mounted above
+the entrance, letters faded, one hinge broken so it hangs at an
+angle. three stories. the only public building in the outer fringe.
+built forty years ago. abandoned fifteen.
+
+ground floor: a gutted emergency department. stretcher frames
+without mattresses. curtain tracks with no curtains. tiles white
+once, now the color of old bone.
+
+someone has been using this space. not as a hospital — as a
+shelter. a sleeping bag in an examination bay. canned food on a
+medical cart. and a man with a chrome arm sitting on a gurney,
+staring at the wall. he hears you come in. he hears everything
+twice.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z04_r02', description: 'south (Rubble Streets)' },
+    ],
+    npcs: [
+      {
+        id: 'echo', name: 'Echo', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Indeterminate age. Chrome arm — Helixion work, medical grade, grafted not chosen. Early test subject. Dual-memory interference. He hears everything twice.',
+        dialogue: "\"…you're here. That's — you're here. I heard you come in. I heard you come in again. The second time hasn't happened yet. It will. Give it a moment.\"",
+        startingDisposition: 0,
+        services: ['info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'hospital_sign', name: 'hospital sign', examineText: 'ST. AGATHA\'S COMMUNITY HOSPITAL. The A in Agatha is missing. One hinge broken. The sign hangs crooked — a building that forgot it was supposed to help people, wearing the name of a saint who wouldn\'t recognize it.' },
+      { id: 'gutted_emergency_dept', name: 'emergency department', examineText: 'Stretcher frames. Curtain tracks. The ghost of a triage system. Someone stripped everything useful years ago — mattresses, equipment, even the light fixtures. The bones of the building remain. The bones of a hospital are depressing in a way other ruins aren\'t.' },
+      { id: 'echo_gurney', name: 'echo\'s gurney', examineText: 'A hospital gurney with a sleeping bag on it. Canned food stacked on a medical cart beside it. He lives here. In a hospital. In the emergency department. Maybe because it\'s the only place that matches what\'s happening in his head. Or because the echoes in the tile corridors sound almost like company.' },
+      { id: 'chrome_arm', name: 'chrome arm', examineText: 'Helixion medical-grade cybernetic. Not chosen — grafted. The interface scars at the shoulder are surgical but aggressive. This was done to him, not for him. The arm works perfectly. The man attached to it does not.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 9. DEEP RUINS ────────────────────────────────────────────────────────
+
+  z04_r09: {
+    id: 'z04_r09',
+    zone: 'z04',
+    name: 'DEEP RUINS',
+    description:
+`deeper into the fringe the buildings close in. streets narrow
+where walls have partially collapsed into them. the sky is
+visible but reduced — a strip of gray between leaning facades
+that almost touch overhead.
+
+the buildings here are older. pre-war construction — heavy stone
+and mortar, not concrete and steel. ornamental details survive:
+carved lintels, art deco metalwork, a stone face above a doorway
+with moss growing from its eyes.
+
+the ground is uneven — subsidence has tilted entire blocks. doors
+hang at wrong angles. windows that were once level are now
+parallelograms. everything leans. walking through the deep ruins
+feels like walking through a building that's falling down very,
+very slowly.
+
+you are not alone here.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z04_r06', description: 'north (The Waking Room)' },
+      { direction: 'south', targetRoom: 'z04_r07', description: 'south (Drainage Access)' },
+      { direction: 'east', targetRoom: 'z04_r10', description: 'east (Stalker Territory)' },
+      { direction: 'west', targetRoom: 'z04_r11', description: 'west (The Hermit\'s Tower)', hidden: true, hiddenRequirement: { attribute: 'GHOST', minimum: 5 } },
+      { direction: 'southwest', targetRoom: 'z04_r12', description: 'southwest (Overgrown Courtyard)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'ruin_stalker', name: 'Ruin Stalker', level: 6,
+        description: 'Moves through the leaning buildings, using shifted geometry to approach from angles that shouldn\'t exist. Doesn\'t speak. Doesn\'t make sound until close.',
+        hp: 30, attributes: enemyAttrs(6), damage: 7, armorValue: 2,
+        behavior: 'ambush', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'hoarded_salvage', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'rare_salvage', chance: 0.15, quantityRange: [1, 1] },
+          { itemId: 'stalker_lore_scrap', chance: 0.2, quantityRange: [1, 1] },
+        ],
+        xpReward: 35,
+      },
+      {
+        id: 'feral_dogs', name: 'Feral Dogs', level: 4,
+        description: 'Deep ruins pack. Larger and more aggressive. They\'ve learned to avoid the stalkers — smart enough to be dangerous.',
+        hp: 14, attributes: enemyAttrs(4), damage: 4, armorValue: 0,
+        behavior: 'territorial', spawnChance: 0.4, count: [2, 3],
+        drops: [],
+        xpReward: 10,
+      },
+    ],
+    objects: [
+      { id: 'leaning_facades', name: 'leaning facades', examineText: 'Buildings tilted on their foundations. Subsidence — the ground beneath is hollow. Drainage tunnels, old infrastructure, maybe the Substrate. In fifty years they\'ll meet in the middle and the street will become a tunnel. The Fringe is sinking into the undercity. Or the undercity is rising.' },
+      { id: 'art_deco_details', name: 'art deco details', examineText: 'Carved stone, metal scrollwork, a face above a doorway. Pre-war craftsmanship. Someone built this with pride. The moss growing from the stone face\'s eyes looks like tears. Probably not intentional. Effective anyway.' },
+      { id: 'tilted_geometry', name: 'tilted geometry', examineText: 'Every angle is wrong. Door frames are parallelograms. Window sills slope. The floor inside visible ground-floor apartments tilts at three degrees — not enough to prevent walking, enough to make your brain insist something is fundamentally wrong.' },
+      {
+        id: 'subsidence_cracks', name: 'subsidence cracks',
+        examineText: 'Cracks in the street surface. Deep — you can\'t see the bottom. Air rises from them, warm and humid.',
+        gatedText: [{ attribute: 'GHOST', minimum: 4, text: 'GHOST ≥ 4: The 33hz hum is stronger here than anywhere else on the surface. The Substrate is close. The Fringe is thin. The boundary between surface and deep is failing.' }],
+      },
+      { id: 'dumping_site', name: 'dumping site', examineText: 'Behind a collapsed wall — drag marks. A clearing where someone was left. Helixion medical restraint fragments. An ID tag reader, smashed. Boot prints — uniform treads. They dumped someone here this week. This isn\'t random. This is a route.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 10. STALKER TERRITORY ─────────────────────────────────────────────────
+
+  z04_r10: {
+    id: 'z04_r10',
+    zone: 'z04',
+    name: 'STALKER TERRITORY',
+    description:
+`the buildings here have been modified. not repaired — modified.
+doorways widened by force. walls broken through to create passages
+that don't follow the original floor plans. furniture dragged into
+piles that serve as barriers or nests or things you don't have a
+word for.
+
+the stalkers live here. three, maybe four — hard to count because
+they move through the walls, through the holes they've made. they
+were people. clothes reduced to rags. shoes worn to nothing. but
+the eyes are wrong. the movement is wrong. they've adapted to the
+ruins so completely that the ruins are part of them.
+
+you shouldn't be here. they know you are.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z04_r09', description: 'west (Deep Ruins)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'ruin_stalker', name: 'Ruin Stalker', level: 7,
+        description: 'Home ground. They use modified passages to flank, appear from holes in walls, retreat into spaces too small to follow. The highest-level enemies in the zone.',
+        hp: 35, attributes: { ...enemyAttrs(7), BODY: 6, REFLEX: 6 }, damage: 9, armorValue: 3,
+        behavior: 'ambush', spawnChance: 0.7, count: [3, 4],
+        drops: [
+          { itemId: 'hoarded_salvage', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'rare_salvage', chance: 0.2, quantityRange: [1, 1] },
+          { itemId: 'stalker_lore_scrap', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 40,
+      },
+    ],
+    objects: [
+      { id: 'modified_walls', name: 'modified walls', examineText: 'Broken through with force — not tools. Bare hands. The edges of the holes are smoothed from repeated passage. These aren\'t escape routes. They\'re pathways. The stalkers rebuilt the interior space into a three-dimensional network that ignores floors, walls, and the concept of rooms.' },
+      { id: 'nest_piles', name: 'nest piles', examineText: 'Furniture, clothing, debris dragged into mounds. Not random. Soft things in the center, hard things on the outside. They sleep here. The shapes are human-sized hollows. They still curl up. They still seek warmth.' },
+      { id: 'stalker_evidence', name: 'stalker evidence', examineText: 'Shoes. Worn to nothing but still worn. A shirt, reduced to threads but not discarded. A belt buckle with initials — "R.M." Someone was R.M. The stalkers don\'t speak but they still dress. The ruin ate their minds. It didn\'t eat their habits.' },
+      {
+        id: 'stalker_watching', name: 'stalker watching',
+        examineText: 'You feel observed. The shadows between the modified walls seem to shift.',
+        gatedText: [{ attribute: 'GHOST', minimum: 5, text: 'GHOST ≥ 5: In the wall. A hole, shoulder-width. And in the hole — eyes. Reflecting what little light there is. Watching. Patient. It could attack. It hasn\'t. You are in its home and it\'s deciding what you are.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 11. THE HERMIT'S TOWER ───────────────────────────────────────────────
+
+  z04_r11: {
+    id: 'z04_r11',
+    zone: 'z04',
+    name: "THE HERMIT'S TOWER",
+    description:
+`a narrow tower — eight stories, standalone, the only building in
+the deep ruins that stands perfectly vertical. not leaning. not
+crumbling. someone has been maintaining it.
+
+inside, the stairwell is intact. clean. every other step has a
+small glow-stick wedged into the concrete — breadcrumbs leading
+up. the tower smells like wood smoke and tea and dried herbs.
+
+the top floor is one room. a 360-degree view of the fringe through
+windows repaired with polymer sheeting. a wood-burning stove. a
+bed. shelves of books — physical books, hundreds. a chair by the
+window facing east, toward the city.
+
+a man lives here. he's been here longer than anyone else in the
+fringe.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z04_r09', description: 'down (Deep Ruins)' },
+    ],
+    npcs: [
+      {
+        id: 'kai', name: 'Kai', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'Sixties. Lean but not frail. Gray hair, tied back. Speaks slowly, precisely, like someone remembering how. Former city planner. Twenty years alone.',
+        dialogue: "\"…you're here. That's unusual. Sit, if you want. I have tea. The books aren't for borrowing but I'll tell you what's in them if you ask.\"",
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'book_shelves', name: 'book shelves', examineText: 'Hundreds of books. Physical. Paper. He carried them here one at a time over twenty years. A shelf labeled "BEFORE" — the city\'s founding. A shelf labeled "DURING" — technical manuals for infrastructure he built. A shelf labeled "AFTER" has one book on it, handwritten, with no title.' },
+      { id: 'window_view', name: 'window view', examineText: 'The Fringe spread below. The pattern of decay visible — outer ruins still recognizable as a city, deep ruins where buildings lean and streets disappear. The overpass, broken against the sky. East, beyond the blocks, the Helixion tower. Kai has been watching it for twenty years. He says it gets taller every year.' },
+      { id: 'handwritten_book', name: 'handwritten book', examineText: 'The single book on the "AFTER" shelf. Handwritten, bound in salvaged leather. No title. First line: "The city I helped build is killing the people who live in it. This is my record of how." Twenty years of observation. The Fringe\'s decay documented by the man who designed what came before it.' },
+      {
+        id: 'floor_vibration', name: 'floor vibration',
+        examineText: 'The tower floor vibrates. Faintly. Constantly.',
+        gatedText: [{ attribute: 'GHOST', minimum: 3, text: 'GHOST ≥ 3: 33hz. The tower sits directly above a Substrate conduit. Kai built his home on a pulse point — not because he understood the frequency, but because it felt alive. He\'s been listening to the Substrate\'s heartbeat for two decades without knowing its name.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: true,
+    hiddenRequirement: { attribute: 'GHOST', minimum: 5 },
+  },
+
+  // ── 12. OVERGROWN COURTYARD ──────────────────────────────────────────────
+
+  z04_r12: {
+    id: 'z04_r12',
+    zone: 'z04',
+    name: 'OVERGROWN COURTYARD',
+    description:
+`an apartment courtyard that nature reclaimed. buildings on four
+sides, five stories each, but the courtyard itself has become a
+garden. not cultivated. wild. trees pushed through paving stones.
+ivy on the south-facing walls. grass knee-high where the
+playground used to be.
+
+the playground equipment is still here — swing set, climbing
+frame, slide. rusted, overgrown, standing. a tree has grown
+through the climbing frame, trunk threading between the bars.
+
+this is the most beautiful place in the fringe. also the quietest.
+nothing hunts here. the dogs don't come. the stalkers don't come.
+something about this courtyard discourages intrusion. something
+older than the mesh.
+
+the 33hz hum is strong here. you feel it in the ground through
+the soles of your shoes.`,
+    exits: [
+      { direction: 'northeast', targetRoom: 'z04_r09', description: 'northeast (Deep Ruins)' },
+      { direction: 'south', targetRoom: 'z04_r13', description: 'south (Iron Bloom Entrance)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'playground_equipment', name: 'playground equipment', examineText: 'The swing set creaks in the wind. Chains intact — rusted but holding. If you push the swing, it moves. It\'s been waiting fifteen years. The climbing frame has a tree growing through it, trunk and metal merged. The tree didn\'t avoid the obstacle. It incorporated it. There\'s a lesson there.' },
+      { id: 'wild_garden', name: 'wild garden', examineText: 'This isn\'t gardening. This is absence. Nobody planted these trees. Nobody cultivated the ivy. The courtyard was abandoned and nature returned. In a city managed by Helixion — every tree curated, every park designed — this is the only place where plants grow without permission.' },
+      {
+        id: 'ground_vibration', name: 'ground vibration',
+        examineText: 'The earth hums. Stronger than anywhere on the surface. The trees grow faster here — rings visible where a trunk split are wider than they should be.',
+        gatedText: [{ attribute: 'GHOST', minimum: 4, text: 'GHOST ≥ 4: The frequency creates a standing wave here — constructive interference that living things can feel. The dogs avoid it. The stalkers avoid it. You stand in it and feel calm for the first time since you woke up. The Substrate is close to the surface. The frequency accelerates growth. Life responds to it.' }],
+      },
+      { id: 'the_silence', name: 'the silence', examineText: 'Listen. No dogs. No stalkers. No wind. The courtyard is a pocket of stillness. The 33hz hum fills the space where sound should be — not noise, but presence. The most peaceful place in the game. And the emptiest.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 13. IRON BLOOM ENTRANCE ──────────────────────────────────────────────
+
+  z04_r13: {
+    id: 'z04_r13',
+    zone: 'z04',
+    name: 'IRON BLOOM ENTRANCE',
+    description:
+`a basement. beneath the southernmost building in the fringe — a
+squat concrete structure that might have been a utility substation.
+the entrance is a storm cellar door, heavy steel, hidden under
+debris that looks natural until you realize it's arranged.
+
+below: a reinforced room. bare concrete walls. a single light —
+battery-powered, warm. a table. two chairs. a woman standing
+against the wall with her arms crossed, evaluating you before
+you've said a word.
+
+this is the surface vetting point for iron bloom. the resistance
+doesn't advertise. you find them because someone trusted you
+enough to tell you where to look. if you found this place without
+a referral, the woman at the wall has questions.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z04_r12', description: 'north (Overgrown Courtyard)' },
+      { direction: 'down', targetRoom: 'z12_r01', description: 'down (Iron Bloom Server Farm)', locked: true, lockId: 'iron_bloom_access', zoneTransition: true, targetZone: 'z12' },
+    ],
+    npcs: [
+      {
+        id: 'sable', name: 'Sable', type: 'QUESTGIVER',
+        faction: 'IRON_BLOOM',
+        description: 'Former Helixion security. Flat eyes. Assessing posture. She hasn\'t moved since you entered. Every sentence is a test.',
+        dialogue: "\"Name. Who sent you. What you're carrying. In that order.\"",
+        startingDisposition: -10,
+        services: ['quest'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'vetting_room', name: 'vetting room', examineText: 'No decoration. No comfort. Two chairs, one table, one light. Designed for evaluation. The concrete walls are thick enough to contain sound. The single exit is behind Sable. Everything about this space says "you are not in control here."' },
+      {
+        id: 'the_passage_down', name: 'passage down',
+        examineText: 'Behind the room, past a locked blast door: a stairway descending. Deeper than a normal basement.',
+        gatedText: [{ attribute: 'GHOST', minimum: 4, text: 'GHOST ≥ 4: The 33hz hum is present. You\'re descending toward the deep infrastructure. Iron Bloom built their headquarters in the bones of the old city.' }],
+      },
+      { id: 'sable_evaluation', name: 'sable', examineText: 'She hasn\'t moved. Eyes tracked you down the stairs. Weight on her back foot — ready. Hands empty but her jacket sits wrong on the left side. She\'s armed. Always armed. She was Helixion security. She knows what she\'s protecting and what she\'s protecting it from.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+};
+
+// ── Zone 04 Definition ──────────────────────────────────────────────────────
+
+export const ZONE_04: Zone = {
+  id: 'z04',
+  name: 'THE FRINGE',
+  depth: 'surface',
+  faction: 'NONE',
+  levelRange: [2, 8],
+  description: 'The old city. No power grid, no mesh, no maintenance. Collapsed buildings and people too stubborn to leave. The DISCONNECTED origin.',
+  atmosphere: {
+    sound: 'Wind through empty buildings. Creaking structures. Distant collapse. Dogs barking.',
+    smell: 'Concrete dust. Mold. Wet plaster. Rain. Vegetation in the cracks.',
+    light: 'Gray daylight only. No artificial light. Interior spaces are dark.',
+    temp: 'Exposed to weather. Cold when wind blows. Warmer in sheltered ruins.',
+  },
+  rooms: Z04_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
+  z04: ZONE_04,
   z08: ZONE_08,
   z09: ZONE_09,
 };

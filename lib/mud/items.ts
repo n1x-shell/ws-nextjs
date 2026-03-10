@@ -834,6 +834,119 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'utility', tier: 'COMMON', stackable: false,
     sellPrice: 0,
   },
+
+  // ── Zone 04: The Fringe Items ─────────────────────────────────────────────
+
+  // Enemy drops
+  fringe_salvage: {
+    id: 'fringe_salvage', name: 'Fringe Salvage',
+    description: 'copper wire, cracked glass, usable scraps. pulled from buildings nobody owns.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 4,
+  },
+  hoarded_salvage: {
+    id: 'hoarded_salvage', name: 'Hoarded Salvage',
+    description: 'sorted components from a stalker nest. organized by something that thinks differently.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 12,
+  },
+  stalker_lore_scrap: {
+    id: 'stalker_lore_scrap', name: 'Faded Document',
+    description: 'pre-fringe paperwork found in a stalker nest. water-damaged but legible.',
+    category: 'lore', tier: 'COMMON', stackable: false,
+    sellPrice: 8, loreItem: true,
+  },
+  canned_food: {
+    id: 'canned_food', name: 'Canned Food',
+    description: 'expired label. contents intact. tastes like survival.',
+    category: 'consumable', tier: 'SCRAP', stackable: true,
+    buyPrice: 5, sellPrice: 2, healAmount: 8,
+  },
+
+  // Quest items
+  chrysalis_evidence: {
+    id: 'chrysalis_evidence', name: 'Chrysalis Evidence',
+    description: 'helixion restraint fragments and smashed ID reader from a dumping site. proof.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    questItem: true, loreItem: true,
+  },
+  fringe_complete_map: {
+    id: 'fringe_complete_map', name: 'Complete Fringe Map',
+    description: 'oska\'s finished survey. every room, every path, every hidden passage.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+  },
+  drainage_blueprints: {
+    id: 'drainage_blueprints', name: 'Drainage Blueprints',
+    description: 'kai\'s original plans. every tunnel, every junction, every connection.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    loreItem: true,
+  },
+  stolen_blueprints: {
+    id: 'stolen_blueprints', name: 'Old Blueprints',
+    description: 'rolled paper. drainage schematics. pre-helixion notation. name in the corner: kai morrow.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+
+  // Oska's shop stock
+  fringe_map: {
+    id: 'fringe_map', name: 'Fringe Map',
+    description: 'hand-drawn. annotated. room connections and enemy density.',
+    category: 'utility', tier: 'SCRAP', stackable: false,
+    buyPrice: 15, sellPrice: 5,
+  },
+  safe_route_guide: {
+    id: 'safe_route_guide', name: 'Safe Route Guide',
+    description: 'annotated stalker-free paths. costs more because it keeps you alive.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 30, sellPrice: 10,
+  },
+  building_survey: {
+    id: 'building_survey', name: 'Building Survey',
+    description: 'structural survey. which floors hold, which don\'t. useful.',
+    category: 'utility', tier: 'SCRAP', stackable: false,
+    buyPrice: 10, sellPrice: 3,
+  },
+  stalker_warning_map: {
+    id: 'stalker_warning_map', name: 'Stalker Warning Map',
+    description: 'territory boundaries. movement patterns. the places you don\'t go at dark.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 8,
+  },
+
+  // Kai's shop stock
+  herbal_remedy: {
+    id: 'herbal_remedy', name: 'Herbal Remedy',
+    description: 'dried herbs from kai\'s roof garden. tastes terrible. works.',
+    category: 'consumable', tier: 'SCRAP', stackable: true,
+    buyPrice: 8, sellPrice: 3, healAmount: 10,
+  },
+  old_city_history: {
+    id: 'old_city_history', name: 'Old City History',
+    description: 'book from kai\'s shelves. the city before helixion. before everything went wrong.',
+    category: 'lore', tier: 'COMMON', stackable: false,
+    buyPrice: 20, sellPrice: 8, loreItem: true,
+  },
+  infrastructure_map: {
+    id: 'infrastructure_map', name: 'Infrastructure Map',
+    description: 'hand-drawn underground connections between zones. twenty years of observation.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 35, sellPrice: 12,
+  },
+  kai_tea: {
+    id: 'kai_tea', name: 'Kai\'s Tea',
+    description: 'hot. tastes like smoke and patience. the only warm thing in the fringe.',
+    category: 'consumable', tier: 'SCRAP', stackable: true,
+    buyPrice: 3, sellPrice: 1, healAmount: 5,
+  },
+
+  // Misc
+  fringe_flashlight: {
+    id: 'fringe_flashlight', name: 'Flashlight',
+    description: 'working. battery at forty percent. the fringe has no streetlamps.',
+    category: 'utility', tier: 'SCRAP', stackable: false,
+    buyPrice: 10, sellPrice: 4,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -979,4 +1092,28 @@ export const FEX_SHOP: ShopItem[] = [
   { templateId: 'signal_tap', stock: 2 },
   { templateId: 'maintenance_tools', stock: 3 },
   { templateId: 'antitox', stock: 5 },
+];
+
+// ── Zone 04: The Fringe Shops ───────────────────────────────────────────────
+
+export const OSKA_SHOP: ShopItem[] = [
+  { templateId: 'fringe_map', stock: 3 },
+  { templateId: 'safe_route_guide', stock: 2 },
+  { templateId: 'building_survey', stock: 3 },
+  { templateId: 'stalker_warning_map', stock: 1 },
+];
+
+export const KAI_SHOP: ShopItem[] = [
+  { templateId: 'herbal_remedy', stock: 5 },
+  { templateId: 'old_city_history', stock: 3 },
+  { templateId: 'infrastructure_map', stock: 1 },
+  { templateId: 'kai_tea', stock: -1 },
+];
+
+export const CACHE_SHOP: ShopItem[] = [
+  { templateId: 'nutrient_bar', stock: 5 },
+  { templateId: 'scrap_weapon', stock: 1 },
+  { templateId: 'canned_food', stock: 3 },
+  { templateId: 'scrap_metal', stock: -1 },
+  { templateId: 'fringe_flashlight', stock: 1 },
 ];
