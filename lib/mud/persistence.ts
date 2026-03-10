@@ -8,8 +8,11 @@ import type {
   MudWorldState,
   NPCStateMap,
   CombatState,
+  ClockCombatState,
   MudSession,
 } from './types';
+import { calculateHarmSegments, armorSegmentsForTier } from './clockEngine';
+import { getStyleDieSize } from './dicePool';
 
 // ── Storage Keys ────────────────────────────────────────────────────────────
 
@@ -73,6 +76,24 @@ export function loadCharacter(handle: string): MudCharacter | null {
   }
   if (!char.sealedSlots) {
     char.sealedSlots = char.archetype === 'DISCONNECTED' ? ['neural'] : [];
+  }
+
+  // Migration: add clock-based fields for characters created before clock system
+  if (char.harmSegments === undefined || char.harmSegments === 0) {
+    char.harmSegments = calculateHarmSegments(char.attributes.BODY, char.archetype);
+  }
+  if (char.criticalSegments === undefined || char.criticalSegments === 0) {
+    char.criticalSegments = 4;
+  }
+  if (char.armorSegments === undefined) {
+    const armor = char.gear?.armor;
+    char.armorSegments = armor ? armorSegmentsForTier(armor.tier) : 0;
+  }
+  if (char.ramSegments === undefined || char.ramSegments === 0) {
+    char.ramSegments = char.attributes.TECH * 2;
+  }
+  if (char.styleDie === undefined || char.styleDie === 0) {
+    char.styleDie = getStyleDieSize(char);
   }
 
   return char;
@@ -196,11 +217,18 @@ export function adjustDisposition(handle: string, npcId: string, delta: number):
 
 // ── Combat State ────────────────────────────────────────────────────────────
 
-export function loadCombat(handle: string): CombatState | null {
-  return read<CombatState>(combatKey(handle));
+export function loadCombat(handle: string): ClockCombatState | null {
+  const raw = read<ClockCombatState>(combatKey(handle));
+  if (!raw) return null;
+  // If old CombatState format (has 'combatants' field), discard it
+  if ('combatants' in raw && !('clocks' in raw)) {
+    clearCombat(handle);
+    return null;
+  }
+  return raw;
 }
 
-export function saveCombat(handle: string, combat: CombatState): void {
+export function saveCombat(handle: string, combat: ClockCombatState): void {
   write(combatKey(handle), combat);
 }
 

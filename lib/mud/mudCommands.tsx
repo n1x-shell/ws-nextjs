@@ -6,6 +6,7 @@
 import React from 'react';
 import type {
   MudSession,
+  MudCharacter,
   CreationProgress,
   Archetype,
   CombatStyle,
@@ -54,13 +55,20 @@ import {
 } from './worldMap';
 import { eventBus } from '@/lib/eventBus';
 import {
-  initCombat, resolvePlayerAttack, resolveQuickhack, useItemInCombat,
-  scanEnemy, attemptFlee, processEnemyTurn, advanceTurn, checkCombatEnd,
-  syncCombatToCharacter, isPlayersTurn, getEnemyById,
+  initClockCombat, setPlayerAction, resolvePlayerAction,
+  resolveQuickhack, useItemInCombat,
+  scanEnemy, attemptFleeAction, processEnemyActions, tickEnvironment,
+  checkClockCombatEnd, syncClockCombatToCharacter,
+  isPlayersTurn, getEnemyById,
   getAllLivingEnemies, getPlayerCombatant, getAvailableHacks,
   QUICKHACKS,
-  type AttackResult, type HackResult, type ScanResult, type FleeResult,
+  getPlayerHarmClock, getPlayerArmorClock, getPlayerRamClock,
+  getEnemyClocks,
+  type PlayerResolveResult, type HackResult, type ScanResult, type FleeResult,
 } from './combat';
+import { renderClockText, findClock, isClockFull, clockPercent } from './clockEngine';
+import { formatPoolCompact, formatRolledDie, getOutcomeTier, attributeToDie } from './dicePool';
+import type { ApproachType } from './dicePool';
 import {
   routeDialogue, buildDialogueRequest, recordInteraction,
   nudgeDisposition, getNPCColor, isNPCQuestGiver, detectsJobIntent,
@@ -916,56 +924,69 @@ function renderCombatHUD(_session: MudSession, _addLocalMsg: AddLocalMsg): void 
   // no-op — kept as function to avoid dead call site errors during transition
 }
 
-// Process all enemy turns after player ends turn
+// Process all enemy turns + environment tick after player acts
 function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): void {
   const combat = session.combat;
   const char = session.character;
   if (!combat || !char) return;
 
-  // Advance past player's turn
-  let next = advanceTurn(combat);
+  // ── Enemy actions ──
+  const enemyResult = processEnemyActions(combat, char.godMode);
+  session.combat = enemyResult.combat;
 
-  // Process each enemy turn until it's the player's turn again.
-  // Safety counter prevents infinite loops if all combatants are dead.
-  let safety = 0;
-  const maxIterations = combat.turnOrder.length + 1;
-  while (next.nextId !== 'player' && safety < maxIterations) {
-    safety++;
-    const enemy = getEnemyById(combat, next.nextId) ?? getAllLivingEnemies(combat).find(e => e.id === next.nextId);
-    if (!enemy || enemy.hp <= 0) {
-      next = advanceTurn(combat);
-      continue;
-    }
-
-    const action = processEnemyTurn(combat, next.nextId, char.godMode);
-    if (action.flavorText) {
+  for (const action of enemyResult.actions) {
+    if (action.action === 'stunned') {
       addLocalMsg(
-        <div key={k(`enemy-act-${action.attackerId}`)} style={{ marginBottom: '0.5rem' }}>
-          <MudLine color={action.hit === false ? C.dim : C.enemy}>
-            {action.flavorText}
-            {action.crit ? <span style={{ color: '#ff4444', fontWeight: 'bold' }}> CRITICAL!</span> : ''}
+        <MudLine key={k(`enemy-stun-${action.enemyId}`)} color={C.dim}>
+          {action.enemyName} is stunned — turn lost.
+        </MudLine>
+      );
+    } else if (action.hitPlayer) {
+      const ticks = action.clockChanges.reduce((sum, cc) => sum + Math.abs(cc.to - cc.from), 0);
+      addLocalMsg(
+        <div key={k(`enemy-act-${action.enemyId}`)} style={{ marginBottom: '0.5rem' }}>
+          <MudLine color={C.enemy}>
+            {action.enemyName} strikes — {ticks > 0 ? `${ticks} harm` : 'blocked'}
           </MudLine>
+          {action.clockChanges.map((cc, i) => (
+            <MudLine key={k(`ecc-${i}`)} indent color={C.dim}>
+              {cc.clockName} {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]
+            </MudLine>
+          ))}
         </div>
       );
-      // Combat FX when player takes damage
-      if (action.hit && action.damage && action.damage > 0) {
-        emitPlayerDamage(!!action.crit);
-      }
+      emitPlayerDamage(ticks >= 3);
+    } else if (action.action === 'miss') {
+      addLocalMsg(
+        <MudLine key={k(`enemy-miss-${action.enemyId}`)} color={C.dim}>
+          {action.enemyName} attacks — misses.
+        </MudLine>
+      );
     }
-
-    // Check if player died
-    const player = getPlayerCombatant(combat);
-    if (player && player.hp <= 0) {
-      syncCombatToCharacter(combat, char);
-      return; // Player death handled by caller
-    }
-
-    next = advanceTurn(combat);
   }
 
-  syncCombatToCharacter(combat, char);
+  // ── Environment tick ──
+  const envResult = tickEnvironment(enemyResult.combat);
+  session.combat = envResult.combat;
 
-  // Round divider — visual breath between rounds
+  for (const cc of envResult.clockChanges) {
+    if (cc.clockName === 'BLEEDOUT') {
+      addLocalMsg(
+        <MudLine key={k('bleedout-tick')} color={C.combat} bold>
+          BLEEDOUT {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]
+        </MudLine>
+      );
+    }
+  }
+
+  syncClockCombatToCharacter(session.combat, char);
+
+  // Set phase back to player_choose for next round
+  if (session.combat) {
+    session.combat = { ...session.combat, turnPhase: 'player_choose' };
+  }
+
+  // Round divider
   addLocalMsg(
     <div key={k('round-div')} style={{
       fontFamily: 'monospace', fontSize: 'var(--text-base)',
@@ -979,6 +1000,32 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
   );
 }
 
+// Async LLM narration — non-blocking, additive
+function fetchCombatNarrative(res: PlayerResolveResult, char: MudCharacter, targetName: string): void {
+  const room = getRoom(char.currentRoom);
+  fetch('/api/mud/combat-narrate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: res.combat.log[res.combat.log.length - 1]?.action ?? 'attack',
+      outcome: res.outcome.tier,
+      clockChanges: res.clockChanges.map(cc => ({
+        name: cc.clockName, from: cc.from, to: cc.to, segments: cc.segments, filled: cc.filled,
+      })),
+      enemyNames: res.combat.enemies.filter(e => !e.defeated).map(e => e.name),
+      roomName: room?.name ?? 'unknown',
+      roomDescription: (room?.description ?? '').slice(0, 100),
+      playerHandle: char.handle,
+      playerStyle: char.combatStyle === 'GHOST_STYLE' ? 'GHOST' : char.combatStyle,
+      roundNumber: res.combat.round,
+    }),
+  }).then(r => r.json()).then(data => {
+    if (data.narrative) {
+      eventBus.emit('mud:transient', { text: data.narrative, duration: 4000, type: 'combat' });
+    }
+  }).catch(() => { /* narration is non-blocking */ });
+}
+
 // Enter combat from room enemies
 function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession: (s: MudSession) => void): void {
   const char = session.character;
@@ -990,7 +1037,7 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
   const spawned = rollRoomEnemies(char.currentRoom);
   if (spawned.length === 0) return;
 
-  const combat = initCombat(char, spawned);
+  const combat = initClockCombat(char, spawned);
   const updated = { ...session, phase: 'combat' as const, combat };
   setSession(updated);
   saveCombat(char.handle, combat);
@@ -1015,24 +1062,12 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
     </div>
   );
 
-  // Show initiative order
-  const first = combat.turnOrder[0];
-  if (first === 'player') {
-    addLocalMsg(
-      <MudLine key={k('init-player')} color={C.stat} opacity={0.7}>
-        you act first.
-      </MudLine>
-    );
-  } else {
-    addLocalMsg(
-      <MudLine key={k('init-enemy')} color={C.enemy} opacity={0.7}>
-        they act first.
-      </MudLine>
-    );
-    // Process enemy turns immediately
-    processAllEnemyTurns(updated, addLocalMsg);
-    setSession({ ...updated });
-  }
+  // Clock combat always starts on player turn
+  addLocalMsg(
+    <MudLine key={k('init-player')} color={C.stat} opacity={0.7}>
+      you act first. /attack · /hack · /scan · /flee
+    </MudLine>
+  );
 }
 
 // Handle player death
@@ -1119,7 +1154,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
-    // ── /attack [target] ────────────────────────────────────────────────
+    // ── /attack [target] [approach] ────────────────────────────────────
     if (cmd === 'attack' || cmd === 'a') {
       const enemies = getAllLivingEnemies(combat);
       if (enemies.length === 0) {
@@ -1127,59 +1162,111 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
-      // Target selection: by name or default first enemy
+      // Parse target and approach from args
+      // /attack crawler aggressive OR /attack aggressive OR /attack
+      const args = rest.split(/\s+/).filter(Boolean);
+      let targetName = '';
+      let approach: ApproachType = 'measured';
+      const approaches: Record<string, ApproachType> = {
+        a: 'aggressive', aggressive: 'aggressive',
+        m: 'measured', measured: 'measured',
+        d: 'desperate', desperate: 'desperate',
+      };
+
+      for (const arg of args) {
+        const lower = arg.toLowerCase();
+        if (approaches[lower]) {
+          approach = approaches[lower];
+        } else {
+          targetName += (targetName ? ' ' : '') + arg;
+        }
+      }
+
       let target = enemies[0];
-      if (rest) {
-        const match = enemies.find(e => e.name.toLowerCase().includes(rest.toLowerCase()) || e.id.includes(rest));
+      if (targetName) {
+        const match = enemies.find(e =>
+          e.name.toLowerCase().includes(targetName.toLowerCase()) ||
+          e.id.includes(targetName),
+        );
         if (match) target = match;
       }
 
-      const result = resolvePlayerAttack(combat, target.id, char);
-      if ('error' in result) {
-        addLocalMsg(<MudNotice key={k('atk-err')} error>{result.error}</MudNotice>);
-        setSession({ ...session });
+      // Set up action (assembles pool, assesses position/effect)
+      const setup = setPlayerAction(combat, char, 'attack', approach, target.id);
+      if (setup.error) {
+        addLocalMsg(<MudNotice key={k('atk-err')} error>{setup.error}</MudNotice>);
         return { handled: true, stopPropagation: true };
       }
 
-      const r = result as AttackResult;
+      // Display pool before roll
       addLocalMsg(
-        <div key={k('atk-result')} style={{ marginBottom: '0.6rem', marginTop: '0.3rem' }}>
-          <MudLine color={r.hit ? C.stat : C.dim}>
-            you strike at {r.targetName} —
-            roll: {r.roll} + mods = {r.attackTotal} vs {r.defenseTotal}
+        <div key={k('atk-pool')} style={{ marginTop: '0.3rem' }}>
+          <MudLine color={C.dim}>
+            POOL: {formatPoolCompact(setup.pool)}
           </MudLine>
-          {r.hit ? (
-            <MudLine color={r.crit ? C.combat : C.stat} bold={r.crit}>
-              &gt;&gt; {r.crit ? 'CRITICAL HIT' : 'HIT'} — {r.damage} damage.
-              {r.killed ? ` ${r.targetName} goes down.` : ''}
+          <MudLine color={C.dim}>
+            position: {setup.context.position.toUpperCase()} · effect: {setup.context.effect.toUpperCase()}
+            {setup.context.reason ? ` (${setup.context.reason})` : ''}
+          </MudLine>
+        </div>
+      );
+
+      // Resolve (roll dice, tick clocks)
+      const res = resolvePlayerAction(setup.combat, char);
+      session.combat = res.combat;
+
+      // Display roll results
+      const tier = res.outcome.tier.toUpperCase();
+      const tierColor = res.outcome.tier === 'failure' ? C.enemy
+        : res.outcome.tier === 'partial' ? '#fbbf24'
+        : res.outcome.tier === 'critical' ? C.accent : C.stat;
+
+      addLocalMsg(
+        <div key={k('atk-result')} style={{ marginBottom: '0.6rem' }}>
+          <MudLine color={C.dim}>
+            ROLL: {res.result.pool.filter(d => !d.isComplication).map(d => `[${d.value}]`).join(' · ')}
+            {res.result.complications.length > 0 ? ` │ ⚠ ${res.result.complications.map(d => `[${d.value}]`).join(' · ')}` : ''}
+            {'  '}TOTAL: {res.result.total}
+          </MudLine>
+          <MudLine color={tierColor} bold={res.outcome.tier !== 'failure'}>
+            &gt;&gt; {tier}
+            {res.outcome.targetTicks > 0 ? ` — ${res.outcome.targetTicks} ticks on ${target.name}` : ''}
+            {res.outcome.dangerTicks > 0 ? ` · ${res.outcome.dangerTicks} harm taken` : ''}
+            {res.outcome.dangerTicks < 0 ? ` · healed ${Math.abs(res.outcome.dangerTicks)}` : ''}
+          </MudLine>
+          {res.clockChanges.map((cc, i) => (
+            <MudLine key={k(`cc-${i}`)} indent color={C.dim}>
+              {cc.clockName} {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]{cc.filled ? ' FULL' : ''}
             </MudLine>
-          ) : (
-            <MudLine color={C.dim}>
-              &gt;&gt; MISS — {r.flavorMiss}
-            </MudLine>
+          ))}
+          {res.result.heroicOpportunity && (
+            <MudLine color={C.accent} glow>{'★'} heroic opportunity</MudLine>
           )}
         </div>
       );
 
-      // CRT feedback on hit/crit
-      if (r.hit) {
-        emitPlayerHit(r.crit);
+      // CRT feedback
+      if (res.outcome.tier !== 'failure') {
+        emitPlayerHit(res.outcome.tier === 'critical');
       }
-      if (r.killed) {
+      const targetEnemy = res.combat.enemies.find(e => e.id === target.id);
+      if (targetEnemy?.defeated) {
         emitEnemyDeath();
       }
 
-      syncCombatToCharacter(combat, char);
-      saveCombat(char.handle, combat);
+      // Fetch LLM narrative async (non-blocking)
+      fetchCombatNarrative(res, char, target.name);
+
+      syncClockCombatToCharacter(res.combat, char);
+      saveCombat(char.handle, res.combat);
 
       // Check combat end
-      const endCheck = checkCombatEnd(combat, []);
+      const endCheck = checkClockCombatEnd(res.combat);
       if (endCheck.over) {
         if (endCheck.victory) {
           clearCombat(char.handle);
           const xpResult = addXP(char, endCheck.xpGained);
 
-          // Build salvage data — drops stay on the ground until player takes them
           const enemyNames = (combat.sourceEnemies ?? []).map(e => e.name);
           const salvageDrops = endCheck.drops.map(dropId => {
             const template = getItemTemplate(dropId);
@@ -1209,15 +1296,9 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
               <MudLine indent color={C.stat}>+{xpResult.xpGained} XP [{char.xp} / {nextXP}]</MudLine>
               {xpResult.pendingLevels > 0 && (
                 <div>
-                  <MudLine indent color={C.accent} glow bold>
-                    &gt;&gt; LEVEL THRESHOLD REACHED
-                  </MudLine>
-                  <MudLine indent color={C.accent}>
-                    level {char.level} {'\u2192'} {char.level + xpResult.pendingLevels} available
-                  </MudLine>
-                  <MudLine indent color={C.dim}>
-                    find a safe haven and /rest to integrate.
-                  </MudLine>
+                  <MudLine indent color={C.accent} glow bold>&gt;&gt; LEVEL THRESHOLD REACHED</MudLine>
+                  <MudLine indent color={C.accent}>level {char.level} {'\u2192'} {char.level + xpResult.pendingLevels} available</MudLine>
+                  <MudLine indent color={C.dim}>find a safe haven and /rest to integrate.</MudLine>
                 </div>
               )}
               {salvageDrops.length > 0 && (
@@ -1227,7 +1308,6 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
               )}
             </div>
           );
-          // Track kills for quests
           trackObjective(char.handle, 'kill', 'any', 1);
         } else {
           handleDeath(session, addLocalMsg, setSession);
@@ -1235,27 +1315,29 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
-      // If player has AP left, refresh HUD panels
-      const player = getPlayerCombatant(combat);
-      if (player && player.ap > 0) {
-        setSession({ ...session });
-      } else {
-        // End of player turn — process enemy turns
-        addLocalMsg(<MudLine key={k('turn-end')} color={C.dim}>— end of your turn —</MudLine>);
-        processAllEnemyTurns(session, addLocalMsg);
-        // Check death after enemy turns
-        if (char.hp <= 0) {
-          handleDeath(session, addLocalMsg, setSession);
-          return { handled: true, stopPropagation: true };
-        }
-        saveCombat(char.handle, combat);
-        setSession({ ...session });
+      // Enemy turn
+      processAllEnemyTurns(session, addLocalMsg);
+
+      // Check death after enemy turns
+      const harmClock = getPlayerHarmClock(session.combat!);
+      const critClock = session.combat ? findClock(session.combat.clocks, session.combat.playerClocks.critical) : null;
+      if ((harmClock && isClockFull(harmClock) && critClock && isClockFull(critClock)) || char.hp <= 0) {
+        handleDeath(session, addLocalMsg, setSession);
+        return { handled: true, stopPropagation: true };
+      }
+      // Check end again after enemy turns
+      const endCheck2 = checkClockCombatEnd(session.combat!);
+      if (endCheck2.over && !endCheck2.victory) {
+        handleDeath(session, addLocalMsg, setSession);
+        return { handled: true, stopPropagation: true };
       }
 
+      saveCombat(char.handle, session.combat!);
+      setSession({ ...session });
       return { handled: true, stopPropagation: true };
     }
 
-    // ── /hack [target] [hackname] ───────────────────────────────────────
+    // ── /hack [hackname] [target] ──────────────────────────────────────
     if (cmd === 'hack' || cmd === 'h') {
       const hacks = getAvailableHacks(char.attributes.TECH, char.combatStyle);
       if (hacks.length === 0) {
@@ -1267,15 +1349,17 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
+      const ramClock = getPlayerRamClock(combat);
+      const availRam = ramClock ? (ramClock.segments - ramClock.filled) : 0;
+
       const args = rest.split(/\s+/);
       if (!rest || args.length === 0) {
-        // Show available hacks
         addLocalMsg(
           <div key={k('hack-list')}>
-            <MudLine color={C.hack} bold>QUICKHACKS (RAM: {char.ram}/{char.maxRam})</MudLine>
+            <MudLine color={C.hack} bold>QUICKHACKS (RAM: {availRam}/{ramClock?.segments ?? 0})</MudLine>
             {hacks.map(h => (
-              <MudLine key={k(`hack-${h.id}`)} indent color={h.ramCost <= (char.ram ?? 0) ? C.hack : C.dim}>
-                /hack {h.id.replace(/_/g, ' ')} — {h.description} (RAM: {h.ramCost})
+              <MudLine key={k(`hack-${h.id}`)} indent color={h.ramDrain <= availRam ? C.hack : C.dim}>
+                /hack {h.id.replace(/_/g, ' ')} — {h.description} (RAM: {h.ramDrain})
               </MudLine>
             ))}
           </div>
@@ -1283,7 +1367,6 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
-      // Parse hack name from args
       const hackName = args.join('_').toLowerCase().replace(/ /g, '_');
       const hack = hacks.find(h => h.id.includes(hackName) || h.name.toLowerCase().includes(args.join(' ').toLowerCase()));
       if (!hack) {
@@ -1298,112 +1381,81 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
-      const result = resolveQuickhack(combat, target.id, hack.id, char);
-      if ('error' in result) {
-        addLocalMsg(<MudNotice key={k('hack-err')} error>{result.error}</MudNotice>);
-        // Refresh HUD so player sees remaining AP and knows they can still act
+      const hr = resolveQuickhack(combat, char, hack.id, target.id);
+      if (hr.error) {
+        addLocalMsg(<MudNotice key={k('hack-err')} error>{hr.error}</MudNotice>);
         setSession({ ...session });
         return { handled: true, stopPropagation: true };
       }
 
-      const hr = result as HackResult;
-      char.ram = getPlayerCombatant(combat)?.ram ?? char.ram;
+      session.combat = hr.combat;
+      syncClockCombatToCharacter(hr.combat, char);
 
+      const tierColor = hr.outcome.tier === 'failure' ? C.dim : C.hack;
       addLocalMsg(
         <div key={k('hack-result')} style={{ marginBottom: '0.6rem', marginTop: '0.3rem' }}>
           <MudLine color={C.hack}>
-            uploading {hr.hackName} → {hr.targetName}
-            — roll: {hr.roll} + TECH = {hr.attackTotal} vs {hr.defenseTotal}
+            uploading {hack.name} → {target.name} (RAM: -{hr.ramDrained})
           </MudLine>
-          {hr.hit ? (
-            <MudLine color={C.hack} bold>
-              &gt;&gt; BREACH — {hr.damage > 0 ? `${hr.damage} damage` : ''}{hr.effect ? ` · ${hr.effect}` : ''}
-              {hr.killed ? ` · ${hr.targetName} flatlines.` : ''} (RAM: {char.ram}/{char.maxRam})
+          <MudLine color={tierColor} bold={hr.outcome.tier !== 'failure'}>
+            &gt;&gt; {hr.outcome.tier.toUpperCase()}
+            {hr.outcome.targetTicks > 0 ? ` — ${hr.outcome.targetTicks + (hack.hackDamage ?? 0)} harm ticks` : ''}
+            {hr.statusCreated ? ` · ${hr.statusCreated} applied` : ''}
+          </MudLine>
+          {hr.clockChanges.map((cc, i) => (
+            <MudLine key={k(`hcc-${i}`)} indent color={C.dim}>
+              {cc.clockName} {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]{cc.filled ? ' FULL' : ''}
             </MudLine>
-          ) : (
-            <MudLine color={C.dim}>
-              &gt;&gt; BLOCKED — firewall held. RAM spent: {hr.ramSpent}
-            </MudLine>
-          )}
+          ))}
         </div>
       );
 
-      // CRT feedback on hack
-      if (hr.hit) {
-        eventBus.emit('crt:glitch-tier', { tier: hr.killed ? 2 : 1, duration: 180 });
+      if (hr.outcome.tier !== 'failure') {
+        const defeated = hr.combat.enemies.find(e => e.id === target.id)?.defeated;
+        eventBus.emit('crt:glitch-tier', { tier: defeated ? 2 : 1, duration: 180 });
       }
 
-      syncCombatToCharacter(combat, char);
-      saveCombat(char.handle, combat);
+      saveCombat(char.handle, hr.combat);
 
-      // Check end / continue
-      const endCheck = checkCombatEnd(combat, []);
+      const endCheck = checkClockCombatEnd(hr.combat);
       if (endCheck.over) {
         if (endCheck.victory) {
           clearCombat(char.handle);
           const xpResult = addXP(char, endCheck.xpGained);
-
-          // Build salvage
-          const enemyNames = (combat.sourceEnemies ?? []).map(e => e.name);
           const salvageDrops = endCheck.drops.map(dropId => {
             const template = getItemTemplate(dropId);
             return { itemId: dropId, name: template?.name ?? dropId, taken: false };
           });
           if (salvageDrops.length > 0) {
-            char.pendingSalvage = {
-              enemies: [{ name: enemyNames.join(', ') || 'remains', drops: salvageDrops }],
-            };
+            char.pendingSalvage = { enemies: [{ name: combat.sourceEnemies.map(e => e.name).join(', ') || 'remains', drops: salvageDrops }] };
           }
           char.lastCombatLoot = endCheck.drops;
-
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
-          if (salvageDrops.length > 0) {
-            eventBus.emit('mud:panel-mode', { mode: 'salvage' });
-          }
-
+          if (salvageDrops.length > 0) eventBus.emit('mud:panel-mode', { mode: 'salvage' });
           const nextXP = xpForLevel(char.level + 1 + (char.pendingLevelUps ?? 0));
           addLocalMsg(
             <div key={k('combat-win-h')}>
-              <MudLine color={C.stat} glow bold>
-                &gt;&gt; COMBAT RESOLVED · +{xpResult.xpGained} XP [{char.xp} / {nextXP}]
-              </MudLine>
-              {xpResult.pendingLevels > 0 && (
-                <MudLine color={C.accent} glow>
-                  &gt;&gt; LEVEL THRESHOLD REACHED — find a safe haven and /rest to integrate.
-                </MudLine>
-              )}
-              {salvageDrops.length > 0 && (
-                <MudLine color={C.dim}>
-                  {salvageDrops.length} item{salvageDrops.length > 1 ? 's' : ''} to salvage.
-                </MudLine>
-              )}
+              <MudLine color={C.stat} glow bold>&gt;&gt; COMBAT RESOLVED · +{xpResult.xpGained} XP [{char.xp} / {nextXP}]</MudLine>
+              {xpResult.pendingLevels > 0 && <MudLine color={C.accent} glow>&gt;&gt; LEVEL THRESHOLD REACHED — /rest at a safe haven</MudLine>}
+              {salvageDrops.length > 0 && <MudLine color={C.dim}>{salvageDrops.length} item{salvageDrops.length > 1 ? 's' : ''} to salvage.</MudLine>}
             </div>
           );
-        } else {
-          handleDeath(session, addLocalMsg, setSession);
-        }
+        } else { handleDeath(session, addLocalMsg, setSession); }
         return { handled: true, stopPropagation: true };
       }
 
-      const player = getPlayerCombatant(combat);
-      if (player && player.ap > 0) {
-        setSession({ ...session });
-      } else {
-        addLocalMsg(<MudLine key={k('turn-end-h')} color={C.dim}>— end of your turn —</MudLine>);
-        processAllEnemyTurns(session, addLocalMsg);
-        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
-        saveCombat(char.handle, combat);
-        setSession({ ...session });
-      }
-
+      processAllEnemyTurns(session, addLocalMsg);
+      if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
+      saveCombat(char.handle, session.combat!);
+      setSession({ ...session });
       return { handled: true, stopPropagation: true };
     }
 
     // ── /use [item] in combat ───────────────────────────────────────────
     if (cmd === 'use' || cmd === 'u') {
       if (!rest) {
-        const healables = char.inventory.filter(i => i.healAmount).map((i, idx) => `${idx}: ${i.name} (+${i.healAmount} HP)`);
+        const healables = char.inventory.filter(i => i.healAmount).map((i, idx) => `${idx}: ${i.name} (drain ${Math.max(1, Math.ceil((i.healAmount ?? 0) / 10))} harm)`);
         if (healables.length === 0) {
           addLocalMsg(<MudNotice key={k('use-none')} error>no usable items.</MudNotice>);
         } else {
@@ -1418,38 +1470,42 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
-      // Find item by name or index
       let idx = parseInt(rest, 10);
       if (isNaN(idx)) {
         idx = char.inventory.findIndex(i => i.name.toLowerCase().includes(rest.toLowerCase()) && i.healAmount);
       }
-
-      const result = useItemInCombat(combat, char, idx);
-      if (result.error) {
-        addLocalMsg(<MudNotice key={k('use-err')} error>{result.error}</MudNotice>);
+      if (idx < 0 || idx >= char.inventory.length || !char.inventory[idx]?.healAmount) {
+        addLocalMsg(<MudNotice key={k('use-err')} error>item not found or not usable.</MudNotice>);
         setSession({ ...session });
         return { handled: true, stopPropagation: true };
       }
 
+      const item = char.inventory[idx];
+      const result = useItemInCombat(combat, char, item);
+      session.combat = result.combat;
+
+      // Remove consumed item
+      char.inventory[idx].quantity -= 1;
+      if (char.inventory[idx].quantity <= 0) char.inventory.splice(idx, 1);
+
+      syncClockCombatToCharacter(result.combat, char);
+
       addLocalMsg(
-        <MudLine key={k('use-ok')} color={C.heal}>
-          used {result.itemName} — restored {result.healed} HP ({char.hp}/{char.maxHp})
-        </MudLine>
+        <div key={k('use-ok')}>
+          <MudLine color={C.heal}>used {item.name} — {result.message}</MudLine>
+          {result.clockChanges.map((cc, i) => (
+            <MudLine key={k(`ucc-${i}`)} indent color={C.dim}>
+              {cc.clockName} {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]
+            </MudLine>
+          ))}
+        </div>
       );
 
-      syncCombatToCharacter(combat, char);
-      saveCombat(char.handle, combat);
-
-      const player = getPlayerCombatant(combat);
-      if (player && player.ap > 0) {
-        setSession({ ...session });
-      } else {
-        processAllEnemyTurns(session, addLocalMsg);
-        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
-        saveCombat(char.handle, combat);
-        setSession({ ...session });
-      }
-
+      saveCombat(char.handle, result.combat);
+      processAllEnemyTurns(session, addLocalMsg);
+      if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
+      saveCombat(char.handle, session.combat!);
+      setSession({ ...session });
       return { handled: true, stopPropagation: true };
     }
 
@@ -1462,82 +1518,62 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         return { handled: true, stopPropagation: true };
       }
 
-      const result = scanEnemy(combat, target.id, char);
-      if ('error' in result) {
-        addLocalMsg(<MudNotice key={k('scan-err')} error>{result.error}</MudNotice>);
-        setSession({ ...session });
-        return { handled: true, stopPropagation: true };
-      }
-
-      const sr = result as ScanResult;
+      const sr = scanEnemy(combat, char, target.id);
       if (!sr.success) {
-        addLocalMsg(<MudLine key={k('scan-fail')} color={C.dim}>scan failed — insufficient data on {sr.targetName}.</MudLine>);
+        addLocalMsg(<MudLine key={k('scan-fail')} color={C.dim}>scan failed — insufficient data on {target.name}.</MudLine>);
       } else {
-        // Compact scan: name + HP, attributes on one line, weaknesses on one line
-        const attrLine = sr.attributes
-          ? (Object.keys(sr.attributes) as AttributeName[]).map(a => `${a} ${sr.attributes![a]}`).join(' \u00b7 ')
-          : '';
         addLocalMsg(
           <div key={k('scan-ok')} style={{ marginBottom: '0.4rem' }}>
-            <MudLine color={C.accent} bold>
-              SCAN: {sr.targetName} {'\u2014'} HP {sr.hp}/{sr.maxHp}
-            </MudLine>
-            {attrLine && (
-              <MudLine indent color={C.dim}>{attrLine}</MudLine>
-            )}
-            {sr.weaknesses && sr.weaknesses.length > 0 && (
-              <MudLine indent color={C.warning}>
-                weak: {sr.weaknesses.join('; ')}
+            <MudLine color={C.accent} bold>SCAN: {target.name} — tier {target.tier}</MudLine>
+            {sr.revealedClocks.map((clock, i) => (
+              <MudLine key={k(`sc-${i}`)} indent color={C.dim}>
+                {clock.name} {'█'.repeat(clock.filled)}{'░'.repeat(clock.segments - clock.filled)} [{clock.filled}/{clock.segments}]
               </MudLine>
+            ))}
+            {sr.weaknesses.length > 0 && (
+              <MudLine indent color={C.warning}>weak: {sr.weaknesses.join('; ')}</MudLine>
             )}
+            <MudLine indent color={C.dim}>behavior: {sr.behaviorHint}</MudLine>
           </div>
         );
       }
 
       saveCombat(char.handle, combat);
-      const player = getPlayerCombatant(combat);
-      if (player && player.ap > 0) setSession({ ...session });
-      else {
-        processAllEnemyTurns(session, addLocalMsg);
-        if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
-        saveCombat(char.handle, combat);
-        setSession({ ...session });
-      }
-
+      setSession({ ...session });
       return { handled: true, stopPropagation: true };
     }
 
     // ── /flee ───────────────────────────────────────────────────────────
     if (cmd === 'flee' || cmd === 'run') {
-      const result = attemptFlee(combat, char, char.godMode);
-      if ('error' in result) {
-        addLocalMsg(<MudNotice key={k('flee-err')} error>{result.error}</MudNotice>);
-        setSession({ ...session });
-        return { handled: true, stopPropagation: true };
-      }
+      const { combat: updatedCombat, flee } = attemptFleeAction(combat, char);
+      session.combat = updatedCombat;
 
-      const fr = result as FleeResult;
       addLocalMsg(
-        <MudLine key={k('flee-result')} color={fr.success ? C.stat : C.enemy}>
-          {fr.flavorText}
-          {fr.damageTaken ? ` (${fr.damageTaken} damage)` : ''}
+        <MudLine key={k('flee-result')} color={flee.escaped ? C.stat : C.enemy}>
+          {flee.flavorText}
+          {flee.harmTicks > 0 ? ` (${flee.harmTicks} harm taken)` : ''}
         </MudLine>
       );
+      if (flee.clockChanges.length > 0) {
+        flee.clockChanges.forEach((cc, i) => {
+          addLocalMsg(
+            <MudLine key={k(`fcc-${i}`)} indent color={C.dim}>
+              {cc.clockName} {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]
+            </MudLine>
+          );
+        });
+      }
 
-      syncCombatToCharacter(combat, char);
+      syncClockCombatToCharacter(updatedCombat, char);
 
-      if (fr.success) {
+      if (flee.escaped) {
         clearCombat(char.handle);
         saveCharacter(char.handle, char);
         setSession({ ...session, phase: 'active', combat: null });
-        addLocalMsg(
-          <MudLine key={k('flee-ok')} color={C.dim}>
-            combat ended. you escaped.
-          </MudLine>
-        );
+        addLocalMsg(<MudLine key={k('flee-ok')} color={C.dim}>combat ended. you escaped.</MudLine>);
       } else {
         if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
-        saveCombat(char.handle, combat);
+        saveCombat(char.handle, updatedCombat);
         processAllEnemyTurns(session, addLocalMsg);
         if (char.hp <= 0) { handleDeath(session, addLocalMsg, setSession); return { handled: true, stopPropagation: true }; }
         setSession({ ...session });
@@ -1840,8 +1876,25 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         <MudLine indent color={C.stat}>
           XP         {char.xp}{nextXP > 0 ? ` / ${nextXP}` : ''}{char.level >= LEVEL_CAP ? ' (MAX)' : ''}
         </MudLine>
-        <MudLine indent color={C.stat}>HP         {char.hp} / {char.maxHp}</MudLine>
-        <MudLine indent color={C.stat}>RAM        {char.ram} / {char.maxRam}</MudLine>
+        <MudLine indent color={C.stat}>
+          HARM       {'░'.repeat(char.harmSegments)} [0/{char.harmSegments}]
+        </MudLine>
+        <MudLine indent color={C.stat}>
+          CRITICAL   {'░'.repeat(char.criticalSegments ?? 4)} [0/{char.criticalSegments ?? 4}]
+        </MudLine>
+        <MudLine indent color={C.stat}>
+          ARMOR      {char.armorSegments > 0
+            ? `${'█'.repeat(char.armorSegments)} [${char.armorSegments}/${char.armorSegments}]`
+            : 'none'}
+        </MudLine>
+        <MudLine indent color={C.stat}>
+          RAM        {char.ramSegments > 0
+            ? `${'█'.repeat(char.ramSegments)} [${char.ramSegments}/${char.ramSegments}]`
+            : 'none'}
+        </MudLine>
+        <MudLine indent color={C.stat}>
+          STYLE DIE  d{char.styleDie ?? 6}
+        </MudLine>
         <MudSpacer />
         {(Object.keys(char.attributes) as AttributeName[]).map(attr => {
           const val = char.attributes[attr];
@@ -2686,8 +2739,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     char.hp = char.maxHp;
     // Sync combat HP if in combat
     if (session.combat) {
-      const player = session.combat.combatants.find(c => c.type === 'player');
-      if (player) { player.hp = char.maxHp; }
+      // In clock combat, godMode is checked during resolution — no direct HP sync needed
     }
     saveCharacter(char.handle, char);
     addLocalMsg(
@@ -3028,8 +3080,8 @@ export function getMudHUDData(session: MudSession): MudHUDData | null {
   let combatRound = 0;
   if (session.combat) {
     combatRound = session.combat.round;
-    const player = session.combat.combatants.find(c => c.type === 'player');
-    if (player) combatAP = player.ap;
+    // In clock combat, AP concept is replaced by turnPhase
+    combatAP = isPlayersTurn(session.combat) ? 2 : 0;
   }
 
   return {
