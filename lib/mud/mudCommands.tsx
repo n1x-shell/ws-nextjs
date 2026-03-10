@@ -922,11 +922,14 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
               role="button" tabIndex={0}
               onClick={() => {
                 // Open examine modal with service buttons instead of auto-triggering one service
-                const npcActions: Array<{ label: string; color: string; command?: string }> = [];
+                const npcActions: Array<{ label: string; color: string; command?: string; event?: { type: string; payload?: any } }> = [];
                 npcActions.push({ label: 'TALK', color: '#fcd34d', command: '/talk hello' });
-                if (canHeal) npcActions.push({ label: 'HEAL', color: '#4ade80', command: '/talk can you heal me' });
+                if (canHeal) npcActions.push({ label: 'HEAL', color: '#4ade80', command: '/heal' });
                 if (hasShop) npcActions.push({ label: 'SHOP', color: '#fcd34d', command: '/shop' });
-                if (hasQuest || isNPCQuestGiver(npc.id)) npcActions.push({ label: 'JOBS', color: '#fbbf24', command: '/jobs' });
+                if (hasQuest || isNPCQuestGiver(npc.id)) npcActions.push({
+                  label: 'JOBS', color: '#fbbf24',
+                  event: { type: 'mud:open-npc-quest', payload: { npcId: npc.id, npcName: npc.name } },
+                });
                 eventBus.emit('mud:open-examine', {
                   title: npc.name,
                   color,
@@ -2191,16 +2194,19 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     );
 
     if (npc) {
-      const npcActions: Array<{ label: string; color: string; command?: string; inlineResult?: string }> = [];
+      const npcActions: Array<{ label: string; color: string; command?: string; inlineResult?: string; event?: { type: string; payload?: any } }> = [];
       npcActions.push({ label: 'TALK', color: '#fcd34d', command: '/talk hello' });
       if (npc.services?.includes('shop')) {
         npcActions.push({ label: 'SHOP', color: '#fcd34d', command: '/shop' });
       }
       if (npc.services?.includes('heal')) {
-        npcActions.push({ label: 'HEAL', color: '#4ade80', command: `/talk can you heal me` });
+        npcActions.push({ label: 'HEAL', color: '#4ade80', command: '/heal' });
       }
       if (isNPCQuestGiver(npc.id)) {
-        npcActions.push({ label: 'JOBS', color: '#fbbf24', command: '/jobs' });
+        npcActions.push({
+          label: 'JOBS', color: '#fbbf24',
+          event: { type: 'mud:open-npc-quest', payload: { npcId: npc.id, npcName: npc.name } },
+        });
       }
 
       eventBus.emit('mud:open-examine', {
@@ -2455,6 +2461,81 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
   // ══════════════════════════════════════════════════════════════════════
   // ── PROGRESSION COMMANDS ─────────────────────────────────────────────
   // ══════════════════════════════════════════════════════════════════════
+
+  // ── /heal ───────────────────────────────────────────────────────────────
+  if (cmd === 'heal') {
+    const room = getRoom(char.currentRoom);
+    if (!room) return { handled: true, stopPropagation: true };
+
+    const medic = room.npcs.find(n => n.services?.includes('heal'));
+    if (!medic) {
+      addLocalMsg(<MudNotice key={k('heal-no-npc')} error>no one here can patch you up.</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const missing = char.maxHp - char.hp;
+    const stressHeld = char.stress ?? 0;
+    if (missing <= 0 && stressHeld <= 0) {
+      addLocalMsg(
+        <MudLine key={k('heal-full')} color={C.dim}>
+          {medic.name} looks you over. &quot;you&apos;re fine. stop wasting my time.&quot;
+        </MudLine>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Cost: 5 creds per 10 HP missing (min 5), +5 if stress > 0
+    const hpCost = missing > 0 ? Math.max(5, Math.ceil(missing / 10) * 5) : 0;
+    const stressCost = stressHeld > 0 ? 5 : 0;
+    const totalCost = hpCost + stressCost;
+
+    if (char.currency.creds < totalCost) {
+      addLocalMsg(
+        <div key={k('heal-broke')}>
+          <MudLine color={C.dim}>
+            {medic.name}: &quot;{totalCost} creds. you have {char.currency.creds}. come back when you can pay.&quot;
+          </MudLine>
+        </div>
+      );
+      return { handled: true, stopPropagation: true };
+    }
+
+    // Apply healing
+    const hpBefore = char.hp;
+    char.hp = char.maxHp;
+    const hpRestored = char.hp - hpBefore;
+    const stressBefore = char.stress;
+    if (stressHeld > 0) {
+      char.stress = Math.max(0, char.stress - 2);
+    }
+    const stressDrained = stressBefore - char.stress;
+    char.currency.creds -= totalCost;
+
+    saveCharacter(handle, char);
+    setSession({ ...session });
+
+    addLocalMsg(
+      <div key={k('heal-ok')}>
+        <MudLine color="#4ade80">
+          {medic.name} works in silence. steady hands. no wasted motion.
+        </MudLine>
+        {hpRestored > 0 && (
+          <MudLine indent color="#4ade80">
+            HP restored: +{hpRestored} [{char.hp}/{char.maxHp}]
+          </MudLine>
+        )}
+        {stressDrained > 0 && (
+          <MudLine indent color="#fbbf24">
+            stress eased: -{stressDrained} [{char.stress}/{char.maxStress}]
+          </MudLine>
+        )}
+        <MudLine indent color={C.dim}>
+          cost: {totalCost}c — remaining: {char.currency.creds}c
+        </MudLine>
+      </div>
+    );
+    return { handled: true, stopPropagation: true };
+  }
 
   // ── /rest ──────────────────────────────────────────────────────────────
   if (cmd === 'rest') {

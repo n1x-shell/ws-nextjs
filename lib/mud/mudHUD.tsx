@@ -3294,6 +3294,7 @@ interface ExamineAction {
   color: string;
   command?: string;     // emit via mud:execute-command (closes modal)
   inlineResult?: string; // show this text inline on click (stays open)
+  event?: { type: string; payload?: any }; // fire arbitrary eventBus event (closes modal)
 }
 
 interface ExamineData {
@@ -3313,6 +3314,13 @@ function ExamineModal({ data: initialData, onClose }: { data: ExamineData; onClo
     if (action.command) {
       // Execute command and close modal
       eventBus.emit('mud:execute-command', { command: action.command });
+      eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+      onClose();
+      return;
+    }
+    if (action.event) {
+      // Fire arbitrary event and close modal
+      eventBus.emit(action.event.type, action.event.payload);
       eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
       onClose();
       return;
