@@ -2,7 +2,7 @@
 // TUNNELCORE MUD — World Map
 // Room definitions, zone registry, room lookups.
 // Phase 1: Drainage Nexus (Zone 8, 14 rooms). Phase 2: Maintenance Tunnels (Zone 9, 11 rooms).
-// Phase 3: Industrial District (Zone 3, 15 rooms).
+// Phase 3: Industrial District (Zone 3, 15 rooms). Phase 4: Residential Blocks (Zone 2, 15 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -2171,7 +2171,7 @@ A Wolf patrol — three augmented figures on modified
 motorcycles — rolls down the boulevard at walking speed.
 They're not looking for trouble. They're showing the flag.`,
     exits: [
-      { direction: 'north', targetRoom: 'z02_r01', description: 'north (Residential Blocks — Transit Station)', zoneTransition: true, targetZone: 'z02' },
+      { direction: 'north', targetRoom: 'z02_r11', description: 'north (Residential Blocks — Transit Station)', zoneTransition: true, targetZone: 'z02' },
       { direction: 'south', targetRoom: 'z03_r02', description: 'south (Cargo Docks)' },
       { direction: 'east', targetRoom: 'z03_r06', description: 'east (Active Factory)' },
       { direction: 'west', targetRoom: 'z03_r07', description: 'west (Dead Factory)' },
@@ -2765,9 +2765,870 @@ export const ZONE_03: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 02: Residential Blocks ────────────────────────────────────────────
+
+const Z02_ROOMS: Record<string, Room> = {
+
+  // ── 1. OUTER BLOCKS ───────────────────────────────────────────────────────
+
+  z02_r01: {
+    id: 'z02_r01',
+    zone: 'z02',
+    name: 'OUTER BLOCKS',
+    description:
+`The buildings here are old. Pre-Helixion construction —
+poured concrete, rusting rebar showing through cracks in
+the facades, windows patched with polymer sheets. The
+streetlamps work every third one. The rest are dead or
+stolen for parts.
+
+The mesh still reaches — it reaches everywhere — but the
+infrastructure support doesn't. No curated ambient sound.
+No calming terpenes in the air vents. Just the raw signal,
+doing its work without the luxury packaging.
+
+A group of young men stand on a corner, watching everyone
+who passes. Graffiti on a wall: "UPGRADE OR DIE." Someone
+crossed out "OR" and wrote "AND."`,
+    exits: [
+      { direction: 'west', targetRoom: 'z04_r01', description: 'west (Fringe — The Border)', zoneTransition: true, targetZone: 'z04' },
+      { direction: 'east', targetRoom: 'z02_r06', description: 'east (Condemned Tower)' },
+      { direction: 'south', targetRoom: 'z02_r02', description: 'south (The Corner)' },
+    ],
+    npcs: [
+      {
+        id: 'residents_outer', name: 'Outer Block Residents', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Less polished than inner block residents. More aware. More tired. They make eye contact.',
+        dialogue: "A woman sorting laundry glances at you. \"You look lost.\" She goes back to sorting.",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [
+      {
+        id: 'street_thugs', name: 'Street Thugs', level: 5,
+        description: 'Opportunistic. Won\'t attack if you look dangerous. Low coordination. Flee if one drops.',
+        hp: 18, attributes: { ...enemyAttrs(5), BODY: 4, REFLEX: 4 }, damage: 5, armorValue: 1,
+        behavior: 'territorial', spawnChance: 0.5, count: [2, 3],
+        drops: [
+          { itemId: 'creds_pouch', chance: 0.6, quantityRange: [5, 15] },
+          { itemId: 'scrap_weapon', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'cheap_stim', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 25,
+      },
+      {
+        id: 'mesh_addict', name: 'Mesh-Addict', level: 5,
+        description: 'Overloaded implant. Erratic. Sometimes hostile, sometimes catatonic. Neural feedback attacks.',
+        hp: 14, attributes: { ...enemyAttrs(5), GHOST: 3 }, damage: 4, armorValue: 0,
+        behavior: 'passive', spawnChance: 0.3, count: [1, 1],
+        drops: [
+          { itemId: 'damaged_mesh_components', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'stim_residue', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 15,
+      },
+    ],
+    objects: [
+      { id: 'graffiti', name: 'graffiti', examineText: "'UPGRADE OR DIE.' The correction is in a different hand, different paint. 'UPGRADE AND DIE.' Neither artist is wrong. Beneath both, someone smaller wrote: 'what if I just want to stay?'" },
+      { id: 'dead_streetlamps', name: 'dead streetlamps', examineText: "The poles are still standing. The fixtures are gutted — salvaged for copper and circuit boards. Helixion maintains the inner blocks. Out here, maintenance requests have been pending for three years." },
+      { id: 'polymer_windows', name: 'polymer windows', examineText: "Heat-sealed polymer sheeting replacing broken glass. From the outside, you can see the glow of screens through the translucent material. Everyone's home. Everyone's connected. Nobody's looking out." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 2. THE CORNER ────────────────────────────────────────────────────────
+
+  z02_r02: {
+    id: 'z02_r02',
+    zone: 'z02',
+    name: 'THE CORNER',
+    description:
+`A street intersection where two apartment blocks create a
+sheltered L-shape. Someone's rigged a tarp between the
+buildings — shade and rain cover for the cluster of activity
+beneath it. A food cart selling synth-protein bowls. A woman
+mending clothes with a sewing machine powered by a car
+battery. Two old men playing a board game on an upturned crate.
+
+Normal. Aggressively normal. The kind of normalcy people
+build in places where nothing else is guaranteed.
+
+A narrow door between a laundromat and a boarded-up noodle
+shop has no sign. But people come and go from it at odd hours,
+and nobody asks questions.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z02_r01', description: 'north (Outer Blocks)' },
+      { direction: 'east', targetRoom: 'z02_r05', description: 'east (Back Alley)' },
+    ],
+    npcs: [
+      {
+        id: 'pee_okoro', name: 'Pee Okoro', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'Black market pharmacist. Mid-forties. Calm, precise, no small talk. Knows every compound.',
+        dialogue: "\"No names. No questions. Tell me what hurts and I'll tell you what it costs.\"",
+        startingDisposition: 0,
+        services: ['shop'],
+      },
+      {
+        id: 'food_cart_vendor', name: 'Food Cart Vendor', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Sells synth-protein bowls from a battered cart. Gossips about the neighborhood.',
+        dialogue: "\"Bowl? Five creds. Best you'll get without walking to the market.\"",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'unmarked_door', name: 'unmarked door', examineText: "No sign. No handle on the outside — it opens from within. Knock twice. Pause. Knock once. That's the pattern. Everyone in the outer blocks knows it. Nobody says it out loud." },
+      { id: 'sewing_machine', name: 'sewing machine', examineText: "Foot-pedal operated, powered by a jury-rigged battery. The woman mending clothes has done this a thousand times. She doesn't look up. The garment she's working on has Helixion employee markings on the collar — she's removing them." },
+      { id: 'board_game', name: 'board game', examineText: "Old men. Real game pieces, not digital. One of them is blind — he plays by touch. They've been playing this game longer than the mesh has existed. It's the only thing in the neighborhood the firmware can't improve." },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 3. BLOCK MARKET ──────────────────────────────────────────────────────
+
+  z02_r03: {
+    id: 'z02_r03',
+    zone: 'z02',
+    name: 'BLOCK MARKET',
+    description:
+`An open-air market occupying a pedestrian street between
+two residential towers. Stalls and carts crowd both sides —
+salvage, clothing, food, electronics, things that fell off
+corporate supply trucks. The air smells like frying oil and
+ozone. Music plays from three different sources, none of
+them in sync.
+
+The market is loud. This is intentional. Noise covers
+conversation. The mesh monitors data traffic, not audio —
+so the market operates in the gap between what Helixion
+tracks and what it can hear.
+
+A Freemarket vendor has a stall near the center — slightly
+better goods, slightly higher prices, and a look in her
+eye that says she knows exactly where everything came from.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z02_r06', description: 'west (Condemned Tower)' },
+      { direction: 'east', targetRoom: 'z02_r09', description: 'east (Inner Boulevard)' },
+      { direction: 'south', targetRoom: 'z02_r04', description: 'south (Mid Blocks)' },
+    ],
+    npcs: [
+      {
+        id: 'devi', name: 'Devi', type: 'SHOPKEEPER',
+        faction: 'FREEMARKET',
+        description: 'Freemarket fence. Sharp, fast-talking, delighted by good merchandise.',
+        dialogue: "\"Everything has a price and everything has a buyer. I'm the part in between. What are we moving today?\"",
+        startingDisposition: 0,
+        services: ['shop', 'info'],
+      },
+      {
+        id: 'market_vendors', name: 'Market Vendors', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Stall operators. Salvage, clothing, food, electronics. Prices vary — COOL checks for better deals.',
+        dialogue: "A vendor waves you over. \"Everything works. Mostly. Refunds are a concept from the inner blocks.\"",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'market_stalls', name: 'market stalls', examineText: "An ecosystem of small commerce. Someone sells handmade soap. Someone else sells reprogrammed personal devices. A third stall has a suspiciously large quantity of Helixion-branded nutrient bars — the kind that only ship to the campus. They fell off a truck. Several trucks." },
+      { id: 'competing_music', name: 'competing music', examineText: "Three different sources — a speaker playing synth-pop, a busker with a string instrument, and someone's apartment window bleeding bass. None of it harmonizes. All of it feels more alive than the curated ambient in the inner blocks." },
+      {
+        id: 'drainage_grate', name: 'drainage grate', examineText: 'Set into the market street. Water flows below. You can hear it — and beneath the water sound, something else. A hum.',
+        gatedText: [{ attribute: 'GHOST', minimum: 4, text: '33hz. Coming from below. The market sits on top of a junction in the tunnel network and nobody here has any idea.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 4. MID BLOCKS ────────────────────────────────────────────────────────
+
+  z02_r04: {
+    id: 'z02_r04',
+    zone: 'z02',
+    name: 'MID BLOCKS',
+    description:
+`The transition zone. Buildings here are fifteen to twenty
+years old — the first wave of Helixion-era construction.
+The facades are intact but stained. The infrastructure works
+but groans. The people here work. They commute to Helixion
+or its subsidiaries. They update their firmware on schedule.
+They are fine.
+
+They are fine.
+
+A woman stands at a crosswalk, waiting for a light that
+hasn't changed in three minutes. She doesn't seem to notice.
+Fire escapes zigzag up the building faces. One of them,
+on the south-facing tower, has plants growing on the
+upper landings. Real plants.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z02_r03', description: 'north (Block Market)' },
+      { direction: 'south', targetRoom: 'z02_r11', description: 'south (Transit Station)' },
+      { direction: 'up', targetRoom: 'z02_r13', description: 'up (Rooftop Garden — fire escape)' },
+    ],
+    npcs: [
+      {
+        id: 'tomas_wren', name: 'Tomas Wren', type: 'QUESTGIVER',
+        faction: 'NONE',
+        description: 'Mesh-addict in recovery. Late thirties. Former Helixion compliance engineer. Twitchy. Paranoid. Brilliant.',
+        dialogue: "\"They don't— the signal isn't— sorry. I know how it works. The mesh. I built part of it. Do you have any modulators?\"",
+        startingDisposition: 0,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'mesh_addict_mid', name: 'Mesh-Addict', level: 6,
+        description: 'Overloaded implant. Erratic. Neural feedback attacks cause 1-turn disorientation.',
+        hp: 18, attributes: { ...enemyAttrs(6), GHOST: 3 }, damage: 5, armorValue: 0,
+        behavior: 'passive', spawnChance: 0.4, count: [1, 1],
+        drops: [
+          { itemId: 'damaged_mesh_components', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'stim_residue', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 18,
+      },
+    ],
+    objects: [
+      { id: 'woman_at_crosswalk', name: 'woman at crosswalk', examineText: "She's been standing there for four minutes. The light hasn't changed. She hasn't checked. Her eyes are focused on something you can't see — mesh overlay, feeding her information. Or feeding her calm. Or feeding her nothing at all and she's standing here because the signal told her to wait." },
+      { id: 'fire_escape_plants', name: 'fire escape plants', examineText: "Real plants. Climbing the fire escape of the south tower. Someone's been growing them deliberately — soil in containers, a water collection system made from cut bottles. In a city where Helixion provides everything, someone decided to grow something themselves. Follow the fire escape up to find the Rooftop Garden." },
+      { id: 'apartment_4c', name: 'apartment 4C', examineText: "Door ajar. Small and cluttered — takeout containers, cracked data tablets, wires stripped and reconnected in compulsive patterns. A man sits on the floor against the wall. He looks at you like you're either a rescue or a threat and he can't decide which." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 5. BACK ALLEY ────────────────────────────────────────────────────────
+
+  z02_r05: {
+    id: 'z02_r05',
+    zone: 'z02',
+    name: 'BACK ALLEY',
+    description:
+`A narrow passage between two outer-block apartment towers.
+Dumpsters, drainage pipes, the backs of shops that face
+the main streets. The kind of space designed for utilities
+that becomes a space for everything the main streets don't
+want visible.
+
+Someone has set up a folding chair, a small table, and a
+thermos of coffee between two dumpsters. A man in a gray
+jacket sits there like he's waiting for a bus. He's not.
+He's working. He's been working this alley for six years.
+Everyone in the outer blocks knows where to find him.
+Nobody uses his real name.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z02_r02', description: 'west (The Corner)' },
+      { direction: 'east', targetRoom: 'z02_r08', description: 'east (Preacher\'s Corner)' },
+    ],
+    npcs: [
+      {
+        id: 'sixer', name: 'Sixer', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'Civilian informant. Genial. Forgettable on purpose. Information doesn\'t depreciate.',
+        dialogue: "\"Sixer. That's what people call me. Sit down. Tell me what you need to know. Or what you need to not be known.\"",
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'street_thugs_alley', name: 'Street Thugs', level: 6,
+        description: 'Opportunistic. These know the alley. They avoid Sixer\'s corner.',
+        hp: 22, attributes: { ...enemyAttrs(6), BODY: 5, REFLEX: 4 }, damage: 5, armorValue: 1,
+        behavior: 'territorial', spawnChance: 0.3, count: [1, 2],
+        drops: [
+          { itemId: 'creds_pouch', chance: 0.6, quantityRange: [5, 15] },
+          { itemId: 'scrap_weapon', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'cheap_stim', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 25,
+      },
+    ],
+    objects: [
+      { id: 'folding_chair', name: 'folding chair', examineText: "Worn. The seat fabric is patched. He's been sitting in this chair, in this alley, between these dumpsters, for six years. The dumpster owners know him. The rats know him. The alley is his office and the overhead is zero." },
+      { id: 'thermos', name: 'thermos', examineText: "Coffee. Real coffee — not synth-brew. Sixer has a supplier. He won't say who. The coffee is better than anything in the inner blocks. He considers it a professional expense." },
+      {
+        id: 'dumpster_cache', name: 'dumpster cache',
+        examineText: 'A row of dumpsters. Nothing unusual.',
+        hidden: true, hiddenRequirement: { attribute: 'GHOST', minimum: 5 },
+        gatedText: [
+          { attribute: 'GHOST', minimum: 5, text: "One of the dumpsters has a false bottom. Sixer's archive — data chips, handwritten notes, a physical map of the D9 agent rotation marked with colored pins. He keeps it analog. The mesh can't index paper." },
+          { attribute: 'INT', minimum: 6, text: "One dumpster sits differently than the others — weight distributed wrong. A false bottom. Sixer's analog intelligence archive." },
+        ],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 6. CONDEMNED TOWER ───────────────────────────────────────────────────
+
+  z02_r06: {
+    id: 'z02_r06',
+    zone: 'z02',
+    name: 'CONDEMNED TOWER',
+    description:
+`Block 17. Eighteen stories of pre-Helixion residential
+construction, condemned after a structural inspection that
+may or may not have actually happened. The ground floor is
+boarded up — plywood and chain-link over the entrances,
+municipal condemnation notices faded past reading.
+
+The boards have been pried back and replaced so many times
+the nails don't hold anymore. Everyone in the outer blocks
+knows about Block 17. Nobody reports it. The people inside
+have nowhere else to go.
+
+From the outside, you can see light moving on the upper
+floors. Candles or flashlights. The building is supposed
+to be empty. It is not.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z02_r01', description: 'west (Outer Blocks)' },
+      { direction: 'east', targetRoom: 'z02_r03', description: 'east (Block Market)' },
+      { direction: 'down', targetRoom: 'z02_r07', description: 'down (Squatter Floors)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'street_thugs_tower', name: 'Street Thugs', level: 7,
+        description: 'Block 17 regulars. They control access. Can be fought, bribed, or talked past (COOL ≥ 6). They\'re protecting the people inside.',
+        hp: 26, attributes: { ...enemyAttrs(7), BODY: 5, COOL: 4 }, damage: 6, armorValue: 2,
+        behavior: 'territorial', spawnChance: 0.6, count: [2, 2],
+        drops: [
+          { itemId: 'creds_pouch', chance: 0.5, quantityRange: [5, 15] },
+          { itemId: 'scrap_weapon', chance: 0.2, quantityRange: [1, 1] },
+          { itemId: 'cheap_stim', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 30,
+      },
+    ],
+    objects: [
+      { id: 'condemnation_notices', name: 'condemnation notices', examineText: "Municipal order, dated four years ago. 'UNSAFE FOR HABITATION.' The inspection code links to a contractor that doesn't exist. Someone condemned this building on paper to clear it for redevelopment. The redevelopment never came. The people didn't leave." },
+      { id: 'cut_chain_link', name: 'cut chain link', examineText: "A clean cut, hidden behind the dumpster. Rewired to look intact from a distance. The opening is wide enough for one person. Beyond it: a dark stairwell that smells like damp concrete and cooking." },
+      { id: 'light_on_upper_floors', name: 'lights above', examineText: "Flickering. Moving between rooms. Multiple light sources on floors 3 through 8. Above that, the building is dark — structurally compromised. Below, the basement connects to the city's utility infrastructure." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 7. SQUATTER FLOORS ───────────────────────────────────────────────────
+
+  z02_r07: {
+    id: 'z02_r07',
+    zone: 'z02',
+    name: 'SQUATTER FLOORS',
+    description:
+`Inside Block 17, the condemned building is alive. Floors 3
+through 8 have been claimed — walls knocked out between
+apartments to create communal spaces, stairwells reinforced
+with salvaged steel, a water collection system running from
+the roof through PVC pipes wired to the walls like veins.
+
+These people are not on the mesh. Their implants are active,
+but modified. Mesh modulators, homebrew firmware patches,
+signal dampeners. The compliance system sees them as
+low-priority anomalies. Not sovereign. Not flagged. Fuzzy.
+
+A woman is teaching three children to read from a physical
+book. A man repairs a generator. Someone is cooking actual
+food — not synth-protein, not nutrient paste. Onions. You
+can smell onions. You haven't smelled real onions in years.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z02_r06', description: 'up (Condemned Tower)' },
+      { direction: 'down', targetRoom: 'z09_r03', description: 'down (Maintenance Tunnels — Ventilation Hub)', zoneTransition: true, targetZone: 'z09' },
+    ],
+    npcs: [
+      {
+        id: 'squatter_residents', name: 'Squatter Residents', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'The most self-aware civilian population in the zone. They know about the mesh. They chose a condemned building over compliance.',
+        dialogue: "A man repairing a generator looks up. \"You're not from here.\" He studies you for a moment. \"Neither were any of us. Close the door.\"",
+        startingDisposition: -5,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'physical_book', name: 'physical book', examineText: "A real book. Paper. Printed before the mesh. The woman teaching from it reads aloud and the children follow the words with their fingers. The book is a dictionary. She's teaching them words the mesh autocomplete doesn't suggest." },
+      { id: 'water_collection', name: 'water collection', examineText: "PVC pipes running from the roof through six floors. Rainwater, filtered through gravel and charcoal. It's not clean by corporate standards. It's theirs. They built it." },
+      { id: 'signal_dampeners', name: 'signal dampeners', examineText: "Jury-rigged from old router housings and copper mesh. Hung on walls like art. They create micro dead zones — small enough that the mesh reads them as interference, not defiance. The people here live in the static between compliance and sovereignty." },
+      {
+        id: 'iron_bloom_dead_drop', name: 'loose brick',
+        examineText: 'A brick in the basement stairwell. Looks like every other brick.',
+        hidden: true, hiddenRequirement: { attribute: 'INT', minimum: 7 },
+        gatedText: [
+          { attribute: 'INT', minimum: 7, text: "A loose brick in the basement stairwell. Behind it — a waterproof case with the Iron Bloom sigil scratched into the lid. Instructions for contacting the resistance. A frequency to tune to. A warning: 'Do not attempt contact unless you are certain you are not followed.'" },
+        ],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 8. PREACHER'S CORNER ─────────────────────────────────────────────────
+
+  z02_r08: {
+    id: 'z02_r08',
+    zone: 'z02',
+    name: "PREACHER'S CORNER",
+    description:
+`A small plaza where the outer blocks meet the mid blocks.
+A defunct fountain — dry for years, the basin cracked, weeds
+growing through the concrete. Benches that people still use.
+A streetlamp that works.
+
+A man stands on the fountain's rim, talking. He talks every
+day. He's been talking for two years. Most people walk past
+without looking. Some stop, listen for a few seconds, shake
+their heads, and keep moving.
+
+He's talking about a sound. A frequency. Something under
+the city that was there before the city was built. He says
+it speaks. He says Helixion knows and is trying to capture
+it. He is correct about every single thing he's saying.
+Nobody believes him.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z02_r05', description: 'west (Back Alley)' },
+      { direction: 'east', targetRoom: 'z02_r11', description: 'east (Transit Station)' },
+    ],
+    npcs: [
+      {
+        id: 'jonas', name: 'Jonas', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Street preacher. Fifties. Gaunt. Everything he says sounds like a sermon but the content is engineering.',
+        dialogue: "\"You can hear it, can't you? Under the traffic. Under the mesh. Under everything they built on top of it. 33 cycles per second. It was here first.\"",
+        startingDisposition: 20,
+        services: ['info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'd9_plainclothes_preacher', name: 'D9 Plainclothes', level: 8,
+        description: 'One agent. Watches Jonas. Classified as "non-credible dissident — no action required." Notes anyone who talks to Jonas too long.',
+        hp: 34, attributes: { ...enemyAttrs(8), COOL: 6, GHOST: 5, REFLEX: 6 }, damage: 8, armorValue: 4,
+        behavior: 'ambush', spawnChance: 0.0, count: [1, 1],
+        drops: [
+          { itemId: 'd9_credentials', chance: 0.15, quantityRange: [1, 1] },
+          { itemId: 'surveillance_equipment', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 60,
+      },
+    ],
+    objects: [
+      {
+        id: 'defunct_fountain', name: 'defunct fountain',
+        examineText: "The basin is cracked. Weeds grow through. The fountain hasn't worked in years but the infrastructure is still connected — water pipes beneath the plaza, feeding into the drainage system below.",
+        gatedText: [{ attribute: 'GHOST', minimum: 5, text: "You can feel something through the pipes. A vibration. Faint. 33hz. Jonas stands on this fountain because he can feel it through his feet." }],
+      },
+      { id: 'jonas_corner', name: "jonas's corner", examineText: "He's been standing here so long the stone is worn where his feet rest. Some residents leave food. A few leave notes tucked into the fountain's edge. Prayer or solidarity, it's hard to tell." },
+      { id: 'folded_notes', name: 'folded notes', examineText: "Dozens, tucked into cracks in the fountain. They say things like: 'I hear it too.' 'My daughter started dreaming about tunnels.' 'Is it God?' 'Thank you for saying it.' 'You're not crazy.' Jonas doesn't read them. He knows they're there." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 9. INNER BOULEVARD ───────────────────────────────────────────────────
+
+  z02_r09: {
+    id: 'z02_r09',
+    zone: 'z02',
+    name: 'INNER BOULEVARD',
+    description:
+`The difference is immediate. The pavement is smooth. The
+streetlamps are smart — they brighten as you approach and
+dim when you pass. Holographic advertisements float at eye
+level: Helixion wellness products, MNEMOS v2.7 testimonials,
+a smiling family with the tagline "TOGETHER, IN SYNC."
+
+The buildings are newer — glass and composite, twenty stories.
+The ground floors are commercial: a Helixion café, a fitness
+center, a mesh wellness spa. The air smells like synthetic
+botanicals, engineered calm.
+
+People walk slowly. Nobody rushes. Their faces are relaxed
+in a way that doesn't look like relaxation — it looks like
+the absence of everything that makes a person tense. The
+mesh working exactly as designed.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z02_r03', description: 'west (Block Market)' },
+      { direction: 'east', targetRoom: 'z01_r01', description: 'east (Helixion Campus — Security Perimeter)', zoneTransition: true, targetZone: 'z01' },
+      { direction: 'south', targetRoom: 'z02_r10', description: 'south (Mesh Clinic)' },
+      { direction: 'up', targetRoom: 'z02_r12', description: 'up (Penthouse Level — elevator)' },
+    ],
+    npcs: [
+      {
+        id: 'residents_inner', name: 'Inner Block Residents', type: 'NEUTRAL',
+        faction: 'HELIXION',
+        description: 'Fully mesh-compliant. Polite. Helpful. Identical in their pleasantness. Answers arrive with a half-second delay.',
+        dialogue: "\"Can I help you? This is a wonderful neighborhood. I've lived here for—\" She pauses. Half a second. \"—seven years. I love it.\"",
+        startingDisposition: 5,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'holographic_ads', name: 'holographic ads', examineText: "'TOGETHER, IN SYNC.' The family in the ad is smiling with their teeth but not their eyes. The testimonial is from 'MAYA, 34, MESH USER SINCE V1.2.' Maya says: 'I don't even remember what it was like before. And that's the best part.' You read it twice. The second time is worse." },
+      { id: 'mesh_wellness_spa', name: 'mesh wellness spa', examineText: "A storefront offering 'cognitive optimization sessions.' The treatment menu: Stress Dissolution, Focus Enhancement, Memory Curation, Emotional Calibration. The last one costs the most." },
+      { id: 'helixion_cafe', name: 'helixion café', examineText: "Real food. Good food. The menu doesn't list prices in CREDS — it deducts automatically from your mesh account. If you don't have a mesh account, you don't eat here. The barista smiles and the smile is perfect and it means nothing." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 10. MESH CLINIC ──────────────────────────────────────────────────────
+
+  z02_r10: {
+    id: 'z02_r10',
+    zone: 'z02',
+    name: 'MESH CLINIC',
+    description:
+`A ground-floor clinic with the Helixion health logo on the
+door. Inside: white walls, white floors, the smell of
+sterilization. Comfortable chairs in the waiting area. A
+screen playing a loop of mesh testimonials.
+
+Through the glass panels you can see reclining chairs,
+monitoring equipment, neural interface terminals. Everything
+looks medical. Everything looks professional. Everything
+looks exactly like the Compliance Wing in the Helixion
+Campus, except smaller, friendlier, and located in a
+neighborhood where people come voluntarily.
+
+A sign on the wall: "FIRMWARE UPDATE 2.7.4 AVAILABLE."
+
+A woman in the waiting area clutches her purse and stares
+at the testimonial screen. She's been sitting there for
+twenty minutes. She hasn't moved.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z02_r09', description: 'north (Inner Boulevard)' },
+    ],
+    npcs: [
+      {
+        id: 'clinic_staff', name: 'Clinic Staff', type: 'NEUTRAL',
+        faction: 'HELIXION',
+        description: 'They look like nurses. They are nurses. They also function as compliance monitors — their mesh interfaces detect anomalous neural signatures.',
+        dialogue: "\"Welcome to Helixion Health. Do you have an appointment? We have openings for firmware 2.7.4 this afternoon.\"",
+        startingDisposition: 5,
+      },
+      {
+        id: 'waiting_patient', name: 'Waiting Patient', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'The woman with the purse. Here for a firmware update she\'s been putting off.',
+        dialogue: "\"I've been having these dreams. The update is supposed to fix that.\"",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'testimonial_screen', name: 'testimonial screen', examineText: "'I sleep better.' 'My focus is incredible.' 'I don't have bad dreams anymore.' The syntax is identical in every testimonial. Not the words — the rhythm. The mesh didn't write these. But it shaped the minds that did." },
+      { id: 'treatment_rooms', name: 'treatment rooms', examineText: "Through the glass: a reclining chair with neural interface contacts on the headrest. Monitoring screens. A cabinet of sealed neural paste cartridges. Consumer grade. Same function as the Compliance Wing. Friendlier packaging." },
+      {
+        id: 'firmware_sign', name: 'firmware sign',
+        examineText: "'2.7.4 AVAILABLE.' The version number.",
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: "You recognize the versioning scheme from the Chrysalis research files. The consumer firmware shares a codebase with Chrysalis. Not the identity overwrite — not yet. But the architecture is compatible. V2.7 is the foundation. Chrysalis is the building they plan to put on top of it." }],
+      },
+      {
+        id: 'clinic_records', name: 'clinic records',
+        examineText: 'A terminal behind the reception desk. Requires access.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: "Patient records. Update histories. Adverse reactions filed under 'integration anomalies.' Three patients in the last month reported 'persistent subconscious frequency awareness.' Each was prescribed an accelerated update schedule. The records don't say what frequency. They don't have to." }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 11. TRANSIT STATION ──────────────────────────────────────────────────
+
+  z02_r11: {
+    id: 'z02_r11',
+    zone: 'z02',
+    name: 'TRANSIT STATION',
+    description:
+`An underground station for the city's automated transit
+system. Escalators descend from street level into a tiled
+concourse. The tiles are cracked but clean. Screens display
+route maps and schedules. The trains run on time. The trains
+always run on time.
+
+The platform is broad, well-lit, and smells like recycled
+air and brake dust. A busker plays a keyboard with half the
+keys dead — the melody adapts around the gaps. A Helixion
+vending machine sells nutrient bars and single-dose stims.
+
+A transit map on the wall shows connections to every surface
+district. The map has a blank space in the center where
+Helixion Campus sits — no transit stop. You can see the
+campus from anywhere in the city but you can't take the
+train there.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z02_r04', description: 'north (Mid Blocks)' },
+      { direction: 'west', targetRoom: 'z02_r08', description: 'west (Preacher\'s Corner)' },
+      { direction: 'south', targetRoom: 'z03_r05', description: 'south (Industrial District — Factory Row)', zoneTransition: true, targetZone: 'z03' },
+    ],
+    npcs: [
+      {
+        id: 'transit_passengers', name: 'Transit Passengers', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Commuters. They stare at nothing, listen to nothing, and stand in the exact same spot every day because the mesh tells them which door aligns with their exit.',
+        dialogue: "A man glances at you, then at a spot on the ground two inches from his feet. He adjusts. The mesh told him where to stand.",
+        startingDisposition: 0,
+      },
+      {
+        id: 'busker', name: 'Busker', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Plays a broken keyboard. The melody adapts around the dead keys.',
+        dialogue: "\"The dead keys? Yeah. I know which ones. I play around them. That's the whole point — you play around what's broken.\"",
+        startingDisposition: 5,
+      },
+    ],
+    enemies: [
+      {
+        id: 'd9_plainclothes_transit', name: 'D9 Plainclothes', level: 8,
+        description: 'Stationed at the concourse permanently. The transit system is a natural chokepoint.',
+        hp: 34, attributes: { ...enemyAttrs(8), COOL: 6, GHOST: 5, REFLEX: 6 }, damage: 8, armorValue: 4,
+        behavior: 'ambush', spawnChance: 0.0, count: [1, 1],
+        drops: [
+          { itemId: 'd9_credentials', chance: 0.1, quantityRange: [1, 1] },
+          { itemId: 'surveillance_equipment', chance: 0.25, quantityRange: [1, 1] },
+        ],
+        xpReward: 60,
+      },
+    ],
+    objects: [
+      { id: 'transit_map', name: 'transit map', examineText: "The whole surface network. Industrial District south. Fringe west. Residential throughout. But the center of the map — where Helixion Campus sits — is blank. No stop. No connection. The most important building in the city is unreachable by public transit. You go there on Helixion's terms, not yours." },
+      { id: 'vending_machine', name: 'vending machine', examineText: "Helixion-branded. Nutrient bars, water, single-dose stim packs. Prices are low — subsidized. The mesh knows what you buy and when. Every transaction is data." },
+      {
+        id: 'schedule_screens', name: 'schedule screens',
+        examineText: 'The trains run every four minutes. They have never been late.',
+        gatedText: [{ attribute: 'TECH', minimum: 5, text: "The schedule isn't just timing — it's crowd management. The algorithm distributes passengers to minimize unmonitored clustering. The mesh manages foot traffic across the entire city through transit timing." }],
+      },
+      {
+        id: 'busker_melody', name: 'busker melody',
+        examineText: "He plays around the dead keys. The melody is strange — modal, not major or minor.",
+        gatedText: [{ attribute: 'GHOST', minimum: 4, text: "The ventilation shaft above the platform hums at a sub-frequency. His melody is harmonizing with it. Not intentionally. Intuitively. The frequency finds musicians first." }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    hasFastTravel: true,
+    fastTravelType: 'transit_station',
+  },
+
+  // ── 12. PENTHOUSE LEVEL ──────────────────────────────────────────────────
+
+  z02_r12: {
+    id: 'z02_r12',
+    zone: 'z02',
+    name: 'PENTHOUSE LEVEL',
+    description:
+`The elevator requires a keycard for floors above 15. Above
+15, the hallway carpet gets thicker. The lighting gets warmer.
+The air gets cleaner. By the time you reach the penthouse
+level, you're in a different city.
+
+Open-plan apartments with floor-to-ceiling windows. Smart
+furniture. A kitchen with real fruit — actual oranges. Art
+on the walls that a person chose, not an algorithm.
+
+The mesh is different here. Not stronger — subtler. Down
+below, the mesh is a leash. Up here, it's a silk glove.
+The people who live at this altitude don't feel managed.
+They feel optimized.
+
+One apartment is unlocked. The resident hasn't been home
+in three days. The food in the refrigerator is expiring.
+The mesh still shows their status as "active."`,
+    exits: [
+      { direction: 'down', targetRoom: 'z02_r09', description: 'down (Inner Boulevard — elevator)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'd9_plainclothes_penthouse', name: 'D9 Plainclothes', level: 8,
+        description: 'Disguised as building security. Permanent watch over Helixion middle management.',
+        hp: 34, attributes: { ...enemyAttrs(8), COOL: 6, GHOST: 5, REFLEX: 6 }, damage: 8, armorValue: 4,
+        behavior: 'ambush', spawnChance: 0.0, count: [1, 1],
+        drops: [
+          { itemId: 'd9_credentials', chance: 0.15, quantityRange: [1, 1] },
+          { itemId: 'surveillance_equipment', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 60,
+      },
+    ],
+    objects: [
+      {
+        id: 'empty_apartment', name: 'empty apartment',
+        examineText: "Three days. The food is turning. Fruit flies. The mesh shows the resident as 'active — compliance 99.2%.' But they're not here. Their toothbrush is dry. Their bed is made.",
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: "The apartment's internal mesh log shows a 'priority compliance appointment' three days ago. No return entry. The appointment was at the Mesh Clinic. The clinic has no record of their visit." }],
+      },
+      { id: 'real_fruit', name: 'real fruit', examineText: "Oranges. Actual oranges. The smell is overwhelming — sweet, acidic, alive. You haven't been near real citrus in months. This is what money buys in Helixion's city. Not freedom. Oranges." },
+      { id: 'smart_furniture', name: 'smart furniture', examineText: "The chair adjusts when you sit. Lumbar support calibrated to your spine. The bed maintains optimal sleep temperature. Every surface is designed to make the occupant more productive. Comfort in service of output." },
+      { id: 'penthouse_windows', name: 'penthouse windows', examineText: "The whole city spread below. From this height, the outer blocks look distant and small. The Fringe is a dark smear on the horizon. The Helixion tower rises to the north. You understand why the people who live here don't question anything. From this high up, the system looks like it works." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 13. ROOFTOP GARDEN ───────────────────────────────────────────────────
+
+  z02_r13: {
+    id: 'z02_r13',
+    zone: 'z02',
+    name: 'ROOFTOP GARDEN',
+    description:
+`You climb the fire escape past twelve floors of mid-block
+apartments and emerge onto a rooftop that shouldn't exist.
+
+A garden. A real garden. Raised beds built from reclaimed
+wood and filled with actual soil — not hydroponic substrate,
+not growing medium, but dirt. Tomatoes climbing bamboo
+stakes. Herbs in clay pots. Leafy greens under salvaged
+UV panels. A small cistern collecting rainwater.
+
+A woman in her sixties kneels in the dirt, transplanting
+seedlings with bare hands. She doesn't look up. She knows
+you're here. She's deciding if she cares.
+
+To the east, more rooftops. One of them has an antenna
+that shouldn't be there.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z02_r04', description: 'down (Mid Blocks — fire escape)' },
+      { direction: 'east', targetRoom: 'z02_r14', description: 'east (Pirate Studio — rooftop crossing)' },
+    ],
+    npcs: [
+      {
+        id: 'mae', name: 'Mae', type: 'QUESTGIVER',
+        faction: 'NONE',
+        description: 'Rooftop gardener. Sixties. Weathered. Short sentences. Former biology teacher.',
+        dialogue: "\"This is mine. I grew it. Not the mesh. Not Helixion. Me. My hands in the dirt. If you're going to stand there, make yourself useful and water the tomatoes.\"",
+        startingDisposition: -5,
+        services: ['quest', 'shop'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'raised_beds', name: 'raised beds', examineText: "Tomatoes. Actual tomatoes. Warm from the UV panels. Red and imperfect and real. Mae grows food that tastes like food used to taste. Before nutrient paste. Before Helixion optimized the human diet and removed everything that wasn't efficient." },
+      { id: 'cistern', name: 'cistern', examineText: "Rainwater collection. Gravity-fed irrigation. Mae built this herself. It's not elegant. It works. The water tastes like sky — slightly acidic from the smog, but earned." },
+      { id: 'rooftop_view', name: 'rooftop view', examineText: "The city. From this height, people are the apartments with lights on. The laundry on fire escapes. The sound of someone playing music too loud. Human from this angle." },
+      { id: 'distant_antenna', name: 'distant antenna', examineText: "On a rooftop two buildings east. An antenna that doesn't match standard Helixion relay hardware. Improvised — salvaged components, irregular shape. Someone's broadcasting from that rooftop. The path across looks crossable if you're careful." },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 14. PIRATE STUDIO ────────────────────────────────────────────────────
+
+  z02_r14: {
+    id: 'z02_r14',
+    zone: 'z02',
+    name: 'PIRATE STUDIO',
+    description:
+`Two rooftops east of Mae's garden, accessible by a narrow
+catwalk someone welded between the buildings. The antenna
+is larger up close — a Frankenstein assembly of satellite
+dish fragments, copper coils, and repurposed Helixion relay
+hardware, all feeding into a waterproof equipment case
+bolted to the roof.
+
+Inside a converted maintenance shed: screens, recording
+equipment, a microphone, stacks of data chips, and a woman
+who hasn't slept in two days and doesn't plan to start.
+
+A hand-drawn sign on the shed door: "FREQUENCY UNKNOWN —
+THE NEWS THEY DON'T WANT BROADCAST."`,
+    exits: [
+      { direction: 'west', targetRoom: 'z02_r13', description: 'west (Rooftop Garden — catwalk)' },
+      { direction: 'up', targetRoom: 'z02_r15', description: 'up (Rooftop Access — ladder)' },
+    ],
+    npcs: [
+      {
+        id: 'asha_osei', name: 'Asha Osei', type: 'QUESTGIVER',
+        faction: 'NONE',
+        description: 'Underground journalist. Thirties. Intense. Runs "Frequency Unknown" — pirate data feed.',
+        dialogue: "\"I don't care who you are. I care what you've seen. If it's true, I'll broadcast it. If it's not, get off my roof.\"",
+        startingDisposition: 5,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'antenna_array', name: 'antenna array', examineText: "Asha built this from salvage. It broadcasts on a frequency the mesh doesn't monitor — a gap in the spectrum she found by accident. The broadcast range covers the residential blocks and part of the industrial district. She reaches maybe ten thousand people. It's enough." },
+      { id: 'recording_equipment', name: 'recording equipment', examineText: "Old but functional. Physical recording media — not digital, not mesh-compatible. She records analog because analog can't be remotely wiped. Every source is stored on physical media in a fireproof case under the table." },
+      { id: 'data_chip_stacks', name: 'data chip stacks', examineText: "Her archive. Months of stories. Disappearances. Compliance anomalies. D9 patrol patterns. A folder labeled 'CHRYSALIS?' with a question mark traced over so many times the ink is thick. She's been circling the truth without enough evidence to broadcast it." },
+      {
+        id: 'frequency_unknown_sign', name: 'frequency unknown sign',
+        examineText: "'FREQUENCY UNKNOWN.' She chose the name because the gap in the spectrum she broadcasts through has no official designation.",
+        gatedText: [{ attribute: 'GHOST', minimum: 5, text: "The gap she's broadcasting through is adjacent to 33hz. Not on it. Next to it. Like the frequency left room." }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 15. ROOFTOP ACCESS ───────────────────────────────────────────────────
+
+  z02_r15: {
+    id: 'z02_r15',
+    zone: 'z02',
+    name: 'ROOFTOP ACCESS',
+    description:
+`Above the Pirate Studio, a ladder leads to the highest point
+on this building cluster — a flat concrete platform with
+the city's rooftop infrastructure stretching in every
+direction. Water tanks, HVAC units, antenna masts, and
+the narrow catwalks and maintenance paths that connect
+building to building across the skyline.
+
+This is where the Rooftop Network begins. The signal pirates
+and off-grid communities who live above the city use these
+paths. From here, you can reach the Rooftop Network zone
+and eventually the Helixion Tower rooftop far to the west.
+
+The wind is strong. The mesh signal is weaker up here.
+For the first time since entering the inner blocks, your
+thoughts feel like they belong entirely to you.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z02_r14', description: 'down (Pirate Studio)' },
+      { direction: 'north', targetRoom: 'z07_r01', description: 'north (Rooftop Network)', zoneTransition: true, targetZone: 'z07' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'rooftop_panorama', name: 'rooftop panorama', examineText: "The whole city. Laundry on fire escapes. A child flying a kite from an outer block roof. Mae's garden, two buildings west, a patch of green in the gray. The city looks like it's trying to be alive despite everything built to prevent it." },
+      { id: 'weakened_mesh', name: 'weakened mesh', examineText: "The mesh signal attenuates at this height. Fewer relay amplifiers. More electromagnetic interference from exposed HVAC and antenna equipment. Your thoughts clear. The subtle background hum you've been ignoring since you entered the inner blocks — you notice it now only because it's gone. That hum was the mesh. It was always the mesh." },
+      { id: 'catwalk_entrance', name: 'catwalk entrance', examineText: "A narrow maintenance catwalk stretching between this building and the next. The Rooftop Network. A highway above the city used by people who decided the streets were too watched. The catwalks are old, some are missing sections, and the wind is merciless. But it's free." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+};
+
+export const ZONE_02: Zone = {
+  id: 'z02',
+  name: 'RESIDENTIAL BLOCKS',
+  depth: 'surface',
+  faction: 'NONE',
+  levelRange: [5, 10],
+  description: 'Where the general population lives. Mesh-controlled comfort. The cage with the nicest furniture.',
+  atmosphere: {
+    sound: 'Inner: ambient hum, curated music, calm. Outer: traffic, shouting, illegal speakers, dogs.',
+    smell: 'Inner: synthetic fragrance, nothing organic. Outer: cooking food, exhaust, wet concrete, drainage grates.',
+    light: 'Inner: clean white streetlamps, holographic ads. Outer: neon, flickering fluorescents, shadows.',
+    temp: 'Climate-managed inner blocks. Weather-exposed outer blocks.',
+  },
+  rooms: Z02_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
+  z02: ZONE_02,
   z03: ZONE_03,
   z04: ZONE_04,
   z08: ZONE_08,

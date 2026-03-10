@@ -1061,6 +1061,152 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'utility', tier: 'COMMON', stackable: false,
     buyPrice: 25, sellPrice: 0,
   },
+
+  // ── Zone 02: Residential Blocks Items ──────────────────────────────────
+
+  // Enemy drops
+  cheap_stim: {
+    id: 'cheap_stim', name: 'Cheap Stim',
+    description: 'street-grade stimulant. works fast. crashes faster.',
+    category: 'consumable', tier: 'SCRAP', stackable: true,
+    buyPrice: 3, sellPrice: 1, healAmount: 5,
+  },
+  d9_credentials: {
+    id: 'd9_credentials', name: 'D9 Credentials',
+    description: 'directorate 9 ID chip. rare drop. opens doors that shouldn\'t open for you.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 60,
+  },
+  surveillance_equipment: {
+    id: 'surveillance_equipment', name: 'Surveillance Equipment',
+    description: 'd9 monitoring hardware. could be repurposed. sixer would pay for this.',
+    category: 'material', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 35,
+  },
+  enforcer_gear: {
+    id: 'enforcer_gear', name: 'Enforcer Gear',
+    description: 'helixion response unit tactical equipment. heavy. effective.',
+    category: 'armor', tier: 'MIL_SPEC', stackable: false,
+    slot: 'armor', armorValue: 7, sellPrice: 55,
+  },
+  damaged_mesh_components: {
+    id: 'damaged_mesh_components', name: 'Damaged Mesh Components',
+    description: 'fried neural interface fragments. the residue of someone\'s compliance.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 5,
+  },
+  stim_residue: {
+    id: 'stim_residue', name: 'Stim Residue',
+    description: 'crystallized mesh-signal residue. addicts carry this. pee might buy it.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 3,
+  },
+
+  // Quest items
+  d9_frequency_map: {
+    id: 'd9_frequency_map', name: 'D9 Frequency Map',
+    description: 'combined mesh signal recordings revealing d9 surveillance coverage. permanent advantage.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true,
+  },
+  recording_device: {
+    id: 'recording_device', name: 'Recording Device',
+    description: 'asha\'s analog recorder. physical media. can\'t be remotely wiped.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  heirloom_seeds: {
+    id: 'heirloom_seeds', name: 'Heirloom Seeds',
+    description: 'pre-helixion seed varieties. tomato, herbs, greens. things that grow without permission.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  neural_compound: {
+    id: 'neural_compound', name: 'Neural Compound',
+    description: 'stabilizer precursor. industrial grade. pee okoro can synthesize what tomas needs.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  chrysalis_targeting_data: {
+    id: 'chrysalis_targeting_data', name: 'Chrysalis Targeting Data',
+    description: 'mesh clinic records proving helixion uses consumer firmware to identify chrysalis candidates.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true, loreItem: true,
+  },
+  monitoring_device: {
+    id: 'monitoring_device', name: 'Monitoring Device',
+    description: 'sixer\'s surveillance tap. small. magnetic. plant it and walk away.',
+    category: 'quest', tier: 'COMMON', stackable: true,
+    questItem: true,
+  },
+
+  // Pee Okoro's shop stock
+  combat_stim: {
+    id: 'combat_stim', name: 'Combat Stim',
+    description: 'temporary BODY and REFLEX boost. ten minutes. the crash is real.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 25, sellPrice: 10,
+  },
+  mesh_modulator: {
+    id: 'mesh_modulator', name: 'Mesh Modulator',
+    description: 'temporary +2 GHOST. suppresses mesh detection for thirty minutes. pee\'s specialty.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 40, sellPrice: 15,
+  },
+  implant_patch: {
+    id: 'implant_patch', name: 'Implant Patch',
+    description: 'temporary cyberware repair. holds for a few hours. not a substitute for a ripperdoc.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 20, sellPrice: 8,
+  },
+  blackout_drops: {
+    id: 'blackout_drops', name: 'Blackout Drops',
+    description: 'renders a person unconscious. thirty seconds. no permanent damage. quest tool.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    buyPrice: 35, sellPrice: 12,
+  },
+
+  // Sixer's shop stock
+  d9_patrol_schedule: {
+    id: 'd9_patrol_schedule', name: 'D9 Patrol Schedule',
+    description: 'valid 24 hours. reduces d9 detection chance. sixer updates daily.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 20, sellPrice: 5,
+  },
+  neighborhood_gossip: {
+    id: 'neighborhood_gossip', name: 'Neighborhood Gossip',
+    description: 'quest hooks, NPC locations, hidden room hints. sixer knows everything.',
+    category: 'utility', tier: 'SCRAP', stackable: false,
+    buyPrice: 10, sellPrice: 3,
+  },
+  building_access_code: {
+    id: 'building_access_code', name: 'Access Code',
+    description: 'specific apartment or maintenance area. one-time use. sixer has dozens.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 15, sellPrice: 4,
+  },
+  who_asking: {
+    id: 'who_asking', name: 'Who\'s Asking',
+    description: 'sixer tells you if d9 has flagged your activity. knowledge is survival.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 0,
+  },
+
+  // Devi's shop stock (unique)
+  freemarket_contact: {
+    id: 'freemarket_contact', name: 'Freemarket Contact Token',
+    description: 'access token for yara inside the helixion atrium. the key to campus infiltration.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 80, sellPrice: 0,
+  },
+
+  // Mae's shop stock
+  mae_herbs: {
+    id: 'mae_herbs', name: 'Garden Herbs',
+    description: 'grown on the roof. organic. no side effects. mae\'s hands in the dirt.',
+    category: 'consumable', tier: 'SCRAP', stackable: true,
+    buyPrice: 6, sellPrice: 2, healAmount: 8,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -1259,4 +1405,36 @@ export const COSTA_SHOP: ShopItem[] = [
   { templateId: 'stim_pack', stock: 5 },
   { templateId: 'medkit', stock: 5 },
   { templateId: 'neural_stabilizer', stock: 3 },
+];
+
+// ── Zone 02: Residential Blocks Shops ──────────────────────────────────────
+
+export const PEE_SHOP: ShopItem[] = [
+  { templateId: 'stim_pack', stock: 10 },
+  { templateId: 'combat_stim', stock: 5 },
+  { templateId: 'mesh_modulator', stock: 4 },
+  { templateId: 'neural_stabilizer', stock: 3 },
+  { templateId: 'implant_patch', stock: 5 },
+  { templateId: 'blackout_drops', stock: 2 },
+];
+
+export const SIXER_SHOP: ShopItem[] = [
+  { templateId: 'd9_patrol_schedule', stock: 1 },
+  { templateId: 'neighborhood_gossip', stock: -1 },
+  { templateId: 'building_access_code', stock: 3 },
+  { templateId: 'who_asking', stock: -1 },
+];
+
+export const DEVI_SHOP: ShopItem[] = [
+  { templateId: 'decent_weapon', stock: 2 },
+  { templateId: 'ballistic_vest', stock: 2 },
+  { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'medkit', stock: 3 },
+  { templateId: 'data_chip', stock: 3 },
+  { templateId: 'freemarket_contact', stock: 1 },
+];
+
+export const MAE_SHOP: ShopItem[] = [
+  { templateId: 'mae_herbs', stock: -1 },
+  { templateId: 'herbal_remedy', stock: 3 },
 ];

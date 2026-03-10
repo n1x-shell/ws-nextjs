@@ -4,7 +4,7 @@
 
 import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
-import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP } from './items';
+import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP } from './items';
 import type { ShopItem } from './items';
 import { getNPCRelation } from './persistence';
 
@@ -23,6 +23,10 @@ export function getShopInventory(npcId: string): ShopItem[] | null {
     case 'oyunn': return OYUNN_SHOP;
     case 'rade': return RADE_SHOP;
     case 'dr_costa': return COSTA_SHOP;
+    case 'pee_okoro': return PEE_SHOP;
+    case 'sixer': return SIXER_SHOP;
+    case 'devi': return DEVI_SHOP;
+    case 'mae': return MAE_SHOP;
     default: return null;
   }
 }
@@ -40,6 +44,10 @@ export function getShopkeeperName(npcId: string): string {
     case 'oyunn': return 'Oyunn';
     case 'rade': return 'Rade';
     case 'dr_costa': return 'Dr. Costa';
+    case 'pee_okoro': return 'Pee Okoro';
+    case 'sixer': return 'Sixer';
+    case 'devi': return 'Devi';
+    case 'mae': return 'Mae';
     default: return npcId;
   }
 }
