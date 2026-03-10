@@ -1875,7 +1875,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
   // ── /map ────────────────────────────────────────────────────────────
   if (cmd === 'map') {
-    eventBus.emit('mud:panel-mode', { mode: 'map' });
+    eventBus.emit('mud:open-map');
     eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
     return { handled: true, stopPropagation: true };
   }

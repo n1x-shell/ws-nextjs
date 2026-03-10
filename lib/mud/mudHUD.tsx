@@ -61,6 +61,7 @@ import { SellModal, type SellModalData, type SellModalResult } from './sellModal
 import { useCombatFX, CombatFXStyles } from './combatFX';
 import { CreationOverlay } from './creationOverlay';
 import { NofogMap } from './nofogMap';
+import { FogMap } from './fogMap';
 import type { CyberwareItem, AugmentSlotType } from './cyberwareDB';
 import { cyberwareQualityColor, tierColor, getSlotCandidates } from './cyberwareDB';
 
@@ -3405,10 +3406,10 @@ function ExamineModal({ data: initialData, onClose }: { data: ExamineData; onClo
 // ── Action Bar ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQuests, onHelp, onInventory }: {
+function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQuests, onHelp, onInventory, onMap }: {
   inCombat: boolean; panelMode: PanelMode;
   showUpgrade: boolean; onUpgrade: () => void; onSkills: () => void;
-  onQuests: () => void; onHelp: () => void; onInventory: () => void;
+  onQuests: () => void; onHelp: () => void; onInventory: () => void; onMap: () => void;
 }) {
   if (inCombat) return null;
 
@@ -3434,9 +3435,7 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
             className="mud-action-btn"
             onClick={() => {
               if (isMapBtn) {
-                eventBus.emit('mud:panel-mode', {
-                  mode: panelMode === 'map' ? 'default' : 'map',
-                });
+                onMap();
               } else if (isInventoryBtn) {
                 onInventory();
               } else if (isSkillsBtn) {
@@ -4028,6 +4027,7 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
   const [sellModalData, setSellModalData] = useState<SellModalData | null>(null);
   const [flatlineData, setFlatlineData] = useState<FlatlineData | null>(null);
   const [showNofogMap, setShowNofogMap] = useState(false);
+  const [showFogMap, setShowFogMap] = useState(false);
   const mapWasActiveRef = useRef(false);
 
   // Combat FX hook — shake + glitch on hits
@@ -4142,11 +4142,14 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
   useEffect(() => {
     const openHandler = () => setShowNofogMap(true);
     const closeHandler = () => setShowNofogMap(false);
+    const mapHandler = () => setShowFogMap(true);
     eventBus.on('mud:open-nofog', openHandler);
     eventBus.on('mud:close-nofog', closeHandler);
+    eventBus.on('mud:open-map', mapHandler);
     return () => {
       eventBus.off('mud:open-nofog', openHandler);
       eventBus.off('mud:close-nofog', closeHandler);
+      eventBus.off('mud:open-map', mapHandler);
     };
   }, []);
 
@@ -4327,6 +4330,7 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
             onQuests={() => setShowQuestsModal(true)}
             onHelp={() => setShowHelpModal(true)}
             onInventory={() => setShowInventoryModal(true)}
+            onMap={() => setShowFogMap(true)}
           />
           <BottomBar data={data} onStatsClick={() => setShowStatsModal(true)} />
         </div>
@@ -4433,6 +4437,14 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
             }
             eventBus.emit('crt:glitch-tier', { tier: 1, duration: 120 });
           }}
+        />
+      )}
+
+      {/* Fog-of-war map modal (MAP button) */}
+      {showFogMap && session.character && session.world && (
+        <FogMap
+          session={session}
+          onClose={() => setShowFogMap(false)}
         />
       )}
 
