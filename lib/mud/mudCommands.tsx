@@ -921,13 +921,24 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
               key={k(`npc-${npc.id}`)}
               role="button" tabIndex={0}
               onClick={() => {
-                if (hasShop) eventBus.emit('mud:execute-command', { command: `/shop` });
-                else eventBus.emit('mud:execute-command', { command: `/talk ${npc.name}` });
+                // Open examine modal with service buttons instead of auto-triggering one service
+                const npcActions: Array<{ label: string; color: string; command?: string }> = [];
+                npcActions.push({ label: 'TALK', color: '#fcd34d', command: '/talk hello' });
+                if (canHeal) npcActions.push({ label: 'HEAL', color: '#4ade80', command: '/talk can you heal me' });
+                if (hasShop) npcActions.push({ label: 'SHOP', color: '#fcd34d', command: '/shop' });
+                if (hasQuest || isNPCQuestGiver(npc.id)) npcActions.push({ label: 'JOBS', color: '#fbbf24', command: '/jobs' });
+                eventBus.emit('mud:open-examine', {
+                  title: npc.name,
+                  color,
+                  body: npc.description,
+                  extra: [{ text: npc.dialogue, color: '#fcd34d' }],
+                  footer: npc.services?.length ? `services: ${npc.services.join(', ')}` : undefined,
+                  actions: npcActions,
+                });
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  if (hasShop) eventBus.emit('mud:execute-command', { command: `/shop` });
-                  else eventBus.emit('mud:execute-command', { command: `/talk ${npc.name}` });
+                  eventBus.emit('mud:execute-command', { command: `/examine ${npc.name}` });
                 }
               }}
               style={{
