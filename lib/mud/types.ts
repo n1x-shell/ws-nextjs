@@ -1,24 +1,25 @@
 // lib/mud/types.ts
 // TUNNELCORE MUD — Core Type Definitions
 // Zero dependencies. All MUD modules import from here.
+// Clock-based combat system (Forged in the Dark × Cortex Prime)
 
 // ── Attributes ──────────────────────────────────────────────────────────────
 
 export type AttributeName = 'BODY' | 'REFLEX' | 'TECH' | 'COOL' | 'INT' | 'GHOST';
 
 export interface Attributes {
-  BODY:   number;  // HP, melee damage, carry capacity, physical checks
-  REFLEX: number;  // Dodge, initiative, crit rate, ranged accuracy
-  TECH:   number;  // Hacking, device interaction, crafting, repair
-  COOL:   number;  // NPC disposition, barter prices, intimidation, deception
-  INT:    number;  // XP gain modifier, puzzle solving, scan depth, lore discovery
-  GHOST:  number;  // Mesh resistance, 33hz attunement, hidden content access
+  BODY:   number;  // harm clock size, melee pool, carry capacity, physical checks
+  REFLEX: number;  // ranged pool, flee pool, initiative analog
+  TECH:   number;  // hack pool, RAM clock size, device interaction
+  COOL:   number;  // NPC disposition, barter prices, stealth pool
+  INT:    number;  // scan pool, XP gain modifier, puzzle solving
+  GHOST:  number;  // mesh resistance, 33hz attunement, hidden content access
 }
 
 export const ATTRIBUTE_MIN = 3;
 export const ATTRIBUTE_MAX_CREATION = 10;
 export const ATTRIBUTE_MAX = 15;
-export const ATTRIBUTE_BASE_POOL = 30; // 6 attrs × 3 base + 12 bonus = 30
+export const ATTRIBUTE_BASE_POOL = 30;
 export const ATTRIBUTE_BONUS_POINTS = 12;
 
 // ── Archetypes ──────────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export const ARCHETYPE_INFO: Record<Archetype, {
   description: string;
   prompt: string;
   bonusAttributes: Partial<Attributes>;
-  cyberwareCap: number; // max tier
+  cyberwareCap: number;
 }> = {
   DISCONNECTED: {
     label: 'DISCONNECTED',
@@ -106,33 +107,29 @@ export interface Item {
   slot?: ItemSlot;
   stackable: boolean;
   quantity: number;
-  // Combat stats (optional, only for weapons/armor)
-  damage?: number;       // base damage
+  damage?: number;
   damageType?: 'melee' | 'ranged' | 'electric' | 'fire' | 'hack';
-  armorValue?: number;   // flat damage reduction
-  // Cyberware
-  cyberwareTier?: number; // 1-3
-  ramCost?: number;       // for quickhack items
-  // Commerce
+  armorValue?: number;
+  dieSize?: number;
+  armorSegments?: number;
+  cyberwareTier?: number;
+  ramCost?: number;
   buyPrice?: number;
   sellPrice?: number;
-  // Effects
   healAmount?: number;
-  effectId?: string;      // reference to effect system
-  // Flags
+  harmDrain?: number;
+  criticalDrain?: number;
+  armorRestore?: number;
+  effectId?: string;
   questItem?: boolean;
   loreItem?: boolean;
 }
 
-// ── Equipment (equipped items) ──────────────────────────────────────────────
-
 export type GearSlots = Partial<Record<ItemSlot, Item>>;
-
-// ── Currency ────────────────────────────────────────────────────────────────
 
 export interface Currency {
   creds: number;
-  scrip: number; // undercity barter token
+  scrip: number;
 }
 
 // ── Character ───────────────────────────────────────────────────────────────
@@ -141,7 +138,7 @@ export type OriginPoint = 'DRAINAGE' | 'IRON_BLOOM' | 'ROOFTOPS' | 'MARKET';
 
 export interface MudCharacter {
   handle: string;
-  subjectId: string;         // format: XX-######
+  subjectId: string;
   archetype: Archetype;
   combatStyle: CombatStyle;
   attributes: Attributes;
@@ -149,36 +146,40 @@ export interface MudCharacter {
   xp: number;
   hp: number;
   maxHp: number;
-  currentRoom: string;       // room ID: z##_r##
+  harmSegments: number;
+  criticalSegments: number;
+  armorSegments: number;
+  ramSegments: number;
+  styleDie: number;
+  currentRoom: string;
   origin: OriginPoint;
   skillPoints: number;
   unlockedSkills: string[];
   gear: GearSlots;
   inventory: Item[];
   currency: Currency;
-  cyberware: Item[];         // installed cyberware (max 3 slots) — legacy generic items
-  augmentSlots: {            // typed augmentation system (cyberwareDB.ts)
+  cyberware: Item[];
+  augmentSlots: {
     neural: import('./cyberwareDB').CyberwareItem | null;
     chassis: import('./cyberwareDB').CyberwareItem | null;
     limbs: import('./cyberwareDB').CyberwareItem | null;
   };
-  augmentInventory: import('./cyberwareDB').CyberwareItem[];  // unequipped cyberware items
-  sealedSlots: import('./cyberwareDB').AugmentSlotType[];     // DISCONNECTED: ['neural']
-  ram: number;               // current RAM
-  maxRam: number;            // TECH × 2
-  deaths: number;            // for ghost echo tracking
+  augmentInventory: import('./cyberwareDB').CyberwareItem[];
+  sealedSlots: import('./cyberwareDB').AugmentSlotType[];
+  ram: number;
+  maxRam: number;
+  deaths: number;
   createdAt: number;
   lastSaved: number;
   isDead: boolean;
-  godMode?: boolean;         // debug: invincible when true (hidden /godmode command)
-  // ── Progression (added by progression systems) ────────────────────────
-  pendingLevelUps: number;      // levels earned but not yet integrated at safe haven
-  unspentAttributePoints: number; // attribute points awaiting allocation
-  crossClassTree?: string;      // secondary combat tree ID (unlocks at level 10)
-  uniqueDrops: string[];        // item IDs of unique drops already received
-  discoveredSynergies: string[]; // synergy IDs the player has activated
-  lastCombatLoot?: string[];    // item IDs from last combat for /loot review
-  pendingSalvage?: {            // post-combat salvage awaiting collection
+  godMode?: boolean;
+  pendingLevelUps: number;
+  unspentAttributePoints: number;
+  crossClassTree?: string;
+  uniqueDrops: string[];
+  discoveredSynergies: string[];
+  lastCombatLoot?: string[];
+  pendingSalvage?: {
     enemies: Array<{
       name: string;
       drops: Array<{ itemId: string; name: string; taken: boolean }>;
@@ -186,7 +187,7 @@ export interface MudCharacter {
   };
 }
 
-// ── World State (per-character) ─────────────────────────────────────────────
+// ── World State ─────────────────────────────────────────────────────────────
 
 export interface MudWorldState {
   visitedRooms: string[];
@@ -197,26 +198,33 @@ export interface MudWorldState {
   declinedQuests: string[];
   worldFlags: Record<string, boolean | string | number>;
   partyId: string | null;
+  activeClocks?: import('./clockEngine').Clock[];
+  clockHistory?: {
+    clockId: string;
+    event: 'filled' | 'drained' | 'created' | 'destroyed';
+    timestamp: number;
+    context: string;
+  }[];
 }
 
-// ── NPC State (per-character) ───────────────────────────────────────────────
+// ── NPC State ───────────────────────────────────────────────────────────────
 
 export type DispositionLabel = 'HOSTILE' | 'UNFRIENDLY' | 'NEUTRAL' | 'FRIENDLY' | 'DEVOTED';
 
 export interface NPCRelation {
-  disposition: number;       // -100 to +100
-  interactions: string[];    // log of significant events
+  disposition: number;
+  interactions: string[];
   questsGiven: string[];
   questsComplete: string[];
   questsFailed: string[];
-  lastSeen: number;          // timestamp
-  timesDefeated: number;     // for enemies that survive
-  flags: string[];           // arbitrary state flags
+  lastSeen: number;
+  timesDefeated: number;
+  flags: string[];
 }
 
 export type NPCStateMap = Record<string, NPCRelation>;
 
-// ── Combat State ────────────────────────────────────────────────────────────
+// ── Legacy Combat State (kept for migration) ────────────────────────────────
 
 export type CombatantType = 'player' | 'enemy' | 'ally';
 
@@ -228,7 +236,7 @@ export interface Combatant {
   maxHp: number;
   attributes: Attributes;
   initiative: number;
-  ap: number;                // action points remaining this turn
+  ap: number;
   effects: ActiveEffect[];
   gear?: GearSlots;
   ram?: number;
@@ -248,18 +256,99 @@ export interface ActiveEffect {
 export interface CombatState {
   active: boolean;
   combatants: Combatant[];
-  turnOrder: string[];       // combatant IDs in initiative order
-  currentTurn: number;       // index into turnOrder
+  turnOrder: string[];
+  currentTurn: number;
   round: number;
-  log: string[];             // combat event log
-  sourceEnemies: RoomEnemy[]; // original room enemies for XP/drops on victory
+  log: string[];
+  sourceEnemies: RoomEnemy[];
+}
+
+// ── NEW: Clock-Based Combat State ──────────────────────────────────────────
+
+import type { Clock, ClockTrigger } from './clockEngine';
+import type { DieSize, RollResult, ApproachType, ActionType } from './dicePool';
+
+export type { DieSize, RollResult, ApproachType, ActionType, ClockTrigger };
+
+export type TurnPhase =
+  | 'player_choose'
+  | 'player_resolve'
+  | 'enemy_action'
+  | 'environment_tick'
+  | 'end_check';
+
+export interface EnemyBehavior {
+  type: 'aggressive' | 'defensive' | 'swarm' | 'sniper' | 'hacker' | 'boss';
+  targetPriority: 'harm' | 'danger' | 'status';
+  retreatThreshold?: number;
+  specialAction?: string;
+}
+
+export interface ClockCombatant {
+  id: string;
+  name: string;
+  tier: number;
+  harmClockId: string;
+  armorClockId: string | null;
+  behavior: EnemyBehavior;
+  attackDice: DieSize[];
+  dangerClockId?: string;
+  statusClocks: string[];
+  defeated: boolean;
+  xpReward: number;
+  drops: LootEntry[];
+}
+
+export interface CombatLogEntry {
+  round: number;
+  actor: string;
+  action: string;
+  clockChanges: { clockId: string; name: string; from: number; to: number; segments: number }[];
+  rollResult?: RollResult;
+  narrative?: string;
+}
+
+export interface ClockCombatState {
+  active: boolean;
+  round: number;
+  clocks: Clock[];
+  enemies: ClockCombatant[];
+  playerClocks: {
+    harm: string;
+    critical: string;
+    armor: string | null;
+    downed: string | null;
+    ram: string | null;
+  };
+  turnPhase: TurnPhase;
+  approachChosen: boolean;
+  currentApproach?: ApproachType;
+  currentAction?: ActionType;
+  currentTargetId?: string;
+  log: CombatLogEntry[];
+  sourceEnemies: RoomEnemy[];
+  environmentClocks: string[];
+  narrativeContext: string;
+}
+
+export type ClockCombatEnd =
+  | { over: false }
+  | { over: true; victory: boolean; xpGained: number; drops: string[]; survivingClocks: Clock[] };
+
+export interface ClockChange {
+  clockId: string;
+  clockName: string;
+  from: number;
+  to: number;
+  segments: number;
+  filled: boolean;
+  triggerFired?: ClockTrigger;
 }
 
 // ── Room System ─────────────────────────────────────────────────────────────
 
 export type Direction = 'north' | 'south' | 'east' | 'west' | 'northeast' | 'northwest' | 'southeast' | 'southwest' | 'up' | 'down' | 'in' | 'out';
 
-/** Shorthand aliases for direction matching (used in /go command resolution) */
 export const DIRECTION_ALIASES: Record<string, Direction> = {
   n: 'north', s: 'south', e: 'east', w: 'west',
   ne: 'northeast', nw: 'northwest', se: 'southeast', sw: 'southwest',
@@ -268,14 +357,14 @@ export const DIRECTION_ALIASES: Record<string, Direction> = {
 
 export interface RoomExit {
   direction: Direction;
-  targetRoom: string;        // room ID
-  description: string;       // e.g. "north (The Narrows)"
+  targetRoom: string;
+  description: string;
   locked?: boolean;
-  lockId?: string;           // key item or quest flag required
-  hidden?: boolean;          // requires GHOST or INT check
+  lockId?: string;
+  hidden?: boolean;
   hiddenRequirement?: { attribute: AttributeName; minimum: number };
-  zoneTransition?: boolean;  // crossing into another zone
-  targetZone?: string;       // zone ID if transition
+  zoneTransition?: boolean;
+  targetZone?: string;
 }
 
 export type NPCType = 'QUESTGIVER' | 'SHOPKEEPER' | 'ALLIED' | 'NEUTRAL' | 'ENEMY' | 'BOSS';
@@ -286,7 +375,7 @@ export interface RoomNPC {
   type: NPCType;
   faction: string;
   description: string;
-  dialogue: string;          // first-encounter hook
+  dialogue: string;
   startingDisposition: number;
   services?: ('shop' | 'heal' | 'quest' | 'hire' | 'info')[];
   level?: number;
@@ -297,21 +386,33 @@ export interface RoomEnemy {
   id: string;
   name: string;
   level: number;
-  description: string;
-  hp: number;
-  attributes: Attributes;
-  damage: number;
-  armorValue: number;
-  behavior: 'passive' | 'territorial' | 'aggressive' | 'ambush' | 'patrol';
-  spawnChance: number;       // 0-1, 1 = always present
-  count: [number, number];   // [min, max] spawn count
+  description?: string;
+  hp?: number;
+  attributes?: Attributes;
+  damage?: number;
+  armorValue?: number;
+  behavior: string | EnemyBehavior;
+  spawnChance: number;
+  count: [number, number];
   drops: LootEntry[];
   xpReward: number;
+  tier?: number;
+  harmSegments?: number;
+  armorSegments?: number;
+  attackDice?: DieSize[];
+  dangerClockContribution?: {
+    clockTemplate: import('./clockEngine').ClockTemplate;
+    ticksPerRound: number;
+  };
+  statusAbilities?: {
+    clockTemplate: import('./clockEngine').ClockTemplate;
+    chance: number;
+  }[];
 }
 
 export interface LootEntry {
   itemId: string;
-  chance: number;            // 0-1
+  chance: number;
   quantityRange: [number, number];
 }
 
@@ -319,37 +420,35 @@ export interface RoomObject {
   id: string;
   name: string;
   examineText: string;
-  // Gated descriptions for attribute checks
   gatedText?: {
     attribute: AttributeName;
     minimum: number;
     text: string;
   }[];
-  // Interactive
   lootable?: boolean;
   lootTable?: LootEntry[];
   interactable?: boolean;
-  interactAction?: string;   // event ID
+  interactAction?: string;
   hidden?: boolean;
   hiddenRequirement?: { attribute: AttributeName; minimum: number };
 }
 
 export interface Room {
-  id: string;                // format: z##_r## (e.g. z08_r01)
-  zone: string;              // zone ID (e.g. z08)
+  id: string;
+  zone: string;
   name: string;
-  description: string;       // the room's display text (the ```block``` from the zone doc)
+  description: string;
   exits: RoomExit[];
   npcs: RoomNPC[];
   enemies: RoomEnemy[];
   objects: RoomObject[];
-  isSafeZone: boolean;       // combat not allowed / NPCs protected
-  isHidden: boolean;         // room only visible with attribute check
+  isSafeZone: boolean;
+  isHidden: boolean;
   hiddenRequirement?: { attribute: AttributeName; minimum: number };
-  // Fast travel
   hasFastTravel?: boolean;
   fastTravelType?: 'transit_station' | 'drainage_access' | 'signal_relay' | 'iron_bloom_shuttle';
   fastTravelRequirement?: { attribute: AttributeName; minimum: number };
+  environmentalClocks?: import('./clockEngine').ClockTemplate[];
 }
 
 // ── Zone ────────────────────────────────────────────────────────────────────
@@ -382,7 +481,7 @@ export interface QuestObjective {
   id: string;
   description: string;
   type: 'go_to' | 'kill' | 'collect' | 'talk_to' | 'deliver' | 'examine' | 'survive' | 'escort';
-  target: string;            // room ID, NPC ID, item ID, etc.
+  target: string;
   current: number;
   required: number;
   completed: boolean;
@@ -392,10 +491,10 @@ export interface QuestReward {
   xp: number;
   creds?: number;
   scrip?: number;
-  items?: string[];          // item IDs
+  items?: string[];
   factionRep?: Record<string, number>;
   worldFlags?: Record<string, boolean | string | number>;
-  unlocks?: string[];        // room IDs, NPC IDs, etc.
+  unlocks?: string[];
 }
 
 export interface QuestBranch {
@@ -413,10 +512,10 @@ export interface QuestBranch {
 export interface Quest {
   id: string;
   title: string;
-  giver: string;             // NPC ID
+  giver: string;
   tier: 1 | 2 | 3 | 4 | 5;
   type: QuestType;
-  description: string;       // in-character briefing
+  description: string;
   objectives: QuestObjective[];
   rewards: QuestReward;
   failureConsequences?: {
@@ -425,9 +524,9 @@ export interface Quest {
   };
   branches?: QuestBranch[];
   repeatable: boolean;
-  prerequisites: string[];   // quest IDs or world flags
+  prerequisites: string[];
   levelRequirement?: number;
-  expiresAfter?: number;     // milliseconds, null = never
+  expiresAfter?: number;
 }
 
 // ── Faction System ──────────────────────────────────────────────────────────
@@ -436,28 +535,16 @@ export type FactionId = 'IRON_BLOOM' | 'THE_PARISH' | 'HELIXION' | 'DIRECTORATE_
 
 export interface FactionReputation {
   factionId: FactionId;
-  reputation: number;        // -100 to +100, same scale as NPC disposition
+  reputation: number;
   label: DispositionLabel;
 }
 
 // ── Skill Trees ─────────────────────────────────────────────────────────────
 
-export type SkillTree = 'CHROME' | 'SYNAPSE' | 'BALLISTIC' | 'GHOST_TREE';
-
-export interface SkillNode {
-  id: string;
-  tree: SkillTree;
-  tier: 1 | 2 | 3 | 4;
-  name: string;
-  description: string;
-  prerequisite?: string;     // skill ID
-  attributeRequirement?: { attribute: AttributeName; minimum: number };
-  effect: string;            // effect description for display
-}
+export type SkillTreeType = 'CHROME' | 'SYNAPSE' | 'BALLISTIC' | 'GHOST_TREE';
 
 // ── Level / Progression ─────────────────────────────────────────────────────
 
-/** XP required for a given level: (level - 1) × level × 50 */
 export function xpForLevel(level: number): number {
   if (level <= 1) return 0;
   return (level - 1) * level * 50;
@@ -493,7 +580,7 @@ export function getDispositionLabel(value: number): DispositionLabel {
 
 export function getPriceModifier(disposition: DispositionLabel): number {
   switch (disposition) {
-    case 'HOSTILE':    return 999; // won't sell
+    case 'HOSTILE':    return 999;
     case 'UNFRIENDLY': return 1.5;
     case 'NEUTRAL':    return 1.0;
     case 'FRIENDLY':   return 0.9;
@@ -501,7 +588,7 @@ export function getPriceModifier(disposition: DispositionLabel): number {
   }
 }
 
-// ── MUD Session State (runtime, not persisted) ──────────────────────────────
+// ── MUD Session State ──────────────────────────────────────────────────────
 
 export type MudPhase = 'inactive' | 'character_creation' | 'active' | 'combat' | 'dialogue' | 'dead';
 
@@ -518,7 +605,7 @@ export interface MudSession {
   character: MudCharacter | null;
   world: MudWorldState | null;
   npcState: NPCStateMap | null;
-  combat: CombatState | null;
+  combat: ClockCombatState | null;
   creation: CreationProgress | null;
 }
 

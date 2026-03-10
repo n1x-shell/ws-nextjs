@@ -25,6 +25,8 @@ import {
   LEVEL_CAP,
   HP_PER_LEVEL,
 } from './types';
+import { calculateHarmSegments, armorSegmentsForTier } from './clockEngine';
+import { getStyleDieSize } from './dicePool';
 import { createItem } from './items';
 import { getStarterKit } from './items';
 import { getStarterAugments, getSealedSlots } from './cyberwareDB';
@@ -225,6 +227,11 @@ export function buildCharacter(
     xp: 0,
     hp: maxHp,
     maxHp,
+    harmSegments: calculateHarmSegments(attributes.BODY, archetype),
+    criticalSegments: 4,
+    armorSegments: armor ? armorSegmentsForTier(armor.tier) : 0,
+    ramSegments: maxRam,
+    styleDie: 6, // starts at d6
     currentRoom: getOriginSpawnRoom(origin),
     origin,
     skillPoints: 0,
@@ -368,9 +375,11 @@ export function spendAttributePoint(
     const hpGain = newMaxHp - character.maxHp;
     character.maxHp = newMaxHp;
     character.hp += hpGain;
+    character.harmSegments = calculateHarmSegments(character.attributes.BODY, character.archetype);
   }
   if (attribute === 'TECH') {
     character.maxRam = calculateMaxRam(character.attributes.TECH);
+    character.ramSegments = character.maxRam;
   }
 
   return { success: true };
@@ -413,6 +422,14 @@ export function processLevelUp(character: MudCharacter): LevelUpResult {
   character.hp = character.maxHp; // Full heal on level-up
   character.maxRam = calculateMaxRam(character.attributes.TECH);
   character.ram = character.maxRam;
+
+  // Recalculate clock segments
+  character.harmSegments = calculateHarmSegments(character.attributes.BODY, character.archetype);
+  character.criticalSegments = 4;
+  character.ramSegments = character.maxRam;
+  character.styleDie = getStyleDieSize(character);
+  const armorItem = character.gear?.armor;
+  if (armorItem) character.armorSegments = armorSegmentsForTier(armorItem.tier);
 
   // Grant points
   if (!character.unspentAttributePoints) character.unspentAttributePoints = 0;
