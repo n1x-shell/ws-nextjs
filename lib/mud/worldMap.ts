@@ -50,6 +50,7 @@ Someone scratched into the wall near the ladder:
     ],
     isSafeZone: true,
     isHidden: false,
+    traitDice: [{ name: 'NARROW PASSAGE', die: 6, benefitsActions: ['flee'] }],
   },
 
   // ── 2. THE NARROWS ──────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ that direction — distant, but human.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'SAFE GROUND', die: 6, benefitsActions: ['recover'], color: '#a5f3fc' }],
   },
 
   // ── 3. THE JUNCTION ─────────────────────────────────────────────────────
@@ -144,6 +146,7 @@ don't. You're not the first stranger to climb down the ladder.`,
     ],
     isSafeZone: true,
     isHidden: false,
+    traitDice: [{ name: 'CROSSFIRE ANGLES', die: 8, hindersActions: ['flee'], color: '#ff6b6b' }],
   },
 
   // ── 4. NORTH CHANNEL ────────────────────────────────────────────────────
@@ -191,6 +194,7 @@ The channel forks ahead.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'TOXIC SPORES', die: 8, hindersActions: ['attack', 'scan'], color: '#c084fc' }],
   },
 
   // ── 5. THE DEEP GATE ────────────────────────────────────────────────────
@@ -229,6 +233,7 @@ AUTHORIZED PERSONNEL ONLY`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'HIGH GROUND', die: 6, benefitsActions: ['attack', 'scan'] }],
   },
 
   // ── 6. PUMP ROOM ────────────────────────────────────────────────────────
@@ -308,6 +313,7 @@ LE-751078`,
     ],
     isSafeZone: true,
     isHidden: false,
+    traitDice: [{ name: 'TOXIC RUNOFF', die: 8, benefitsActions: ['hack'], hindersActions: ['attack'], color: '#4ade80' }],
   },
 
   // ── 8. THE CLINIC ───────────────────────────────────────────────────────
@@ -408,6 +414,7 @@ Scratch marks on the walls. Fresh ones.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'LOW LIGHT', die: 6, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
   },
 
   // ── 10. STORAGE CHAMBERS ────────────────────────────────────────────────
@@ -452,6 +459,7 @@ recognize yet.`,
     ],
     isSafeZone: true,
     isHidden: false,
+    traitDice: [{ name: 'DEEP WATER', die: 8, hindersActions: ['flee', 'attack'], color: '#60a5fa' }],
   },
 
   // ── 11. ELDER'S CHAMBER ─────────────────────────────────────────────────
@@ -612,6 +620,7 @@ there, it's been eating well.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'CONFINED SPACE', die: 6, benefitsActions: ['attack'], hindersActions: ['flee'], color: '#ff6b6b' }],
   },
 
   // ── 14. SIGNAL HOLLOW ───────────────────────────────────────────────────

@@ -64,10 +64,11 @@ import {
   QUICKHACKS,
   getPlayerHarmClock, getPlayerArmorClock, getPlayerRamClock,
   getEnemyClocks,
+  applyPlayerHarm,
   type PlayerResolveResult, type HackResult, type ScanResult, type FleeResult,
 } from './combat';
 import { renderClockText, findClock, isClockFull, clockPercent } from './clockEngine';
-import { formatPoolCompact, formatRolledDie, getOutcomeTier, attributeToDie } from './dicePool';
+import { formatPoolCompact, formatRolledDie, getOutcomeTier, attributeToDie, rollResistance } from './dicePool';
 import type { ApproachType } from './dicePool';
 import {
   routeDialogue, buildDialogueRequest, recordInteraction,
@@ -1080,8 +1081,8 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
   const char = session.character;
   if (!combat || !char) return;
 
-  // ── Enemy actions ──
-  const enemyResult = processEnemyActions(combat, char.godMode);
+  // ── Enemy actions (defer harm so player can resist) ──
+  const enemyResult = processEnemyActions(combat, char.godMode, true);
   session.combat = enemyResult.combat;
 
   for (const action of enemyResult.actions) {
@@ -1092,17 +1093,17 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
         </MudLine>
       );
     } else if (action.hitPlayer) {
-      const ticks = action.clockChanges.reduce((sum, cc) => sum + Math.abs(cc.to - cc.from), 0);
+      const ticks = action.harmTicks ?? 0;
       addLocalMsg(
         <div key={k(`enemy-act-${action.enemyId}`)} style={{ marginBottom: '0.5rem' }}>
           <MudLine color={C.enemy}>
-            {action.enemyName} strikes — {ticks > 0 ? `${ticks} harm` : 'blocked'}
+            {action.enemyName} strikes — {ticks > 0 ? `${ticks} harm incoming` : 'blocked'}
           </MudLine>
-          {action.clockChanges.map((cc, i) => (
-            <MudLine key={k(`ecc-${i}`)} indent color={C.dim}>
-              {cc.clockName} {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]
+          {action.complicationCreated && (
+            <MudLine color="#c084fc" indent>
+              {'⚠'} {action.complicationCreated}
             </MudLine>
-          ))}
+          )}
         </div>
       );
       emitPlayerDamage(ticks >= 3);
@@ -1115,8 +1116,54 @@ function processAllEnemyTurns(session: MudSession, addLocalMsg: AddLocalMsg): vo
     }
   }
 
+  // ── Check for pending harm → set resist window ──
+  const totalPending = enemyResult.totalPendingHarm;
+  if (totalPending > 0 && !char.godMode) {
+    // Determine best attribute for resist (highest of BODY or REFLEX)
+    const resistAttr: AttributeName = char.attributes.BODY >= char.attributes.REFLEX ? 'BODY' : 'REFLEX';
+    const hitSources = enemyResult.actions.filter(a => a.hitPlayer).map(a => a.enemyName).join(', ');
+
+    session.combat = {
+      ...session.combat!,
+      pendingResist: {
+        harmTicks: totalPending,
+        attribute: resistAttr,
+        source: hitSources,
+      },
+      // Don't advance to environment_tick yet — wait for resist resolution
+      turnPhase: 'player_choose',
+    };
+
+    addLocalMsg(
+      <div key={k('resist-prompt')} style={{
+        margin: '0.4rem 0', padding: '0.4rem 0.6rem',
+        border: '1px solid rgba(251,191,36,0.3)',
+        borderRadius: 3,
+        background: 'rgba(251,191,36,0.05)',
+      }}>
+        <MudLine color="#fbbf24" bold>
+          RESIST? type /resist or press [{'⏎'}] to accept {totalPending} harm
+        </MudLine>
+        <MudLine color={C.dim} indent>
+          costs 0-2 stress · rolls {resistAttr} d{attributeToDie(char.attributes[resistAttr])}
+          {(combat.surge ?? 0) > 0 && ' · or /resist free (1 surge)'}
+        </MudLine>
+      </div>
+    );
+    return; // Don't tick environment yet — wait for resist resolution
+  }
+
+  // ── No harm to resist — proceed normally ──
+  finishEnemyPhase(session, addLocalMsg);
+}
+
+/** Complete environment tick + sync + round divider after enemy harm is resolved. */
+function finishEnemyPhase(session: MudSession, addLocalMsg: AddLocalMsg): void {
+  const char = session.character;
+  if (!char || !session.combat) return;
+
   // ── Environment tick ──
-  const envResult = tickEnvironment(enemyResult.combat);
+  const envResult = tickEnvironment(session.combat);
   session.combat = envResult.combat;
 
   for (const cc of envResult.clockChanges) {
@@ -1289,7 +1336,115 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
   // ══════════════════════════════════════════════════════════════════════
 
   if (session.phase === 'combat' && session.combat) {
-    const combat = session.combat;
+    let combat = session.combat;
+
+    // ── Resolve pending resist before ANY command ─────────────────────
+    if (combat.pendingResist) {
+      const pending = combat.pendingResist;
+      if (cmd === 'resist') {
+        // Roll resistance — spend stress to reduce harm
+        const useSurge = rest === 'free' && (combat.surge ?? 0) > 0;
+        const attrValue = char.attributes[pending.attribute] ?? char.attributes.BODY;
+        const resistResult = rollResistance(attrValue, pending.harmTicks);
+
+        if (useSurge) {
+          // Free resist via surge — no stress cost
+          session.combat = { ...combat, surge: combat.surge - 1, pendingResist: undefined };
+          const actualHarm = resistResult.totalAfterResist;
+          // Apply reduced harm
+          if (actualHarm > 0) {
+            const pc = { ...session.combat.playerClocks };
+            const clocks = [...session.combat.clocks];
+            const changes: import('./types').ClockChange[] = [];
+            applyPlayerHarm(pc, clocks, actualHarm, changes, []);
+            session.combat = { ...session.combat, clocks, playerClocks: pc };
+          }
+          addLocalMsg(
+            <div key={k('resist-surge')}>
+              <MudLine color="#fcd34d" glow>
+                {'★'} FREE RESIST: {pending.attribute} d{resistResult.die} {'→'} [{resistResult.roll}] — {resistResult.ticksNegated} harm negated
+              </MudLine>
+              {resistResult.totalAfterResist > 0 && (
+                <MudLine indent color={C.enemy}>{resistResult.totalAfterResist} harm applied</MudLine>
+              )}
+            </div>
+          );
+        } else {
+          // Standard resist — costs stress
+          const stressAfter = char.stress + resistResult.stressCost;
+          char.stress = Math.min(char.maxStress, stressAfter);
+          const actualHarm = resistResult.totalAfterResist;
+          session.combat = { ...combat, pendingResist: undefined };
+          // Apply reduced harm
+          if (actualHarm > 0) {
+            const pc = { ...session.combat.playerClocks };
+            const clocks = [...session.combat.clocks];
+            const changes: import('./types').ClockChange[] = [];
+            applyPlayerHarm(pc, clocks, actualHarm, changes, []);
+            session.combat = { ...session.combat, clocks, playerClocks: pc };
+          }
+          addLocalMsg(
+            <div key={k('resist-roll')}>
+              <MudLine color="#fbbf24" glow>
+                RESIST: {pending.attribute} d{resistResult.die} {'→'} [{resistResult.roll}] — {resistResult.stressCost === 0 ? '0 stress' : `${resistResult.stressCost} stress`}. {resistResult.ticksNegated >= pending.harmTicks ? 'harm negated.' : `${resistResult.ticksNegated} negated.`}
+              </MudLine>
+              {resistResult.totalAfterResist > 0 && (
+                <MudLine indent color={C.enemy}>{resistResult.totalAfterResist} harm applied</MudLine>
+              )}
+              <MudLine indent color={C.dim}>stress: [{char.stress}/{char.maxStress}]</MudLine>
+            </div>
+          );
+          // Check trauma trigger
+          if (char.stress >= char.maxStress) {
+            eventBus.emit('mud:open-trauma', { payload: { character: char } });
+          }
+        }
+        syncClockCombatToCharacter(session.combat, char);
+        finishEnemyPhase(session, addLocalMsg);
+        saveCombat(char.handle, session.combat);
+        saveCharacter(char.handle, char);
+        setSession({ ...session });
+        // Check combat end after harm applied
+        const endCheck = checkClockCombatEnd(session.combat);
+        if (endCheck.over && !endCheck.victory) {
+          handleDeath(session, addLocalMsg, setSession);
+        }
+        return { handled: true, stopPropagation: true };
+      } else {
+        // Player chose NOT to resist — accept full harm
+        const pc = { ...combat.playerClocks };
+        const clocks = [...combat.clocks];
+        const changes: import('./types').ClockChange[] = [];
+        applyPlayerHarm(pc, clocks, pending.harmTicks, changes, []);
+        session.combat = { ...combat, clocks, playerClocks: pc, pendingResist: undefined };
+        addLocalMsg(
+          <div key={k('resist-skip')}>
+            <MudLine color={C.dim}>
+              {pending.harmTicks} harm accepted.
+            </MudLine>
+            {changes.map((cc, i) => (
+              <MudLine key={k(`rcc-${i}`)} indent color={C.dim}>
+                {cc.clockName} {'█'.repeat(cc.to)}{'░'.repeat(cc.segments - cc.to)} [{cc.to}/{cc.segments}]
+              </MudLine>
+            ))}
+          </div>
+        );
+        syncClockCombatToCharacter(session.combat, char);
+        finishEnemyPhase(session, addLocalMsg);
+        saveCombat(char.handle, session.combat);
+        // Check combat end after harm applied
+        const endCheck = checkClockCombatEnd(session.combat);
+        if (endCheck.over && !endCheck.victory) {
+          handleDeath(session, addLocalMsg, setSession);
+          return { handled: true, stopPropagation: true };
+        }
+        // Fall through to process the actual command below
+      }
+    }
+
+    // Re-read combat state after potential resist resolution
+    combat = session.combat!;
+
     const COMBAT_CMDS = ['attack', 'a', 'hack', 'h', 'use', 'u', 'scan', 'flee', 'run', 'push', 'asset', 'resist', 'stats', 'inventory', 'inv', 'i', 'save', 'mudhelp', 'mhelp', 'commands', 'help', '?', 'skills', 'skillinfo', 'sinfo', 'loot'];
 
     if (!COMBAT_CMDS.includes(cmd)) {
@@ -1786,17 +1941,14 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
 
     // ── /resist (spend stress or surge to reduce incoming harm) ──────
     if (cmd === 'resist') {
-      // This command is mainly used reactively during enemy phase,
-      // but can also be used proactively to clear a complication
-      if (!rest) {
-        addLocalMsg(
-          <MudNotice key={k('resist-usage')}>
-            /resist is used during enemy attacks. costs 0-2 stress.
-            if you have {'★'} surge, you can /resist free (costs 1 surge instead).
-          </MudNotice>
-        );
-        return { handled: true, stopPropagation: true };
-      }
+      // Resist is only useful when there's a pendingResist (handled above)
+      // If we get here, there's no pending resist
+      addLocalMsg(
+        <MudNotice key={k('resist-usage')}>
+          /resist is used when harm is incoming. wait for the RESIST? prompt.
+          {(combat.surge ?? 0) > 0 && <span> use /resist free to spend {'★'} surge instead of stress.</span>}
+        </MudNotice>
+      );
       return { handled: true, stopPropagation: true };
     }
 
@@ -2346,6 +2498,9 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       armorSegments: armorSegs,
       ramBefore: Math.max(0, preRestRamUsed),
       ramSegments: ramSegs,
+      stressBefore: char.stress + (result.stressDrained ?? 0),
+      stressAfter: char.stress,
+      maxStress: char.maxStress ?? 8,
       pendingLevelUps: pending,
       level: char.level,
     });

@@ -228,6 +228,7 @@ interface PanelEnemy {
   hp?: number;
   maxHp?: number;
   effects?: string[];
+  complications?: Array<{ name: string; die: number }>;
   // Clock data
   harmFilled?: number;
   harmSegments?: number;
@@ -348,6 +349,10 @@ export function getMudPanelData(session: MudSession): PanelData | null {
         const harmSegs = clocks.harm?.segments ?? 3;
         // Convert clock state to HP-like percentage for existing Bar component
         const hpPct = harmSegs > 0 ? Math.round(((harmSegs - harmFilled) / harmSegs) * 100) : 100;
+        // Gather complications owned by this enemy
+        const enemyComps = (session.combat!.complications ?? [])
+          .filter(comp => comp.owner === c.id && comp.duration !== 0)
+          .map(comp => ({ name: comp.name, die: comp.die }));
         return {
           id: c.id, name: c.name, level: 0,
           hp: harmSegs - harmFilled, maxHp: harmSegs,
@@ -357,6 +362,7 @@ export function getMudPanelData(session: MudSession): PanelData | null {
           tier: c.tier,
           behavior: c.behavior.type,
           effects: clocks.status.map(s => s.name),
+          complications: enemyComps,
         };
       })
     : room.enemies.map(e => ({
@@ -1157,7 +1163,28 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
         <ClockBar filled={armorFilled} segments={armorSegs} color="#60a5fa" label="ARMOR" inverted compact={compact} />
       )}
 
-      {/* Status effects */}
+      {/* Complications (Cortex stepping dice) */}
+      {enemy.complications && enemy.complications.length > 0 && (
+        <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#c084fc', marginTop: '0.25rem', display: 'flex', gap: '0.4ch', flexWrap: 'wrap' }}>
+          {enemy.complications.map((comp, i) => {
+            const step = comp.die === 4 ? 0 : comp.die === 6 ? 1 : comp.die === 8 ? 2 : comp.die === 10 ? 3 : 4;
+            const isMax = comp.die >= 12;
+            return (
+              <span key={i} style={{
+                padding: '0.1rem 0.3rem',
+                border: `1px solid ${isMax ? 'rgba(255,68,68,0.5)' : 'rgba(192,132,252,0.25)'}`,
+                borderRadius: 2,
+                background: isMax ? 'rgba(255,30,30,0.12)' : 'rgba(192,132,252,0.06)',
+                animation: isMax ? 'mud-pulse-red 1.5s ease-in-out infinite' : 'none',
+              }}>
+                {comp.name} d{comp.die} {'\u25B2'.repeat(step)}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Status effects (legacy clock system) */}
       {enemy.effects && enemy.effects.length > 0 && (
         <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.hack, marginTop: '0.25rem', display: 'flex', gap: '0.4ch', flexWrap: 'wrap' }}>
           {enemy.effects.map((eff, i) => (
@@ -3806,10 +3833,151 @@ function CombatHeader({ data }: { data: PanelData }) {
                     ))}
                   </div>
                 )}
+                {enemy.complications && enemy.complications.length > 0 && (
+                  <div style={{ display: 'flex', gap: '0.3ch' }}>
+                    {enemy.complications.map((comp, j) => {
+                      const step = comp.die === 4 ? 0 : comp.die === 6 ? 1 : comp.die === 8 ? 2 : comp.die === 10 ? 3 : 4;
+                      const isMax = comp.die >= 12;
+                      return (
+                        <span key={`comp-${j}`} style={{
+                          fontSize: '8px', color: isMax ? '#ff4444' : '#c084fc',
+                          border: `1px solid ${isMax ? 'rgba(255,68,68,0.5)' : 'rgba(192,132,252,0.25)'}`,
+                          padding: '0 0.25rem', borderRadius: 1,
+                          animation: isMax ? 'mud-pulse-red 1.5s ease-in-out infinite' : 'none',
+                        }}>
+                          {comp.name} d{comp.die} {'\u25B2'.repeat(step)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── TraumaModal — Stress overflow trauma selection ────────────────────────────
+// Displayed when char.stress >= char.maxStress. Player picks a permanent trauma.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const TRAUMA_OPTIONS: Array<{
+  id: string;
+  label: string;
+  description: string;
+  opposes: string;
+}> = [
+  { id: 'PARANOID', label: 'PARANOID', description: 'd6 complication on all scan/social pools', opposes: 'scan, social' },
+  { id: 'RECKLESS', label: 'RECKLESS', description: 'd6 complication on all defend/flee pools', opposes: 'defend, flee' },
+  { id: 'COLD', label: 'COLD', description: 'd6 complication on all NPC interaction (COOL) pools', opposes: 'COOL-based' },
+  { id: 'OBSESSED', label: 'OBSESSED', description: 'd6 complication on all non-primary-style pools', opposes: 'off-style' },
+];
+
+function TraumaModal({ onSelect, existingTraumas }: {
+  onSelect: (traumaId: string) => void;
+  existingTraumas: string[];
+}) {
+  const available = TRAUMA_OPTIONS.filter(t => !existingTraumas.includes(t.id));
+
+  return (
+    <div
+      style={{
+        position: 'absolute', inset: 0, zIndex: 110,
+        background: 'rgba(2,3,8,0.92)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem',
+        animation: 'mud-fade-in 0.4s ease-out',
+      }}
+    >
+      <SubstrateBackground opacity={0.3} />
+      <div style={{
+        width: '100%', maxWidth: 420,
+        background: 'rgba(10,10,10,0.8)',
+        border: '2px solid rgba(255,68,68,0.4)',
+        borderRadius: 4,
+        position: 'relative', zIndex: 1,
+        boxShadow: '0 0 40px rgba(255,30,30,0.15), 0 0 80px rgba(0,0,0,0.6)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '0.7rem 0.8rem',
+          borderBottom: '1px solid rgba(255,68,68,0.2)',
+          background: 'rgba(255,30,30,0.06)',
+        }}>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+            color: '#ff4444', letterSpacing: '0.1em',
+            textShadow: '0 0 10px rgba(255,68,68,0.5)',
+          }}>
+            STRESS OVERFLOW
+          </div>
+        </div>
+
+        {/* Narrative */}
+        <div style={{
+          padding: '0.8rem',
+          borderBottom: '1px solid rgba(255,68,68,0.1)',
+        }}>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: 'rgba(var(--phosphor-rgb),0.55)', lineHeight: 1.8,
+            fontStyle: 'italic',
+          }}>
+            your signal fractures. something breaks that won{'\u2019'}t heal.
+            <br />
+            the pressure was too much. a piece of you rewrites itself
+            <br />
+            to survive. choose what you become.
+          </div>
+        </div>
+
+        {/* Trauma options */}
+        <div style={{ padding: '0.6rem' }}>
+          {available.map(trauma => (
+            <button
+              key={trauma.id}
+              onClick={() => onSelect(trauma.id)}
+              style={{
+                display: 'block', width: '100%',
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: '#ff6b6b', textAlign: 'left',
+                background: 'rgba(255,30,30,0.03)',
+                border: '1px solid rgba(255,68,68,0.2)',
+                borderRadius: 3, padding: '0.5rem 0.7rem',
+                marginBottom: '0.4rem', cursor: 'pointer',
+                touchAction: 'manipulation',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                (e.target as HTMLElement).style.background = 'rgba(255,30,30,0.1)';
+                (e.target as HTMLElement).style.borderColor = 'rgba(255,68,68,0.5)';
+              }}
+              onMouseLeave={(e) => {
+                (e.target as HTMLElement).style.background = 'rgba(255,30,30,0.03)';
+                (e.target as HTMLElement).style.borderColor = 'rgba(255,68,68,0.2)';
+              }}
+            >
+              <div style={{ fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>
+                {trauma.label}
+              </div>
+              <div style={{ color: 'rgba(var(--phosphor-rgb),0.45)', fontSize: '0.9em' }}>
+                {trauma.description}
+              </div>
+            </button>
+          ))}
+          {available.length === 0 && (
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: '#ff4444', textAlign: 'center', padding: '1rem',
+            }}>
+              all traumas acquired. there{'\u2019'}s nothing left to break.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -4026,6 +4194,7 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
   const [restModalData, setRestModalData] = useState<RestModalData | null>(null);
   const [sellModalData, setSellModalData] = useState<SellModalData | null>(null);
   const [flatlineData, setFlatlineData] = useState<FlatlineData | null>(null);
+  const [traumaModalOpen, setTraumaModalOpen] = useState(false);
   const [showNofogMap, setShowNofogMap] = useState(false);
   const [showFogMap, setShowFogMap] = useState(false);
   const mapWasActiveRef = useRef(false);
@@ -4134,8 +4303,13 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
       const d = event?.payload as FlatlineData | undefined;
       if (d) setFlatlineData(d);
     };
+    const traumaHandler = () => setTraumaModalOpen(true);
     eventBus.on('mud:flatline', handler);
-    return () => { eventBus.off('mud:flatline', handler); };
+    eventBus.on('mud:open-trauma', traumaHandler);
+    return () => {
+      eventBus.off('mud:flatline', handler);
+      eventBus.off('mud:open-trauma', traumaHandler);
+    };
   }, []);
 
   // Listen for nofog map overlay events
@@ -4453,6 +4627,29 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
         <NofogMap
           session={session}
           onClose={() => setShowNofogMap(false)}
+        />
+      )}
+
+      {/* Trauma selection modal */}
+      {traumaModalOpen && session.character && (
+        <TraumaModal
+          existingTraumas={session.character.traumas ?? []}
+          onSelect={(traumaId) => {
+            const char = session.character!;
+            char.traumas = [...(char.traumas ?? []), traumaId];
+            char.stress = 0; // Reset stress after trauma
+            saveCharacter(char.handle, char);
+            setTraumaModalOpen(false);
+            // Check for retirement (3rd trauma)
+            if (char.traumas.length >= 3) {
+              eventBus.emit('mud:flatline', {
+                handle: char.handle,
+                subjectId: char.subjectId,
+                level: char.level,
+                room: char.currentRoom,
+              });
+            }
+          }}
         />
       )}
 

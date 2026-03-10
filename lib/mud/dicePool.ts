@@ -263,7 +263,7 @@ export function assemblePool(ctx: PoolContext): PoolDie[] {
 
   // 7. Complication dice (Cortex stepping dice — d6/d8/d10/d12)
   if (ctx.complications) {
-    const playerComps = ctx.complications.filter(c => c.owner === 'player');
+    const playerComps = ctx.complications.filter(c => c.owner === 'player' && c.duration !== 0);
     for (const comp of playerComps) {
       const opposes = !comp.opposesActions || comp.opposesActions.length === 0 || comp.opposesActions.includes(action);
       if (opposes) {
@@ -274,6 +274,16 @@ export function assemblePool(ctx: PoolContext): PoolDie[] {
           isComplication: true,
         });
       }
+    }
+
+    // 7b. Asset dice (player-created beneficial complications from /asset)
+    const assets = ctx.complications.filter(c => c.owner === 'player_asset' && c.duration !== 0);
+    for (const asset of assets) {
+      pool.push({
+        label: asset.name,
+        size: asset.die,
+        source: 'surge',
+      });
     }
   }
 

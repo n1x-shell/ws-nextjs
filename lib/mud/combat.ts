@@ -13,6 +13,7 @@ import {
   assemblePool, rollPool, resolveOutcome, assessAction,
   attributeToDie, rollDie, getOutcomeTier, getStyleDieSize, formatPoolCompact,
   countSurgeEarned, SURGE_MAX,
+  createComplication, stepComplicationUp,
 } from './dicePool';
 import type { Clock, ClockTrigger } from './clockEngine';
 import {
@@ -307,7 +308,7 @@ export function resolvePlayerAction(combat: ClockCombatState, character: MudChar
 
 // ── Apply player harm through armor → harm → critical → downed ─────────
 
-function applyPlayerHarm(pc: ClockCombatState['playerClocks'], clocks: Clock[], ticks: number, changes: ClockChange[], triggered: ClockTrigger[]): void {
+export function applyPlayerHarm(pc: ClockCombatState['playerClocks'], clocks: Clock[], ticks: number, changes: ClockChange[], triggered: ClockTrigger[]): void {
   let remaining = ticks;
 
   // Armor absorbs (armor fills UP = consumed)
@@ -360,9 +361,11 @@ export interface EnemyActionResult {
   clockChanges: ClockChange[];
   rollTotal: number;
   hitPlayer: boolean;
+  complicationCreated?: string;
+  harmTicks?: number;
 }
 
-export function processEnemyActions(combat: ClockCombatState, godMode?: boolean): { combat: ClockCombatState; actions: EnemyActionResult[]; clockChanges: ClockChange[]; narrativePrompt: string } {
+export function processEnemyActions(combat: ClockCombatState, godMode?: boolean, deferHarm?: boolean): { combat: ClockCombatState; actions: EnemyActionResult[]; clockChanges: ClockChange[]; narrativePrompt: string; totalPendingHarm: number } {
   let clocks = [...combat.clocks];
   const allChanges: ClockChange[] = [];
   const actions: EnemyActionResult[] = [];
@@ -397,10 +400,40 @@ export function processEnemyActions(combat: ClockCombatState, godMode?: boolean)
     if (enemy.behavior.type === 'sniper') ticks += 1;
 
     const enemyChanges: ClockChange[] = [];
-    if (ticks > 0 && !godMode) applyPlayerHarm(pc, clocks, ticks, enemyChanges, []);
+    if (ticks > 0 && !godMode && !deferHarm) applyPlayerHarm(pc, clocks, ticks, enemyChanges, []);
+
+    // Complication creation — high-roll enemy attacks create stepping complications
+    let complicationCreated: string | undefined;
+    if (result.total >= 15 && ticks > 0 && !godMode) {
+      const compMap: Record<string, { name: string; opposes: ActionType[] }> = {
+        aggressive: { name: 'STAGGERED', opposes: ['attack'] },
+        defensive: { name: 'SUPPRESSED', opposes: ['hack', 'scan'] },
+        swarm:     { name: 'SURROUNDED', opposes: ['flee'] },
+        sniper:    { name: 'PINNED', opposes: ['flee', 'attack'] },
+        hacker:    { name: 'JAMMED', opposes: ['hack'] },
+        boss:      { name: 'STAGGERED', opposes: ['attack'] },
+      };
+      const behaviorType = enemy.behavior.type;
+      const compDef = compMap[behaviorType] ?? compMap.aggressive;
+      const existing = (combat.complications ?? []).find(c => c.name === compDef.name && c.owner === 'player');
+      if (existing) {
+        const stepped = stepComplicationUp(existing);
+        if (stepped) {
+          combat = { ...combat, complications: combat.complications.map(c => c.id === existing.id ? { ...stepped, duration: 3 } : c) };
+          complicationCreated = `${compDef.name} stepped to d${stepped.die}`;
+        } else {
+          // Past d12 — taken out (forced flee consequence)
+          complicationCreated = `${compDef.name} OVERLOADED — taken out`;
+        }
+      } else {
+        const newComp = createComplication(compDef.name, 'player', enemy.name, 6, 3, compDef.opposes);
+        combat = { ...combat, complications: [...(combat.complications ?? []), newComp] };
+        complicationCreated = `${compDef.name} d6`;
+      }
+    }
 
     allChanges.push(...enemyChanges);
-    actions.push({ enemyId: enemy.id, enemyName: enemy.name, action: ticks > 0 ? 'attack' : 'miss', clockChanges: enemyChanges, rollTotal: result.total, hitPlayer: ticks > 0 && !godMode });
+    actions.push({ enemyId: enemy.id, enemyName: enemy.name, action: ticks > 0 ? 'attack' : 'miss', clockChanges: enemyChanges, rollTotal: result.total, hitPlayer: ticks > 0 && !godMode, complicationCreated, harmTicks: ticks > 0 && !godMode ? ticks : 0 });
 
     // Tick status clocks on this enemy
     for (const scId of [...enemy.statusClocks]) {
@@ -418,8 +451,9 @@ export function processEnemyActions(combat: ClockCombatState, godMode?: boolean)
 
   const logEntry: CombatLogEntry = { round: combat.round, actor: 'enemies', action: actions.map(a => `${a.enemyName}:${a.action}`).join(';'), clockChanges: allChanges.map(cc => ({ clockId: cc.clockId, name: cc.clockName, from: cc.from, to: cc.to, segments: cc.segments })) };
   const narrativePrompt = actions.filter(a => a.hitPlayer).map(a => `${a.enemyName} hits`).join('. ');
+  const totalPendingHarm = deferHarm ? actions.reduce((sum, a) => sum + (a.harmTicks ?? 0), 0) : 0;
 
-  return { combat: { ...combat, clocks, playerClocks: pc, turnPhase: 'environment_tick', log: [...combat.log, logEntry] }, actions, clockChanges: allChanges, narrativePrompt };
+  return { combat: { ...combat, clocks, playerClocks: pc, turnPhase: 'environment_tick', log: [...combat.log, logEntry] }, actions, clockChanges: allChanges, narrativePrompt, totalPendingHarm };
 }
 
 // ── Environment Tick ───────────────────────────────────────────────────────
@@ -448,7 +482,12 @@ export function tickEnvironment(combat: ClockCombatState): { combat: ClockCombat
     if (ram && ram.filled > 0) { const d = drainClock(ram, 1); clocks = clocks.map(c => c.id === ram.id ? d : c); }
   }
 
-  return { combat: { ...combat, clocks, turnPhase: 'end_check', round: combat.round + 1 }, clockChanges: changes };
+  // Tick complication durations — decrement all active complications, remove expired
+  const updatedComplications = (combat.complications ?? [])
+    .map(c => c.duration > 0 ? { ...c, duration: c.duration - 1 } : c)
+    .filter(c => c.duration !== 0); // -1 = permanent, 0 = expired
+
+  return { combat: { ...combat, clocks, complications: updatedComplications, turnPhase: 'end_check', round: combat.round + 1 }, clockChanges: changes };
 }
 
 // ── Combat End Check ───────────────────────────────────────────────────────

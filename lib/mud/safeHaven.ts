@@ -231,6 +231,7 @@ export interface RestResult {
   pendingLevels?: number;
   flavorText?: string;
   nearestHavens?: Array<{ haven: SafeHaven; distance: string }>;
+  stressDrained?: number;
 }
 
 export function executeRest(
@@ -265,6 +266,15 @@ export function executeRest(
   char.ram = char.maxRam;
   const ramRestored = char.ram - ramBefore;
 
+  // Stress drain (indulge vice mechanic)
+  const stressBefore = char.stress ?? 0;
+  const room = getRoom(char.currentRoom);
+  const hasMedic = room?.npcs?.some(npc => npc.services?.includes('heal')) ?? false;
+  const baseDrain = hasMedic ? 4 : 2;
+  const coolBonus = char.attributes.COOL >= 6 ? 1 : 0;
+  char.stress = Math.max(0, stressBefore - baseDrain - coolBonus);
+  const stressDrained = stressBefore - char.stress;
+
   // TODO: Clear non-permanent status effects when effect system is implemented
   const debuffsCleared = 0;
 
@@ -283,5 +293,6 @@ export function executeRest(
     debuffsCleared,
     pendingLevels: char.pendingLevelUps ?? 0,
     flavorText: haven.flavorText,
+    stressDrained,
   };
 }

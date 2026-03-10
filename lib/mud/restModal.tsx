@@ -18,6 +18,10 @@ export interface RestModalData {
   armorSegments: number;
   ramBefore: number;
   ramSegments: number;
+  // Stress data
+  stressBefore: number;
+  stressAfter: number;
+  maxStress: number;
   // Legacy compat (ignored if clock data present)
   hpBefore?: number;
   hpAfter?: number;
@@ -231,12 +235,31 @@ export function RestModal({ data, onClose }: {
               </div>
             )}
 
+            {/* Stress drain */}
+            {data.stressBefore > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.6ch',
+                marginBottom: '0.4rem', fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              }}>
+                <span style={{ color: C.dim, flexShrink: 0, whiteSpace: 'nowrap' }}>STRSS</span>
+                {renderSegments(phase === 'done' ? data.stressAfter : data.stressBefore, data.maxStress || 8, '#fbbf24')}
+                <span style={{ color: '#fbbf24', flexShrink: 0 }}>
+                  {phase === 'done' ? data.stressAfter : data.stressBefore}/{data.maxStress || 8}
+                </span>
+              </div>
+            )}
+
             {/* Restore summary */}
             {phase === 'done' && (
               <div style={{ animation: 'mud-fade-in 0.3s ease-out' }}>
                 {harmDrained > 0 && (
                   <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.heal, padding: '0.1rem 0' }}>
                     harm cleared. all clocks restored.
+                  </div>
+                )}
+                {data.stressBefore > data.stressAfter && (
+                  <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24', padding: '0.1rem 0' }}>
+                    stress cleared: -{data.stressBefore - data.stressAfter}
                   </div>
                 )}
                 <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, padding: '0.1rem 0' }}>
