@@ -68,7 +68,7 @@ export function rollDie(size: DieSize): number {
 export interface PoolDie {
   label: string;
   size: DieSize;
-  source: 'attribute' | 'skill' | 'gear' | 'augment' | 'environment' | 'status' | 'complication';
+  source: 'attribute' | 'skill' | 'gear' | 'augment' | 'environment' | 'status' | 'surge' | 'complication';
   value?: number;
   isComplication?: boolean;
 }
