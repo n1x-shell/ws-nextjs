@@ -323,7 +323,12 @@ export function NofogMap({ session, onClose }: {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const dragRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const ZOOM_MIN = 0.3;
+  const ZOOM_MAX = 2.5;
+  const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
 
   // Center on player's zone on mount / tab change
   useEffect(() => {
@@ -340,9 +345,12 @@ export function NofogMap({ session, onClose }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, roomPixelPositions]);
 
-  // Mouse drag for pan
+  // Mouse drag for pan (single pointer only)
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-room-node]')) return;
+    if ((e.target as HTMLElement).closest('[data-zoom-btn]')) return;
+    // Don't start drag if pinch is active
+    if (pinchRef.current) return;
     dragRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }, [pan]);
@@ -363,8 +371,41 @@ export function NofogMap({ session, onClose }: {
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(z => Math.max(0.3, Math.min(2.5, z + delta)));
+    setZoom(z => clampZoom(z + delta));
   }, []);
+
+  // Pinch-to-zoom (touch events)
+  const getTouchDist = (t: React.TouchEvent) => {
+    if (t.touches.length < 2) return 0;
+    const dx = t.touches[0].clientX - t.touches[1].clientX;
+    const dy = t.touches[0].clientY - t.touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      dragRef.current = null; // cancel any drag
+      pinchRef.current = { dist: getTouchDist(e), zoom };
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault();
+      const newDist = getTouchDist(e);
+      const scale = newDist / pinchRef.current.dist;
+      setZoom(clampZoom(pinchRef.current.zoom * scale));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchRef.current = null;
+  }, []);
+
+  // +/- button zoom
+  const zoomIn = useCallback(() => setZoom(z => clampZoom(z + 0.15)), []);
+  const zoomOut = useCallback(() => setZoom(z => clampZoom(z - 0.15)), []);
 
   // Click to teleport
   const handleTeleport = useCallback((roomId: string) => {
@@ -495,14 +536,52 @@ export function NofogMap({ session, onClose }: {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Zoom indicator */}
+        {/* Zoom controls — bottom right */}
         <div style={{
           position: 'absolute', bottom: 8, right: 12, zIndex: 10,
+          display: 'flex', alignItems: 'center', gap: '0.4ch',
           fontFamily: 'monospace', fontSize: '10px',
-          color: 'rgba(var(--phosphor-rgb),0.35)',
         }}>
-          {Math.round(zoom * 100)}% · scroll to zoom · drag to pan
+          <button
+            data-zoom-btn
+            onClick={zoomOut}
+            style={{
+              width: 28, height: 28,
+              background: 'rgba(var(--phosphor-rgb),0.06)',
+              border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+              borderRadius: 3, cursor: 'pointer',
+              color: 'rgba(var(--phosphor-rgb),0.7)',
+              fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1, padding: 0,
+              touchAction: 'manipulation',
+            }}
+          >−</button>
+          <span style={{
+            color: 'rgba(var(--phosphor-rgb),0.4)',
+            minWidth: '3.5ch', textAlign: 'center',
+          }}>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            data-zoom-btn
+            onClick={zoomIn}
+            style={{
+              width: 28, height: 28,
+              background: 'rgba(var(--phosphor-rgb),0.06)',
+              border: '1px solid rgba(var(--phosphor-rgb),0.25)',
+              borderRadius: 3, cursor: 'pointer',
+              color: 'rgba(var(--phosphor-rgb),0.7)',
+              fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1, padding: 0,
+              touchAction: 'manipulation',
+            }}
+          >+</button>
         </div>
 
         {/* Canvas */}
