@@ -187,10 +187,11 @@ export function FogMap({ session, onClose }: {
   onClose: () => void;
 }) {
   const char = session.character;
-  const world = session.world;
-  if (!char || !world) return null;
+  if (!char) return null;
 
-  const visitedSet = useMemo(() => new Set(world.visitedRooms), [world.visitedRooms]);
+  // Load world state directly from persistence — session.world can be stale
+  const worldData = useMemo(() => loadWorld(char.handle), [char.handle]);
+  const visitedSet = useMemo(() => new Set(worldData.visitedRooms), [worldData]);
 
   // Get current room's adjacent room IDs (rooms player can navigate to)
   const adjacentRooms = useMemo(() => {
@@ -213,8 +214,9 @@ export function FogMap({ session, onClose }: {
     return known;
   }, [visitedSet]);
 
-  // Get current zone and layout
-  const currentZoneId = char.currentRoom.replace(/_r\d+$/, '');
+  // Get current zone from the room's zone field
+  const currentRoomData = useMemo(() => getRoom(char.currentRoom), [char.currentRoom]);
+  const currentZoneId = currentRoomData?.zone ?? char.currentRoom.replace(/_r\d+$/, '');
   const allZones = useMemo(() => getAllZones(), []);
   const currentZone = allZones.find(z => z.id === currentZoneId);
 
