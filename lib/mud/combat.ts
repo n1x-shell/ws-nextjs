@@ -607,6 +607,19 @@ export function getEnemyById(combat: ClockCombatState, id: string): ClockCombata
 export function getFirstEnemy(combat: ClockCombatState): ClockCombatant | undefined { return combat.enemies.find(e => !e.defeated); }
 export function getCurrentTurnId(combat: ClockCombatState): string { return isPlayersTurn(combat) ? 'player' : 'enemy'; }
 export function hpBar(hp: number, max: number, width = 20): string { const f = Math.max(0, Math.round((hp / max) * width)); return '█'.repeat(f) + '░'.repeat(width - f); }
+
+export function getPlayerHarmClock(combat: ClockCombatState): Clock | undefined { return findClock(combat.clocks, combat.playerClocks.harm); }
+export function getPlayerArmorClock(combat: ClockCombatState): Clock | undefined { return combat.playerClocks.armor ? findClock(combat.clocks, combat.playerClocks.armor) : undefined; }
+export function getPlayerRamClock(combat: ClockCombatState): Clock | undefined { return combat.playerClocks.ram ? findClock(combat.clocks, combat.playerClocks.ram) : undefined; }
+export function getEnemyClocks(combat: ClockCombatState, enemyId: string): { harm?: Clock; armor?: Clock; status: Clock[] } {
+  const enemy = combat.enemies.find(e => e.id === enemyId);
+  if (!enemy) return { status: [] };
+  return {
+    harm: findClock(combat.clocks, enemy.harmClockId),
+    armor: enemy.armorClockId ? findClock(combat.clocks, enemy.armorClockId) : undefined,
+    status: enemy.statusClocks.map(id => findClock(combat.clocks, id)).filter(Boolean) as Clock[],
+  };
+}
 export function getPlayerCombatant(combat: ClockCombatState): { hp: number; maxHp: number; ap: number; ram: number; maxRam: number } {
   const h = findClock(combat.clocks, combat.playerClocks.harm);
   const ram = combat.playerClocks.ram ? findClock(combat.clocks, combat.playerClocks.ram) : null;

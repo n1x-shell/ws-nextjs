@@ -30,6 +30,10 @@ import {
   getAllLivingEnemies,
   getPlayerCombatant,
   isPlayersTurn,
+  getEnemyClocks,
+  getPlayerHarmClock,
+  getPlayerArmorClock,
+  getPlayerRamClock,
 } from './combat';
 import { getFormattedShop, type ShopListing } from './shopSystem';
 import { getNPCRelation, saveCharacter, loadWorld } from './persistence';
@@ -223,6 +227,13 @@ interface PanelEnemy {
   hp?: number;
   maxHp?: number;
   effects?: string[];
+  // Clock data
+  harmFilled?: number;
+  harmSegments?: number;
+  armorFilled?: number;
+  armorSegments?: number;
+  tier?: number;
+  behavior?: string;
 }
 
 interface PanelObject {
@@ -311,12 +322,24 @@ export function getMudPanelData(session: MudSession): PanelData | null {
   const livingCombatants = inCombat && session.combat
     ? getAllLivingEnemies(session.combat) : [];
 
-  const enemies: PanelEnemy[] = inCombat
-    ? livingCombatants.map(c => ({
-        id: c.id, name: c.name, level: 0,
-        hp: c.hp, maxHp: c.maxHp,
-        effects: c.effects.map(e => e.name),
-      }))
+  const enemies: PanelEnemy[] = inCombat && session.combat
+    ? livingCombatants.map(c => {
+        const clocks = getEnemyClocks(session.combat!, c.id);
+        const harmFilled = clocks.harm?.filled ?? 0;
+        const harmSegs = clocks.harm?.segments ?? 3;
+        // Convert clock state to HP-like percentage for existing Bar component
+        const hpPct = harmSegs > 0 ? Math.round(((harmSegs - harmFilled) / harmSegs) * 100) : 100;
+        return {
+          id: c.id, name: c.name, level: 0,
+          hp: harmSegs - harmFilled, maxHp: harmSegs,
+          harmFilled, harmSegments: harmSegs,
+          armorFilled: clocks.armor?.filled ?? 0,
+          armorSegments: clocks.armor?.segments ?? 0,
+          tier: c.tier,
+          behavior: c.behavior.type,
+          effects: clocks.status.map(s => s.name),
+        };
+      })
     : room.enemies.map(e => ({
         id: e.id, name: e.name, level: e.level,
       }));
