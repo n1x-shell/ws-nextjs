@@ -861,13 +861,12 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
 
   const zone = getZone(room.zone);
 
-  // Reset panel mode to default on /look (exits inventory/shop view, keeps map)
+  // Reset panel mode
   eventBus.emit('mud:panel-mode-reset-non-map');
 
-  // Narrative-only output — NPCs, enemies, objects, exits are in the HUD panels
+  // ── Room description ──
   addLocalMsg(
     <div key={k('look')} data-room-entry="true">
-      {/* Room heading */}
       <div style={{
         fontFamily: 'monospace', fontSize: S.header, fontWeight: 'bold',
         color: room.isSafeZone ? '#a5f3fc' : C.accent,
@@ -889,7 +888,6 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
       }}>
         {zone?.name?.replace(/_/g, ' ') ?? 'UNKNOWN ZONE'}
       </div>
-      {/* Room description — flowing paragraphs */}
       {room.description.split('\n\n').map((para, pi) => (
         <div key={k(`desc-p-${pi}`)} style={{
           fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
@@ -903,7 +901,159 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
     </div>
   );
 
-  // Narrator voice — read room description (fire-and-forget, non-blocking)
+  // ── Inline NPC cards ──
+  if (room.npcs.length > 0) {
+    addLocalMsg(
+      <div key={k('look-npcs')} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.3rem' }}>
+        {room.npcs.map(npc => {
+          const hasShop = npc.services?.includes('shop');
+          const hasQuest = npc.services?.includes('quest');
+          const canHeal = npc.services?.includes('heal');
+          const color = npc.type === 'SHOPKEEPER' ? '#fcd34d'
+            : npc.type === 'QUESTGIVER' ? '#fbbf24'
+            : npc.type === 'ALLIED' ? '#4ade80'
+            : npc.type === 'ENEMY' ? '#ff6b6b'
+            : 'rgba(var(--phosphor-rgb),0.6)';
+
+          return (
+            <div
+              key={k(`npc-${npc.id}`)}
+              role="button" tabIndex={0}
+              onClick={() => {
+                if (hasShop) eventBus.emit('mud:execute-command', { command: `/shop` });
+                else eventBus.emit('mud:execute-command', { command: `/talk ${npc.name}` });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (hasShop) eventBus.emit('mud:execute-command', { command: `/shop` });
+                  else eventBus.emit('mud:execute-command', { command: `/talk ${npc.name}` });
+                }
+              }}
+              style={{
+                fontFamily: 'monospace', fontSize: S.base,
+                border: `1px solid ${color}33`,
+                borderLeft: `3px solid ${color}`,
+                background: `${color}08`,
+                padding: '0.4rem 0.6rem',
+                borderRadius: '0 3px 3px 0',
+                cursor: 'pointer', touchAction: 'manipulation',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.15rem' }}>
+                <span style={{ color, fontWeight: 'bold', letterSpacing: '0.04em' }}>{npc.name}</span>
+                <span style={{ color: C.dimmer, fontSize: '9px' }}>
+                  {npc.type}{canHeal ? ' · HEAL' : ''}{hasShop ? ' · SHOP' : ''}{hasQuest ? ' · QUEST' : ''}
+                </span>
+              </div>
+              <div style={{ color: C.dim, opacity: 0.8, fontStyle: 'italic' }}>
+                {npc.dialogue.length > 80 ? npc.dialogue.slice(0, 77) + '...' : npc.dialogue}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ── Inline object tags ──
+  const visibleObjects = room.objects.filter(o =>
+    !o.hidden || (o.hiddenRequirement && char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum)
+  );
+  if (visibleObjects.length > 0) {
+    addLocalMsg(
+      <div key={k('look-objects')} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.3rem' }}>
+        {visibleObjects.map(obj => (
+          <span
+            key={k(`obj-${obj.id}`)}
+            role="button" tabIndex={0}
+            onClick={() => eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` })}
+            onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` }); }}
+            style={{
+              fontFamily: 'monospace', fontSize: S.base,
+              color: obj.lootable ? '#fbbf24' : C.dim,
+              border: `1px solid ${obj.lootable ? 'rgba(251,191,36,0.25)' : 'rgba(var(--phosphor-rgb),0.12)'}`,
+              padding: '0.2rem 0.5rem',
+              borderRadius: 2,
+              cursor: 'pointer', touchAction: 'manipulation',
+              background: 'rgba(var(--phosphor-rgb),0.03)',
+            }}
+          >
+            {obj.name}{obj.lootable ? ' ✦' : ''}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Inline enemy warnings ──
+  if (room.enemies.length > 0 && !room.isSafeZone) {
+    addLocalMsg(
+      <div key={k('look-enemies')} style={{ marginTop: '0.3rem' }}>
+        {room.enemies.map((e, i) => (
+          <div key={k(`enemy-warn-${i}`)} style={{
+            fontFamily: 'monospace', fontSize: S.base,
+            color: '#ff6b6b', opacity: 0.7,
+            padding: '0.1rem 0',
+          }}>
+            {'\u26A0'} {e.name} {'\u2014'} Lv.{e.level} {'\u2014'} {Math.round(e.spawnChance * 100)}% spawn
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Inline exit tags ──
+  const visibleExits = getVisibleExits(char.currentRoom, char);
+  if (visibleExits.length > 0) {
+    const branches = getAccessibleBranches(char.currentRoom, char);
+    addLocalMsg(
+      <div key={k('look-exits')} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
+        {visibleExits.map(exit => (
+          <span
+            key={k(`exit-${exit.direction}`)}
+            role="button" tabIndex={0}
+            onClick={() => eventBus.emit('mud:execute-command', { command: `/go ${exit.direction}` })}
+            onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/go ${exit.direction}` }); }}
+            style={{
+              fontFamily: 'monospace', fontSize: S.base,
+              color: exit.locked ? '#ff6b6b' : exit.zoneTransition ? '#a78bfa' : C.exit,
+              border: `1px solid ${exit.locked ? 'rgba(255,107,107,0.25)' : exit.zoneTransition ? 'rgba(167,139,250,0.25)' : 'rgba(var(--phosphor-rgb),0.15)'}`,
+              padding: '0.2rem 0.5rem',
+              borderRadius: 2,
+              cursor: exit.locked ? 'default' : 'pointer',
+              touchAction: 'manipulation',
+              background: 'rgba(var(--phosphor-rgb),0.03)',
+              opacity: exit.locked ? 0.5 : 1,
+            }}
+          >
+            [{exit.direction.toUpperCase().slice(0, 2)}] {exit.description.replace(/^[a-z]+ \(/, '').replace(/\)$/, '')}
+            {exit.locked ? ' 🔒' : ''}
+          </span>
+        ))}
+        {branches.map(br => (
+          <span
+            key={k(`branch-${br.id}`)}
+            role="button" tabIndex={0}
+            onClick={() => eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` })}
+            onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/go ${br.name.toLowerCase()}` }); }}
+            style={{
+              fontFamily: 'monospace', fontSize: S.base,
+              color: '#a78bfa',
+              border: '1px solid rgba(167,139,250,0.25)',
+              padding: '0.2rem 0.5rem',
+              borderRadius: 2,
+              cursor: 'pointer', touchAction: 'manipulation',
+              background: 'rgba(var(--phosphor-rgb),0.03)',
+            }}
+          >
+            {'\u25B8'} {br.name}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // Narrator voice
   const hasNPCs = room.npcs.length > 0;
   const primaryNPC = hasNPCs ? room.npcs[0].id : 'narrator';
   const segments = parseVoiceSegments(room.description, primaryNPC);
@@ -1898,11 +2048,10 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         <MudSpacer />
         {(Object.keys(char.attributes) as AttributeName[]).map(attr => {
           const val = char.attributes[attr];
-          const filled = Math.min(val, 15);
-          const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(15 - filled);
+          const die = val <= 4 ? 4 : val <= 6 ? 6 : val <= 8 ? 8 : val <= 10 ? 10 : 12;
           return (
             <MudLine key={k(`stat-${attr}`)} indent color={C.stat}>
-              {attr.padEnd(8)} {String(val).padStart(2)}  {bar}
+              {attr.padEnd(8)} {String(val).padStart(2)} (d{die})
             </MudLine>
           );
         })}
@@ -1910,17 +2059,12 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         <MudLine indent color={C.dim}>
           creds: {char.currency.creds} {'\u00b7'} scrip: {char.currency.scrip}
         </MudLine>
-        {(char.skillPoints > 0 || (char.unspentAttributePoints ?? 0) > 0 || pending > 0) && (
+        {(char.skillPoints > 0 || pending > 0) && (
           <div>
             <MudSpacer />
             {pending > 0 && (
               <MudLine indent color={C.accent} glow>
                 PENDING LEVEL-UPS: {pending} — /rest at a safe haven to integrate
-              </MudLine>
-            )}
-            {(char.unspentAttributePoints ?? 0) > 0 && (
-              <MudLine indent color={C.warning}>
-                ATTRIBUTE POINTS: {char.unspentAttributePoints}
               </MudLine>
             )}
             {char.skillPoints > 0 && (

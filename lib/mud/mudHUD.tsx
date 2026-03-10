@@ -47,7 +47,7 @@ import {
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
 import { MapPanel, generateMapData, SY, GY } from './mudMap';
-import { processLevelUp, spendAttributePoint, type LevelUpResult } from './character';
+import { processLevelUp, type LevelUpResult } from './character';
 import {
   getAvailableTrees, getTreeDisplay, getPointsInTree,
   TREE_LABELS, STYLE_TO_TREE, unlockSkill,
@@ -1171,102 +1171,81 @@ function EnemyCard({ enemy, hasRam, compact }: { enemy: PanelEnemy; hasRam: bool
 }
 
 function PlayerCard({ data }: { data: PanelData }) {
-  const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
   const hasRam = data.ramMaxSegments > 0;
 
   return (
-    <div className="mud-card-slide" style={{
+    <div style={{
       border: '1px solid rgba(var(--phosphor-rgb),0.15)',
       borderLeft: data.isPlayerTurn ? '3px solid var(--phosphor-green)' : '3px solid rgba(var(--phosphor-rgb),0.25)',
       background: data.isPlayerTurn ? 'rgba(var(--phosphor-rgb),0.04)' : 'rgba(var(--phosphor-rgb),0.02)',
-      padding: '0.6rem 0.75rem',
+      padding: '0.4rem 0.6rem',
       borderRadius: '0 3px 3px 0',
       animation: data.isPlayerTurn ? 'mud-pulse-green 2.5s ease-in-out infinite' : 'none',
     }}>
+      {/* Header: name + level */}
       <div style={{
         fontFamily: 'monospace', fontSize: 'var(--text-base)',
-        fontWeight: 'bold', marginBottom: '0.4rem', paddingBottom: '0.3rem',
+        fontWeight: 'bold', marginBottom: '0.3rem', paddingBottom: '0.2rem',
         borderBottom: `1px solid ${data.isPlayerTurn ? 'rgba(var(--phosphor-rgb),0.15)' : 'rgba(var(--phosphor-rgb),0.08)'}`,
         color: data.isPlayerTurn ? 'var(--phosphor-accent)' : C.dim,
-        letterSpacing: '0.06em',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         animation: data.isPlayerTurn ? 'mud-turn-glow 2s ease-in-out infinite' : 'none',
       }} className={data.isPlayerTurn ? S.glow : undefined}>
-        <span>
-          {data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle} ({data.subjectId})
-        </span>
-        <span style={{ display: 'flex', gap: '0.3ch', alignItems: 'center' }}>
+        <span>{data.isPlayerTurn ? '\u2694 YOUR TURN' : 'COMBAT'} {'\u2014'} {data.handle}</span>
+        <div style={{ display: 'flex', gap: '0.3ch', alignItems: 'center' }}>
           <span style={{
-            color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
-            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
-            borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
-          }}>
-            Lv.{data.level}
-          </span>
+            color: 'var(--phosphor-accent)', fontWeight: 'bold',
+            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.3rem',
+            borderRadius: 2, fontSize: 'var(--text-base)',
+          }}>Lv.{data.level}</span>
           {data.godMode && (
             <span style={{
-              color: '#ffcc00', fontWeight: 'bold', fontSize: 'var(--text-base)', flexShrink: 0,
-              border: '1px solid rgba(255,204,0,0.4)', padding: '0.05rem 0.35rem',
-              borderRadius: 2, letterSpacing: '0.06em',
-              textShadow: '0 0 6px rgba(255,204,0,0.4)',
-            }}>
-              GOD
-            </span>
+              color: '#ffcc00', fontWeight: 'bold', fontSize: '8px',
+              border: '1px solid rgba(255,204,0,0.4)', padding: '0 3px',
+              borderRadius: 2, textShadow: '0 0 6px rgba(255,204,0,0.4)',
+            }}>GOD</span>
           )}
-        </span>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" />
-        {data.criticalFilled > 0 && (
-          <ClockBar filled={data.criticalFilled} segments={data.criticalSegments} color="#ff2222" label="CRIT" />
-        )}
-        {data.armorMaxSegments > 0 && (
-          <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted />
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-          <span style={{ color: C.dim, fontSize: 'var(--text-base)', minWidth: '4ch', flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap' }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color={C.xp} height={6} /></div>
-          <span style={{ color: C.xp, fontSize: 'var(--text-base)', flexShrink: 0, minWidth: '4ch', textAlign: 'right' }}>
-            {data.xp}/{data.xpNext}
-          </span>
         </div>
-
-        {hasRam && (
-          <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted />
-        )}
       </div>
 
+      {/* Paired clock bars — 2 per row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.15rem 1ch', marginBottom: '0.25rem' }}>
+        <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
+        {data.armorMaxSegments > 0 ? (
+          <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
+        ) : <div />}
+        {hasRam ? (
+          <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
+        ) : <div />}
+        {data.criticalFilled > 0 ? (
+          <ClockBar filled={data.criticalFilled} segments={data.criticalSegments} color="#ff2222" label="CRIT" compact />
+        ) : <div />}
+      </div>
+
+      {/* Action row: currency + flee + consumables */}
       <div style={{
         borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
-        marginTop: '0.4rem', paddingTop: '0.4rem',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem',
+        paddingTop: '0.25rem',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.3rem',
+        flexWrap: 'wrap',
       }}>
-        <div style={{ display: 'flex', gap: '1ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
-            <span style={{ color: '#fcd34d', fontWeight: 'bold', letterSpacing: '0.04em' }}>CREDS</span>
-            <span style={{ color: '#fff' }}>{data.creds}</span>
-          </span>
+        <div style={{ display: 'flex', gap: '0.5ch', alignItems: 'center', fontFamily: 'monospace', fontSize: 'var(--text-base)' }}>
+          <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>CREDS</span>
+          <span style={{ color: '#fff' }}>{data.creds}</span>
           <span style={{ color: C.faint }}>{'\u00b7'}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4ch' }}>
-            <span style={{ color: '#a78bfa', fontWeight: 'bold', letterSpacing: '0.04em' }}>SCRIP</span>
-            <span style={{ color: '#fff' }}>{data.scrip}</span>
-          </span>
+          <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>SCRIP</span>
+          <span style={{ color: '#fff' }}>{data.scrip}</span>
         </div>
-        <Btn label="FLEE" command="/flee" color={C.dimmer} borderColor="rgba(var(--phosphor-rgb),0.25)" small />
-      </div>
-
-      {/* Consumables */}
-      {data.consumables.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem', marginTop: '0.2rem' }}>
+        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
           {data.consumables.map(item => (
             <Btn key={item.id}
-              label={`${item.name}${item.quantity > 1 ? ' \u00d7' + item.quantity : ''}`}
+              label={`${item.name}${item.quantity > 1 ? '\u00d7' + item.quantity : ''}`}
               command={`/use ${item.name}`}
               color={C.heal} borderColor="rgba(74,222,128,0.4)" small />
           ))}
+          <Btn label="FLEE" command="/flee" color={C.dimmer} borderColor="rgba(var(--phosphor-rgb),0.25)" small />
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1747,16 +1726,15 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
         <div style={{ padding: '0.4rem 0.8rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)' }}>
           {ATTR_ORDER.map(attr => {
             const val = data.attributes[attr];
-            const filled = Math.min(val, 15);
-            const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(15 - filled);
+            const die = val <= 4 ? 4 : val <= 6 ? 6 : val <= 8 ? 8 : val <= 10 ? 10 : 12;
             return (
               <div key={attr} style={{
-                display: 'grid', gridTemplateColumns: '5.5ch 2ch 1fr', gap: '0.4ch', alignItems: 'center',
+                display: 'grid', gridTemplateColumns: '5.5ch 2ch 3.5ch', gap: '0.4ch', alignItems: 'center',
                 fontFamily: 'monospace', fontSize: 'var(--text-base)', padding: '0.1rem 0',
               }}>
                 <span style={{ color: STAT_COLOR[attr] ?? 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
                 <span style={{ color: C.dim, textAlign: 'right' }}>{val}</span>
-                <span style={{ color: 'rgba(var(--phosphor-rgb),0.35)', fontSize: '0.8em', letterSpacing: '-0.5px' }}>{bar}</span>
+                <span style={{ color: 'var(--phosphor-accent)', fontSize: '0.85em', opacity: 0.8 }}>(d{die})</span>
               </div>
             );
           })}
@@ -1771,9 +1749,8 @@ function StatsModal({ data, onClose }: { data: PanelData; onClose: () => void })
           <span><span style={{ color: '#a78bfa', fontWeight: 'bold' }}>SCRIP</span> <span style={{ color: '#fff' }}>{data.scrip}</span></span>
         </div>
 
-        {(data.skillPointsAvailable > 0 || data.unspentAttributePoints > 0) && (
+        {(data.skillPointsAvailable > 0) && (
           <div style={{ padding: '0.3rem 0.8rem', fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24' }}>
-            {data.unspentAttributePoints > 0 && <div>{data.unspentAttributePoints} attribute pt{data.unspentAttributePoints > 1 ? 's' : ''} unspent</div>}
             {data.skillPointsAvailable > 0 && <div>{data.skillPointsAvailable} skill pt{data.skillPointsAvailable > 1 ? 's' : ''} available</div>}
           </div>
         )}
@@ -1823,40 +1800,21 @@ function LevelUpModal({ session, onClose }: {
 
   const [result, setResult] = useState<LevelUpResult | null>(null);
   const [attrs, setAttrs] = useState<Attributes>({ ...char.attributes });
-  const [pointsLeft, setPointsLeft] = useState(0);
-  const [flashAttr, setFlashAttr] = useState<string | null>(null);
-  const [phase, setPhase] = useState<'narrative' | 'allocate' | 'done'>('narrative');
+  const [phase, setPhase] = useState<'narrative' | 'summary' | 'done'>('narrative');
 
   // Process level-up on mount
   useEffect(() => {
     const r = processLevelUp(char);
     setResult(r);
     setAttrs({ ...char.attributes });
-    setPointsLeft(char.unspentAttributePoints ?? 0);
-    // Brief narrative then transition
+    // Brief narrative then transition to summary
     const timer = setTimeout(() => {
-      setPhase('allocate');
+      setPhase('summary');
       eventBus.emit('crt:glitch-tier', { tier: 2, duration: 250 });
     }, 2200);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleIncrement = (attr: AttributeName) => {
-    if (pointsLeft <= 0) return;
-    if (attrs[attr] >= ATTRIBUTE_MAX) return;
-
-    setFlashAttr(attr);
-    setTimeout(() => setFlashAttr(null), 300);
-    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 80 });
-
-    // Apply to character directly
-    spendAttributePoint(char, attr);
-    char.unspentAttributePoints = Math.max(0, (char.unspentAttributePoints ?? 1) - 1);
-
-    setAttrs({ ...char.attributes });
-    setPointsLeft(char.unspentAttributePoints);
-  };
 
   const handleIntegrate = () => {
     setPhase('done');
@@ -1906,8 +1864,7 @@ function LevelUpModal({ session, onClose }: {
               color: C.dim, marginTop: '0.2rem',
             }}>
               level {result.oldLevel} {'\u2192'} {result.newLevel}
-              {' \u00b7 '}{result.attrPoints} attr
-              {' \u00b7 '}{result.skillPoints} skill
+              {' \u00b7 '}{result.skillPoints} skill pt{result.skillPoints > 1 ? 's' : ''}
             </div>
           )}
         </div>
@@ -1931,92 +1888,76 @@ function LevelUpModal({ session, onClose }: {
           </div>
         )}
 
-        {/* Attribute allocation phase */}
-        {phase === 'allocate' && (
+        {/* Summary phase — show attributes with die sizes */}
+        {phase === 'summary' && (
           <div style={{ padding: '0.5rem 0.6rem' }}>
-            {/* Points counter */}
+            {/* Attribute summary with die sizes */}
             <div style={{
               fontFamily: 'monospace', fontSize: 'var(--text-base)',
-              color: pointsLeft > 0 ? '#fbbf24' : C.heal,
-              textAlign: 'center', padding: '0.3rem 0', marginBottom: '0.3rem',
+              color: C.dim, textAlign: 'center', padding: '0.3rem 0', marginBottom: '0.3rem',
               borderBottom: '1px solid rgba(var(--phosphor-rgb),0.1)',
             }}>
-              {pointsLeft > 0
-                ? `${pointsLeft} ATTRIBUTE POINT${pointsLeft > 1 ? 'S' : ''} REMAINING`
-                : 'ALL POINTS ALLOCATED'
-              }
+              CURRENT ATTRIBUTES
             </div>
 
-            {/* Attribute rows */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
               {ATTR_ORDER.map(attr => {
                 const val = attrs[attr];
-                const atMax = val >= ATTRIBUTE_MAX;
-                const canAdd = pointsLeft > 0 && !atMax;
-                const isFlashing = flashAttr === attr;
-                const filled = Math.min(val, ATTRIBUTE_MAX);
-                const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(ATTRIBUTE_MAX - filled);
+                const die = val <= 4 ? 4 : val <= 6 ? 6 : val <= 8 ? 8 : val <= 10 ? 10 : 12;
 
                 return (
                   <div
                     key={attr}
-                    role={canAdd ? 'button' : undefined}
-                    tabIndex={canAdd ? 0 : undefined}
-                    onClick={() => canAdd && handleIncrement(attr)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && canAdd) handleIncrement(attr); }}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '5.5ch 2ch 1fr auto',
+                      gridTemplateColumns: '5.5ch 2ch 3.5ch 1fr',
                       gap: '0.4ch',
                       alignItems: 'center',
                       fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                      padding: '0.35rem 0.4rem',
-                      borderRadius: 2,
-                      cursor: canAdd ? 'pointer' : 'default',
-                      background: isFlashing
-                        ? 'rgba(74,222,128,0.12)'
-                        : canAdd ? 'rgba(var(--phosphor-rgb),0.03)' : 'transparent',
-                      borderLeft: isFlashing
-                        ? '2px solid rgba(74,222,128,0.6)'
-                        : '2px solid transparent',
-                      transition: 'background 0.2s, border-left-color 0.2s',
-                      touchAction: 'manipulation',
+                      padding: '0.25rem 0.4rem',
                     }}
                   >
-                    <span style={{ color: isFlashing ? C.heal : (STAT_COLOR[attr] ?? 'var(--phosphor-green)'), fontWeight: 'bold' }}>
+                    <span style={{ color: STAT_COLOR[attr] ?? 'var(--phosphor-green)', fontWeight: 'bold' }}>
                       {attr}
                     </span>
-                    <span style={{ color: isFlashing ? C.heal : C.dim, textAlign: 'right' }}>
+                    <span style={{ color: C.dim, textAlign: 'right' }}>
                       {val}
                     </span>
                     <span style={{
-                      color: isFlashing ? C.heal : 'rgba(var(--phosphor-rgb),0.4)',
-                      fontSize: '0.8em', letterSpacing: '-0.5px',
-                      overflow: 'hidden',
+                      color: 'var(--phosphor-accent)',
+                      fontSize: '0.85em',
+                      opacity: 0.8,
                     }}>
-                      {bar}
+                      (d{die})
                     </span>
-                    {canAdd ? (
-                      <span style={{
-                        color: '#fbbf24',
-                        fontWeight: 'bold',
-                        width: '2.5ch', textAlign: 'center',
-                      }}>
-                        +1
-                      </span>
-                    ) : (
-                      <span style={{ width: '2.5ch' }} />
-                    )}
+                    <span style={{
+                      color: 'rgba(var(--phosphor-rgb),0.25)',
+                      fontSize: '0.75em',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {ATTR_LABELS[attr]}
+                    </span>
                   </div>
                 );
               })}
+            </div>
+
+            <div style={{
+              fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              color: C.faint, textAlign: 'center',
+              padding: '0.4rem 0', marginTop: '0.2rem',
+              borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+              fontStyle: 'italic',
+            }}>
+              attributes grow through milestones — quests, zones, encounters
             </div>
 
             {/* Skill point notice */}
             {char.skillPoints > 0 && (
               <div style={{
                 fontFamily: 'monospace', fontSize: 'var(--text-base)',
-                color: C.dim, textAlign: 'center',
+                color: '#fbbf24', textAlign: 'center',
                 padding: '0.4rem 0', marginTop: '0.2rem',
                 borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
               }}>
@@ -2032,17 +1973,13 @@ function LevelUpModal({ session, onClose }: {
                 style={{
                   fontFamily: 'monospace', fontSize: 'var(--text-base)',
                   fontWeight: 'bold', letterSpacing: '0.1em',
-                  color: pointsLeft === 0 ? '#0a0a0a' : 'var(--phosphor-accent)',
-                  background: pointsLeft === 0
-                    ? 'var(--phosphor-accent)'
-                    : 'rgba(var(--phosphor-rgb),0.08)',
-                  border: `1px solid ${pointsLeft === 0 ? 'var(--phosphor-accent)' : 'rgba(var(--phosphor-rgb),0.3)'}`,
+                  color: '#0a0a0a',
+                  background: 'var(--phosphor-accent)',
+                  border: '1px solid var(--phosphor-accent)',
                   padding: '0.45rem 1.5rem',
                   cursor: 'pointer', touchAction: 'manipulation',
                   borderRadius: 2,
-                  boxShadow: pointsLeft === 0
-                    ? '0 0 12px rgba(var(--phosphor-rgb),0.3)'
-                    : 'none',
+                  boxShadow: '0 0 12px rgba(var(--phosphor-rgb),0.3)',
                 }}
               >
                 INTEGRATE
@@ -2774,16 +2711,15 @@ function InventoryModal({ session, data, onClose }: {
         <div style={{ borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)', paddingTop: '0.4rem', marginBottom: '0.4rem' }}>
           {ATTR_ORDER.map(attr => {
             const val = data.attributes[attr];
-            const filled = Math.min(val, 15);
-            const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(15 - filled);
+            const die = val <= 4 ? 4 : val <= 6 ? 6 : val <= 8 ? 8 : val <= 10 ? 10 : 12;
             return (
               <div key={attr} style={{
-                display: 'grid', gridTemplateColumns: '5.5ch 2ch 1fr', gap: '0.4ch', alignItems: 'center',
+                display: 'grid', gridTemplateColumns: '5.5ch 2ch 3.5ch', gap: '0.4ch', alignItems: 'center',
                 fontFamily: 'monospace', fontSize: 'var(--text-base)', padding: '0.1rem 0',
               }}>
                 <span style={{ color: STAT_COLOR[attr] ?? 'var(--phosphor-green)', fontWeight: 'bold' }}>{attr}</span>
                 <span style={{ color: C.dim, textAlign: 'right' }}>{val}</span>
-                <span style={{ color: 'rgba(var(--phosphor-rgb),0.35)', fontSize: '0.8em', letterSpacing: '-0.5px' }}>{bar}</span>
+                <span style={{ color: 'var(--phosphor-accent)', fontSize: '0.85em', opacity: 0.8 }}>(d{die})</span>
               </div>
             );
           })}
@@ -2798,9 +2734,8 @@ function InventoryModal({ session, data, onClose }: {
           <span><span style={{ color: '#a78bfa', fontWeight: 'bold' }}>SCRIP</span> <span style={{ color: '#fff' }}>{data.scrip}</span></span>
         </div>
 
-        {(data.skillPointsAvailable > 0 || data.unspentAttributePoints > 0) && (
+        {(data.skillPointsAvailable > 0) && (
           <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24', marginTop: '0.3rem' }}>
-            {data.unspentAttributePoints > 0 && <div>{data.unspentAttributePoints} attribute pt{data.unspentAttributePoints > 1 ? 's' : ''} unspent</div>}
             {data.skillPointsAvailable > 0 && <div>{data.skillPointsAvailable} skill pt{data.skillPointsAvailable > 1 ? 's' : ''} available</div>}
           </div>
         )}
@@ -3536,166 +3471,120 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
 
-  // Gold dot separator for stat grid
-  const dot = <span style={{ color: '#fbbf24', fontWeight: 'bold', opacity: 0.7 }}>{'\u00b7'}</span>;
-
   return (
     <div style={{
-      display: 'flex',
+      display: 'flex', flexDirection: 'column',
       borderTop: `1px solid ${BORDER}`,
       background: BG_PANEL,
       flexShrink: 0,
       position: 'relative',
       touchAction: 'none',
+      padding: '0.25rem 0.5rem 0.15rem',
     }}>
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.03,
-        background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 1px, rgba(var(--phosphor-rgb),1) 1px, rgba(var(--phosphor-rgb),1) 2px)',
-      }} />
-
-      {/* Stats — left side, tappable */}
+      {/* Row 1: Identity + level */}
       <div
         role="button" tabIndex={0}
         onClick={onStatsClick}
         onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
         style={{
-          flex: 1, minWidth: 0,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           fontFamily: 'monospace', fontSize: S.base,
-          padding: '0.3rem 0.5rem 0',
-          display: 'flex', flexDirection: 'column',
-          justifyContent: 'space-between',
-          gap: '0.25rem', position: 'relative',
           cursor: 'pointer', touchAction: 'manipulation',
+          marginBottom: '0.2rem',
         }}
       >
-        {/* Section 1: Identity row — handle/subject left, Lv + quest right */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{
+          color: 'var(--phosphor-accent)', fontWeight: 'bold',
+          letterSpacing: '0.06em',
+          textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.3)',
+        }} className={S.glow}>
+          {data.handle} {'\u2014'} {data.subjectId}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          {data.activeQuestCount > 0 && (
+            <span
+              role="button" tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
+              style={{
+                fontSize: 'var(--text-base)', color: '#fbbf24',
+                border: '1px solid rgba(251,191,36,0.3)', padding: '0 0.3rem',
+                borderRadius: 2, cursor: 'pointer',
+              }}
+            >{data.activeQuestCount}J</span>
+          )}
           <span style={{
             color: 'var(--phosphor-accent)', fontWeight: 'bold',
-            letterSpacing: '0.06em',
-            textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.3)',
-          }} className={S.glow}>
-            {data.handle} {'\u2014'} {data.subjectId}
+            border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
+            borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
+          }}>
+            Lv.{data.level}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            {data.activeQuestCount > 0 && (
-              <span
-                role="button" tabIndex={0}
-                onClick={(e) => { e.stopPropagation(); eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: '/jobs' }); }}
-                style={{
-                  fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24',
-                  border: '1px solid rgba(251,191,36,0.3)', padding: '0.05rem 0.3rem',
-                  borderRadius: 2, cursor: 'pointer', touchAction: 'manipulation',
-                }}
-              >{data.activeQuestCount}J</span>
-            )}
-            <span style={{
-              color: 'var(--phosphor-accent)', fontWeight: 'bold', flexShrink: 0,
-              border: '1px solid rgba(var(--phosphor-rgb),0.3)', padding: '0.05rem 0.35rem',
-              borderRadius: 2, textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.4)',
-              boxShadow: '0 0 4px rgba(var(--phosphor-rgb),0.1)',
-            }}>
-              Lv.{data.level}
-            </span>
-          </div>
-        </div>
-
-        {/* Section 2: Clock bars — HARM + ARMOR + RAM + XP */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-          <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
-          {data.armorMaxSegments > 0 && (
-            <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
-          )}
-          {data.ramMaxSegments > 0 && (
-            <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
-            <span style={{ color: '#67e8f9', minWidth: '3.5ch', flexShrink: 0, textAlign: 'right', fontWeight: 'bold', opacity: 0.7, fontSize: '10px', whiteSpace: 'nowrap' }}>XP</span>
-            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={6} /></div>
-            <span style={{ color: '#e879f9', flexShrink: 0, minWidth: '4ch', textAlign: 'right', opacity: 0.7, fontSize: '10px' }}>
-              {data.xp}/{data.xpNext}
-            </span>
-          </div>
           {data.godMode && (
             <span style={{
               color: '#ffcc00', fontWeight: 'bold', fontSize: '8px',
               border: '1px solid rgba(255,204,0,0.4)', padding: '0 3px',
-              borderRadius: 2, letterSpacing: '0.08em', flexShrink: 0,
-              textShadow: '0 0 6px rgba(255,204,0,0.4)',
-              animation: 'mud-god-pulse 2s ease-in-out infinite',
-              alignSelf: 'flex-start',
-            }}>
-              GOD
-            </span>
+              borderRadius: 2, textShadow: '0 0 6px rgba(255,204,0,0.4)',
+            }}>GOD</span>
           )}
         </div>
+      </div>
 
-        {/* Section 3: Attributes (2×3 grid) + Currency bottom-right */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          {/* Attributes — 2 rows × 3 cols */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto auto auto auto auto',
-            alignItems: 'center',
-            justifyContent: 'start',
-            gap: '0 0.5ch',
-            fontSize: 'var(--text-base)',
-            lineHeight: 1.6,
-          }}>
-            {/* Row 1: BODY · REFLEX · TECH */}
-            <span style={{ whiteSpace: 'nowrap' }}>
-              <span style={{ color: STAT_COLOR.BODY, fontWeight: 'bold' }}>BODY</span>
-              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.BODY}</span>
-            </span>
-            {dot}
-            <span style={{ whiteSpace: 'nowrap' }}>
-              <span style={{ color: STAT_COLOR.REFLEX, fontWeight: 'bold' }}>REFLEX</span>
-              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.REFLEX}</span>
-            </span>
-            {dot}
-            <span style={{ whiteSpace: 'nowrap' }}>
-              <span style={{ color: STAT_COLOR.TECH, fontWeight: 'bold' }}>TECH</span>
-              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.TECH}</span>
-            </span>
-
-            {/* Row 2: INT · COOL · GHOST */}
-            <span style={{ whiteSpace: 'nowrap' }}>
-              <span style={{ color: STAT_COLOR.INT, fontWeight: 'bold' }}>INT</span>
-              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.INT}</span>
-            </span>
-            {dot}
-            <span style={{ whiteSpace: 'nowrap' }}>
-              <span style={{ color: STAT_COLOR.COOL, fontWeight: 'bold' }}>COOL</span>
-              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.COOL}</span>
-            </span>
-            {dot}
-            <span style={{ whiteSpace: 'nowrap' }}>
-              <span style={{ color: STAT_COLOR.GHOST, fontWeight: 'bold' }}>GHOST</span>
-              <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '0.3ch' }}>{data.attributes.GHOST}</span>
-            </span>
-          </div>
-
-          {/* Currency — bottom right */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.6ch',
-            flexShrink: 0, whiteSpace: 'nowrap',
-          }}>
-            <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}{'\u00a2'}</span>
-            {dot}
-            <span style={{ color: '#a78bfa' }}>{data.scrip}s</span>
-          </div>
+      {/* Row 2-3: Paired clock bars */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.15rem 1ch', marginBottom: '0.15rem' }}>
+        <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
+        {data.armorMaxSegments > 0 ? (
+          <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
+        ) : <div />}
+        {data.ramMaxSegments > 0 ? (
+          <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
+        ) : <div />}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
+          <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
+          <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
         </div>
       </div>
 
-      {/* Compass — right side */}
+      {/* Row 4: Attributes + currency */}
       <div style={{
-        borderLeft: `1px solid ${BORDER}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0, position: 'relative',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: 'monospace', fontSize: '10px',
+        borderTop: '1px solid rgba(var(--phosphor-rgb),0.06)',
+        paddingTop: '0.15rem',
       }}>
-        <CompassRose exits={data.exits} />
+        <div style={{ display: 'flex', gap: '0.4ch', flexWrap: 'wrap' }}>
+          {(['BODY', 'REFLEX', 'TECH', 'INT', 'COOL', 'GHOST'] as const).map((attr, i) => {
+            const val = data.attributes[attr];
+            const die = val <= 4 ? 4 : val <= 6 ? 6 : val <= 8 ? 8 : val <= 10 ? 10 : 12;
+            return (
+              <span key={attr} style={{ whiteSpace: 'nowrap' }}>
+                <span style={{ color: STAT_COLOR[attr], fontWeight: 'bold' }}>{attr.slice(0, 3)}</span>
+                <span style={{ color: C.faint, marginLeft: '1px' }}>{val}</span>
+                <span style={{ color: 'var(--phosphor-accent)', opacity: 0.6, marginLeft: '1px' }}>d{die}</span>
+                {i < 5 && <span style={{ color: C.faint, margin: '0 1px' }}>{'\u00b7'}</span>}
+              </span>
+            );
+          })}
+        </div>
+        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}</span>
+          <span style={{ color: C.faint }}>{'\u00a2'}</span>
+          <span style={{ color: C.faint, margin: '0 2px' }}>{'\u00b7'}</span>
+          <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>{data.scrip}</span>
+          <span style={{ color: C.faint }}>s</span>
+        </span>
       </div>
+
+      {/* Unspent skill points notification */}
+      {data.skillPointsAvailable > 0 && (
+        <div style={{
+          fontFamily: 'monospace', fontSize: '9px', color: '#fbbf24',
+          textAlign: 'center', paddingTop: '0.1rem',
+        }}>
+          {data.skillPointsAvailable} skill pt{data.skillPointsAvailable > 1 ? 's' : ''} available
+        </div>
+      )}
     </div>
   );
 }
@@ -3706,113 +3595,151 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
 // ══════════════════════════════════════════════════════════════════════════════
 
 function TopPanels({ data, panelMode }: { data: PanelData; panelMode: PanelMode }) {
-  // Combat mode — completely different layout
-  if (data.inCombat) return <CombatPanels data={data} />;
+  // Combat mode — compact enemy strips
+  if (data.inCombat) return <CombatHeader data={data} />;
 
-  const isSalvageMode = panelMode === 'salvage' && data.salvageDrops.length > 0;
-  const isShopMode = panelMode === 'shop' && !data.inCombat;
-  const isMapMode = panelMode === 'map' && !data.inCombat;
+  // Explore mode — thin room header only (NPCs/objects/exits are inline in chat now)
+  return <RoomHeader data={data} />;
+}
 
-  // Compute map grid dimensions to derive fixed panel height
-  const mapData = useMemo(() => {
-    const world = loadWorld(data.handle);
-    return generateMapData(data.currentRoomId, new Set(world.visitedRooms), data.zoneId);
-  }, [data.currentRoomId, data.handle, data.zoneId]);
+// ── Room Header (explore mode) — 1-line room strip ──────────────────────────
 
-  // Map panel pixel breakdown:
-  //   title bar:   0.25rem padding*2 + 12px font + 1px border + line-height = ~34px
-  //   viewport:    0.6rem padTop + 0.3rem padBot = ~15px
-  //   grid:        gridHeight * SY - GY
-  //   room label:  0.4rem margin + ~16px font = ~22px
-  const gridH = mapData ? mapData.gridHeight : 5;
-  const panelContentH = 34 + 15 + (gridH * SY - GY) + 22;
-
-  // Determine if context (middle) column has content
-  const hasContextContent = data.inCombat
-    || data.enemies.length > 0
-    || (data.shopkeeper && data.shopItems.length > 0);
-
-  // Default mode grid: 2 columns when middle is empty, 3 when occupied
-  const defaultCols = hasContextContent ? '1fr 1fr 1fr' : '1fr 1fr';
-
+function RoomHeader({ data }: { data: PanelData }) {
   return (
     <div style={{
       flexShrink: 0,
       background: BG_PANEL,
       borderBottom: `1px solid ${BORDER}`,
-      paddingTop: 5,
+      padding: '0.3rem 0.6rem',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     }}>
-      {/* Panel grid — fixed height only in map mode; other modes shrink to content */}
-      <div style={{
-        minHeight: isMapMode ? panelContentH : undefined,
-        maxHeight: isMapMode ? undefined : panelContentH,
-        display: 'grid',
-        gridTemplateColumns: isMapMode ? '2fr 1fr'
-          : isSalvageMode ? '1fr 1fr'
-          : isShopMode ? '1fr 1fr'
-          : defaultCols,
-        overflow: 'hidden',
-      }}>
-        {isMapMode ? (
-          /* ── Map mode: map (auto-width) + objects (full height) ── */
-          <>
-            <MapPanel currentRoom={data.currentRoomId} handle={data.handle} />
-            <div style={{
-              borderLeft: `1px solid ${BORDER}`,
-              overflowY: 'auto', overscrollBehavior: 'contain',
-            }}>
-              <ObjectsPanel objects={data.objects} />
-            </div>
-          </>
-        ) : isSalvageMode ? (
-          /* ── Salvage mode: drops + context ── */
-          <>
-            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <SalvageDropsPanel drops={data.salvageDrops} />
-            </div>
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <SalvageContextPanel enemyNames={data.salvageEnemies} />
-            </div>
-          </>
-        ) : isShopMode ? (
-          /* ── Shop mode: stock + player items ── */
-          <>
-            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <ShopStockPanel
-                shopItems={data.shopItems}
-                shopkeeperName={data.npcs.find(n => n.hasShop)?.name ?? 'VENDOR'}
-                creds={data.creds}
-              />
-            </div>
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <ShopPlayerPanel inventory={data.inventory} />
-            </div>
-          </>
-        ) : (
-          /* ── Default: Contacts | (Hostiles if present) | Objects ── */
-          <>
-            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <LeftPanel
-                npcs={data.npcs} inCombat={data.inCombat}
-                consumables={data.consumables}
-                playerRam={data.playerRam} playerMaxRam={data.playerMaxRam}
-                isPlayerTurn={data.isPlayerTurn}
-              />
-            </div>
-            {hasContextContent && (
-              <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-                <ContextPanel
-                  enemies={data.enemies} shopItems={data.shopItems}
-                  shopkeeper={data.shopkeeper} inCombat={data.inCombat}
-                  creds={data.creds}
-                />
-              </div>
-            )}
-            <div style={{ borderLeft: `1px solid ${BORDER}`, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <ObjectsPanel objects={data.objects} />
-            </div>
-          </>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', fontFamily: 'monospace', overflow: 'hidden' }}>
+        <span style={{
+          fontSize: 'var(--text-header)', fontWeight: 'bold',
+          color: data.isSafeZone ? '#a5f3fc' : 'var(--phosphor-accent)',
+          letterSpacing: '0.06em', whiteSpace: 'nowrap',
+          textShadow: data.isSafeZone ? '0 0 6px rgba(165,243,252,0.3)' : '0 0 6px rgba(var(--phosphor-rgb),0.3)',
+        }}>
+          {data.isSafeZone ? '\u2723 ' : '\u2550 '}{data.roomName}
+        </span>
+        <span style={{
+          fontSize: 'var(--text-base)', color: C.faint,
+          whiteSpace: 'nowrap',
+        }}>
+          {data.zoneName}
+        </span>
+      </div>
+      {/* Room trait dice badges (when room traits are defined) */}
+      <div style={{ display: 'flex', gap: '0.4ch', flexShrink: 0 }}>
+        {data.enemies.length > 0 && !data.inCombat && (
+          <span style={{
+            fontFamily: 'monospace', fontSize: '9px',
+            color: '#ff6b6b', opacity: 0.7,
+            border: '1px solid rgba(255,107,107,0.2)',
+            padding: '0 0.3rem', borderRadius: 2,
+          }}>
+            {'\u26A0'} {data.enemies.length}
+          </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Combat Header — enemy strips + round indicator ──────────────────────────
+
+function CombatHeader({ data }: { data: PanelData }) {
+  return (
+    <div style={{
+      flexShrink: 0,
+      background: BG_COMBAT,
+      borderBottom: `1px solid ${BORDER_COMBAT}`,
+    }}>
+      {/* Round bar */}
+      <div style={{
+        padding: '0.25rem 0.6rem',
+        borderBottom: `1px solid ${BORDER_COMBAT}`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <span style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+          color: C.combat, letterSpacing: '0.08em',
+          animation: 'mud-header-pulse 2.5s ease-in-out infinite',
+        }} className={S.glow}>
+          {'\u2694'} COMBAT {'\u2014'} Round {data.combatRound}
+        </span>
+        <span style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          color: data.isPlayerTurn ? 'var(--phosphor-accent)' : C.faint,
+          animation: data.isPlayerTurn ? 'mud-turn-glow 2s ease-in-out infinite' : 'none',
+        }}>
+          {data.isPlayerTurn ? 'YOUR MOVE' : 'WAITING...'}
+        </span>
+      </div>
+
+      {/* Enemy strips — 2 lines per enemy */}
+      <div style={{ padding: '0.3rem 0.5rem' }}>
+        {data.enemies.map((enemy, i) => {
+          const harmPct = (enemy.harmSegments ?? 4) > 0 ? ((enemy.harmFilled ?? 0) / (enemy.harmSegments ?? 4)) * 100 : 0;
+          const isLow = harmPct > 70;
+          return (
+            <div key={enemy.id} style={{
+              borderBottom: i < data.enemies.length - 1 ? `1px solid rgba(255,68,68,0.08)` : 'none',
+              padding: '0.25rem 0',
+            }}>
+              {/* Line 1: name + tier + behavior + action buttons */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+              }}>
+                <div
+                  role="button" tabIndex={0}
+                  onClick={() => eventBus.emit('mud:execute-command', { command: `/attack ${enemy.name}` })}
+                  style={{ cursor: 'pointer', touchAction: 'manipulation', display: 'flex', alignItems: 'center', gap: '0.5ch' }}
+                >
+                  <span style={{
+                    color: isLow ? '#ff4444' : C.enemy, fontWeight: 'bold',
+                    textShadow: isLow ? '0 0 6px rgba(255,68,68,0.4)' : 'none',
+                  }}>
+                    {enemy.name}
+                  </span>
+                  <span style={{ color: C.faint, fontSize: '9px' }}>T{enemy.tier ?? '?'}</span>
+                  {enemy.behavior && (
+                    <span style={{ color: C.faint, fontSize: '9px', opacity: 0.6 }}>{enemy.behavior}</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                  <Btn label="ATK" command={`/attack ${enemy.name}`} color={C.enemy} borderColor="rgba(255,107,107,0.4)" small />
+                  <Btn label="SCAN" command={`/scan ${enemy.name}`} color={C.accent} borderColor="rgba(var(--phosphor-rgb),0.3)" small />
+                </div>
+              </div>
+              {/* Line 2: clock bars inline */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '1ch',
+                fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                paddingLeft: '0.3rem',
+              }}>
+                <ClockBar filled={enemy.harmFilled ?? 0} segments={enemy.harmSegments ?? 4} color="#ff6b6b" label="HARM" compact />
+                {(enemy.armorSegments ?? 0) > 0 && (
+                  <ClockBar filled={enemy.armorFilled ?? 0} segments={enemy.armorSegments!} color="#60a5fa" label="ARMOR" inverted compact />
+                )}
+                {enemy.effects && enemy.effects.length > 0 && (
+                  <div style={{ display: 'flex', gap: '0.3ch' }}>
+                    {enemy.effects.map((eff, j) => (
+                      <span key={j} style={{
+                        fontSize: '8px', color: '#c084fc',
+                        border: '1px solid rgba(192,132,252,0.25)',
+                        padding: '0 0.25rem', borderRadius: 1,
+                      }}>
+                        {eff}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
