@@ -1486,6 +1486,103 @@ function CompassRose({ exits }: { exits: PanelExit[] }) {
   );
 }
 
+// ── Compact compass for BottomBar — 3×3 core, minimal footprint ─────────────
+// The full CompassRose (5×5 at SZ=26) is too tall for inline BottomBar use.
+// This variant uses a 3×3 grid at SZ=20 with intercardinals as corner overlays.
+
+function BottomBarCompass({ exits }: { exits: PanelExit[] }) {
+  const exitSet = new Set(exits.map(e => e.direction));
+  const hasVertical = exitSet.has('up') || exitSet.has('down');
+  const hasInOut = exitSet.has('in') || exitSet.has('out');
+  const hasIntercardinal = exitSet.has('northeast') || exitSet.has('northwest') || exitSet.has('southeast') || exitSet.has('southwest');
+
+  const SZ = 20;
+  const SMALL = 14;
+
+  function CBtn({ dir, sz }: { dir: Direction; sz: number }) {
+    const available = exitSet.has(dir);
+    const exitData = exits.find(e => e.direction === dir);
+    const locked = exitData?.locked ?? false;
+    const isSpecial = dir === 'up' || dir === 'down' || dir === 'in' || dir === 'out';
+
+    return (
+      <button
+        className="mud-compass-btn"
+        disabled={!available}
+        onClick={() => {
+          if (!available) return;
+          if (locked) {
+            eventBus.emit('mud:execute-command', { command: `/examine ${dir}` });
+          } else {
+            eventBus.emit('mud:execute-command', { command: `/go ${dir}` });
+            eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 });
+          }
+        }}
+        title={exitData ? `${dir}: ${exitData.label}${locked ? ' [LOCKED]' : ''}` : dir}
+        style={{
+          fontFamily: 'monospace', fontSize: sz <= SMALL ? '7px' : '9px', fontWeight: 'bold', lineHeight: 1,
+          width: isSpecial ? sz + 4 : sz, height: sz,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: available
+            ? locked ? 'rgba(255,107,107,0.08)' : 'rgba(var(--phosphor-rgb),0.06)'
+            : 'transparent',
+          border: available
+            ? `1px solid ${locked ? 'rgba(255,107,107,0.4)' : 'rgba(var(--phosphor-rgb),0.25)'}`
+            : '1px solid rgba(var(--phosphor-rgb),0.06)',
+          color: available
+            ? locked ? '#ff6b6b' : 'var(--phosphor-accent)'
+            : 'rgba(var(--phosphor-rgb),0.08)',
+          cursor: available ? 'pointer' : 'default',
+          touchAction: 'manipulation', borderRadius: 2, padding: 0,
+          boxShadow: available ? `0 0 3px ${locked ? 'rgba(255,107,107,0.2)' : 'rgba(var(--phosphor-rgb),0.1)'}` : 'none',
+        }}
+      >
+        {locked ? '\ud83d\udd12' : DIR_LABELS[dir]}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      {/* Main grid — 3×3 with optional intercardinal corners */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: hasIntercardinal ? `${SMALL}px ${SZ}px ${SMALL}px` : `${SZ}px ${SZ}px ${SZ}px`,
+        gridTemplateRows: hasIntercardinal ? `${SMALL}px ${SZ}px ${SMALL}px` : `${SZ}px ${SZ}px ${SZ}px`,
+        gap: 1, justifyItems: 'center', alignItems: 'center',
+      }}>
+        {/* Row 1 */}
+        {hasIntercardinal ? <CBtn dir="northwest" sz={SMALL} /> : <div />}
+        <CBtn dir="north" sz={SZ} />
+        {hasIntercardinal ? <CBtn dir="northeast" sz={SMALL} /> : <div />}
+
+        {/* Row 2 */}
+        <CBtn dir="west" sz={hasIntercardinal ? SMALL : SZ} />
+        <div style={{
+          width: SZ, height: SZ, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'monospace', fontSize: '6px', color: 'rgba(var(--phosphor-rgb),0.12)',
+        }}>{'\u25c6'}</div>
+        <CBtn dir="east" sz={hasIntercardinal ? SMALL : SZ} />
+
+        {/* Row 3 */}
+        {hasIntercardinal ? <CBtn dir="southwest" sz={SMALL} /> : <div />}
+        <CBtn dir="south" sz={SZ} />
+        {hasIntercardinal ? <CBtn dir="southeast" sz={SMALL} /> : <div />}
+      </div>
+
+      {/* Special exits column: UP/DOWN/IN/OUT */}
+      {(hasVertical || hasInOut) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {exitSet.has('up') && <CBtn dir="up" sz={SZ} />}
+          {exitSet.has('down') && <CBtn dir="down" sz={SZ} />}
+          {exitSet.has('in') && <CBtn dir="in" sz={SZ} />}
+          {exitSet.has('out') && <CBtn dir="out" sz={SZ} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Passages bar — clickable branch destinations ────────────────────────────
 // Shows side passages accessible from the current room that aren't compass
 // directions. Renders as a row of small tappable buttons.
@@ -4261,9 +4358,9 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
       </div>
 
       {/* Row 2-3: Stats + Compass side by side */}
-      <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.15rem' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.15rem', alignItems: 'start' }}>
         {/* Left: clock bars */}
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.15rem 1ch', minWidth: 0 }}>
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.1rem 0.8ch', minWidth: 0 }}>
           <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
           {data.armorMaxSegments > 0 ? (
             <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
@@ -4272,20 +4369,20 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
           {data.ramMaxSegments > 0 ? (
             <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
           ) : <div />}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', gridColumn: '1 / -1' }}>
             <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
             <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
             <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
           </div>
           {data.traumas.length > 0 && (
             <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b', gridColumn: '1 / -1' }}>
-              TRAUMA: {data.traumas.join(' · ')}
+              TRAUMA: {data.traumas.join(' \u00b7 ')}
             </div>
           )}
         </div>
-        {/* Right: compass rose */}
-        <div style={{ flexShrink: 0 }}>
-          <CompassRose exits={data.exits} />
+        {/* Right: compact compass */}
+        <div style={{ flexShrink: 0, paddingTop: '0.1rem' }}>
+          <BottomBarCompass exits={data.exits} />
         </div>
       </div>
 
