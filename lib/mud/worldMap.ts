@@ -255,6 +255,7 @@ a circuit board with a toothbrush and solvent. She doesn't look
 up when you enter. She already knows you're here.`,
     exits: [
       { direction: 'east', targetRoom: 'z08_r03', description: 'east (The Junction)' },
+      { direction: 'south', targetRoom: 'z08_r02', description: 'maintenance access hatch leads down to the narrows' },
     ],
     npcs: [
       {
@@ -483,6 +484,7 @@ you enter. Studies you for three full seconds before speaking.
 "Another one. Sit down. Tell me what they took from you."`,
     exits: [
       { direction: 'west', targetRoom: 'z08_r03', description: 'west (The Junction)' },
+      { direction: 'south', targetRoom: 'z08_r04', description: 'an old service tunnel connects to the north channel' },
     ],
     npcs: [
       {
@@ -574,6 +576,7 @@ The tunnel continues into flooded darkness. Whatever's down
 there, it's been eating well.`,
     exits: [
       { direction: 'west', targetRoom: 'z08_r10', description: 'west (Storage Chambers)' },
+      { direction: 'south', targetRoom: 'z08_r09', description: 'drainage pipes connect to the overflow tunnels' },
     ],
     npcs: [],
     enemies: [
@@ -648,6 +651,7 @@ a circle with a vertical line through it. Below it, scratched
 in small letters: "THE SIGNAL WAS HERE BEFORE US."`,
     exits: [
       { direction: 'north', targetRoom: 'z08_r12', description: 'north (East Passage)' },
+      { direction: 'west', targetRoom: 'z08_r03', description: 'a narrow crawlway winds back toward the junction' },
     ],
     npcs: [],
     enemies: [],
@@ -908,6 +912,7 @@ the servers hum. not at 60hz. at 33hz. every oscillator has
 drifted to the substrate's frequency. the room hums wrong.`,
     exits: [
       { direction: 'west', targetRoom: 'z09_r02', description: 'west (Cable Gallery)' },
+      { direction: 'south', targetRoom: 'z09_r03', description: 'a maintenance duct behind the server racks' },
     ],
     npcs: [],
     enemies: [],
@@ -1037,6 +1042,7 @@ the expression of someone who has been alone for so long that
 another face is both miracle and threat.`,
     exits: [
       { direction: 'west', targetRoom: 'z09_r07', description: 'west (Sensor Corridor)' },
+      { direction: 'south', targetRoom: 'z09_r11', description: 'the gap opens into the shaft below' },
     ],
     npcs: [
       {
@@ -1462,6 +1468,7 @@ a fire pit sits in the center. warm. someone was here recently.
 the fringe is empty but the cache fire is always warm.`,
     exits: [
       { direction: 'north', targetRoom: 'z04_r04', description: 'north (Underpass)' },
+      { direction: 'east', targetRoom: 'z04_r02', description: 'a scavenger trail cuts through the rubble' },
     ],
     npcs: [],
     enemies: [],
@@ -1597,6 +1604,7 @@ staring at the wall. he hears you come in. he hears everything
 twice.`,
     exits: [
       { direction: 'south', targetRoom: 'z04_r02', description: 'south (Rubble Streets)' },
+      { direction: 'west', targetRoom: 'z04_r06', description: 'a back corridor leads toward the waking room' },
     ],
     npcs: [
       {
@@ -1710,6 +1718,7 @@ ruins so completely that the ruins are part of them.
 you shouldn't be here. they know you are.`,
     exits: [
       { direction: 'west', targetRoom: 'z04_r09', description: 'west (Deep Ruins)' },
+      { direction: 'south', targetRoom: 'z04_r07', description: 'stalker trails lead down to the drainage access' },
     ],
     npcs: [],
     enemies: [
@@ -1764,6 +1773,7 @@ a man lives here. he's been here longer than anyone else in the
 fringe.`,
     exits: [
       { direction: 'down', targetRoom: 'z04_r09', description: 'down (Deep Ruins)' },
+      { direction: 'south', targetRoom: 'z04_r12', description: 'an overgrown path descends toward the courtyard' },
     ],
     npcs: [
       {
@@ -2060,6 +2070,7 @@ to be a security drone. The Helixion logo on its chassis has
 been partially ground off. He doesn't look up.`,
     exits: [
       { direction: 'north', targetRoom: 'z03_r02', description: 'north (Cargo Docks)' },
+      { direction: 'west', targetRoom: 'z03_r05', description: 'a gap in the chain-link leads to factory row' },
     ],
     npcs: [
       {
@@ -2523,6 +2534,7 @@ if you weren't looking. Her left hand has too many degrees
 of articulation.`,
     exits: [
       { direction: 'south', targetRoom: 'z03_r10', description: 'south (The Wolf Den)' },
+      { direction: 'east', targetRoom: 'z03_r07', description: 'service tunnel to the dead factory' },
     ],
     npcs: [
       {
@@ -2673,6 +2685,7 @@ everyone with questions about the Helixion shipments ends up
 in this office.`,
     exits: [
       { direction: 'down', targetRoom: 'z03_r02', description: 'down (Cargo Docks)' },
+      { direction: 'south', targetRoom: 'z03_r01', description: 'fire escape overlooks the waterfront' },
     ],
     npcs: [
       {
@@ -3315,6 +3328,7 @@ at the testimonial screen. She's been sitting there for
 twenty minutes. She hasn't moved.`,
     exits: [
       { direction: 'north', targetRoom: 'z02_r09', description: 'north (Inner Boulevard)' },
+      { direction: 'west', targetRoom: 'z02_r04', description: 'a side exit leads to the mid blocks' },
     ],
     npcs: [
       {
