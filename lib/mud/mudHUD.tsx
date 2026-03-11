@@ -4292,11 +4292,13 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Bottom Bar — [Identity · HP · XP · Stats | Compass] ─────────────────────
+// ── Bottom Bar — Collapsible [Identity · HP · STRSS | Compass] ──────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
+  const [expanded, setExpanded] = useState(false);
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
+  const hasSecondary = data.armorMaxSegments > 0 || data.ramMaxSegments > 0 || data.traumas.length > 0;
 
   return (
     <div style={{
@@ -4308,26 +4310,35 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
       touchAction: 'none',
       padding: '0.25rem 0.5rem 0.15rem',
     }}>
-      {/* Row 1: Identity + level */}
-      <div
-        role="button" tabIndex={0}
-        onClick={onStatsClick}
-        onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
-        style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          fontFamily: 'monospace', fontSize: S.base,
-          cursor: 'pointer', touchAction: 'manipulation',
-          marginBottom: '0.2rem',
-        }}
-      >
-        <span style={{
-          color: 'var(--phosphor-accent)', fontWeight: 'bold',
-          letterSpacing: '0.06em',
-          textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.3)',
-        }} className={S.glow}>
-          {data.handle} {'\u2014'} {data.subjectId}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+      {/* Row 1: Identity + level + currency */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: 'monospace', fontSize: S.base,
+        marginBottom: '0.2rem',
+      }}>
+        <div
+          role="button" tabIndex={0}
+          onClick={onStatsClick}
+          onKeyDown={(e) => { if (e.key === 'Enter') onStatsClick(); }}
+          style={{ cursor: 'pointer', touchAction: 'manipulation', display: 'flex', alignItems: 'center', gap: '0.5ch', minWidth: 0, overflow: 'hidden' }}
+        >
+          <span style={{
+            color: 'var(--phosphor-accent)', fontWeight: 'bold',
+            letterSpacing: '0.06em',
+            textShadow: '0 0 6px rgba(var(--phosphor-rgb),0.3)',
+            whiteSpace: 'nowrap',
+          }} className={S.glow}>
+            {data.handle}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', flexShrink: 0 }}>
+          <span style={{ whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '10px' }}>
+            <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}</span>
+            <span style={{ color: C.faint }}>{'\u00a2'}</span>
+            <span style={{ color: C.faint, margin: '0 2px' }}>{'\u00b7'}</span>
+            <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>{data.scrip}</span>
+            <span style={{ color: C.faint }}>s</span>
+          </span>
           {data.activeQuestCount > 0 && (
             <span
               role="button" tabIndex={0}
@@ -4357,28 +4368,12 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         </div>
       </div>
 
-      {/* Row 2-3: Stats + Compass side by side */}
+      {/* Row 2: Primary clocks + compass */}
       <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.15rem', alignItems: 'start' }}>
-        {/* Left: clock bars */}
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.1rem 0.8ch', minWidth: 0 }}>
+        {/* Left: primary clocks only (HARM + STRSS) */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.1rem', minWidth: 0 }}>
           <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
-          {data.armorMaxSegments > 0 ? (
-            <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
-          ) : <div />}
           <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRSS" compact />
-          {data.ramMaxSegments > 0 ? (
-            <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
-          ) : <div />}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', gridColumn: '1 / -1' }}>
-            <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
-            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
-            <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
-          </div>
-          {data.traumas.length > 0 && (
-            <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b', gridColumn: '1 / -1' }}>
-              TRAUMA: {data.traumas.join(' \u00b7 ')}
-            </div>
-          )}
         </div>
         {/* Right: compact compass */}
         <div style={{ flexShrink: 0, paddingTop: '0.1rem' }}>
@@ -4386,38 +4381,53 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         </div>
       </div>
 
-      {/* Passages bar below compass area */}
-      <PassagesBar branches={data.branches} />
-
-      {/* Row 4: Attributes + currency */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontFamily: 'monospace', fontSize: '10px',
-        borderTop: '1px solid rgba(var(--phosphor-rgb),0.06)',
-        paddingTop: '0.15rem',
-      }}>
-        <div style={{ display: 'flex', gap: '0.4ch', flexWrap: 'wrap' }}>
-          {(['BODY', 'REFLEX', 'TECH', 'INT', 'COOL', 'GHOST'] as const).map((attr, i) => {
-            const val = data.attributes[attr];
-            const die = val <= 4 ? 4 : val <= 6 ? 6 : val <= 8 ? 8 : val <= 10 ? 10 : 12;
-            return (
-              <span key={attr} style={{ whiteSpace: 'nowrap' }}>
-                <span style={{ color: STAT_COLOR[attr], fontWeight: 'bold' }}>{attr.slice(0, 3)}</span>
-                <span style={{ color: C.faint, marginLeft: '1px' }}>{val}</span>
-                <span style={{ color: 'var(--phosphor-accent)', opacity: 0.6, marginLeft: '1px' }}>d{die}</span>
-                {i < 5 && <span style={{ color: C.faint, margin: '0 1px' }}>{'\u00b7'}</span>}
-              </span>
-            );
-          })}
+      {/* Expandable secondary section */}
+      {expanded && (
+        <div style={{
+          borderTop: '1px solid rgba(var(--phosphor-rgb),0.08)',
+          paddingTop: '0.2rem', marginTop: '0.1rem',
+          display: 'flex', flexDirection: 'column', gap: '0.1rem',
+          animation: 'mud-fade-in 0.15s ease-out both',
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.1rem 0.8ch' }}>
+            {data.armorMaxSegments > 0 && (
+              <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
+            )}
+            {data.ramMaxSegments > 0 && (
+              <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
+            <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
+          </div>
+          {data.traumas.length > 0 && (
+            <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b' }}>
+              TRAUMA: {data.traumas.join(' \u00b7 ')}
+            </div>
+          )}
         </div>
-        <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-          <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{data.creds}</span>
-          <span style={{ color: C.faint }}>{'\u00a2'}</span>
-          <span style={{ color: C.faint, margin: '0 2px' }}>{'\u00b7'}</span>
-          <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>{data.scrip}</span>
-          <span style={{ color: C.faint }}>s</span>
-        </span>
-      </div>
+      )}
+
+      {/* Expand/collapse chevron — only show if there's secondary data */}
+      {(hasSecondary || true) && (
+        <div
+          role="button" tabIndex={0}
+          onClick={() => setExpanded(!expanded)}
+          onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(!expanded); }}
+          style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            cursor: 'pointer', touchAction: 'manipulation',
+            padding: '0.05rem 0',
+            fontFamily: 'monospace', fontSize: '8px',
+            color: 'rgba(var(--phosphor-rgb),0.3)',
+            letterSpacing: '0.2em',
+          }}
+        >
+          {expanded ? '\u25B4 \u25B4 \u25B4' : '\u25BE \u25BE \u25BE'}
+        </div>
+      )}
 
       {/* Unspent skill points notification */}
       {data.skillPointsAvailable > 0 && (
@@ -4453,7 +4463,7 @@ function RoomHeader({ data }: { data: PanelData }) {
       flexShrink: 0,
       background: BG_PANEL,
       borderBottom: `1px solid ${BORDER}`,
-      padding: '0.3rem 0.6rem',
+      padding: '0.35rem 0.6rem',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch', fontFamily: 'monospace', overflow: 'hidden' }}>
@@ -4465,6 +4475,12 @@ function RoomHeader({ data }: { data: PanelData }) {
         }}>
           {data.isSafeZone ? '\u2723 ' : '\u2550 '}{data.roomName}
         </span>
+        {data.isSafeZone && (
+          <span style={{
+            fontSize: '9px', color: '#a5f3fc', opacity: 0.7,
+            letterSpacing: '0.04em', whiteSpace: 'nowrap',
+          }}>[SAFE]</span>
+        )}
         <span style={{
           fontSize: 'var(--text-base)', color: C.faint,
           whiteSpace: 'nowrap',

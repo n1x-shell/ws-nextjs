@@ -890,30 +890,9 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
   // Reset panel mode
   eventBus.emit('mud:panel-mode-reset-non-map');
 
-  // ── Room description ──
+  // ── Room description (room name shown in header strip — not duplicated here) ──
   addLocalMsg(
     <div key={k('look')} data-room-entry="true">
-      <div style={{
-        fontFamily: 'monospace', fontSize: S.header, fontWeight: 'bold',
-        color: room.isSafeZone ? '#a5f3fc' : C.accent,
-        textTransform: 'uppercase', letterSpacing: '0.08em',
-        marginBottom: '0.15rem',
-        textShadow: room.isSafeZone
-          ? '0 0 8px rgba(165,243,252,0.4)'
-          : '0 0 8px rgba(var(--phosphor-rgb),0.3)',
-      }}>
-        {room.name.replace(/_/g, ' ')}
-        {room.isSafeZone && <span style={{
-          fontSize: S.base, fontWeight: 'normal', opacity: 0.7,
-          marginLeft: '0.6ch', letterSpacing: '0.04em',
-        }}>[SAFE]</span>}
-      </div>
-      <div style={{
-        fontFamily: 'monospace', fontSize: S.base,
-        color: C.dimmer, marginBottom: '0.5rem',
-      }}>
-        {zone?.name?.replace(/_/g, ' ') ?? 'UNKNOWN ZONE'}
-      </div>
       {room.description.split('\n\n').map((para, pi) => (
         <div key={k(`desc-p-${pi}`)} style={{
           fontFamily: 'monospace', fontSize: S.base, lineHeight: 1.8,
@@ -980,60 +959,86 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
     );
   }
 
-  // ── Inline object tags ──
+  // ── Inline object cards (left-border accent, matches NPC card pattern) ──
   const visibleObjects = room.objects.filter(o =>
     !o.hidden || (o.hiddenRequirement && char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum)
   );
   if (visibleObjects.length > 0) {
     addLocalMsg(
-      <div key={k('look-objects')} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.3rem' }}>
-        {visibleObjects.map(obj => (
-          <span
-            key={k(`obj-${obj.id}`)}
-            role="button" tabIndex={0}
-            onClick={() => eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` })}
-            onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` }); }}
-            style={{
-              fontFamily: 'monospace', fontSize: S.base,
-              color: obj.lootable ? '#fbbf24' : C.dim,
-              border: `1px solid ${obj.lootable ? 'rgba(251,191,36,0.25)' : 'rgba(var(--phosphor-rgb),0.12)'}`,
-              padding: '0.2rem 0.5rem',
-              borderRadius: 2,
-              cursor: 'pointer', touchAction: 'manipulation',
-              background: 'rgba(var(--phosphor-rgb),0.03)',
-            }}
-          >
-            {obj.name}{obj.lootable ? ' ✦' : ''}
-          </span>
-        ))}
+      <div key={k('look-objects')} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.3rem' }}>
+        {visibleObjects.map(obj => {
+          const color = obj.lootable ? '#fbbf24' : 'rgba(var(--phosphor-rgb),0.5)';
+          return (
+            <div
+              key={k(`obj-${obj.id}`)}
+              role="button" tabIndex={0}
+              onClick={() => eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` })}
+              onKeyDown={(e) => { if (e.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/examine ${obj.name}` }); }}
+              style={{
+                fontFamily: 'monospace', fontSize: S.base,
+                borderLeft: `3px solid ${color}`,
+                background: `${color}08`,
+                padding: '0.25rem 0.6rem',
+                borderRadius: '0 3px 3px 0',
+                cursor: 'pointer', touchAction: 'manipulation',
+                display: 'flex', alignItems: 'center', gap: '0.6ch',
+              }}
+              className="mud-obj-row"
+            >
+              <span style={{ color, opacity: 0.9 }}>{obj.lootable ? '\u2726' : '\u25B8'}</span>
+              <span style={{ color: obj.lootable ? '#fbbf24' : C.dim }}>{obj.name}</span>
+              {obj.lootable && <span style={{ color: '#fbbf24', opacity: 0.5, fontSize: '9px' }}>LOOT</span>}
+            </div>
+          );
+        })}
       </div>
     );
   }
 
-  // ── Inline enemy warnings ──
+  // ── Inline enemy cards (NPC-card pattern with left border) ──
   if (room.enemies.length > 0 && !room.isSafeZone) {
     addLocalMsg(
-      <div key={k('look-enemies')} style={{ marginTop: '0.3rem' }}>
+      <div key={k('look-enemies')} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.3rem' }}>
         {room.enemies.map((e, i) => (
-          <div key={k(`enemy-warn-${i}`)} style={{
-            fontFamily: 'monospace', fontSize: S.base,
-            color: '#ff6b6b', opacity: 0.7,
-            padding: '0.1rem 0',
-          }}>
-            {'\u26A0'} {e.name} {'\u2014'} Lv.{e.level} {'\u2014'} {Math.round(e.spawnChance * 100)}% spawn
+          <div
+            key={k(`enemy-warn-${i}`)}
+            role="button" tabIndex={0}
+            onClick={() => eventBus.emit('mud:execute-command', { command: `/scan ${e.name}` })}
+            onKeyDown={(ev) => { if (ev.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/scan ${e.name}` }); }}
+            style={{
+              fontFamily: 'monospace', fontSize: S.base,
+              borderLeft: '3px solid #ff6b6b',
+              background: 'rgba(255,107,107,0.06)',
+              padding: '0.3rem 0.6rem',
+              borderRadius: '0 3px 3px 0',
+              cursor: 'pointer', touchAction: 'manipulation',
+            }}
+            className="mud-npc-card"
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#ff6b6b', fontWeight: 'bold', letterSpacing: '0.04em' }}>
+                {'\u26A0'} {e.name}
+              </span>
+              <span style={{ color: C.dimmer, fontSize: '9px' }}>
+                Lv.{e.level} {'\u00b7'} {Math.round(e.spawnChance * 100)}% spawn
+              </span>
+            </div>
           </div>
         ))}
       </div>
     );
   }
 
-  // ── Inline exit tags ──
+  // ── Inline exit tags (named destinations only — compass handles cardinal) ──
   const visibleExits = getVisibleExits(char.currentRoom, char);
-  if (visibleExits.length > 0) {
-    const branches = getAccessibleBranches(char.currentRoom, char);
+  const CARDINAL_SET = new Set(['north','south','east','west','northeast','northwest','southeast','southwest','up','down']);
+  // Only show exits that are zone transitions, locked, or non-cardinal (named/special)
+  const namedExits = visibleExits.filter(exit => exit.zoneTransition || exit.locked || !CARDINAL_SET.has(exit.direction));
+  const branches = getAccessibleBranches(char.currentRoom, char);
+  if (namedExits.length > 0 || branches.length > 0) {
     addLocalMsg(
       <div key={k('look-exits')} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
-        {visibleExits.map(exit => (
+        {namedExits.map(exit => (
           <span
             key={k(`exit-${exit.direction}`)}
             role="button" tabIndex={0}
