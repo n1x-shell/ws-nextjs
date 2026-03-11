@@ -13,6 +13,7 @@ import type {
   AttributeName,
   Archetype,
   Attributes,
+  NPCModalPayload,
 } from './types';
 import {
   xpForLevel,
@@ -35,7 +36,7 @@ import {
   getPlayerArmorClock,
   getPlayerRamClock,
 } from './combat';
-import { getFormattedShop, type ShopListing } from './shopSystem';
+import { getFormattedShop, type ShopListing, buyItem, getBuyPrice, getShopkeeperName } from './shopSystem';
 import { getNPCRelation, saveCharacter, loadWorld } from './persistence';
 import { sellItem } from './shopSystem';
 import {
@@ -46,6 +47,7 @@ import {
 } from './questEngine';
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
+import { getItemTemplate } from './items';
 import { MapPanel, generateMapData, SY, GY } from './mudMap';
 import { processLevelUp, type LevelUpResult } from './character';
 import {
@@ -3286,6 +3288,667 @@ function QuestsModal({ session, onClose }: { session: MudSession; onClose: () =>
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── NPC Interaction Modal — Tabbed vendor/quest/dialogue UI ─────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const NPC_TAB_COLORS: Record<string, string> = {
+  TALK:  '#fcd34d',
+  SHOP:  '#4ade80',
+  JOBS:  '#fbbf24',
+  HEAL:  '#67e8f9',
+  INFO:  'var(--phosphor-accent)',
+  HIRE:  '#a78bfa',
+};
+
+const NPC_TIER_COLORS: Record<string, string> = {
+  SCRAP: 'rgba(var(--phosphor-rgb),0.45)',
+  COMMON: '#d4d4d4',
+  MIL_SPEC: '#60a5fa',
+  HELIXION: '#a78bfa',
+  PROTOTYPE: '#fbbf24',
+};
+
+const NPC_QUEST_TYPE_COLORS: Record<string, string> = {
+  FETCH: '#4ade80',
+  ELIMINATE: '#ff6b6b',
+  ESCORT: '#67e8f9',
+  INVESTIGATE: '#c084fc',
+  DELIVERY: '#fbbf24',
+  DIALOGUE: '#fcd34d',
+  SABOTAGE: '#f87171',
+  ARENA: '#fb923c',
+  MULTI: '#d4d4d4',
+};
+
+function npcDispColor(d: number): string {
+  if (d <= -51) return '#ff4444';
+  if (d <= -11) return '#ff6b6b';
+  if (d <= 10)  return '#d4d4d4';
+  if (d <= 50)  return '#4ade80';
+  return '#67e8f9';
+}
+
+function npcDispWord(d: number): string {
+  if (d <= -51) return 'HOSTILE';
+  if (d <= -11) return 'UNFRIENDLY';
+  if (d <= 10)  return 'NEUTRAL';
+  if (d <= 50)  return 'FRIENDLY';
+  return 'DEVOTED';
+}
+
+function NPCModal({ session, data, npc, onClose }: {
+  session: MudSession;
+  data: PanelData;
+  npc: NPCModalPayload;
+  onClose: () => void;
+}) {
+  const char = session.character;
+  if (!char) return null;
+
+  const defaultTab = npc.defaultTab ?? 'TALK';
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [tick, setTick] = useState(0);
+
+  // Fresh world state for quest data
+  const world = useMemo(() => loadWorld(char.handle), [char.handle, tick]);
+
+  // Build tab list based on NPC services
+  const tabs = useMemo(() => {
+    const result: Array<{ id: string; label: string; color: string }> = [];
+    result.push({ id: 'TALK', label: 'TALK', color: NPC_TAB_COLORS.TALK });
+    if (npc.services.includes('shop')) result.push({ id: 'SHOP', label: 'SHOP', color: NPC_TAB_COLORS.SHOP });
+    if (npc.services.includes('quest') || isNPCQuestGiver(npc.npcId)) result.push({ id: 'JOBS', label: 'JOBS', color: NPC_TAB_COLORS.JOBS });
+    if (npc.services.includes('heal')) result.push({ id: 'HEAL', label: 'HEAL', color: NPC_TAB_COLORS.HEAL });
+    if (npc.services.includes('info')) result.push({ id: 'INFO', label: 'INFO', color: NPC_TAB_COLORS.INFO });
+    if (npc.services.includes('hire')) result.push({ id: 'HIRE', label: 'HIRE', color: NPC_TAB_COLORS.HIRE });
+    return result;
+  }, [npc.services, npc.npcId]);
+
+  // Disposition data
+  const disposition = npc.disposition ?? 0;
+  const dispClr = npcDispColor(disposition);
+  const dispWrd = npcDispWord(disposition);
+
+  // NPC type color
+  const headerColor = npc.npcType === 'SHOPKEEPER' ? '#fcd34d'
+    : npc.npcType === 'QUESTGIVER' ? '#fbbf24'
+    : npc.npcType === 'ALLIED' ? '#4ade80'
+    : npc.npcType === 'ENEMY' ? '#ff6b6b'
+    : 'var(--phosphor-accent)';
+
+  const activeTabColor = tabs.find(t => t.id === activeTab)?.color ?? headerColor;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(2,3,8,0.88)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0.5rem',
+      animation: 'mud-fade-in 0.3s ease-out',
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <SubstrateBackground opacity={0.35} />
+      <div style={{
+        width: '100%', maxWidth: 440, maxHeight: '85vh',
+        background: 'rgba(10,10,10,0.75)',
+        border: `1px solid ${activeTabColor}33`,
+        borderRadius: 4, overflow: 'hidden',
+        boxShadow: `0 0 30px ${activeTabColor}15`,
+        position: 'relative', zIndex: 1,
+        display: 'flex', flexDirection: 'column',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '0.5rem 0.8rem',
+          borderBottom: `1px solid ${headerColor}33`,
+          background: `${headerColor}0a`,
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6ch' }}>
+              <span style={{
+                fontFamily: 'monospace', fontSize: 'var(--text-header)', fontWeight: 'bold',
+                color: headerColor, letterSpacing: '0.06em',
+                textShadow: `0 0 8px ${headerColor}40`,
+              }}>{npc.npcName.toUpperCase()}</span>
+              <span style={{
+                fontFamily: 'monospace', fontSize: '9px',
+                color: C.faint, letterSpacing: '0.08em',
+                border: `1px solid ${C.faint}`,
+                padding: '0 0.3rem', borderRadius: 2,
+              }}>{npc.npcType}</span>
+            </div>
+            <span style={{
+              fontFamily: 'monospace', fontSize: '9px',
+              color: dispClr, letterSpacing: '0.06em', fontWeight: 'bold',
+            }}>{dispWrd}</span>
+          </div>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)',
+            color: '#fcd34d', fontStyle: 'italic', opacity: 0.8, marginTop: '0.2rem',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            &ldquo;{npc.dialogue.replace(/^"/, '').replace(/"$/, '').slice(0, 60)}{npc.dialogue.length > 60 ? '...' : ''}&rdquo;
+          </div>
+        </div>
+
+        {/* Tab row */}
+        <div style={{
+          display: 'flex',
+          borderBottom: `1px solid rgba(var(--phosphor-rgb),0.15)`,
+          background: 'rgba(var(--phosphor-rgb),0.02)',
+          flexShrink: 0,
+        }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                flex: 1, fontFamily: 'monospace', fontSize: 'var(--text-base)',
+                color: activeTab === tab.id ? tab.color : 'rgba(var(--phosphor-rgb),0.4)',
+                background: activeTab === tab.id ? `${tab.color}0a` : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === tab.id ? `2px solid ${tab.color}` : '2px solid transparent',
+                padding: '0.4rem 0.3rem', cursor: 'pointer', touchAction: 'manipulation',
+                letterSpacing: '0.06em',
+                fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+              }}
+            >{tab.label}</button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div style={{
+          flex: 1, overflowY: 'auto', overscrollBehavior: 'contain',
+          padding: '0.5rem 0.6rem', minHeight: 0,
+        }}>
+          {activeTab === 'TALK' && <NPCTalkTab npc={npc} disposition={disposition} dispColor={dispClr} dispWord={dispWrd} onClose={onClose} />}
+          {activeTab === 'SHOP' && <NPCShopTab npcId={npc.npcId} char={char} tick={tick} setTick={setTick} />}
+          {activeTab === 'JOBS' && <NPCJobsTab npcId={npc.npcId} npcName={npc.npcName} char={char} world={world} tick={tick} setTick={setTick} />}
+          {activeTab === 'HEAL' && <NPCHealTab npcId={npc.npcId} npcName={npc.npcName} char={char} data={data} tick={tick} setTick={setTick} />}
+          {activeTab === 'INFO' && <NPCInfoTab npc={npc} char={char} />}
+          {activeTab === 'HIRE' && <NPCHireTab />}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '0.4rem 0.8rem',
+          borderTop: `1px solid rgba(var(--phosphor-rgb),0.1)`,
+          display: 'flex', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <button className="mud-btn" onClick={onClose} style={{
+            fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim,
+            background: 'transparent', border: '1px solid rgba(var(--phosphor-rgb),0.2)',
+            padding: '0.3rem 1.5rem', cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+          }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TALK Tab ────────────────────────────────────────────────────────────────
+
+function NPCTalkTab({ npc, disposition, dispColor, dispWord, onClose }: {
+  npc: NPCModalPayload; disposition: number; dispColor: string; dispWord: string; onClose: () => void;
+}) {
+  const dispPct = Math.max(0, Math.min(100, (disposition + 100) / 200 * 100));
+
+  return (
+    <div>
+      <div style={{
+        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        color: '#d4d4d4', lineHeight: 1.7, marginBottom: '0.6rem',
+      }}>{npc.description}</div>
+
+      <div style={{
+        fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        color: '#fcd34d', fontStyle: 'italic', lineHeight: 1.7, marginBottom: '0.8rem',
+        paddingLeft: '0.5rem', borderLeft: '2px solid rgba(252,211,77,0.3)',
+      }}>
+        &ldquo;{npc.dialogue.replace(/^"/, '').replace(/"$/, '')}&rdquo;
+      </div>
+
+      {/* Disposition bar */}
+      <div style={{
+        border: `1px solid ${dispColor}33`, borderRadius: 3,
+        padding: '0.4rem 0.6rem', background: `${dispColor}06`, marginBottom: '0.6rem',
+      }}>
+        <div style={{
+          fontFamily: 'monospace', fontSize: '9px',
+          color: C.faint, letterSpacing: '0.08em', marginBottom: '0.2rem',
+        }}>DISPOSITION</div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.5ch',
+          fontFamily: 'monospace', fontSize: 'var(--text-base)',
+        }}>
+          <div style={{
+            flex: 1, height: 6, background: 'rgba(var(--phosphor-rgb),0.08)', borderRadius: 3, overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${dispPct}%`, height: '100%', background: dispColor,
+              borderRadius: 3, transition: 'width 0.3s',
+            }} />
+          </div>
+          <span style={{
+            color: dispColor, fontWeight: 'bold', whiteSpace: 'nowrap',
+            minWidth: '10ch', textAlign: 'right',
+          }}>{dispWord} ({disposition > 0 ? '+' : ''}{disposition})</span>
+        </div>
+        {npc.faction && (
+          <div style={{
+            fontFamily: 'monospace', fontSize: '9px', color: C.faint, marginTop: '0.3rem',
+          }}>Faction: {npc.faction.replace(/_/g, ' ')}</div>
+        )}
+      </div>
+
+      {npc.services.length > 0 && (
+        <div style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          color: C.dimmer, marginBottom: '0.6rem',
+        }}>
+          Services: {npc.services.map((s, i) => (
+            <span key={s}>
+              <span style={{ color: NPC_TAB_COLORS[s.toUpperCase()] ?? C.dim }}>{s}</span>
+              {i < npc.services.length - 1 ? ' \u00b7 ' : ''}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+        <button className="mud-btn" onClick={() => {
+          eventBus.emit('mud:execute-command', { command: '/talk hello' });
+          eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+          onClose();
+        }} style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-base)',
+          fontWeight: 'bold', letterSpacing: '0.06em',
+          color: '#fcd34d', background: 'rgba(252,211,77,0.08)',
+          border: '1px solid rgba(252,211,77,0.35)',
+          padding: '0.35rem 0.8rem', cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+        }}>SAY SOMETHING</button>
+      </div>
+    </div>
+  );
+}
+
+// ── SHOP Tab ────────────────────────────────────────────────────────────────
+
+function NPCShopTab({ npcId, char, tick, setTick }: {
+  npcId: string; char: import('./types').MudCharacter; tick: number;
+  setTick: (fn: (t: number) => number) => void;
+}) {
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const listings = useMemo(() => getFormattedShop(npcId, char), [npcId, char, tick]);
+
+  const handleBuy = (templateId: string, price: number | null) => {
+    if (price === null) return;
+    if (confirmId === templateId) {
+      const result = buyItem(char, npcId, templateId);
+      if (result.success) {
+        saveCharacter(char.handle, char);
+        setTick(t => t + 1);
+        eventBus.emit('mud:transient-message', {
+          text: `purchased ${result.item!.name} for ${result.price}c. remaining: ${char.currency.creds}c`,
+          type: 'commerce',
+        });
+        eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+      } else {
+        setErrorId(templateId);
+        setTimeout(() => setErrorId(null), 2000);
+      }
+      setConfirmId(null);
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    } else {
+      setConfirmId(templateId);
+      setErrorId(null);
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setConfirmId(null), 2500);
+    }
+  };
+
+  if (!listings || listings.length === 0) {
+    return <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, textAlign: 'center', padding: '2rem 0', fontStyle: 'italic' }}>this vendor has nothing to sell.</div>;
+  }
+
+  return (
+    <div>
+      {/* Balance bar */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: 'monospace', fontSize: 'var(--text-base)', marginBottom: '0.5rem',
+        padding: '0.3rem 0.4rem', background: 'rgba(var(--phosphor-rgb),0.03)',
+        borderRadius: 3, border: '1px solid rgba(var(--phosphor-rgb),0.08)',
+      }}>
+        <span>
+          <span style={{ color: C.faint, letterSpacing: '0.06em' }}>CREDS: </span>
+          <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>{char.currency.creds}{'\u00a2'}</span>
+        </span>
+        <button className="mud-btn" onClick={() => {
+          eventBus.emit('mud:open-sell', {
+            inventory: char.inventory, shopkeeperId: npcId,
+            shopkeeperName: getShopkeeperName(npcId), currentCreds: char.currency.creds,
+          });
+        }} style={{
+          fontFamily: 'monospace', fontSize: '9px', color: '#fcd34d',
+          background: 'rgba(252,211,77,0.06)', border: '1px solid rgba(252,211,77,0.25)',
+          padding: '0.15rem 0.5rem', cursor: 'pointer', borderRadius: 2,
+          touchAction: 'manipulation', letterSpacing: '0.06em',
+        }}>SELL ALL</button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+        {listings.map(item => {
+          const template = getItemTemplate(item.templateId);
+          const tierColor = NPC_TIER_COLORS[template?.tier ?? 'COMMON'] ?? C.dim;
+          const canAfford = item.price !== null && char.currency.creds >= item.price;
+          const isConfirming = confirmId === item.templateId;
+          const hasError = errorId === item.templateId;
+
+          return (
+            <div key={item.templateId} style={{
+              border: `1px solid ${tierColor}22`, borderLeft: `3px solid ${tierColor}`,
+              borderRadius: '0 3px 3px 0', padding: '0.35rem 0.5rem',
+              background: isConfirming ? `${tierColor}0a` : 'rgba(var(--phosphor-rgb),0.02)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.15rem' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: tierColor, fontWeight: 'bold', letterSpacing: '0.04em' }}>{item.name}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: canAfford ? '#4ade80' : '#ff6b6b', fontWeight: 'bold' }}>
+                  {item.price !== null ? `${item.price}\u00a2` : 'N/A'}
+                </span>
+              </div>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: C.dim, lineHeight: 1.5, marginBottom: '0.2rem' }}>{item.description}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '9px', color: tierColor, opacity: 0.7 }}>{template?.tier ?? 'COMMON'}</span>
+                <button className="mud-btn" disabled={!canAfford && !isConfirming} onClick={() => handleBuy(item.templateId, item.price)} style={{
+                  fontFamily: 'monospace', fontSize: 'var(--text-base)', fontWeight: 'bold', letterSpacing: '0.06em',
+                  color: hasError ? '#ff6b6b' : isConfirming ? '#0a0a0a' : canAfford ? '#4ade80' : C.faint,
+                  background: hasError ? 'rgba(255,107,107,0.12)' : isConfirming ? '#4ade80' : canAfford ? 'rgba(74,222,128,0.08)' : 'transparent',
+                  border: `1px solid ${hasError ? 'rgba(255,107,107,0.4)' : isConfirming ? '#4ade80' : canAfford ? 'rgba(74,222,128,0.3)' : 'rgba(var(--phosphor-rgb),0.1)'}`,
+                  padding: '0.2rem 0.6rem', cursor: canAfford ? 'pointer' : 'default',
+                  borderRadius: 2, touchAction: 'manipulation', minWidth: '7ch', textAlign: 'center',
+                  boxShadow: isConfirming ? '0 0 8px rgba(74,222,128,0.3)' : 'none',
+                }}>{hasError ? 'CANT AFFORD' : isConfirming ? `CONFIRM ${item.price}\u00a2` : 'BUY'}</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── JOBS Tab ────────────────────────────────────────────────────────────────
+
+function NPCJobsTab({ npcId, npcName, char, world, tick, setTick }: {
+  npcId: string; npcName: string; char: import('./types').MudCharacter;
+  world: import('./types').MudWorldState; tick: number;
+  setTick: (fn: (t: number) => number) => void;
+}) {
+  const [expandedQuest, setExpandedQuest] = useState<string | null>(null);
+  const available = useMemo(() => getNPCQuests(npcId, char, world), [npcId, char, world]);
+  const activeFromNPC = useMemo(() => getActiveQuests(world).filter(q => q.giver === npcId), [world, npcId]);
+
+  const handleAccept = (questId: string) => {
+    const result = startQuest(char.handle, questId);
+    if (result.success) {
+      eventBus.emit('crt:glitch-tier', { tier: 2, duration: 200 });
+      eventBus.emit('mud:transient-message', { text: `job accepted: ${result.quest?.title ?? questId}`, type: 'quest' });
+      setTick(t => t + 1);
+    }
+  };
+
+  const handleDecline = (questId: string) => {
+    declineQuest(char.handle, questId);
+    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 100 });
+    eventBus.emit('mud:transient-message', { text: 'job declined.', type: 'quest' });
+    setTick(t => t + 1);
+  };
+
+  return (
+    <div>
+      <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.faint, letterSpacing: '0.08em', marginBottom: '0.3rem' }}>AVAILABLE JOBS</div>
+      {available.length === 0 ? (
+        <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, fontStyle: 'italic', padding: '0.5rem 0' }}>
+          no work available from {npcName.toLowerCase()} right now.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.6rem' }}>
+          {available.map(quest => {
+            const typeColor = NPC_QUEST_TYPE_COLORS[quest.type] ?? C.dim;
+            return (
+              <div key={quest.id} style={{
+                border: '1px solid rgba(251,191,36,0.15)', borderLeft: `3px solid ${typeColor}`,
+                borderRadius: '0 3px 3px 0', padding: '0.4rem 0.5rem',
+                background: 'rgba(var(--phosphor-rgb),0.02)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.15rem' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24', fontWeight: 'bold' }}>{quest.title}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '9px', color: typeColor, letterSpacing: '0.06em' }}>T{quest.tier} {'\u00b7'} {quest.type}</span>
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: '10px', color: C.dim, lineHeight: 1.6, marginBottom: '0.3rem' }}>{quest.description}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.dimmer, marginBottom: '0.3rem' }}>
+                  Reward:{' '}
+                  {quest.rewards.xp && <span style={{ color: C.xp }}>{quest.rewards.xp} XP</span>}
+                  {quest.rewards.creds && <>{' \u00b7 '}<span style={{ color: '#fcd34d' }}>{quest.rewards.creds}{'\u00a2'}</span></>}
+                  {quest.rewards.items && quest.rewards.items.length > 0 && <>{' \u00b7 '}<span style={{ color: 'var(--phosphor-accent)' }}>{quest.rewards.items.length} item{quest.rewards.items.length > 1 ? 's' : ''}</span></>}
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                  <button className="mud-btn" onClick={() => handleDecline(quest.id)} style={{
+                    fontFamily: 'monospace', fontSize: 'var(--text-base)', color: 'rgba(255,100,100,0.7)',
+                    background: 'transparent', border: '1px solid rgba(255,100,100,0.25)',
+                    padding: '0.25rem 0.8rem', cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+                  }}>DECLINE</button>
+                  <button className="mud-btn" onClick={() => handleAccept(quest.id)} style={{
+                    fontFamily: 'monospace', fontSize: 'var(--text-base)', fontWeight: 'bold',
+                    color: '#fbbf24', background: 'rgba(251,191,36,0.08)',
+                    border: '1px solid rgba(251,191,36,0.4)', padding: '0.25rem 0.8rem',
+                    cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+                    boxShadow: '0 0 6px rgba(251,191,36,0.15)',
+                  }}>ACCEPT</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {activeFromNPC.length > 0 && (
+        <>
+          <div style={{
+            fontFamily: 'monospace', fontSize: '9px', color: C.faint, letterSpacing: '0.08em',
+            marginBottom: '0.3rem', marginTop: '0.3rem', paddingTop: '0.3rem',
+            borderTop: '1px solid rgba(var(--phosphor-rgb),0.1)',
+          }}>ACTIVE JOBS FROM THIS NPC</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {activeFromNPC.map(quest => {
+              const typeColor = NPC_QUEST_TYPE_COLORS[quest.type] ?? C.dim;
+              const progress = getQuestObjectiveProgress(char.handle, quest.id);
+              const isExpanded = expandedQuest === quest.id;
+              return (
+                <div key={quest.id} style={{
+                  border: '1px solid rgba(var(--phosphor-rgb),0.12)', borderLeft: `3px solid ${typeColor}`,
+                  borderRadius: '0 3px 3px 0', padding: '0.35rem 0.5rem',
+                  background: 'rgba(var(--phosphor-rgb),0.02)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.1rem' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#fbbf24', fontWeight: 'bold' }}>{quest.title}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '9px', color: typeColor }}>T{quest.tier} {'\u00b7'} {quest.type}</span>
+                  </div>
+                  {progress?.objectives.map(obj => (
+                    <div key={obj.id} style={{
+                      fontFamily: 'monospace', fontSize: '10px',
+                      color: obj.done ? '#4ade80' : C.dim, paddingLeft: '1ch',
+                    }}>{obj.done ? '\u25cf' : '\u25b8'} {obj.description} [{obj.current}/{obj.required}]</div>
+                  ))}
+                  <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#67e8f9', marginTop: '0.2rem' }}>Status: IN PROGRESS</div>
+                  <button className="mud-btn" onClick={() => setExpandedQuest(isExpanded ? null : quest.id)} style={{
+                    fontFamily: 'monospace', fontSize: '9px', color: C.dimmer, background: 'transparent',
+                    border: '1px solid rgba(var(--phosphor-rgb),0.12)', padding: '0.15rem 0.5rem',
+                    marginTop: '0.2rem', cursor: 'pointer', borderRadius: 2, touchAction: 'manipulation',
+                  }}>{isExpanded ? 'COLLAPSE' : 'DETAILS'}</button>
+                  {isExpanded && (
+                    <div style={{
+                      fontFamily: 'monospace', fontSize: '10px', color: C.dim, lineHeight: 1.6,
+                      marginTop: '0.3rem', paddingTop: '0.3rem', borderTop: '1px solid rgba(var(--phosphor-rgb),0.08)',
+                    }}>{quest.description}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── HEAL Tab ────────────────────────────────────────────────────────────────
+
+function NPCHealTab({ npcId, npcName, char, data, tick, setTick }: {
+  npcId: string; npcName: string; char: import('./types').MudCharacter;
+  data: PanelData; tick: number; setTick: (fn: (t: number) => number) => void;
+}) {
+  const [healed, setHealed] = useState(false);
+  const missing = char.maxHp - char.hp;
+  const stressHeld = char.stress ?? 0;
+  const needsHealing = missing > 0 || stressHeld > 0;
+  const hpCost = missing > 0 ? Math.max(5, Math.ceil(missing / 10) * 5) : 0;
+  const stressCost = stressHeld > 0 ? 5 : 0;
+  const totalCost = hpCost + stressCost;
+  const canAfford = char.currency.creds >= totalCost;
+
+  const handleHeal = () => {
+    if (!needsHealing || !canAfford) return;
+    char.hp = char.maxHp;
+    if (stressHeld > 0) char.stress = Math.max(0, char.stress - 2);
+    char.currency.creds -= totalCost;
+    saveCharacter(char.handle, char);
+    setHealed(true);
+    setTick(t => t + 1);
+    eventBus.emit('crt:glitch-tier', { tier: 1, duration: 150 });
+    eventBus.emit('mud:transient-message', { text: `healed by ${npcName}. cost: ${totalCost}c. hp: ${char.hp}/${char.maxHp}`, type: 'heal' });
+  };
+
+  const flavor = ['"No anesthesia. Sit still."', '"Hold still. This stings."', '"You look like hell."', '"Payment first."'][npcName.length % 4];
+
+  return (
+    <div>
+      <div style={{ fontFamily: 'monospace', fontSize: '9px', color: C.faint, letterSpacing: '0.08em', marginBottom: '0.3rem' }}>CURRENT STATUS</div>
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr', gap: '0.2rem', marginBottom: '0.6rem',
+        padding: '0.4rem', border: '1px solid rgba(var(--phosphor-rgb),0.08)', borderRadius: 3,
+        background: 'rgba(var(--phosphor-rgb),0.02)',
+      }}>
+        <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
+        <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRSS" compact />
+        {data.ramMaxSegments > 0 && <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />}
+      </div>
+
+      <div style={{
+        border: `1px solid ${needsHealing ? 'rgba(103,232,249,0.2)' : 'rgba(var(--phosphor-rgb),0.08)'}`,
+        borderRadius: 3, padding: '0.5rem 0.6rem',
+        background: needsHealing ? 'rgba(103,232,249,0.03)' : 'transparent', marginBottom: '0.6rem',
+      }}>
+        {needsHealing ? (
+          <>
+            <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#67e8f9', fontWeight: 'bold', marginBottom: '0.2rem' }}>HEAL COST: {totalCost}{'\u00a2'}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '10px', color: C.dim, lineHeight: 1.6 }}>
+              {missing > 0 && <>Restores all harm ({missing} HP). </>}
+              {stressHeld > 0 && <>Reduces stress by 2. </>}
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dimmer, marginTop: '0.3rem' }}>
+              Balance: <span style={{ color: '#fcd34d' }}>{char.currency.creds}{'\u00a2'}</span>
+            </div>
+          </>
+        ) : (
+          <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#4ade80', textAlign: 'center', padding: '0.5rem 0' }}>You&apos;re in good shape. No healing needed.</div>
+        )}
+      </div>
+
+      {needsHealing && !healed && (
+        <button className="mud-btn" disabled={!canAfford} onClick={handleHeal} style={{
+          display: 'block', width: '100%', fontFamily: 'monospace', fontSize: 'var(--text-header)',
+          fontWeight: 'bold', letterSpacing: '0.06em',
+          color: canAfford ? '#0a0a0a' : '#ff6b6b',
+          background: canAfford ? '#67e8f9' : 'transparent',
+          border: `1px solid ${canAfford ? '#67e8f9' : 'rgba(255,107,107,0.3)'}`,
+          padding: '0.5rem 1rem', cursor: canAfford ? 'pointer' : 'default',
+          borderRadius: 3, touchAction: 'manipulation', marginBottom: '0.5rem',
+          boxShadow: canAfford ? '0 0 12px rgba(103,232,249,0.3)' : 'none',
+        }}>{canAfford ? `HEAL \u2014 ${totalCost}\u00a2` : `NEED ${totalCost}\u00a2`}</button>
+      )}
+      {healed && (
+        <div style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#4ade80', textAlign: 'center',
+          padding: '0.5rem 0', fontWeight: 'bold', textShadow: '0 0 8px rgba(74,222,128,0.3)',
+          animation: 'mud-fade-in 0.3s ease-out',
+        }}>{'\u2713'} PATCHED UP</div>
+      )}
+      <div style={{
+        fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#67e8f9',
+        fontStyle: 'italic', opacity: 0.6, textAlign: 'center', marginTop: '0.3rem',
+      }}>{flavor}</div>
+    </div>
+  );
+}
+
+// ── INFO Tab ────────────────────────────────────────────────────────────────
+
+function NPCInfoTab({ npc, char }: { npc: NPCModalPayload; char: import('./types').MudCharacter }) {
+  const entries = npc.infoEntries;
+  if (!entries || entries.length === 0) {
+    return (
+      <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.dim, lineHeight: 1.7 }}>
+        <div style={{ marginBottom: '0.5rem' }}>{npc.description}</div>
+        <div style={{ color: C.faint, fontStyle: 'italic' }}>{npc.npcName} has nothing more to share right now.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {entries.map((entry, i) => {
+        if (entry.gated) {
+          const val = char.attributes[entry.gated.attribute];
+          if (val < entry.gated.minimum) {
+            return <div key={i} style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, marginTop: '0.5rem', fontStyle: 'italic', opacity: 0.5 }}>
+              [{entry.gated.attribute} {'\u2265'} {entry.gated.minimum}] [LOCKED]
+            </div>;
+          }
+          return <div key={i} style={{
+            color: 'var(--phosphor-accent)', borderLeft: '2px solid var(--phosphor-accent)',
+            paddingLeft: '0.6rem', marginTop: '0.5rem', fontFamily: 'monospace',
+            fontSize: 'var(--text-base)', lineHeight: 1.7,
+          }}>
+            <span style={{ fontSize: '9px', opacity: 0.7 }}>[{entry.gated.attribute} {'\u2265'} {entry.gated.minimum}]</span>
+            {' '}{entry.text}
+          </div>;
+        }
+        return <div key={i} style={{
+          fontFamily: 'monospace', fontSize: 'var(--text-base)', color: '#d4d4d4',
+          lineHeight: 1.7, marginTop: i > 0 ? '0.4rem' : 0,
+        }}>{entry.text}</div>;
+      })}
+    </div>
+  );
+}
+
+// ── HIRE Tab ────────────────────────────────────────────────────────────────
+
+function NPCHireTab() {
+  return (
+    <div style={{ fontFamily: 'monospace', fontSize: 'var(--text-base)', color: C.faint, textAlign: 'center', padding: '2rem 0', fontStyle: 'italic' }}>
+      companion recruitment coming soon.
+      <div style={{ fontSize: '9px', marginTop: '0.5rem', color: C.dimmer }}>[SYSTEM NOT YET ACTIVE]</div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ── Examine Modal ──────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -3597,27 +4260,37 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         </div>
       </div>
 
-      {/* Row 2-3: Paired clock bars */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.15rem 1ch', marginBottom: '0.15rem' }}>
-        <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
-        {data.armorMaxSegments > 0 ? (
-          <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
-        ) : <div />}
-        <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRSS" compact />
-        {data.ramMaxSegments > 0 ? (
-          <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
-        ) : <div />}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-          <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
-          <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
-          <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
-        </div>
-        {data.traumas.length > 0 && (
-          <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b', gridColumn: '1 / -1' }}>
-            TRAUMA: {data.traumas.join(' · ')}
+      {/* Row 2-3: Stats + Compass side by side */}
+      <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.15rem' }}>
+        {/* Left: clock bars */}
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.15rem 1ch', minWidth: 0 }}>
+          <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
+          {data.armorMaxSegments > 0 ? (
+            <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
+          ) : <div />}
+          <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRSS" compact />
+          {data.ramMaxSegments > 0 ? (
+            <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
+          ) : <div />}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
+            <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
+            <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
           </div>
-        )}
+          {data.traumas.length > 0 && (
+            <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b', gridColumn: '1 / -1' }}>
+              TRAUMA: {data.traumas.join(' · ')}
+            </div>
+          )}
+        </div>
+        {/* Right: compass rose */}
+        <div style={{ flexShrink: 0 }}>
+          <CompassRose exits={data.exits} />
+        </div>
       </div>
+
+      {/* Passages bar below compass area */}
+      <PassagesBar branches={data.branches} />
 
       {/* Row 4: Attributes + currency */}
       <div style={{
@@ -4199,6 +4872,7 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [npcQuestData, setNpcQuestData] = useState<{ npcId: string; npcName: string } | null>(null);
   const [examineData, setExamineData] = useState<ExamineData | null>(null);
+  const [npcModalData, setNpcModalData] = useState<NPCModalPayload | null>(null);
   const [restModalData, setRestModalData] = useState<RestModalData | null>(null);
   const [sellModalData, setSellModalData] = useState<SellModalData | null>(null);
   const [flatlineData, setFlatlineData] = useState<FlatlineData | null>(null);
@@ -4277,6 +4951,11 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
       if (d) setExamineData(d);
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const npcModalHandler = (event: any) => {
+      const d = event?.payload as NPCModalPayload | undefined;
+      if (d) setNpcModalData(d);
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const restHandler = (event: any) => {
       const d = event?.payload as RestModalData | undefined;
       if (d) setRestModalData(d);
@@ -4291,6 +4970,7 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
     eventBus.on('mud:open-inventory', inventoryHandler);
     eventBus.on('mud:open-npc-quest', npcQuestHandler);
     eventBus.on('mud:open-examine', examineHandler);
+    eventBus.on('mud:open-npc-modal', npcModalHandler);
     eventBus.on('mud:open-rest', restHandler);
     eventBus.on('mud:open-sell', sellHandler);
     return () => {
@@ -4299,6 +4979,7 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
       eventBus.off('mud:open-inventory', inventoryHandler);
       eventBus.off('mud:open-npc-quest', npcQuestHandler);
       eventBus.off('mud:open-examine', examineHandler);
+      eventBus.off('mud:open-npc-modal', npcModalHandler);
       eventBus.off('mud:open-rest', restHandler);
       eventBus.off('mud:open-sell', sellHandler);
     };
@@ -4576,6 +5257,16 @@ export function MudHUDContainer({ session, children, handle, onSessionUpdate, ad
       {/* Examine modal */}
       {examineData && (
         <ExamineModal data={examineData} onClose={() => setExamineData(null)} />
+      )}
+
+      {/* NPC Interaction modal */}
+      {npcModalData && session.character && data && (
+        <NPCModal
+          session={session}
+          data={data}
+          npc={npcModalData}
+          onClose={() => setNpcModalData(null)}
+        />
       )}
 
       {/* Rest modal */}

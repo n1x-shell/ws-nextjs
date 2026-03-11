@@ -15,6 +15,7 @@ import type {
   Room,
   RoomExit,
   RoomObject,
+  NPCModalPayload,
 } from './types';
 import {
   ARCHETYPE_INFO,
@@ -43,6 +44,7 @@ import {
   saveCombat,
   clearCombat,
   loadWorld,
+  getNPCRelation,
 } from './persistence';
 import {
   getRoom,
@@ -102,6 +104,29 @@ import {
 import { getDiscoveredSynergies, checkNewSynergies } from './synergies';
 import { emitPlayerHit, emitPlayerDamage, emitEnemyDeath } from './combatFX';
 import { emitCommerceTransient, emitCombatTransient } from './transientMessage';
+
+// ── Helper: build NPCModalPayload from a RoomNPC ───────────────────────────
+
+function buildNPCModalPayload(
+  npc: import('./types').RoomNPC,
+  handle: string,
+  defaultTab?: string,
+): NPCModalPayload {
+  const relation = getNPCRelation(handle, npc.id);
+  const disposition = relation?.disposition ?? npc.startingDisposition ?? 0;
+  return {
+    npcId: npc.id,
+    npcName: npc.name,
+    npcType: npc.type,
+    description: npc.description,
+    dialogue: npc.dialogue,
+    services: (npc.services ?? []) as NPCModalPayload['services'],
+    faction: npc.faction,
+    disposition,
+    defaultTab,
+    infoEntries: npc.infoEntries,
+  };
+}
 
 // ── ActionGlyph — tappable command button for entity panels ─────────────────
 
@@ -921,23 +946,8 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
               key={k(`npc-${npc.id}`)}
               role="button" tabIndex={0}
               onClick={() => {
-                // Open examine modal with service buttons instead of auto-triggering one service
-                const npcActions: Array<{ label: string; color: string; command?: string; event?: { type: string; payload?: any } }> = [];
-                npcActions.push({ label: 'TALK', color: '#fcd34d', command: '/talk hello' });
-                if (canHeal) npcActions.push({ label: 'HEAL', color: '#4ade80', command: '/heal' });
-                if (hasShop) npcActions.push({ label: 'SHOP', color: '#fcd34d', command: '/shop' });
-                if (hasQuest || isNPCQuestGiver(npc.id)) npcActions.push({
-                  label: 'JOBS', color: '#fbbf24',
-                  event: { type: 'mud:open-npc-quest', payload: { npcId: npc.id, npcName: npc.name } },
-                });
-                eventBus.emit('mud:open-examine', {
-                  title: npc.name,
-                  color,
-                  body: npc.description,
-                  extra: [{ text: npc.dialogue, color: '#fcd34d' }],
-                  footer: npc.services?.length ? `services: ${npc.services.join(', ')}` : undefined,
-                  actions: npcActions,
-                });
+                // Open NPC interaction modal with full tabbed UI
+                eventBus.emit('mud:open-npc-modal', buildNPCModalPayload(npc, char.handle));
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -2194,29 +2204,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     );
 
     if (npc) {
-      const npcActions: Array<{ label: string; color: string; command?: string; inlineResult?: string; event?: { type: string; payload?: any } }> = [];
-      npcActions.push({ label: 'TALK', color: '#fcd34d', command: '/talk hello' });
-      if (npc.services?.includes('shop')) {
-        npcActions.push({ label: 'SHOP', color: '#fcd34d', command: '/shop' });
-      }
-      if (npc.services?.includes('heal')) {
-        npcActions.push({ label: 'HEAL', color: '#4ade80', command: '/heal' });
-      }
-      if (isNPCQuestGiver(npc.id)) {
-        npcActions.push({
-          label: 'JOBS', color: '#fbbf24',
-          event: { type: 'mud:open-npc-quest', payload: { npcId: npc.id, npcName: npc.name } },
-        });
-      }
-
-      eventBus.emit('mud:open-examine', {
-        title: npc.name,
-        color: '#fcd34d',
-        body: npc.description,
-        extra: [{ text: `"${npc.dialogue.replace(/^"/, '').replace(/"$/, '')}"`, color: '#fcd34d' }],
-        footer: npc.services?.length ? `services: ${npc.services.join(', ')}` : undefined,
-        actions: npcActions,
-      });
+      // Open NPC interaction modal instead of ExamineModal for NPCs
+      eventBus.emit('mud:open-npc-modal', buildNPCModalPayload(npc, handle));
       return { handled: true, stopPropagation: true };
     }
 
@@ -3053,13 +3042,8 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
-    // Switch to shop panel mode — left shows stock, right-top shows player items
-    eventBus.emit('mud:panel-mode', { mode: 'shop', npcId: shopkeeper.id });
-    addLocalMsg(
-      <MudLine key={k('shop-ack')} color={C.shop}>
-        browsing {getShopkeeperName(shopkeeper.id)}&apos;s shop. /buy &lt;item&gt; · /sell &lt;item&gt; · /look to close.
-      </MudLine>
-    );
+    // Open NPC modal on SHOP tab
+    eventBus.emit('mud:open-npc-modal', buildNPCModalPayload(shopkeeper, handle, 'SHOP'));
     return { handled: true, stopPropagation: true };
   }
 

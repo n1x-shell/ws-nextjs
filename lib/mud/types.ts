@@ -383,6 +383,11 @@ export interface RoomExit {
 
 export type NPCType = 'QUESTGIVER' | 'SHOPKEEPER' | 'ALLIED' | 'NEUTRAL' | 'ENEMY' | 'BOSS';
 
+export interface InfoEntry {
+  text: string;
+  gated?: { attribute: AttributeName; minimum: number };
+}
+
 export interface RoomNPC {
   id: string;
   name: string;
@@ -394,6 +399,24 @@ export interface RoomNPC {
   services?: ('shop' | 'heal' | 'quest' | 'hire' | 'info')[];
   level?: number;
   combatCapable?: boolean;
+  infoEntries?: InfoEntry[];
+}
+
+// ── NPC Modal Payload ────────────────────────────────────────────────────────
+
+export type NPCServiceType = 'shop' | 'heal' | 'quest' | 'hire' | 'info';
+
+export interface NPCModalPayload {
+  npcId: string;
+  npcName: string;
+  npcType: NPCType;
+  description: string;
+  dialogue: string;
+  services: NPCServiceType[];
+  faction?: string;
+  disposition?: number;
+  defaultTab?: string;
+  infoEntries?: InfoEntry[];
 }
 
 export interface RoomEnemy {
