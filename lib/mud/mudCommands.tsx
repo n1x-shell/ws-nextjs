@@ -1003,8 +1003,8 @@ function renderLook(session: MudSession, addLocalMsg: AddLocalMsg): void {
           <div
             key={k(`enemy-warn-${i}`)}
             role="button" tabIndex={0}
-            onClick={() => eventBus.emit('mud:execute-command', { command: `/scan ${e.name}` })}
-            onKeyDown={(ev) => { if (ev.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/scan ${e.name}` }); }}
+            onClick={() => eventBus.emit('mud:execute-command', { command: `/examine ${e.name}` })}
+            onKeyDown={(ev) => { if (ev.key === 'Enter') eventBus.emit('mud:execute-command', { command: `/examine ${e.name}` }); }}
             style={{
               fontFamily: 'monospace', fontSize: S.base,
               borderLeft: '3px solid #ff6b6b',
