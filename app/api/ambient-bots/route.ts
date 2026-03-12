@@ -16,6 +16,7 @@
 
 import Ably from 'ably';
 import { generateText } from 'ai';
+import { onyx } from '@/lib/onyxProvider';
 import { Redis } from '@upstash/redis';
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit';
 import {
@@ -124,7 +125,7 @@ async function generateBotResponse(
 ): Promise<{ text: string; isAction: boolean; silent: boolean }> {
   try {
     const result = await generateText({
-      model:           bot.model,
+      model:           onyx(bot.model),
       system:          buildBotPrompt(bot.id, history, trigger),
       messages:        [{ role: 'user', content: '[respond as instructed]' }],
       maxOutputTokens: 160,
