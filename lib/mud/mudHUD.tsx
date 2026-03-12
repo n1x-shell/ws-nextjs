@@ -4292,13 +4292,11 @@ function ActionBar({ inCombat, panelMode, showUpgrade, onUpgrade, onSkills, onQu
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── Bottom Bar — Collapsible [Identity · HP · STRSS | Compass] ──────────────
+// ── Bottom Bar — Unified [Identity · Clocks · XP | Compass] ─────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
 function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () => void }) {
-  const [expanded, setExpanded] = useState(false);
   const xpPct = data.xpNext > 0 ? (data.xp / data.xpNext) * 100 : 100;
-  const hasSecondary = data.armorMaxSegments > 0 || data.ramMaxSegments > 0 || data.traumas.length > 0;
 
   return (
     <div style={{
@@ -4310,7 +4308,7 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
       touchAction: 'none',
       padding: '0.25rem 0.5rem 0.15rem',
     }}>
-      {/* Row 1: Identity + level + currency */}
+      {/* Row 1: Identity + currency + level */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontFamily: 'monospace', fontSize: S.base,
@@ -4368,66 +4366,34 @@ function BottomBar({ data, onStatsClick }: { data: PanelData; onStatsClick: () =
         </div>
       </div>
 
-      {/* Row 2: Primary clocks + compass */}
+      {/* Row 2: All clocks (2-col grid) + compass */}
       <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.15rem', alignItems: 'start' }}>
-        {/* Left: primary clocks only (HARM + STRSS) */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.1rem', minWidth: 0 }}>
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.1rem 0.8ch', minWidth: 0 }}>
           <ClockBar filled={data.harmFilled} segments={data.harmSegments} color="#4ade80" label="HARM" compact />
+          {data.armorMaxSegments > 0 ? (
+            <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
+          ) : <div />}
           <ClockBar filled={data.stress} segments={data.maxStress} color="#fbbf24" label="STRSS" compact />
+          {data.ramMaxSegments > 0 ? (
+            <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
+          ) : <div />}
+          {/* XP bar spans full width */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch', gridColumn: '1 / -1' }}>
+            <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
+            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
+            <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
+          </div>
+          {data.traumas.length > 0 && (
+            <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b', gridColumn: '1 / -1' }}>
+              TRAUMA: {data.traumas.join(' \u00b7 ')}
+            </div>
+          )}
         </div>
         {/* Right: compact compass */}
         <div style={{ flexShrink: 0, paddingTop: '0.1rem' }}>
           <BottomBarCompass exits={data.exits} />
         </div>
       </div>
-
-      {/* Expandable secondary section */}
-      {expanded && (
-        <div style={{
-          borderTop: '1px solid rgba(var(--phosphor-rgb),0.08)',
-          paddingTop: '0.2rem', marginTop: '0.1rem',
-          display: 'flex', flexDirection: 'column', gap: '0.1rem',
-          animation: 'mud-fade-in 0.15s ease-out both',
-        }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.1rem 0.8ch' }}>
-            {data.armorMaxSegments > 0 && (
-              <ClockBar filled={data.armorFilled} segments={data.armorMaxSegments} color="#60a5fa" label="ARMOR" inverted compact />
-            )}
-            {data.ramMaxSegments > 0 && (
-              <ClockBar filled={data.ramFilled} segments={data.ramMaxSegments} color="#c084fc" label="RAM" inverted compact />
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5ch' }}>
-            <span style={{ color: '#67e8f9', flexShrink: 0, fontWeight: 'bold', opacity: 0.7, fontSize: '10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>XP</span>
-            <div style={{ flex: 1 }}><Bar pct={xpPct} color="#67e8f9" gradient="linear-gradient(90deg, #67e8f9, #e879f9)" height={5} /></div>
-            <span style={{ color: '#e879f9', flexShrink: 0, opacity: 0.7, fontSize: '10px', fontFamily: 'monospace' }}>{data.xp}/{data.xpNext}</span>
-          </div>
-          {data.traumas.length > 0 && (
-            <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff6b6b' }}>
-              TRAUMA: {data.traumas.join(' \u00b7 ')}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Expand/collapse chevron — only show if there's secondary data */}
-      {(hasSecondary || true) && (
-        <div
-          role="button" tabIndex={0}
-          onClick={() => setExpanded(!expanded)}
-          onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(!expanded); }}
-          style={{
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            cursor: 'pointer', touchAction: 'manipulation',
-            padding: '0.05rem 0',
-            fontFamily: 'monospace', fontSize: '8px',
-            color: 'rgba(var(--phosphor-rgb),0.3)',
-            letterSpacing: '0.2em',
-          }}
-        >
-          {expanded ? '\u25B4 \u25B4 \u25B4' : '\u25BE \u25BE \u25BE'}
-        </div>
-      )}
 
       {/* Unspent skill points notification */}
       {data.skillPointsAvailable > 0 && (
