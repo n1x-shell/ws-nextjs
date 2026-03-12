@@ -2214,6 +2214,39 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
       return { handled: true, stopPropagation: true };
     }
 
+    // Check enemies
+    const enemy = room.enemies.find(e =>
+      e.name.toLowerCase().includes(lower) ||
+      e.id.toLowerCase().includes(lower)
+    );
+
+    if (enemy) {
+      const behaviorStr = typeof enemy.behavior === 'string' ? enemy.behavior : enemy.behavior?.type ?? 'unknown';
+      const dropNames = enemy.drops
+        .map(d => { const t = getItemTemplate(d.itemId); return t ? `${t.name} (${Math.round(d.chance * 100)}%)` : null; })
+        .filter(Boolean)
+        .join(', ');
+
+      const extra: Array<{ text: string; color: string }> = [
+        { text: `Lv.${enemy.level} · T${enemy.tier ?? '?'} · ${behaviorStr}`, color: C.dimmer },
+      ];
+      if (enemy.harmSegments) {
+        extra.push({ text: `HARM ${enemy.harmSegments} segments · ARMOR ${enemy.armorSegments ?? 0} segments`, color: C.dimmer });
+      }
+      if (dropNames) {
+        extra.push({ text: `drops: ${dropNames}`, color: '#fbbf24' });
+      }
+      extra.push({ text: `spawn: ${Math.round(enemy.spawnChance * 100)}% · count: ${enemy.count[0]}–${enemy.count[1]} · ${enemy.xpReward}xp`, color: C.dimmer });
+
+      eventBus.emit('mud:open-examine', {
+        title: enemy.name,
+        color: '#ff6b6b',
+        body: enemy.description ?? 'No data available.',
+        extra,
+      });
+      return { handled: true, stopPropagation: true };
+    }
+
     addLocalMsg(
       <MudNotice key={k('ex-nf')} error>you don't see anything like that here.</MudNotice>
     );
@@ -3434,7 +3467,7 @@ export function getMudSuggestions(partial: string, session: MudSession): string[
       return exits.filter(e => e.startsWith(argPartial)).map(e => `/go ${e}`);
     }
 
-    // /examine → objects + NPCs in room
+    // /examine → objects + NPCs + enemies in room
     if (cmd === '/examine' || cmd === '/x') {
       const things = [
         ...room.objects.filter(o => {
@@ -3443,6 +3476,7 @@ export function getMudSuggestions(partial: string, session: MudSession): string[
           return char.attributes[o.hiddenRequirement.attribute] >= o.hiddenRequirement.minimum;
         }).map(o => o.name.toLowerCase()),
         ...room.npcs.map(n => n.name.toLowerCase()),
+        ...room.enemies.map(e => e.name.toLowerCase()),
       ];
       return things.filter(t => t.includes(argPartial)).map(t => `/examine ${t}`);
     }
