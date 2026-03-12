@@ -3,6 +3,7 @@
 // Room definitions, zone registry, room lookups.
 // Phase 1: Drainage Nexus (Zone 8, 14 rooms). Phase 2: Maintenance Tunnels (Zone 9, 11 rooms).
 // Phase 3: Industrial District (Zone 3, 15 rooms). Phase 4: Residential Blocks (Zone 2, 15 rooms).
+// Phase 5: Industrial Drainage (Zone 10, 10 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -381,6 +382,7 @@ Scratch marks on the walls. Fresh ones.`,
     exits: [
       { direction: 'east', targetRoom: 'z08_r03', description: 'east (The Junction)' },
       { direction: 'south', targetRoom: 'z10_r01', description: 'south (Industrial Drainage)', zoneTransition: true, targetZone: 'z10' },
+      { direction: 'west', targetRoom: 'z10_r08', description: 'west (Industrial Drainage — Parish Outpost)', zoneTransition: true, targetZone: 'z10' },
     ],
     npcs: [],
     enemies: [
@@ -723,7 +725,7 @@ these tunnels. you're not alone down here.`,
     exits: [
       { direction: 'west', targetRoom: 'z08_r12', description: 'west (Drainage Nexus — East Passage)', zoneTransition: true, targetZone: 'z08' },
       { direction: 'south', targetRoom: 'z09_r02', description: 'south (Cable Gallery)' },
-      { direction: 'down', targetRoom: 'z10_r01', description: 'down (Industrial Drainage — utility shaft)', zoneTransition: true, targetZone: 'z10' },
+      { direction: 'down', targetRoom: 'z10_r02', description: 'down (Industrial Drainage — East Access)', zoneTransition: true, targetZone: 'z10' },
     ],
     npcs: [],
     enemies: [
@@ -3648,6 +3650,598 @@ export const ZONE_02: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 10: Industrial Drainage ────────────────────────────────────────────
+
+const Z10_ROOMS: Record<string, Room> = {
+
+  // ── 1. INFLOW CHAMBER ─────────────────────────────────────────────────────
+
+  z10_r01: {
+    id: 'z10_r01',
+    zone: 'z10',
+    name: 'INFLOW CHAMBER',
+    description:
+`The runoff pipe from the surface opens into a concrete
+chamber — four meters high, eight meters across, the
+ceiling a lattice of drainage pipes converging from every
+factory above. The pipes discharge continuously. Yellow-
+orange liquid pours from the largest pipe — the Assembly
+Line's output, the worst of it. Smaller pipes contribute
+lesser streams: coolant, metal slurry, and something clear
+that smells like burning plastic.
+
+The streams converge in a central channel that runs the
+length of the chamber, flowing south. The channel lining
+is buckled, peeling. The concrete beneath already eaten.
+Walkways on either side provide passage. Wet with spray
+and condensation. The air is sharp.
+
+The Chrome Wolves have installed ventilation — a duct
+system drawing air from the surface through a shaft. It
+helps. Above the chamber entrance, a spray-painted wolf
+skull marks territory. Below the skull, smaller text:
+"BREATHE SHALLOW."`,
+    exits: [
+      { direction: 'up', targetRoom: 'z03_r04', description: 'up (Industrial District — Runoff Channel)', zoneTransition: true, targetZone: 'z03' },
+      { direction: 'east', targetRoom: 'z10_r02', description: 'east (East Access)' },
+      { direction: 'south', targetRoom: 'z10_r03', description: 'south (Wolf Checkpoint)' },
+    ],
+    npcs: [
+      {
+        id: 'wolf_workers', name: 'Wolf Workers', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'Two Chrome Wolves loading supply crates from the surface. Chemical masks on. They use the chamber as a logistics hub — goods bypass the streets through the drainage pipe access shaft.',
+        dialogue: "One glances up. \"Surface or tunnel?\" He goes back to work before you answer.",
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'factory_discharge', name: 'factory discharge', examineText: 'Watch the pipes. Each one drains a different factory. The largest — the Assembly Line\'s output — pours yellow-orange liquid in a continuous stream. TECH ≥ 6: The color indicates heavy metal contamination and synthetic polymer waste. Carcinogenic. The Tower\'s construction generates waste that poisons everyone who lives below the Industrial District.' },
+      { id: 'corrosion_damage', name: 'corrosion damage', examineText: 'The channel lining is failing. Designed for rain and sanitary waste, not this. The lining buckles. The concrete dissolves. TECH ≥ 5: At this rate, the channel wall will breach within two years. Water table contamination. Permanent.' },
+      { id: 'wolf_ventilation', name: 'wolf ventilation', examineText: 'A duct system running from the surface. Rough engineering, functional. Draws clean air, vents the chemical atmosphere. Without it, the upper drainage would be uninhabitable. The territory below the Wolves has no ventilation.' },
+      { id: 'breathe_shallow', name: 'breathe shallow', examineText: 'Spray-painted beneath the wolf skull. Practical advice. The chemical air is less concentrated above chest height — heavier compounds settle. The Wolves who work here do this instinctively. The adaptation costs something. They don\'t talk about what.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [{ name: 'VENTILATED', die: 6, benefitsActions: ['recover'], color: '#a5f3fc' }],
+  },
+
+  // ── 2. EAST ACCESS ────────────────────────────────────────────────────────
+
+  z10_r02: {
+    id: 'z10_r02',
+    zone: 'z10',
+    name: 'EAST ACCESS',
+    description:
+`A utility junction at the eastern edge of the upper
+drainage. The shaft from the Maintenance Tunnels opens
+here — a vertical climb through a cramped utility conduit
+lined with cable runs and pipe. The junction is small,
+functional, connecting two shallow undercity zones through
+infrastructure that predates both.
+
+The Chrome Wolves don't use this access point — too narrow
+for comfortable passage and leads to territory they don't
+control. But someone uses it. The conduit walls show scrape
+marks from regular traversal. Someone moves between the
+Maintenance Tunnels and the Industrial Drainage frequently
+and quietly.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z09_r01', description: 'up (Maintenance Tunnels — West Junction)', zoneTransition: true, targetZone: 'z09' },
+      { direction: 'west', targetRoom: 'z10_r01', description: 'west (Inflow Chamber)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'utility_conduit', name: 'utility conduit', examineText: 'Vertical. Cramped. Cable runs and pipes line the walls, leaving just enough space for a person. Fifteen-meter climb. REFLEX ≥ 5 to traverse without difficulty. A back door between the Wolves\' drainage and the residential maintenance tunnels.' },
+      { id: 'scrape_marks', name: 'scrape marks', examineText: 'Regular wear on the conduit walls. Same person, same hand placement, practiced movement. GHOST ≥ 5: The marks are recent. Within the last week. Someone is running a regular route between the Maintenance Tunnels and here. Fex\'s supply line passes through this junction.' },
+      { id: 'cable_junction', name: 'cable junction', examineText: 'TECH ≥ 6: A fiber optic trunk passes through this junction — the same cable infrastructure that runs through the Maintenance Tunnels\' Cable Gallery. Carries mesh signal for the eastern factories. A signal tap here would intercept factory communication — production schedules, security protocols, shift changes.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'CRAMPED SHAFT', die: 6, benefitsActions: ['sneak'], hindersActions: ['flee'] }],
+  },
+
+  // ── 3. WOLF CHECKPOINT ────────────────────────────────────────────────────
+
+  z10_r03: {
+    id: 'z10_r03',
+    zone: 'z10',
+    name: 'WOLF CHECKPOINT',
+    description:
+`A reinforced gate across the main drainage corridor.
+Chain-link topped with razor wire, a lockable door, and
+two Chrome Wolves on the other side who aren't interested
+in conversation until you've stated your business. The
+checkpoint separates the inflow chamber from the stash
+corridor and vault beyond, where only Wolf-approved
+traffic passes.
+
+The gate is serious hardware. The Wolves who guard it
+are serious people. But a single point of control means
+a single point of failure. The drainage tunnels branch.
+The pipes connect. The infrastructure has redundancies
+the gate doesn't cover.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z10_r01', description: 'north (Inflow Chamber)' },
+      { direction: 'east', targetRoom: 'z10_r04', description: 'east (The Wolf Vault)' },
+      { direction: 'south', targetRoom: 'z10_r05', description: 'south (Manufacturing Bypass)' },
+      { direction: 'down', targetRoom: 'z10_r06', description: 'down (Chemical Treatment Station)' },
+    ],
+    npcs: [
+      {
+        id: 'wolf_guards', name: 'Wolf Guards', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'Two Chrome Wolves. Armed. Augmented. They check credentials — Wolf reputation, Rade\'s invitation, Voss\'s word. Without standing, access is denied.',
+        dialogue: "\"Name. Business. Duration.\" The guard doesn't look up from the clipboard.",
+        startingDisposition: 0,
+      },
+      {
+        id: 'cutter', name: 'Cutter', type: 'SHOPKEEPER',
+        faction: 'CHROME_WOLVES',
+        description: 'Behind the gate. Clipboard in hand. Forties. Methodical. The least Wolf-like Wolf in the organization — quiet, organized, obsessive about inventory.',
+        dialogue: "\"Name. Business. Duration. — Don't look at me like that. I track everything that comes through here. People included. You're item number 847 this month.\"",
+        services: ['quest', 'shop', 'info'],
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      {
+        id: 'the_gate', name: 'the gate', examineText: 'Chain-link, razor wire, lockable door. Functional, not elegant. It works because the guards work.',
+        gatedText: [{ attribute: 'GHOST', minimum: 6, text: 'A drainage pipe runs beneath the gate\'s foundation. Ankle-deep in runoff, requires crawling. The guards know about it. They check it hourly. Timing matters.' }],
+      },
+      {
+        id: 'stash_inventory', name: 'stash inventory', examineText: 'Crates stacked along the corridor behind the gate. Each labeled in Cutter\'s handwriting — contents, date received, source. Weapons, augmentation hardware, medical supplies, communication equipment. A small army\'s logistics depot.',
+      },
+      {
+        id: 'checkpoint_log', name: 'checkpoint log', examineText: 'A physical log. Every person timestamped.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'One name appears at irregular intervals — \'GRID, maintenance, 2hr.\' Grid is not a Wolf name. Someone is entering the stash rooms under a false identity. The log entries are formatted correctly. Someone who knows the system is using it against itself.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 4. THE WOLF VAULT ─────────────────────────────────────────────────────
+
+  z10_r04: {
+    id: 'z10_r04',
+    zone: 'z10',
+    name: 'THE WOLF VAULT',
+    description:
+`Behind a steel door with a combination lock — analog, no
+electronics — the Wolves keep what matters most. A
+reinforced chamber, originally a drainage pump control
+room, converted into secure storage. The walls are concrete
+lined with salvaged metal sheeting. The floor is dry —
+elevated above the drainage channels, sealed. The
+ventilation system serves this room first.
+
+The vault is organized into sections. Weapons along the
+east wall. Augmentation hardware on racks along the north
+wall — chrome limbs, neural interfaces, dermal plating,
+eyes that watch you from jars of preservation fluid. A
+safe at the back.
+
+And in the center, on a table, something that doesn't fit
+any category: a piece of hardware that isn't Wolf-
+manufactured, isn't Helixion-manufactured, and isn't
+anything Cutter can identify. Voss brought it. Voss said
+nothing about it. It sits on the table and it hums.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z10_r03', description: 'west (Wolf Checkpoint)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'weapons_rack', name: 'weapons rack', examineText: 'Organized by type. Kinetic, energy, bladed. A chrome-edged sword that\'s either an artifact or an indulgence. The armory of a faction preparing for something more than street fights.' },
+      {
+        id: 'augmentation_hardware', name: 'augmentation hardware', examineText: 'Chrome limbs. Neural interface chips. Dermal plating. Eyes in preservation fluid.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'Some of this hardware is military-grade — not street-level augmentation. The source isn\'t Needle\'s chop shop. This came from Helixion military contracts, diverted. The Wolves have a supply line inside Helixion\'s defense manufacturing.' }],
+      },
+      {
+        id: 'the_safe', name: 'the safe', examineText: 'Heavy. Analog lock. Two people have the combination: Cutter and Voss.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'Scratches around the lock. Someone tried to access it. Amateur — wrong tools, wrong approach. The safe wasn\'t opened. But someone tried.' }],
+      },
+      {
+        id: 'unidentified_hardware', name: 'unidentified hardware', examineText: 'A device roughly the size of a human torso — cylindrical, dark material that isn\'t metal and isn\'t organic but behaves like both. Crystallized growth patterns on the surface. It hums at 33hz.',
+        gatedText: [
+          { attribute: 'TECH', minimum: 8, text: 'A Substrate resonance amplifier — not manufactured like the Assembly Line produces, but NATURAL. Grown. This is Substrate architecture, removed from its source. Still active. Still resonating. It might still be connected to whatever it grew from.' },
+          { attribute: 'GHOST', minimum: 7, text: 'The device is warm. Body temperature. The hum isn\'t mechanical. It\'s rhythmic. Like breathing. Like a heartbeat. The Wolves are keeping a piece of the Substrate in their vault, and the Substrate might be keeping track of where it is.' },
+        ],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 5. MANUFACTURING BYPASS ───────────────────────────────────────────────
+
+  z10_r05: {
+    id: 'z10_r05',
+    zone: 'z10',
+    name: 'MANUFACTURING BYPASS',
+    description:
+`A narrow drainage channel branching south from the main
+corridor — unmarked, partially concealed behind a buckled
+wall panel. The runoff here is thicker, darker, warmer.
+The pipes above are insulated with material the other
+pipes don't have. This channel doesn't appear on the
+Wolves' maps.
+
+This channel connects directly to the Assembly Line's
+drainage — not the general factory runoff, but a separate,
+dedicated channel carrying what the Assembly Line produces
+before it reaches the official waste stream. The official
+waste is bad. This is worse.
+
+The bypass exists because the Assembly Line generates
+compounds that exceed even Helixion's tolerance for
+environmental contamination. Routed through a dedicated
+channel to dilute before joining the general drainage.
+The dilution works. The evidence doesn't entirely
+disappear. But it becomes deniable.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z10_r03', description: 'north (Wolf Checkpoint)' },
+    ],
+    npcs: [
+      {
+        id: 'acre', name: 'Acre', type: 'SHOPKEEPER',
+        faction: 'INDEPENDENT',
+        description: 'At the channel\'s widest point, working with collection containers. Fifties. Gaunt. Skin discolored from years of chemical exposure — faint yellow around the eyes.',
+        dialogue: "\"Careful where you step. That puddle is sulfuric acid and something I haven't identified yet. The something is the interesting part. — You need chemicals? I have chemicals. You need to know what's killing you? I can tell you that too.\"",
+        services: ['quest', 'shop', 'info'],
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      {
+        id: 'dedicated_channel', name: 'dedicated channel', examineText: 'Narrower than the main drainage. The pipes above are insulated. The runoff is darker, warmer, thicker. Almost black.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The compounds include organic catalysts — chemicals designed to break down biological material at the molecular level. This isn\'t manufacturing waste. This is biochemical processing discharge.' }],
+      },
+      {
+        id: 'insulated_pipes', name: 'insulated pipes', examineText: 'The insulation is recent — installed within the last two years.',
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: 'The material is the same sound-dampening insulation used in Helixion\'s laboratory wing. Insulated to prevent signal leakage. The compounds emit electromagnetic signatures that could be detected by the pirate network\'s spectrum analyzers. Helixion doesn\'t want anyone knowing what\'s in this channel.' }],
+      },
+      { id: 'collection_containers', name: 'collection containers', examineText: 'Acre\'s workspace. Glass and ceramic — she doesn\'t use metal because the compounds corrode it. Labels in her handwriting: \'STANDARD COOLANT,\' \'METAL SLURRY — FILTERED,\' \'UNKNOWN — DO NOT OPEN,\' \'ASSEMBLY LINE DIRECT — USE GLOVES.\' The containers labeled \'UNKNOWN\' are warm.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 6. CHEMICAL TREATMENT STATION ─────────────────────────────────────────
+
+  z10_r06: {
+    id: 'z10_r06',
+    zone: 'z10',
+    name: 'CHEMICAL TREATMENT STATION',
+    description:
+`The transition between levels. A pre-Helixion water
+treatment facility — built when the Industrial District
+was constructed, designed to purify drainage before it
+reached the water table. Four treatment tanks, each a
+cylinder five meters in diameter. Chemical injection
+systems. Filtration banks. A control room with manual
+gauges and physical switches.
+
+The station is broken. Tank Two has a ruptured wall —
+runoff flows through it unfiltered. Tank Four's
+filtration bank has been clogged for years. The chemical
+injection system is empty — the neutralizing agents
+haven't been replenished since before Helixion absorbed
+the district's infrastructure. The control room lights
+still work because the station has its own dedicated
+power circuit. Everything else is failure.
+
+The untreated runoff pours through and continues downward
+— into the corroded tunnels, through the flooded gallery,
+past the Parish outpost, and into the Drainage Nexus.
+Everything the Parish drinks passed through this room.
+This room could have cleaned it. This room doesn't.
+
+Until now.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z10_r03', description: 'up (Wolf Checkpoint)' },
+      { direction: 'south', targetRoom: 'z10_r07', description: 'south (Corroded Tunnels)' },
+    ],
+    npcs: [
+      {
+        id: 'brine', name: 'Brine', type: 'ALLIED',
+        faction: 'THE_PARISH',
+        description: 'In the treatment station control room, studying the equipment. Thirties. Lean, scarred. The Parish cough is audible — a wet rattle in her chest that punctuates her sentences.',
+        dialogue: "\"I followed the water. Upstream, always upstream. And I found — *cough* — I found this. The machine that could have saved us. It's been here the whole time. Broken. Waiting.\"",
+        services: ['quest', 'info'],
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'treatment_tanks', name: 'treatment tanks', examineText: 'Four cylinders, five meters in diameter. Tank One: operational but inactive. Tank Two: ruptured wall, bypass route for untreated runoff. Tank Three: intact, seals dry. Tank Four: clogged filtration bank. The infrastructure exists. The maintenance doesn\'t.' },
+      {
+        id: 'control_room', name: 'control room', examineText: 'Manual gauges and physical switches. Pre-digital. The station predates Helixion\'s absorption of the district. The lights work. The gauges show readings that would horrify anyone who understood them.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The system is repairable. Tank Two needs a new filter. The injection system needs neutralizing agent. The pump needs a motor. Three components, and this station runs again. Clean water for the Parish. The fix is right here. It\'s been right here for fifteen years.' }],
+      },
+      { id: 'operations_manual', name: 'operations manual', examineText: 'Laminated pages in a binder. Water treatment procedures, chemical handling protocols, emergency shutdown. Dated thirty-two years ago. The last maintenance entry is from fifteen years ago — the same year Helixion absorbed the district. \'System handoff to Helixion Environmental Division. Pending new operator assignment.\' The assignment never came.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'UNSTABLE MACHINERY', die: 8, benefitsActions: ['hack'], hindersActions: ['flee'], color: '#fbbf24' }],
+  },
+
+  // ── 7. CORRODED TUNNELS ───────────────────────────────────────────────────
+
+  z10_r07: {
+    id: 'z10_r07',
+    zone: 'z10',
+    name: 'CORRODED TUNNELS',
+    description:
+`Below the treatment station, the infrastructure
+deteriorates. The tunnels here are older — pre-district,
+the original drainage for whatever occupied this ground
+before the factories. The concrete walls are pitted and
+scarred by decades of chemical exposure. In places the
+corrosion has eaten through entirely, exposing chemical-
+stained soil that crumbles to the touch.
+
+The runoff is ankle-deep and the wrong color. The air
+burns. Without the Wolves' ventilation system — which
+doesn't extend to the lower level — the concentration
+is high enough to cause damage over time. A chemical
+mask reduces this. Full hazmat eliminates it.
+
+Things move in the chemical dark. Shapes that were human
+once. Their augmentations corroded by exposure — chrome
+turned green, joints seized, optical implants flickering.
+The corroded ferals. They're in pain. The chemicals are
+eating their implants and the tissue interfaces are
+failing. They attack because everything hurts and you're
+there.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z10_r06', description: 'north (Chemical Treatment Station)' },
+      { direction: 'east', targetRoom: 'z10_r08', description: 'east (Parish Outpost)' },
+      { direction: 'south', targetRoom: 'z10_r09', description: 'south (Flooded Gallery)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'corroded_feral', name: 'Corroded Feral', level: 9,
+        description: 'Former human. Chrome turned green, joints seized, optical implants flickering with damaged light. Pain-driven, erratic.',
+        hp: 30, attributes: { ...enemyAttrs(9), BODY: 6, REFLEX: 5 }, damage: 9, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0.7, count: [1, 2],
+        drops: [
+          { itemId: 'corroded_augment', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'chemical_residue', chance: 0.4, quantityRange: [1, 2] },
+        ],
+        xpReward: 45,
+      },
+    ],
+    objects: [
+      { id: 'chemical_crystals', name: 'chemical crystals', examineText: 'Crystallized compound deposits on walls and ceiling. Sharp, fragile, chemically active. TECH ≥ 6: Some are valuable — industrial reagents in solid form. Acre would pay well. Harvesting releases a burst of corrosive vapor.' },
+      { id: 'feral_nest', name: 'feral nest', examineText: 'A depression in the corridor wall, expanded by clawing. Inside: scraps of clothing, wiring, a corroded employee badge. The nests contain human objects — a shoe, a photograph destroyed by chemical exposure, a tool they can\'t use anymore. Memorials built by people who\'ve forgotten what they\'re mourning.' },
+      { id: 'collapse_debris', name: 'collapse debris', examineText: 'Concrete and rebar. The ceiling gave way — chemical corrosion weakened the structure. Debris blocks the corridor but not completely. Gaps large enough to see through. FORCE ≥ 5 or tools to clear a passage. The work makes noise. Noise attracts the corroded ferals.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'CHEMICAL FOG', die: 8, benefitsActions: ['sneak'], hindersActions: ['attack', 'scan'], color: '#c084fc' }],
+    environmentalClocks: [
+      {
+        id: 'z10_r07_chemical',
+        name: 'CHEMICAL EXPOSURE',
+        segments: 6,
+        category: 'environment',
+        color: '#fbbf24',
+        visible: true,
+        persistent: false,
+        onFill: { type: 'environmental_effect', payload: { envType: 'chemical' } },
+      },
+    ],
+  },
+
+  // ── 8. PARISH OUTPOST ─────────────────────────────────────────────────────
+
+  z10_r08: {
+    id: 'z10_r08',
+    zone: 'z10',
+    name: 'PARISH OUTPOST',
+    description:
+`A small alcove off the corroded tunnels, sealed with
+salvaged plastic sheeting that creates a marginally
+breathable space. Inside: water testing equipment —
+basic, manual, the kind that uses color-change reagent
+strips. Sample containers. A cot. A Parish symbol
+scratched into the wall — three horizontal lines, the
+water mark.
+
+This is the Parish's upstream monitoring station.
+Someone from the Nexus comes here on rotation — weekly —
+to test the water before it reaches Parish territory.
+They record the chemical levels, note changes, and report
+to Elder Josiah. The data has been getting worse. Every
+test, every week, the numbers climb.
+
+The sheeting has been replaced several times — old patches
+visible beneath new layers. The Parish maintains this
+outpost because knowing how bad the water is matters,
+even when knowing doesn't change anything. Information
+is the first step. The second step is harder.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z10_r07', description: 'west (Corroded Tunnels)' },
+      { direction: 'east', targetRoom: 'z08_r09', description: 'east (Drainage Nexus — West Overflow)', zoneTransition: true, targetZone: 'z08' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'water_testing_equipment', name: 'water testing equipment', examineText: 'Color-change reagent strips. Manual spectrophotometer — the analog kind. Sample bottles labeled by date. The most recent readings are pinned to a board. The numbers mean nothing without context. With context, they mean the Parish is being slowly poisoned by the factories above.' },
+      { id: 'parish_symbol', name: 'parish symbol', examineText: 'Three horizontal lines scratched into the wall. The water mark. The Parish uses it to mark safe territory — or territory they claim responsibility for. This far upstream, the mark is more aspiration than fact.' },
+      { id: 'chemical_log', name: 'chemical log', examineText: 'A notebook. Handwritten entries, one per week. Cadmium levels rising. pH dropping. A new compound appeared six months ago — marked with a question mark. Brine\'s last entry: "numbers worse. going upstream to find source. if I don\'t come back, tell Josiah the station exists. it can be fixed."' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 9. FLOODED GALLERY ────────────────────────────────────────────────────
+
+  z10_r09: {
+    id: 'z10_r09',
+    zone: 'z10',
+    name: 'FLOODED GALLERY',
+    description:
+`The corridor descends into liquid. Not water — liquid.
+Yellow-orange, opaque, warm. The chemicals have pooled
+in a gallery — a wide, low-ceilinged space that was once
+a distribution junction. The ceiling is two meters above
+the surface. Waist-deep at the edges, chest-deep at the
+center, unknown depth at the far end where the floor
+drops away.
+
+The liquid glows. Faintly, from below. Not the chemical
+luminescence of the corroded tunnels — something
+different. Something beneath the toxic water is emitting
+light. Steady, rhythmic, pulsing at a frequency you
+recognize before you consciously count it.
+
+33hz.
+
+The light comes from the bottom. Shapes visible through
+the opaque liquid — edges, angles, surfaces too regular
+to be infrastructure and too large to be debris. Something
+is built down there. Something that predates the drainage
+system.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z10_r07', description: 'north (Corroded Tunnels)' },
+      { direction: 'south', targetRoom: 'z10_r10', description: 'south (The Deep Drain)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'corroded_feral_armored', name: 'Corroded Feral (Armored)', level: 11,
+        description: 'Partially submerged. Its corroded augmentations have fused with chemical deposits, creating a crystallized shell. Slower but significantly tougher.',
+        hp: 50, attributes: { ...enemyAttrs(11), BODY: 8, REFLEX: 3 }, damage: 11, armorValue: 7,
+        behavior: 'aggressive', spawnChance: 0.6, count: [1, 1],
+        drops: [
+          { itemId: 'crystallized_component', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'chemical_reagent', chance: 0.4, quantityRange: [1, 2] },
+        ],
+        xpReward: 75,
+      },
+    ],
+    objects: [
+      {
+        id: 'the_glow', name: 'the glow', examineText: 'Below the surface. Through the opaque chemical liquid, light pulses. Slow, steady, 33hz. The liquid is warmer where the glow is strongest.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The shape is visible as a shadow within the glow — geometric. Angular. Too regular for geology. Too large for equipment. Substrate architecture. Something was built here — or grew here — before the drainage system, before the factories, before the city.' }],
+      },
+      { id: 'toxic_liquid', name: 'toxic liquid', examineText: 'Yellow-orange. Opaque. Warm. Immersion deals continuous damage. Wading: slow HP drain. Swimming: worse. The upgraded mask doesn\'t help — the liquid contacts skin. Chemical neutralizer from Acre reduces damage.' },
+      { id: 'submerged_shapes', name: 'submerged shapes', examineText: 'Through the liquid, edges and angles. The gallery sits above a natural depression — and the depression exists because something was placed in it, long before the city was built on top. The chemicals pooled here by accident. What they pooled above was no accident.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'TOXIC DEEP WATER', die: 10, hindersActions: ['flee', 'attack'], color: '#f87171' }],
+    environmentalClocks: [
+      {
+        id: 'z10_r09_chemical',
+        name: 'CHEMICAL EXPOSURE',
+        segments: 6,
+        category: 'environment',
+        color: '#fbbf24',
+        visible: true,
+        persistent: false,
+        onFill: { type: 'environmental_effect', payload: { envType: 'chemical' } },
+      },
+    ],
+  },
+
+  // ── 10. THE DEEP DRAIN ────────────────────────────────────────────────────
+
+  z10_r10: {
+    id: 'z10_r10',
+    zone: 'z10',
+    name: 'THE DEEP DRAIN',
+    description:
+`The floor falls away.
+
+Past the flooded gallery, the drainage infrastructure
+ends and the earth opens. A natural fissure in the rock
+— widened by water erosion over centuries, now carrying
+the combined chemical runoff of the entire Industrial
+District into the darkness below. Five meters across,
+descending steeply. The liquid pours over the edge in a
+chemical waterfall — orange-yellow cascade, steaming
+where it contacts the cooler air from below.
+
+The sound is the waterfall. Constant, enormous, echoing.
+The air rising from the fissure is warmer — the
+temperature differential creates a fog where the two air
+masses meet. The fog is chemical. The zone's final hazard.
+
+But the air from below carries something else. The 33hz
+frequency, amplified by the fissure's acoustics. The
+vibration rises through the rock, through the waterfall,
+through the fog. Below the Industrial Drainage, below
+the shallow undercity, the Abandoned Transit system
+waits.
+
+A set of maintenance rungs — corroded but holding — leads
+down the fissure wall, adjacent to the waterfall. They
+descend into the fog. Into the deep.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z10_r09', description: 'north (Flooded Gallery)' },
+      { direction: 'down', targetRoom: 'z11_r01', description: 'down (Abandoned Transit)', zoneTransition: true, targetZone: 'z11' },
+    ],
+    npcs: [
+      {
+        id: 'strand', name: 'Strand', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'On a ledge beside the fissure, below the fog line. Twenties. Chrome is fresh — recently installed, already corroding at the joints. Clutching a device with photographs. Been here three days.',
+        dialogue: "\"Don't go back up. Don't tell them I'm here. — I know things. About Voss. About the Wolves. About what we really are. I have proof. I need someone who isn't a Wolf to hear this.\"",
+        services: ['quest', 'info'],
+        startingDisposition: -20,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'chemical_waterfall', name: 'chemical waterfall', examineText: 'The combined drainage of the Industrial District, pouring into the earth. Orange-yellow. Steaming. Three meters wide, falling for an indeterminate distance. Every chemical, every compound, every molecule of the Assembly Line\'s waste. It falls into the deep and the deep receives it.' },
+      { id: 'the_fissure', name: 'the fissure', examineText: 'Natural. Not cut, not drilled. A crack in the bedrock widened by water over centuries. The fissure predates the city. The original engineers found it and used it as a discharge point. They didn\'t ask what was below.' },
+      { id: 'maintenance_rungs', name: 'maintenance rungs', examineText: 'Metal rungs set into the fissure wall. Corroded but functional — heavier gauge than standard. REFLEX ≥ 6 to descend safely. Wet with chemical spray. The fog reduces visibility to two meters. You climb by feel. The 33hz vibration gets stronger with every meter of descent.' },
+      { id: 'strand_ledge', name: 'strand ledge', examineText: 'A natural shelf in the fissure wall. Just wide enough for a person. Food wrappers — Wolf rations, the last of what he grabbed. Water bottle, empty. Eyes red from the chemical fog. His chrome arm is already corroding at the joints. He holds the device with the photographs in both hands. He hasn\'t let go since he ran.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'CHEMICAL WATERFALL', die: 10, hindersActions: ['attack', 'scan', 'flee'], color: '#ff6b6b' }],
+    environmentalClocks: [
+      {
+        id: 'z10_r10_chemical',
+        name: 'CHEMICAL EXPOSURE',
+        segments: 6,
+        category: 'environment',
+        color: '#fbbf24',
+        visible: true,
+        persistent: false,
+        onFill: { type: 'environmental_effect', payload: { envType: 'chemical' } },
+      },
+    ],
+  },
+};
+
+export const ZONE_10: Zone = {
+  id: 'z10',
+  name: 'INDUSTRIAL DRAINAGE',
+  depth: 'shallow',
+  faction: 'CHROME_WOLVES',
+  levelRange: [7, 12],
+  description: 'Everything pours downhill. Factory waste drains through Wolf-controlled upper tunnels into toxic lower infrastructure. The broken treatment station poisons the Parish downstream.',
+  atmosphere: {
+    sound: 'Upper: liquid flow, Wolf activity, factory thrum above. Lower: dripping, chemical hissing, something breathing in the dark.',
+    smell: 'Acrid, metallic, sharp enough to taste. Upper level manageable. Lower level burns.',
+    light: 'Upper: Wolf work lights, orange and white. Lower: chemical luminescence, yellow-orange glow from the runoff itself.',
+    temp: 'Warm from chemical reactions. Gets warmer descending. The Deep Drain fog is hot.',
+  },
+  rooms: Z10_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -3656,6 +4250,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z04: ZONE_04,
   z08: ZONE_08,
   z09: ZONE_09,
+  z10: ZONE_10,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────

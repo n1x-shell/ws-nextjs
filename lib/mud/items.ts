@@ -1207,6 +1207,121 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'consumable', tier: 'SCRAP', stackable: true,
     buyPrice: 6, sellPrice: 2, healAmount: 8,
   },
+
+  // ── Zone 10: Industrial Drainage ────────────────────────────────────────
+
+  // Enemy drops
+  corroded_augment: {
+    id: 'corroded_augment', name: 'Corroded Augment',
+    description: 'ripped from a feral. the chrome is green and the joints are frozen. might have been an arm. the chemical damage is extensive but the core components could be salvaged by someone who doesn\'t mind the smell.',
+    category: 'cyberware', tier: 'SCRAP', stackable: false,
+    sellPrice: 8,
+  },
+  chemical_residue: {
+    id: 'chemical_residue', name: 'Chemical Residue',
+    description: 'crystallized drainage compound. toxic to handle without gloves. acre buys it. someone probably has a use for concentrated industrial poison.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 5,
+  },
+  crystallized_component: {
+    id: 'crystallized_component', name: 'Crystallized Component',
+    description: 'chemical deposit fused with corroded augmentation hardware. the crystal shell preserved what the chemicals destroyed. intact circuitry inside a toxic shell. valuable if you can crack it without breathing the dust.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 20,
+  },
+  chemical_reagent: {
+    id: 'chemical_reagent', name: 'Chemical Reagent',
+    description: 'industrial-grade compound extracted from the drainage. useful for crafting, neutralization, and making things that shouldn\'t exist. handle with care. handle with gloves. handle with distance.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 12,
+  },
+
+  // Quest items
+  chemical_sample_kit: {
+    id: 'chemical_sample_kit', name: 'Chemical Sample Kit',
+    description: 'acre\'s collection kit. ceramic containers, glass pipettes, protective gloves. designed for sampling the bypass channel\'s undiluted output. the instructions are written in acre\'s handwriting: "fill. seal. don\'t breathe."',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  neural_tissue_analysis: {
+    id: 'neural_tissue_analysis', name: 'Neural Tissue Analysis',
+    description: 'acre\'s analysis of the bypass sample. the assembly line\'s waste contains degraded human neural tissue. the resonance amplifiers aren\'t manufactured. they\'re grown. from people. the workers on the assembly line aren\'t calibrating machines. they\'re providing raw material.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true, loreItem: true,
+  },
+  treatment_filter: {
+    id: 'treatment_filter', name: 'Treatment Filter',
+    description: 'replacement filtration media for the chemical treatment station. compatible with tank two. manufactured from drainage compounds by acre, or salvaged from the dead factory on the surface.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  neutralizing_agent: {
+    id: 'neutralizing_agent', name: 'Neutralizing Agent',
+    description: 'chemical compound that counteracts the runoff\'s acidity. available from acre, or synthesizable with TECH ≥ 8 using components from the manufacturing bypass. the parish\'s water depends on this.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  pump_motor: {
+    id: 'pump_motor', name: 'Pump Motor',
+    description: 'replacement motor for the treatment station\'s injection pump. the wolves have welding equipment. torque on the rooftops has materials. or improvise with TECH ≥ 7.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
+  wolf_helixion_documents: {
+    id: 'wolf_helixion_documents', name: 'Wolf-Helixion Documents',
+    description: 'photographs of voss\'s private documents. the chrome wolves aren\'t rebels. they\'re contractors. helixion allows their independence because the wolves provide something helixion needs. this changes everything about the wolves. this changes everything.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    questItem: true, loreItem: true,
+  },
+
+  // Cutter's shop — Wolf equipment
+  wolf_combat_blade: {
+    id: 'wolf_combat_blade', name: 'Wolf Combat Blade',
+    description: 'chrome-edged. wolf-manufactured. the balance is aggressive — weighted for offense, not defense. the wolves don\'t make weapons for people who plan to retreat.',
+    category: 'weapon_melee', tier: 'COMMON', stackable: false,
+    slot: 'weapon_primary', damage: 7, damageType: 'melee',
+    buyPrice: 60, sellPrice: 25,
+  },
+  wolf_sidearm: {
+    id: 'wolf_sidearm', name: 'Wolf Sidearm',
+    description: 'modified helixion security model. the wolves stripped the tracking firmware and added a compensator. accurate. reliable. the serial number is gone but the stopping power isn\'t.',
+    category: 'weapon_ranged', tier: 'COMMON', stackable: false,
+    slot: 'weapon_primary', damage: 6, damageType: 'ranged',
+    buyPrice: 50, sellPrice: 20,
+  },
+  wolf_armor: {
+    id: 'wolf_armor', name: 'Wolf Plating',
+    description: 'subdermal armor panels in a carrier vest. wolf-custom — the plates overlap where the factory design leaves gaps. someone who gets hit a lot designed this.',
+    category: 'armor', tier: 'COMMON', stackable: false,
+    slot: 'armor', armorValue: 5,
+    buyPrice: 75, sellPrice: 30,
+  },
+
+  // Acre's shop — chemicals and protection
+  chemical_mask: {
+    id: 'chemical_mask', name: 'Chemical Mask',
+    description: 'filters airborne chemical compounds. reduces environmental damage in the lower drainage. the filter lasts about four hours before the chemicals eat through it. acre sells replacements.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 30, sellPrice: 12,
+  },
+  chemical_mask_upgrade: {
+    id: 'chemical_mask_upgrade', name: 'Chemical Mask (Upgraded)',
+    description: 'military-grade filtration. reduces lower-level environmental damage by 50%. the filter material is helixion laboratory surplus — acre acquired it through channels she doesn\'t discuss.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 60, sellPrice: 25,
+  },
+  acid_vial: {
+    id: 'acid_vial', name: 'Acid Vial',
+    description: 'concentrated drainage acid in a sealed ceramic container. throw to deal chemical damage. dissolves armor. dissolves most things. don\'t drop it.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 15, sellPrice: 6,
+  },
+  neutralizer_dose: {
+    id: 'neutralizer_dose', name: 'Neutralizer Dose',
+    description: 'chemical neutralizer in injectable form. counteracts acid burns and chemical exposure. heals 10 HP of chemical damage specifically. tastes like chalk dissolved in revenge.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 20, sellPrice: 8, healAmount: 10,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -1494,4 +1609,24 @@ export const DEVI_SHOP: ShopItem[] = [
 export const MAE_SHOP: ShopItem[] = [
   { templateId: 'mae_herbs', stock: -1 },
   { templateId: 'herbal_remedy', stock: 3 },
+];
+
+// ── Zone 10: Industrial Drainage Items ────────────────────────────────────
+
+// Enemy drops
+export const CUTTER_SHOP: ShopItem[] = [
+  { templateId: 'wolf_combat_blade', stock: 2 },
+  { templateId: 'wolf_sidearm', stock: 2 },
+  { templateId: 'wolf_armor', stock: 2 },
+  { templateId: 'stim_pack', stock: 8 },
+  { templateId: 'medkit', stock: 3 },
+];
+
+export const ACRE_SHOP: ShopItem[] = [
+  { templateId: 'chemical_mask', stock: 3 },
+  { templateId: 'chemical_mask_upgrade', stock: 1 },
+  { templateId: 'acid_vial', stock: 5 },
+  { templateId: 'neutralizer_dose', stock: 5 },
+  { templateId: 'stim_pack', stock: 3 },
+  { templateId: 'antitox', stock: 4 },
 ];
