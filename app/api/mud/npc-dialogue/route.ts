@@ -4,6 +4,7 @@
 // Does NOT publish to Ably — responses render locally via addLocalMsg.
 
 import { generateText } from 'ai';
+import { onyx } from '@/lib/onyxProvider';
 
 export const maxDuration = 15;
 
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     const results = await Promise.allSettled(
       npcs.map(async (npc) => {
         const result = await generateText({
-          model: 'alibaba/qwen3-max',
+          model: onyx('alibaba/qwen3-max'),
           system: npc.systemPrompt,
           messages: [
             { role: 'user', content: `[${playerHandle}]: ${playerMessage}` },
