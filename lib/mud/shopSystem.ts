@@ -4,7 +4,7 @@
 
 import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
-import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP } from './items';
+import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP, SPIT_SHOP, PATCH_SHOP, NEEDLE_SHOP, RADE_OFFICE_SHOP } from './items';
 import type { ShopItem } from './items';
 import { getNPCRelation } from './persistence';
 
@@ -29,6 +29,9 @@ export function getShopInventory(npcId: string): ShopItem[] | null {
     case 'mae': return MAE_SHOP;
     case 'cutter': return CUTTER_SHOP;
     case 'acre': return ACRE_SHOP;
+    case 'spit': return SPIT_SHOP;
+    case 'patch': return PATCH_SHOP;
+    case 'needle': return NEEDLE_SHOP;
     default: return null;
   }
 }
@@ -52,6 +55,9 @@ export function getShopkeeperName(npcId: string): string {
     case 'mae': return 'Mae';
     case 'cutter': return 'Cutter';
     case 'acre': return 'Acre';
+    case 'spit': return 'Spit';
+    case 'patch': return 'Patch';
+    case 'needle': return 'Needle';
     default: return npcId;
   }
 }

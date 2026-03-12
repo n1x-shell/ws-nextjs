@@ -1322,6 +1322,74 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'consumable', tier: 'COMMON', stackable: true,
     buyPrice: 20, sellPrice: 8, healAmount: 10,
   },
+
+  // ── Zone 06: Fight Pits Items ──────────────────────────────────────────
+
+  // Patch's shop — combat stims
+  painkiller_dose: {
+    id: 'painkiller_dose', name: 'Painkiller Dose',
+    description: 'industrial-strength analgesic. reduces incoming damage for one fight. also reduces perception. the trade-off is the point — you can take more hits but you won\'t see them coming.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 15, sellPrice: 6, healAmount: 8,
+  },
+  adrenaline_shot: {
+    id: 'adrenaline_shot', name: 'Adrenaline Shot',
+    description: 'synthetic adrenaline in a self-injector. boosted damage output for one fight. the crash afterward is not optional. don\'t use two in a row unless you want to see your heartbeat from the outside.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 20, sellPrice: 8,
+  },
+  neural_sharp: {
+    id: 'neural_sharp', name: 'Neural Sharp',
+    description: 'perception amplifier. see the fight in slow motion. read the opponent\'s movements before they commit. fragile — one solid hit to the head and the effect shatters into a migraine that lasts three days.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 25, sellPrice: 10,
+  },
+  fight_tape: {
+    id: 'fight_tape', name: 'Fight Tape',
+    description: 'adhesive medical tape. wraps joints, holds wounds closed, keeps broken fingers functional. the most honest supply in the pits — it does exactly what it looks like and nothing more.',
+    category: 'consumable', tier: 'SCRAP', stackable: true,
+    buyPrice: 5, sellPrice: 2, healAmount: 3,
+  },
+
+  // Needle's shop — quick augmentation (temp fight mods)
+  reflex_overclocker: {
+    id: 'reflex_overclocker', name: 'Reflex Overclocker',
+    description: 'temporary neural bypass that redlines your reflex arc. lasts one fight. the installation scar is distinctive — everyone in the pits knows what it means. you paid for speed.',
+    category: 'cyberware', tier: 'SCRAP', stackable: false,
+    buyPrice: 40, sellPrice: 15,
+  },
+  subdermal_hardener: {
+    id: 'subdermal_hardener', name: 'Subdermal Hardener',
+    description: 'injectable polymer that hardens beneath the skin. temporary armor. lasts one fight, then your body metabolizes it. the process of metabolizing it is unpleasant. needle calls it "character building."',
+    category: 'cyberware', tier: 'SCRAP', stackable: false,
+    buyPrice: 35, sellPrice: 12,
+  },
+  targeting_assist: {
+    id: 'targeting_assist', name: 'Targeting Assist',
+    description: 'optical overlay module. needle clips it to your temple and it projects targeting data on your visual field. lasts one fight. the calibration is approximate. "approximate" is generous.',
+    category: 'cyberware', tier: 'SCRAP', stackable: false,
+    buyPrice: 45, sellPrice: 18,
+  },
+
+  // Arena drops
+  pit_purse_t1: {
+    id: 'pit_purse_t1', name: 'Pit Purse (Fresh)',
+    description: 'match winnings. crumpled creds in a bag. the crowd threw some of it. tier 1 purse — enough to eat for a week. not enough to quit.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 30,
+  },
+  pit_purse_t2: {
+    id: 'pit_purse_t2', name: 'Pit Purse (Regular)',
+    description: 'match winnings. the regulars\' take. enough to mean something. the crowd chants your name for thirty seconds and then forgets.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 60,
+  },
+  pit_purse_t3: {
+    id: 'pit_purse_t3', name: 'Pit Purse (Circuit)',
+    description: 'circuit-level winnings. real money. the kind of purse that changes what people call you. the kind that makes rade notice.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 120,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -1629,4 +1697,33 @@ export const ACRE_SHOP: ShopItem[] = [
   { templateId: 'neutralizer_dose', stock: 5 },
   { templateId: 'stim_pack', stock: 3 },
   { templateId: 'antitox', stock: 4 },
+];
+
+// ── Zone 06: Fight Pits Shops ─────────────────────────────────────────────
+
+export const SPIT_SHOP: ShopItem[] = [
+  { templateId: 'stim_pack', stock: 3 },
+  { templateId: 'adrenaline_shot', stock: 2 },
+];
+
+export const PATCH_SHOP: ShopItem[] = [
+  { templateId: 'painkiller_dose', stock: 5 },
+  { templateId: 'adrenaline_shot', stock: 3 },
+  { templateId: 'neural_sharp', stock: 3 },
+  { templateId: 'fight_tape', stock: 10 },
+  { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'medkit', stock: 3 },
+];
+
+export const NEEDLE_SHOP: ShopItem[] = [
+  { templateId: 'reflex_overclocker', stock: 2 },
+  { templateId: 'subdermal_hardener', stock: 2 },
+  { templateId: 'targeting_assist', stock: 2 },
+];
+
+export const RADE_OFFICE_SHOP: ShopItem[] = [
+  { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'adrenaline_shot', stock: 3 },
+  { templateId: 'neural_sharp', stock: 2 },
+  { templateId: 'pit_purse_t1', stock: -1 },
 ];

@@ -4,6 +4,7 @@
 // Phase 1: Drainage Nexus (Zone 8, 14 rooms). Phase 2: Maintenance Tunnels (Zone 9, 11 rooms).
 // Phase 3: Industrial District (Zone 3, 15 rooms). Phase 4: Residential Blocks (Zone 2, 15 rooms).
 // Phase 5: Industrial Drainage (Zone 10, 10 rooms).
+// Phase 6: Fight Pits (Zone 6, 8 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -4242,12 +4243,523 @@ export const ZONE_10: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 06: Fight Pits ─────────────────────────────────────────────────────
+
+const Z06_ROOMS: Record<string, Room> = {
+
+  // ── 1. THE APPROACH ─────────────────────────────────────────────────────
+
+  z06_r01: {
+    id: 'z06_r01',
+    zone: 'z06',
+    name: 'THE APPROACH',
+    description:
+`The beaten dirt path from the Industrial District leads
+through a gap in rusted fencing into the waste ground.
+The water treatment plant is ahead — squat concrete
+buildings, settling basins, the infrastructure of a city
+that used to clean its water. Now the basins hold something
+else and the sound coming from inside tells you exactly
+what.
+
+The crowd noise is rhythmic. A fight is happening. You
+can hear the announcer's voice — amplified, distorted by
+the concrete acoustics — calling the action. A roar from
+the crowd. Someone just went down.
+
+People stream in through gaps in the perimeter — no formal
+entrance, no tickets. Payment is inside. The path is
+worn by hundreds of feet. Neon strips have been wired
+to the fencing, powered by a generator you can hear but
+not see. Pink and orange. The Wolves' colors.
+
+A sign, spray-painted on a concrete slab propped against
+the fence: "WHAT HAPPENS IN THE PIT STAYS IN THE PIT.
+EVERYTHING ELSE IS YOUR PROBLEM."`,
+    exits: [
+      { direction: 'east', targetRoom: 'z03_r15', description: 'east (Industrial District — District Border)', zoneTransition: true, targetZone: 'z03' },
+      { direction: 'south', targetRoom: 'z06_r02', description: 'south (The Betting Floor)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_sign', name: 'the sign', examineText: '\'WHAT HAPPENS IN THE PIT STAYS IN THE PIT. EVERYTHING ELSE IS YOUR PROBLEM.\' The pits\' only rule. Inside the complex, Rade\'s enforcers keep order. Outside, you\'re on your own. The sign is also a disclaimer — if you get hurt in the ring, that\'s the arrangement. You walked in. Nobody made you.' },
+      { id: 'neon_fencing', name: 'neon fencing', examineText: 'Pink and orange strips wired to the chain-link. Chrome Wolf colors. The power comes from a generator around the back. The neon turns the waste ground from abandoned infrastructure to venue. Deliberate showmanship — the walk from the Industrial District to the pits is designed to build anticipation.' },
+      { id: 'crowd_mix', name: 'crowd mix', examineText: 'Chrome Wolves — obvious, loud, chrome glinting. Dock workers in high-vis. A man with Iron Bloom ink he thinks he\'s hiding under his sleeve. Two Freemarket vendors carrying cases of merchandise. A woman with Helixion mesh compliance indicators — off-duty, off-the-record. The pits are the city\'s only neutral ground because everyone needs a place where the rules don\'t apply.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 2. THE BETTING FLOOR ────────────────────────────────────────────────
+
+  z06_r02: {
+    id: 'z06_r02',
+    zone: 'z06',
+    name: 'THE BETTING FLOOR',
+    description:
+`The settling basin's observation deck, repurposed as a
+grandstand. Concrete tiers ring the pit below — four meters
+down, floodlit, the arena visible from every angle. The
+tiers are packed: people standing, sitting on the concrete
+lips, leaning against the railing. The noise is enormous.
+
+Between the spectators, the economy operates. A bar — planks
+across chemical drums, bottles behind it, a bartender
+pouring without looking. Food vendors with portable grills.
+And the betting operation: a long table staffed by three
+people, whiteboards covered in odds, names, and numbers
+that update between every fight.
+
+The announcer's booth is elevated above the tiers — a
+scaffold platform with a microphone and a clear sightline
+to the pit. The voice that echoes off every surface in
+the complex comes from here.
+
+You look down into the pit. Two fighters circle each other.
+One has chrome arms. The other has nothing but speed and a
+knife that's too small for the job. The crowd leans forward.
+Everyone has money on this.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z06_r01', description: 'north (The Approach)' },
+      { direction: 'south', targetRoom: 'z06_r03', description: 'south (The Pit — stairs into the basin)' },
+      { direction: 'east', targetRoom: 'z06_r06', description: 'east (The Chop Shop)' },
+    ],
+    npcs: [
+      {
+        id: 'spit', name: 'Spit', type: 'SHOPKEEPER',
+        faction: 'CHROME_WOLVES',
+        description: 'The bookie. Forties. Fast-talking, fast with numbers. Missing two fingers on his left hand — payment for a debt he didn\'t settle fast enough. Three assistants handle the crowd. Spit handles the odds.',
+        dialogue: '"Odds on Chrome Jaw are three-to-one against. Moth\'s the favorite but she\'s nursing a rib. You want action or you want information? Both cost. Information costs more."',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+      {
+        id: 'calloway', name: 'Calloway', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'The announcer. Fifties. Big voice, bigger personality. Elevated scaffold booth, microphone, clear sightline. Eight years of calling every fight. The sound of the pits.',
+        dialogue: '"Ladies and gentlemen and whatever the hell the rest of you are — we have a NEW FACE in the pit tonight! Fresh from the streets! Untested! Unbroken! Let\'s see how long THAT lasts!"',
+        startingDisposition: 10,
+        services: ['info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'betting_board', name: 'betting board', examineText: 'Three whiteboards. Tonight\'s card: CHROME JAW vs. MOTH — 3:1. DEADSWITCH vs. THE SILENCER — even money. OPEN CHALLENGE — 5:1 against any taker. The odds shift between fights as Spit processes new bets. Names that don\'t come back get crossed out. Spit doesn\'t erase them.' },
+      { id: 'the_bar', name: 'the bar', examineText: 'Planks on chemical drums. Six different bottles, none labeled. The bartender pours by color. The drinks are strong and probably not safe and nobody cares. The bar runs on the honor system — you drink, you pay, or Rade\'s people have a conversation with you. Nobody stiffs the bar twice.' },
+      { id: 'the_view_down', name: 'the view down', examineText: 'Four meters below: the pit. Concrete basin, twenty meters across, floodlit from above. The floor is stained. The walls are scarred with impact marks. Two fighters circling. The one with chrome arms is bigger. The one with the knife is faster. The crowd knows who\'s going to win. The fighters don\'t. That\'s what makes it worth watching.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 3. THE PIT ──────────────────────────────────────────────────────────
+
+  z06_r03: {
+    id: 'z06_r03',
+    zone: 'z06',
+    name: 'THE PIT',
+    description:
+`The basin floor. You're in it now.
+
+Twenty meters across. Four meters deep. Concrete walls on
+every side — smooth, featureless, no handholds. The only
+way out is the stairs you came down, and during a match,
+those stairs have an enforcer standing at the top. The
+floodlights above turn the pit into a stage — every
+movement visible, every shadow eliminated. You can't hide
+down here. You can only fight.
+
+The floor is concrete, cracked in places, stained in others.
+The stains are rust-colored. Some are fresh. The air smells
+like sweat and iron and the chemical residue that still
+seeps through the old treatment basin's joints.
+
+The crowd above is a wall of faces and noise. From down
+here, looking up, they're silhouettes against the
+floodlights. Anonymous. Hungry. They paid to see someone
+bleed. They don't care whose blood it is.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z06_r02', description: 'up (The Betting Floor — stairs)' },
+      { direction: 'east', targetRoom: 'z06_r04', description: 'east (Fighter Prep)' },
+      { direction: 'down', targetRoom: 'z06_r07', description: 'down (Back Rooms)' },
+    ],
+    npcs: [
+      {
+        id: 'pit_crew', name: 'Pit Crew', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'Two workers with mops and buckets. They clean between fights. Quick, efficient. They do this ten times a night and don\'t look at what they\'re mopping.',
+        dialogue: '"Match is over. Clear out or watch from the stands. We got work."',
+        startingDisposition: 0,
+        services: [],
+      },
+    ],
+    enemies: [
+      {
+        id: 'pit_fighter_t1', name: 'Pit Fighter (Fresh)', level: 6,
+        description: 'Scrappers. Improvised weapons, no augmentation. They fight because they need the money. They\'re not good. They\'re willing.',
+        hp: 22, attributes: { ...enemyAttrs(6), BODY: 5, REFLEX: 4 }, damage: 6, armorValue: 1,
+        behavior: 'aggressive', spawnChance: 0, count: [1, 1],
+        drops: [
+          { itemId: 'pit_purse_t1', chance: 1.0, quantityRange: [1, 1] },
+        ],
+        xpReward: 40,
+        tier: 1,
+        harmSegments: 4,
+        armorSegments: 2,
+        attackDice: [6],
+      },
+      {
+        id: 'pit_fighter_t2', name: 'Pit Fighter (Regular)', level: 8,
+        description: 'Experienced. Some augmentation — chrome arm, enhanced reflexes, subdermal plating. Named: CHROME JAW, MOTH, DEADSWITCH. They have reputations.',
+        hp: 32, attributes: { ...enemyAttrs(8), BODY: 6, REFLEX: 6 }, damage: 8, armorValue: 3,
+        behavior: 'aggressive', spawnChance: 0, count: [1, 1],
+        drops: [
+          { itemId: 'pit_purse_t2', chance: 1.0, quantityRange: [1, 1] },
+        ],
+        xpReward: 60,
+        tier: 2,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [8, 6],
+      },
+      {
+        id: 'pit_fighter_t3', name: 'Pit Fighter (Circuit)', level: 10,
+        description: 'Professional. Heavily augmented. They fight for reputation, not money. THE SILENCER — precise. WRECKER — demolition.',
+        hp: 45, attributes: { ...enemyAttrs(10), BODY: 7, REFLEX: 7 }, damage: 11, armorValue: 5,
+        behavior: 'aggressive', spawnChance: 0, count: [1, 1],
+        drops: [
+          { itemId: 'pit_purse_t3', chance: 1.0, quantityRange: [1, 1] },
+          { itemId: 'rare_salvage', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 90,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+      {
+        id: 'pit_beast', name: 'Pit Beast', level: 9,
+        description: 'Feral augment. Drugged and dropped into the ring. Erratic, dangerous, tragic. The crowd loves it. The fighters don\'t.',
+        hp: 35, attributes: { ...enemyAttrs(9), BODY: 7, REFLEX: 5 }, damage: 11, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0, count: [1, 1],
+        drops: [
+          { itemId: 'pit_purse_t2', chance: 0.8, quantityRange: [1, 1] },
+          { itemId: 'damaged_implant', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 70,
+        tier: 2,
+        harmSegments: 6,
+        armorSegments: 2,
+        attackDice: [10],
+      },
+      {
+        id: 'the_current', name: 'The Current (Sera)', level: 12,
+        description: 'The champion. Late twenties. Lean, explosive. Chrome left arm — precision-built, Costa\'s work. Her right is organic. She moves like water and strikes like a piston. Three phases: technique, aggression, rage.',
+        hp: 65, attributes: { ...enemyAttrs(12), BODY: 8, REFLEX: 9, COOL: 7 }, damage: 13, armorValue: 6,
+        behavior: 'aggressive', spawnChance: 0, count: [1, 1],
+        drops: [
+          { itemId: 'pit_purse_t3', chance: 1.0, quantityRange: [1, 1] },
+        ],
+        xpReward: 200,
+        tier: 4,
+        harmSegments: 10,
+        armorSegments: 6,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'pit_floor', name: 'pit floor', examineText: 'Concrete. Cracked from impacts — not weathering, force. The stains are layered — old beneath new, dark beneath bright. The floor is a sedimentary record of violence. Every fight leaves something behind. The pit crew mops between matches but some things don\'t mop out.' },
+      { id: 'pit_walls', name: 'pit walls', examineText: 'Smooth concrete, four meters high. Impact marks at waist height where fighters were thrown. Scratch marks higher up where someone tried to climb out. They didn\'t make it. The walls make it final. Once you\'re in, you fight your way out or you\'re carried.' },
+      { id: 'the_floodlights', name: 'the floodlights', examineText: 'Industrial floods, angled from above. They eliminate shadow. In the pit, there\'s nowhere the light doesn\'t reach. Every movement is visible. Every cut, every bruise, every stumble. The audience sees everything. The fighter has no privacy.' },
+      { id: 'the_crowd_from_below', name: 'the crowd from below', examineText: 'Look up. Silhouettes leaning over the railing. Faces lit from below by the pit\'s reflected glare. They\'re shouting but from down here the individual words blur into a wave of sound — a single voice made of hundreds. When you\'re winning, the wave lifts you. When you\'re losing, it pushes you down. The crowd is the pit\'s real weapon.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'NO ESCAPE', die: 8, benefitsActions: ['attack'], hindersActions: ['flee'], color: '#ff6b6b' }],
+  },
+
+  // ── 4. FIGHTER PREP ─────────────────────────────────────────────────────
+
+  z06_r04: {
+    id: 'z06_r04',
+    zone: 'z06',
+    name: 'FIGHTER PREP',
+    description:
+`A concrete room adjacent to the pit, accessible through a
+heavy door. Benches along the walls. Hooks for gear. A
+cracked mirror that shows you what you look like before
+you go in. A bucket of water and a towel. A window —
+barred — looking down into the pit, so you can watch the
+match before yours and see what you're walking into.
+
+Fighters sit here and wait. Some shadowbox. Some sit still.
+Some vomit. The room smells like adrenaline and fear, which
+are chemically similar and practically identical.
+
+A man sits in the corner, away from the others. Older.
+Heavy. His hands are wrapped but he's not fighting tonight.
+He hasn't fought in years. But he's here. He's always here.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z06_r03', description: 'west (The Pit)' },
+      { direction: 'south', targetRoom: 'z06_r05', description: 'south (The Fight Doctor)' },
+    ],
+    npcs: [
+      {
+        id: 'grath', name: 'Grath', type: 'NEUTRAL',
+        faction: 'CHROME_WOLVES',
+        description: 'Retired champion. Fifties. Heavy. Scar tissue over scar tissue, flat nose, hands that can\'t fully close. Both knees augmented — replacement, not enhancement. He was the first pit champion. Held it three years. He sits in the corner and watches.',
+        dialogue: '"…sit. No, there. Where I can see your hands. — You\'re fighting tonight? Let me watch you move. Just stand up. Walk to the door and back. — Hmm. You drop your left shoulder when you turn. Fix that or Chrome Jaw will find it."',
+        startingDisposition: 0,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'cracked_mirror', name: 'cracked mirror', examineText: 'The mirror shows you before you go in. It\'s cracked — a spiderweb of fracture lines from someone who didn\'t like what they saw. Or from someone who liked it too much. You look at yourself. Are you ready? The mirror doesn\'t know. The mirror shows. The decision is yours.' },
+      { id: 'pit_window', name: 'pit window', examineText: 'Barred window looking down into the basin. You can see the current match — fighters moving, the crowd above, the floodlights turning everything sharp and shadowless. Watching from here is different than watching from the stands. From here, you\'re next. The distance between spectator and participant is one door.' },
+      { id: 'grath_hands', name: 'grath\'s hands', examineText: 'His fingers don\'t close all the way. The knuckles are swollen — permanent calcification from thousands of impacts. The skin over them is a topography of scar tissue. These hands held the championship for three years. Now they can\'t hold a cup without trembling. He wraps them every night, out of habit. There\'s nothing to protect anymore. He wraps them anyway.' },
+      { id: 'fighter_gear', name: 'fighter gear', examineText: 'Hooks on the wall hold what fighters bring. Wraps, tape, mouth guards. A pair of augmented gauntlets — chrome, dented, someone\'s investment in surviving. A jar of something the label calls \'fighting balm\' which is probably just menthol and hope. A towel with old bloodstains that laundering didn\'t remove.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 5. THE FIGHT DOCTOR ─────────────────────────────────────────────────
+
+  z06_r05: {
+    id: 'z06_r05',
+    zone: 'z06',
+    name: 'THE FIGHT DOCTOR',
+    description:
+`A room that was probably a chemical testing lab when this
+was a water treatment plant. Now it's a medical station
+in the loosest possible sense. A table that serves as an
+examination bed. A lamp. Drawers of supplies — bandages,
+sutures, stims, painkillers, a bone-setting kit. A
+cauterizing tool that smells like it's been used recently.
+
+The fight doctor is not a doctor. She's a paramedic who
+lost her license, or a nurse who left the system, or
+something in between. What she is: fast, efficient, and
+not interested in your feelings. She patches you up between
+rounds. She patches you up after. She does not ask if
+you want to keep fighting. That's not her department.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z06_r04', description: 'north (Fighter Prep)' },
+    ],
+    npcs: [
+      {
+        id: 'patch', name: 'Patch', type: 'SHOPKEEPER',
+        faction: 'NONE',
+        description: 'The fight doctor. Thirties. No-nonsense. Speaks in instructions. Her hands are steady in a way that suggests extensive training or extensive practice. She looks at the wound, not the person.',
+        dialogue: '"Sit. Shirt off. — That\'s a second-degree on the ribs. I can tape it or stitch it. Tape holds for one more fight. Stitches hold for good. Your call."',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'heal'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'medical_table', name: 'medical table', examineText: 'Metal. Cold. Stained despite cleaning. The surface is scored from bone-setting procedures — metal tools pressed hard against metal table. A thin pad for comfort. The comfort is marginal. The table works. Comfort is not the priority.' },
+      { id: 'supply_drawers', name: 'supply drawers', examineText: 'Organized by urgency. Top drawer: things that stop bleeding. Second drawer: things that reduce pain. Third drawer: things that set bones. Bottom drawer: locked.',
+        gatedText: [{ attribute: 'TECH', minimum: 5, text: 'The locked drawer contains military-grade coagulant, a neural bypass kit, and three doses of something that doesn\'t have a label. Patch\'s reserves. For when the fight goes wrong in ways the normal supplies can\'t handle.' }],
+      },
+      { id: 'cauterizing_tool', name: 'cauterizing tool', examineText: 'A heated iron for sealing wounds. Pre-Helixion medical technology. Brutal but effective — stops bleeding instantly, prevents infection, leaves scars that are badges in this environment. The tool has been used tonight. You can smell it.' },
+      { id: 'tranq_gun', name: 'tranq gun', examineText: 'Mounted on the wall. Heavy-gauge tranquilizer pistol loaded with doses meant for industrial animals. Patch uses it when beast matches go wrong. She\'s used it four times. One of those times, it didn\'t work fast enough.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 6. THE CHOP SHOP ────────────────────────────────────────────────────
+
+  z06_r06: {
+    id: 'z06_r06',
+    zone: 'z06',
+    name: 'THE CHOP SHOP',
+    description:
+`A converted storage room off the betting floor. The door
+has a neon sign: "UPGRADES." Inside: a reclined chair,
+a wall of cyberware components in unlabeled bins, a
+soldering station, and a man whose hands move faster than
+his mouth.
+
+This is not Dr. Costa's clinic. There are no sterilization
+protocols. No patient history. No recovery time. The chop
+shop installs combat augmentations in under an hour — fast,
+cheap, and with a failure rate that the operator calls
+"acceptable" and anyone else would call "alarming."
+
+The fighters use it because the pits reward augmentation
+and the chop shop is the only place that installs without
+questions, without records, and without the Wolves' formal
+vetting. You pay, you sit, you hope the solder holds.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z06_r02', description: 'west (The Betting Floor)' },
+    ],
+    npcs: [
+      {
+        id: 'needle', name: 'Needle', type: 'SHOPKEEPER',
+        faction: 'CHROME_WOLVES',
+        description: 'Chop shop operator. Thirties. Fast hands, fast mouth. Oversells everything. His augmentation work is competent but not careful. Cheaper than Costa. Faster. The tradeoff is risk.',
+        dialogue: '"What do you need? Speed, strength, or durability? I got all three. Installation takes forty minutes. Side effects are minimal. Mostly. Sit down, let me look at your interface ports."',
+        startingDisposition: 0,
+        services: ['shop'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'unlabeled_bins', name: 'unlabeled bins', examineText: 'Cyberware components in plastic bins. Fingers, wrist servos, optical lenses, subdermal panels. None labeled. Some are new — factory-sealed Helixion packaging. Some are used — scratched, worn, with mounting hardware still attached. The used ones were inside someone before they were in this bin. Needle doesn\'t talk about where the used ones come from.' },
+      { id: 'soldering_station', name: 'soldering station', examineText: 'Magnifying lens, soldering iron, neural threading tools. The workspace is chaotic — components everywhere, half-finished modifications, a coffee cup balanced on a servo assembly. Needle works fast and messy. The results work. Not always for long. Not always correctly. But they work.' },
+      { id: 'the_chair', name: 'the chair', examineText: 'Reclined. Cracked vinyl. The armrests have grip marks where patients squeezed during installation. No anesthetic beyond a local injection. No bite guard like Costa\'s clinic — Needle says the pain is \'motivational.\' The chair has a drain channel. For fluids. Don\'t ask.' },
+      { id: 'failure_rate_notice', name: 'failure rate notice', examineText: '\'ALL MODIFICATIONS CARRY INHERENT RISK. THE OPERATOR IS NOT LIABLE FOR DEGRADATION, REJECTION, OR UNEXPECTED BEHAVIOR. BY SITTING IN THE CHAIR YOU ACCEPT THESE TERMS.\' Beneath it, in marker: \'Nobody reads this. — N.\' He\'s right. Nobody does.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 7. BACK ROOMS ───────────────────────────────────────────────────────
+
+  z06_r07: {
+    id: 'z06_r07',
+    zone: 'z06',
+    name: 'BACK ROOMS',
+    description:
+`Below the arena level, through a door that doesn't have
+a sign. The corridor is concrete — original water treatment
+infrastructure, tunnels that connected the settling basins
+to the pumping system. The Wolves have repurposed them
+into something between a lounge, a meeting room, and a
+place where conversations happen that don't need witnesses.
+
+The main space is furnished: couches salvaged from
+somewhere nicer, a table, a bar better stocked than the
+one upstairs. Low lighting. Music — not the crowd noise,
+something deliberate, atmospheric. The people down here
+are not spectators. They're the people the spectators work
+for.
+
+Chrome Wolf officers. Freemarket operators. A man in a
+suit who is definitely D9 and everyone knows it and nobody
+says it. This is where the pits' real economy operates:
+fights get arranged, debts get settled, alliances get
+negotiated over drinks that cost more than the fighters
+make in a night.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z06_r03', description: 'up (The Pit)' },
+      { direction: 'south', targetRoom: 'z06_r08', description: 'south (Rade\'s Office)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'back_room_enforcer', name: 'Back-Room Enforcer', level: 9,
+        description: 'Rade\'s personal security. Armed, silent. They fight to subdue, not kill — dragging troublemakers back to the pit.',
+        hp: 35, attributes: { ...enemyAttrs(9), BODY: 7, REFLEX: 5 }, damage: 8, armorValue: 4,
+        behavior: 'territorial', spawnChance: 1.0, count: [2, 2],
+        drops: [],
+        xpReward: 50,
+        tier: 2,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [8, 6],
+      },
+    ],
+    objects: [
+      { id: 'the_better_bar', name: 'the better bar', examineText: 'Better bottles. Better glasses. Real liquor — not the unlabeled acid sold upstairs. The bar down here is stocked with imports that came through Oyunn\'s docks. The prices aren\'t posted because the people who drink here don\'t ask what things cost.' },
+      { id: 'the_d9_agent', name: 'the d9 agent', examineText: 'The man in the suit.',
+        gatedText: [{ attribute: 'GHOST', minimum: 6, text: 'He\'s pretending to drink. The glass hasn\'t gone down in twenty minutes. His eyes move in a pattern — sweep, register, categorize. He\'s working. Everyone knows he\'s D9. He knows they know. The arrangement is mutual visibility — D9 tolerates the pits because the pits concentrate people who are interesting.' }],
+      },
+      { id: 'overheard_conversations', name: 'overheard conversations', examineText: 'Murmurs. Too quiet to make out.',
+        gatedText: [{ attribute: 'GHOST', minimum: 6, text: 'Fragments. A Wolf officer discussing a shipment timing with a Freemarket broker. The D9 agent asking the bartender about a specific fighter who\'s been winning too consistently. Two people in the corner negotiating something that involves a map and a lot of CREDS. The back rooms are an intelligence buffet.' }],
+      },
+      { id: 'the_corridor', name: 'the corridor', examineText: 'Original water treatment tunnels. The concrete is stained with chemical residue that predates the pits by decades. The infrastructure goes deeper — sealed doors lead to sections the Wolves haven\'t repurposed. The treatment plant was built over something older.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'DIM LOUNGE', die: 6, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
+  },
+
+  // ── 8. RADE'S OFFICE ────────────────────────────────────────────────────
+
+  z06_r08: {
+    id: 'z06_r08',
+    zone: 'z06',
+    name: 'RADE\'S OFFICE',
+    description:
+`Deeper than the back rooms. A door with a lock that's
+better than anything else in the complex. Beyond it: a
+room that's surprisingly clean. Concrete floor, swept.
+A desk — real wood, salvaged, polished. A chair behind it
+that doesn't match anything but looks comfortable. Filing
+cabinets — physical, paper records. A wall of monitors
+showing every angle of the pit, the betting floor, the
+approach, the back rooms.
+
+Rade sits behind the desk. He's different down here —
+upstairs at the betting table he's the barker, the
+evaluator, the public face. Down here he's the operator.
+The monitors show him everything. The filing cabinets hold
+records on every fighter, every bet, every back-room deal.
+The pits are an operation and he runs it with the precision
+of someone who understands that controlled violence is the
+most profitable business model available to anyone who
+isn't Helixion.
+
+A photograph on the wall: Rade and Voss, younger, standing
+in the pit before the first fight. The Wolves built this.
+Rade built this. They're the same thing and they're not
+and the distinction matters to nobody except Rade.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z06_r07', description: 'north (Back Rooms)' },
+    ],
+    npcs: [
+      {
+        id: 'rade', name: 'Rade', type: 'SHOPKEEPER',
+        faction: 'CHROME_WOLVES',
+        description: 'Pit operator. Behind the desk. Monitors glowing. Down here the carnival barker persona drops. Sharp, quiet, methodical. He sees the pits as an ecosystem.',
+        dialogue: '"Come in. Close the door. — You\'ve been making noise upstairs. Good noise. The kind that fills seats and moves money. Sit down. Let\'s talk about what you\'re worth to me."',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'monitor_wall', name: 'monitor wall', examineText: 'Eight screens. Every angle. The pit from above. The betting floor from three positions. The approach. The back rooms. The chop shop. Rade sees everything. The blind spots are intentional — fighter prep has no camera. The fight doctor\'s room has no camera. What happens there is private because Rade decided it should be.' },
+      { id: 'filing_cabinets', name: 'filing cabinets', examineText: 'Paper records. Physical. No digital copies, no mesh storage. Every fighter who\'s entered the pit. Every match result. Every betting line. Every back-room agreement. Rade keeps records analog, permanent, untouchable by system access. These cabinets are the pits\' history and they\'re worth more than anything in the building.' },
+      { id: 'the_photograph', name: 'the photograph', examineText: 'Rade and Voss. Younger. Standing in the pit — the basin was empty then, clean, unpurposed. Voss\'s augmentations are less extensive. Rade still has his ear. They\'re both grinning. The photograph is the only personal item in the room. Whatever Rade is now, this is where it started. Two people and a concrete hole and the belief that people would pay to watch other people fight.' },
+      { id: 'the_desk', name: 'the desk', examineText: 'Real wood. The only wood surface in the pits. Rade found it in the Fringe and carried it here himself. It\'s polished. He maintains it. In a complex built from concrete and chain-link and repurposed industrial waste, the desk is the only thing someone chose because it was beautiful. Rade is not sentimental. But the desk is.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+};
+
+// ── Zone 06 Definition ──────────────────────────────────────────────────────
+
+export const ZONE_06: Zone = {
+  id: 'z06',
+  name: 'FIGHT PITS',
+  depth: 'surface',
+  faction: 'CHROME_WOLVES',
+  levelRange: [6, 12],
+  description: 'Repurposed water treatment plant. Settling basins as arenas. Chrome Wolf entertainment and revenue. The only place where every faction watches the same violence.',
+  atmosphere: {
+    sound: 'The crowd. Always the crowd. Rhythmic roar, impact sounds, the announcer bouncing off concrete walls.',
+    smell: 'Sweat. Blood. Beer. Hot metal from the chop shop. Antiseptic from the fight doctor.',
+    light: 'Floodlights in the pit — overlit, no shadows. Everything outside: dim neon, orange cigarettes, faces lit from below.',
+    temp: 'Body heat from the crowd. Cold concrete. The chemical tang of waste ground seeping through.',
+  },
+  rooms: Z06_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
   z02: ZONE_02,
   z03: ZONE_03,
   z04: ZONE_04,
+  z06: ZONE_06,
   z08: ZONE_08,
   z09: ZONE_09,
   z10: ZONE_10,

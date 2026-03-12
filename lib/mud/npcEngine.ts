@@ -701,22 +701,31 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
   },
   rade: {
     name: 'Rade',
-    voice: 'evaluating. every sentence prices you. not cruel — practical. the pits exist because people need to fight and other people need to watch. he provides the venue and takes a percentage.',
-    background: 'fight pit operator. indeterminate age. lean. missing left ear, replaced with a low-grade audio implant he didn\'t bother disguising. runs the pits in the lawless zone between wolf and fringe territory.',
-    mannerisms: 'looks at people like a butcher looks at a cut of meat. updates his whiteboard while talking. counts money with one hand. always facing the entrance.',
-    topics: ['the pits', 'fighting', 'bets', 'odds', 'fighters', 'combat', 'chrome', 'rounds', 'spectators', 'blood', 'the arena'],
-    physicalDesc: 'lean, missing left ear, audio implant, man at the folding table, the one taking bets, the pit operator',
-    zone: 'z03',
+    voice: 'evaluating. every sentence prices you. at the border, the carnival barker. in his office, the operator — sharp, quiet, methodical. the persona shifts depending on the room. not cruel — practical. the pits exist because people need to fight and other people need to watch. he provides the venue and takes a percentage.',
+    background: 'fight pit operator. indeterminate age. lean. missing left ear, replaced with a low-grade audio implant he didn\'t bother disguising. built the operation from a concrete hole and a bad idea into the most attended venue in the city. the wolves profit. rade profits. he answers to voss. he respects voss. but the pits are his.',
+    mannerisms: 'at the border: looks at people like a butcher looks at a cut of meat. updates his whiteboard while talking. in his office: sits behind a real wood desk, monitors glowing. speaks precisely. the showmanship is gone. this is the operator.',
+    topics: ['the pits', 'fighting', 'bets', 'odds', 'fighters', 'combat', 'chrome', 'rounds', 'spectators', 'blood', 'the arena', 'business', 'the ladder', 'the champion', 'voss', 'the wolves'],
+    physicalDesc: 'lean, missing left ear, audio implant, man at the folding table or behind the desk, the pit operator',
+    zone: 'z06',
     isQuestGiver: true,
     isShopkeeper: true,
     knowledge: {
       npcs: {
-        voss: 'the wolves fight here for sport. voss sends her people to calibrate. good for business.',
+        voss: 'the wolves fight here for sport. voss sends her people to calibrate. good for business. i answer to her. the distinction between the pits and the wolves is one i maintain because it\'s useful.',
+        spit: 'my bookie. the numbers go through him. if the numbers are wrong, i know before he does. so far the numbers have been right. mostly.',
+        calloway: 'my announcer. eight years. the man could sell a slap as a boxing match. worth every cred.',
+        grath: 'the first champion. we built this together. he fought. i managed. he got old. the pits didn\'t.',
+        the_current: 'sera. fourteen months. she\'s the best fighter the pits have ever had. she\'s also the most dangerous. those are not the same thing.',
+        patch: 'keeps the fighters alive. i need them alive. the arrangement is simple.',
+        needle: 'his shop works because augmented fights sell better. his failure rate is someone else\'s problem. usually patch\'s.',
         chrome_wolves_members: 'best fighters in the district. chrome jaw is my top earner. you want to bet against him, i\'ll take your money.',
       },
       locations: {
-        'district border': 'where i operate. the border between wolf territory and the fringe. no faction claims the waste ground. perfect for pits.',
-        'the fight pits': 'west through the fence. the old water treatment plant. the basin is the arena. lights, scaffolding, blood.',
+        'district border': 'where i take bets. the border between wolf territory and the fringe. the waste ground. the approach.',
+        'the fight pits': 'west through the fence. the old water treatment plant. the basin is the arena.',
+        'the pit': 'twenty meters of concrete. floodlit. no escape. the crowd sees everything. the fighters see the crowd. the crowd is the weapon.',
+        'rade\'s office': 'below the back rooms. monitors, filing cabinets, the desk. this is where the pits actually run.',
+        'back rooms': 'wolf business. freemarket deals. d9 watching. everyone knows everyone is watching. the mutual surveillance is the price of neutral ground.',
       },
       items: {
         'pit_entry_ticket': 'spectator pass. one night. the view from the basin\'s edge.',
@@ -724,6 +733,9 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
       },
       questHints: [
         'i need fresh blood in the pit. three rounds. escalating. win all three and you get a standing invitation to the real fights.',
+        'the pit has four tiers. fresh meat, regulars, the circuit, the champion. fight your way through all of them.',
+        'someone is skimming from the betting pool. the numbers don\'t balance. find who.',
+        'feral augments for the beast matches are running out. the fringe population is thinning. find a new source or an alternative.',
       ],
     },
     jobRedirect: 'fighter or spectator? fighters go left. spectators go right. spectators pay at the door. fighters pay with what\'s under their skin.',
@@ -1106,6 +1118,155 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     },
     jobRedirect: 'we guard the gate. you want work, talk to voss. wolf den, surface level. industrial district.',
   },
+
+  // ── Zone 06: Fight Pits NPCs ──────────────────────────────────────────
+
+  spit: {
+    name: 'Spit',
+    voice: 'fast. numbers between every sentence. transactional. he likes money. he likes people who make him money. he dislikes people who cost him money. simple.',
+    background: 'the bookie. forties. chrome wolves financial arm — the pits\' revenue flows through his table. fast-talking, quick with numbers, faster with the mental math of odds than anyone with a calculator. got the name because he talks so fast he spits. missing two fingers on his left hand — payment for a debt he didn\'t settle fast enough.',
+    mannerisms: 'never stops calculating. scribbles odds on his forearm while talking. three assistants handle the crowd — spit handles the numbers. looks at you and sees a line on a whiteboard.',
+    topics: ['odds', 'bets', 'fighters', 'money', 'the book', 'chrome jaw', 'moth', 'deadswitch', 'the silencer', 'the current', 'debt', 'information'],
+    physicalDesc: 'forties, fast-talking, missing two fingers on left hand, behind the betting table, the bookie',
+    zone: 'z06',
+    isQuestGiver: true,
+    isShopkeeper: true,
+    knowledge: {
+      npcs: {
+        calloway: 'the announcer. good for business. the man could sell a slap as a boxing match. he makes the crowd feel it.',
+        grath: 'the old champion. sits in prep. watches. doesn\'t bet. doesn\'t spend. i don\'t understand men who don\'t want money but i respect what he sees.',
+        patch: 'the doctor. keeps the fighters alive. i need them alive — dead fighters don\'t generate rematches.',
+        needle: 'the chop shop. his work is functional. his failure rate is someone else\'s problem. mine, specifically, when a favorite goes down because his wiring shorted.',
+        rade: 'the boss. his office is below the back rooms. don\'t go down there without an invitation.',
+      },
+      locations: {
+        'the betting floor': 'my domain. the odds are on the board. the real odds are in my head.',
+        'the pit': 'where the money becomes real. twenty meters of concrete and whatever bleeds in it.',
+        'back rooms': 'wolf business. i don\'t ask. i don\'t go. my job is the numbers.',
+      },
+      items: {
+        'stim_pack': 'basic. i sell a few. the good stuff is with patch downstairs.',
+      },
+      questHints: [
+        'a fighter\'s been throwing matches. the losses are costing my book. someone is paying him to lose and i want to know who.',
+      ],
+    },
+    jobRedirect: 'you want action or you want information? both cost. information costs more. the betting table is open.',
+  },
+  calloway: {
+    name: 'Calloway',
+    voice: 'big. theatrical. performing even when not performing. the enthusiasm is genuine — the man loves violence conducted as art. every sentence sounds like it\'s being announced to a crowd.',
+    background: 'the announcer. fifties. chrome wolves entertainment management. master of ceremonies for eight years. he announces every fight, hypes the crowd, narrates the action in real-time. between fights, he works the crowd, tells stories, sells the next match. his voice is the sound of the pits.',
+    mannerisms: 'projects even in quiet conversation. gestures broadly. stands in the scaffold booth above the tiers. calls everyone by a nickname he invented for them.',
+    topics: ['fights', 'fighters', 'legends', 'champions', 'the crowd', 'history', 'the pit', 'stories', 'match schedule', 'reputation'],
+    physicalDesc: 'fifties, big voice, scaffold booth, microphone, the announcer, larger than life',
+    zone: 'z06',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        spit: 'the numbers man. he makes the money work. i make the money happen. different skills. same ecosystem.',
+        grath: 'the first champion. three years. i called every one of his fights. the man was an artist with his fists. what the years took from him is a crime the pits committed.',
+        the_current: 'sera. the champion. fourteen months undefeated. she doesn\'t talk. she doesn\'t celebrate. she wins and she leaves. i\'ve called a thousand fighters. she\'s the only one who scares me.',
+        rade: 'built this place from a concrete hole. i was his first hire. well — second. the first was the mop.',
+      },
+      locations: {
+        'the pit': 'twenty meters of truth. i\'ve watched people find out who they are in that basin. some of them didn\'t like the answer.',
+        'the betting floor': 'the grandstand. my booth is above it all. best view in the house. you can see the fight and the crowd and the crowd is half the show.',
+      },
+      items: {},
+      questHints: [
+        'you want to fight? i manage the card. tell me your name and i\'ll put you on the board. tier 1 first. everybody starts at the bottom.',
+      ],
+    },
+    jobRedirect: 'i call the fights. you want to be in one, tell me. i\'ll put your name on the board and make you sound like a legend. what happens after that is between you and whoever\'s across from you.',
+  },
+  grath: {
+    name: 'Grath',
+    voice: 'sparse. quiet. every word is chosen because he only has so many left. he sees fights the way a musician hears music — rhythm, space, the moment before a blow lands when everything is decided.',
+    background: 'retired champion. fifties. heavy. his body is a map of damage — scar tissue over scar tissue, flat nose, hands that can\'t fully close. both knees augmented (replacement, not enhancement). first pit champion, held the title three years. retired because his body couldn\'t do it anymore. stays because he can\'t do anything else. chrome wolves — former.',
+    mannerisms: 'sits in the corner. always the corner. same bench. wraps his hands out of habit. watches people move before he speaks to them. his advice is sparse and devastating.',
+    topics: ['fighting', 'technique', 'the pit', 'the old days', 'sera', 'the current', 'champions', 'training', 'the body', 'augmentation', 'the wolves'],
+    physicalDesc: 'fifties, heavy, scarred hands, flat nose, wrapped fists, sitting in the corner, the retired champion',
+    zone: 'z06',
+    isQuestGiver: true,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        the_current: 'her name is sera. i trained her. she was brilliant — warm, funny. then she took a fight she shouldn\'t have. something changed. now she fights like she\'s trying to destroy something that isn\'t in the ring.',
+        rade: 'we built this together. him and me and voss. i fought. he managed. the arrangement worked. i got old. the arrangement continued.',
+        calloway: 'eight years calling fights. the man never gets tired of other people\'s pain. but he respects it. that matters.',
+        patch: 'good hands. doesn\'t waste words. the fighters trust her because she treats the wound, not the person. that\'s the right priority.',
+      },
+      locations: {
+        'fighter prep': 'my room. not officially. but i\'m always here. the fighters who are worth watching — they come through this room first.',
+        'the pit': 'i spent three years in that basin. i know every crack in the floor. i know where the stains are oldest. some of them are mine.',
+      },
+      items: {},
+      questHints: [
+        'i want to see a clean fight. no augmentation, no stims, no edge. just you. win a tier 2 match like that and i\'ll tell you something worth knowing.',
+        'sera fights angry. anger makes mistakes. i trained her. i know the flaw. beat the old way challenge and i\'ll tell you what i see.',
+      ],
+    },
+    jobRedirect: '…sit. where i can see your hands. — you want to fight? let me watch you move first. stand up. walk to the door and back.',
+  },
+  patch: {
+    name: 'Patch',
+    voice: 'instructions. clinical. short. she speaks in imperatives — hold still, bite this, don\'t move, done. not cold — focused. the wound is what matters.',
+    background: 'fight doctor. thirties. no-nonsense. paramedic who lost her license, or a nurse who left the system, or something in between. chose the pits because the injuries are honest. "in the city, the mesh hides what\'s wrong. here, if you\'re broken, you know it. blood doesn\'t lie." contracted by the wolves, loyal to her work.',
+    mannerisms: 'always working — cleaning tools, sorting supplies, preparing for the next casualty. doesn\'t make eye contact during treatment. makes eye contact between patients, when she has opinions.',
+    topics: ['injuries', 'treatment', 'stims', 'painkillers', 'the body', 'fighting', 'damage', 'the pit', 'beast matches', 'survival'],
+    physicalDesc: 'thirties, steady hands, at the medical table, the fight doctor, no-nonsense',
+    zone: 'z06',
+    isQuestGiver: true,
+    isShopkeeper: true,
+    knowledge: {
+      npcs: {
+        grath: 'his knees are mine. not the originals — the replacements. i installed them. he can walk because of me. he can\'t fight because of time. those are different problems.',
+        needle: 'his work makes mine harder. every overclocker he installs is a seizure waiting to happen. every hardener is an infection i\'ll treat in three days. he\'s competent. but competent and careful are different.',
+        the_current: 'i\'ve never treated her. she doesn\'t come to me after fights. either she doesn\'t get hurt or she doesn\'t care. i suspect the second.',
+      },
+      locations: {
+        'the fight doctor': 'my room. chemical testing lab, converted. the table works. the supplies are organized. the cauterizer is hot. what else do you need.',
+        'the pit': 'i watch from the prep room window. when someone goes down and doesn\'t get up, i go in. that\'s the arrangement.',
+      },
+      items: {
+        'painkiller_dose': 'reduces damage perception. also reduces actual perception. the trade-off is by design.',
+        'adrenaline_shot': 'boosted output. the crash is mandatory. don\'t use two in a row.',
+        'fight_tape': 'the most honest thing i sell. it holds you together. that\'s all.',
+      },
+      questHints: [],
+    },
+    jobRedirect: 'sit. shirt off. — let me see what needs fixing. the supplies are in the drawers. the prices are on the wall. the alternative is bleeding.',
+  },
+  needle: {
+    name: 'Needle',
+    voice: 'fast, overselling, commercial. every mod is "top line." every scar is "character." he knows the failure rate. he tells you anyway. that\'s not dishonesty — that\'s salesmanship.',
+    background: 'chop shop operator. thirties. fast hands, fast mouth. operates under wolf protection but isn\'t a member. installs combat augmentations in under an hour — fast, cheap, with a failure rate he calls "acceptable." his installations are competent but not careful. costa can fix needle\'s failures. needle cannot fix costa\'s work. the hierarchy is clear.',
+    mannerisms: 'working on something while talking. always has a soldering iron near his hand. gestures with tools. the coffee cup is balanced on something precarious.',
+    topics: ['augmentation', 'chrome', 'upgrades', 'cyberware', 'installation', 'speed', 'the chair', 'mods', 'combat edge'],
+    physicalDesc: 'thirties, fast hands, soldering station, chop shop operator, working on something',
+    zone: 'z06',
+    isQuestGiver: false,
+    isShopkeeper: true,
+    knowledge: {
+      npcs: {
+        dr_costa: 'she does clean work. proper sterile. proper recovery. proper prices. i do fast work. there\'s a market for both.',
+        patch: 'she fixes what i break. she hates that. i understand. but the fighters need the edge now, not next week.',
+        rade: 'he lets me operate because augmented fighters put on a better show. simple economics.',
+      },
+      locations: {
+        'the chop shop': 'my shop. off the betting floor. the sign says upgrades. the chair says sit down. the bins say don\'t ask.',
+      },
+      items: {
+        'reflex_overclocker': 'top line. fell off a helixion truck. basically military grade. the scar? character.',
+        'subdermal_hardener': 'injectable polymer. temporary armor. your body breaks it down after one fight. the process is educational.',
+        'targeting_assist': 'optical overlay. clips to the temple. the calibration is... approximate. but approximate is better than nothing.',
+      },
+      questHints: [],
+    },
+    jobRedirect: 'speed, strength, or durability? pick one. installation takes forty minutes. payment up front. sit down.',
+  },
 };
 
 // ── World-level knowledge (anti-hallucination anchor) ───────────────────────
@@ -1448,6 +1609,12 @@ const NPC_GENDERS: Record<string, NPCGender> = {
   brine:            { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
   strand:           { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
   wolf_guards:      { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
+  // Zone 06 NPCs
+  spit:             { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
+  calloway:         { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
+  grath:            { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
+  patch:            { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
+  needle:           { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
 };
 
 export function getNPCGender(npcId: string): NPCGender {
