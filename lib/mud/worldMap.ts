@@ -8,6 +8,7 @@
 // Phase 7: Helixion Campus (Zone 1, 14 rooms).
 // Phase 8: Rooftop Network (Zone 7, 12 rooms).
 // Phase 9: Abandoned Transit (Zone 11, 18 rooms).
+// Phase 10: Fringe Nomads (Zone 5, 10 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -3338,6 +3339,7 @@ twenty minutes. She hasn't moved.`,
     exits: [
       { direction: 'north', targetRoom: 'z02_r09', description: 'north (Inner Boulevard)' },
       { direction: 'west', targetRoom: 'z02_r04', description: 'a side exit leads to the mid blocks' },
+      { direction: 'east', targetRoom: 'z05_r01', description: 'east (The Fringe — The Perimeter)', zoneTransition: true, targetZone: 'z05' },
     ],
     npcs: [
       {
@@ -7111,6 +7113,540 @@ export const ZONE_11: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 05: The Fringe — Nomads ────────────────────────────────────────────
+
+const Z05_ROOMS: Record<string, Room> = {
+
+  // ── 1. THE PERIMETER ────────────────────────────────────────────────────
+
+  z05_r01: {
+    id: 'z05_r01',
+    zone: 'z05',
+    name: 'THE PERIMETER',
+    description:
+`A chain-link fence, three meters high, topped with sensor
+wire. It runs north-south as far as you can see in both
+directions. Behind you: the Residential Blocks — the last
+buildings, the last streetlamps, the last hum of the mesh.
+Ahead: open ground. Hills. Scrubland. Sky.
+
+The fence carries sensor wire that logs anything crossing
+it. The data goes to D9. Most of the time, nobody acts on
+it. Leaving the city isn't illegal. It's just discouraged.
+
+Count your steps. At twenty, the mesh signal stutters. At
+thirty-five, it fragments. At fifty, it dies. For most
+citizens, this is the moment their implants flood them with
+distress. For you, it's the moment the noise stops and you
+can hear the wind.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z02_r10', description: 'west (Residential Blocks — Mesh Clinic)', zoneTransition: true, targetZone: 'z02' },
+      { direction: 'east', targetRoom: 'z05_r02', description: 'east (No-Man\'s Land)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'sensor_fence', name: 'sensor fence', examineText: 'Three meters of chain-link topped with sensor wire. The wire logs mass, speed, and direction of anything that crosses. The data feeds to D9. Nobody patrols this section. The wire does the work.' },
+      { id: 'mesh_boundary', name: 'mesh boundary', examineText: 'You can feel it — not with your hands but with whatever the mesh has connected to inside your skull. At twenty paces the signal stutters. At thirty-five it fragments. At fifty it dies. The silence that follows is the loudest thing you\'ve ever heard.' },
+      { id: 'the_view_east', name: 'view east', examineText: 'Past the fence: open ground. Rolling hills covered in scrubland — not green, not dead, the tough gray-green of plants that survive on rain and nothing else. The sky is enormous. You\'ve never seen this much sky. In the city, the sky is a strip between buildings. Here it goes from horizon to horizon.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SENSOR GRID', die: 6, benefitsActions: ['hack'], hindersActions: ['sneak'], color: '#fbbf24' }],
+  },
+
+  // ── 2. NO-MAN'S LAND ───────────────────────────────────────────────────
+
+  z05_r02: {
+    id: 'z05_r02',
+    zone: 'z05',
+    name: "NO-MAN'S LAND",
+    description:
+`The strip of ground between the perimeter fence and the
+nomad territory. Maybe two kilometers wide. Nobody claims
+it. The city doesn't patrol this far. The nomads don't
+patrol this close. It's the gap between two worlds, and
+the people who live in it belong to neither.
+
+Scrubland — low brush, rocky soil, the occasional stand
+of stunted trees. A dirt path branches, forks, and dead-
+ends in places. Some branches are deliberate misdirection.
+The nomads don't want you to find them easily.
+
+A rusted vehicle sits off the path — a van, stripped to
+the frame, too heavy to move. Someone's been using it as
+shelter. A fire ring nearby. Empty food containers.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z05_r01', description: 'west (The Perimeter)' },
+      { direction: 'east', targetRoom: 'z05_r03', description: 'east (The Open Ground)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'exile', name: 'Exile', level: 4,
+        description: 'Cast out by the nomads. Surviving in no-man\'s-land because they can\'t return to the city and the nomads won\'t take them back. Desperate. They\'ll rob you for food.',
+        hp: 16, attributes: { ...enemyAttrs(4), COOL: 2 }, damage: 4, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'exile_scrap', chance: 0.6, quantityRange: [1, 2] },
+          { itemId: 'stolen_supplies', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'creds_pouch', chance: 0.4, quantityRange: [3, 8] },
+        ],
+        xpReward: 25,
+      },
+      {
+        id: 'wild_predator', name: 'Wild Predator', level: 3,
+        description: 'Wild canid scout. Larger than feral dogs. Testing whether you\'re prey. More in the hills if you show weakness.',
+        hp: 14, attributes: enemyAttrs(3), damage: 3, armorValue: 0,
+        behavior: 'ambush', spawnChance: 0.4, count: [1, 1],
+        drops: [
+          { itemId: 'predator_pelt', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'predator_bone', chance: 0.3, quantityRange: [1, 2] },
+        ],
+        xpReward: 20,
+      },
+    ],
+    objects: [
+      { id: 'exile_camp', name: 'exile camp', examineText: 'The rusted van frame, a fire ring, food containers. Someone\'s been here for weeks. The fire ring has layered ash. The food containers are Helixion nutrient bars. The exile walks to the fence, trades with someone on the city side, walks back. Trapped between two worlds.' },
+      {
+        id: 'false_paths', name: 'false paths', examineText: 'The trail branches. One branch is well-worn — obvious, inviting. Another is faint — barely visible in the scrub.',
+        gatedText: [{ attribute: 'GHOST', minimum: 4, text: 'The obvious path loops back to the fence. It\'s bait, laid by the nomads to waste time. The faint path is the real route east. The nomads hide in plain sight — they make the wrong way easy and the right way invisible.' }],
+      },
+      { id: 'exile_marker', name: 'exile marker', examineText: 'A cairn of stacked stones by the path. Exile-made. Three stones high. A warning to other exiles — \'this territory is claimed, move on.\' Even cast out, even ruined, people make rules.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'OPEN SCRUBLAND', die: 6, benefitsActions: ['flee', 'scan'], hindersActions: ['sneak'] }],
+  },
+
+  // ── 3. THE OPEN GROUND ──────────────────────────────────────────────────
+
+  z05_r03: {
+    id: 'z05_r03',
+    zone: 'z05',
+    name: 'THE OPEN GROUND',
+    description:
+`You stop walking and you look up and the world is bigger
+than you knew.
+
+Open ground. Rolling hills in every direction. Scrubland
+and wild grass moving in the wind like breath. The sky is
+the entire ceiling — cloud formations you've never had
+room to see, weather approaching from the west as a visible
+wall of gray. The Helixion tower is still visible to the
+west, rising above the city's silhouette, but from here
+it's small. Distant. A needle on the horizon.
+
+The wind carries the smell of earth and grass and rain.
+No engines. No mesh. No hum. The silence isn't empty —
+it's full. Full of things the city drowned out.
+
+You're standing in the world. The real one.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z05_r02', description: 'west (No-Man\'s Land)' },
+      { direction: 'east', targetRoom: 'z05_r04', description: 'east (Sentry Line)' },
+      { direction: 'south', targetRoom: 'z05_r07', description: 'south (Exile Camp)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'wild_predator', name: 'Wild Predator', level: 5,
+        description: 'Canid pair. More aggressive than the scouts in no-man\'s-land. They\'ve learned that people from the city carry food. They circle. Patient. They prefer dusk.',
+        hp: 18, attributes: { ...enemyAttrs(5), REFLEX: 5 }, damage: 5, armorValue: 0,
+        behavior: 'ambush', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'predator_pelt', chance: 0.6, quantityRange: [1, 1] },
+          { itemId: 'predator_bone', chance: 0.4, quantityRange: [1, 2] },
+        ],
+        xpReward: 30,
+      },
+    ],
+    objects: [
+      { id: 'the_horizon', name: 'the horizon', examineText: 'There it is. The line where sky meets earth. Uninterrupted. You have never seen this. In the Drainage, the ceiling is two meters above your head. In the Residential Blocks, the buildings define your vision. Here — nothing. The earth curves away and the sky begins and you are standing on the surface of a planet for the first time.' },
+      { id: 'the_city_from_outside', name: 'city silhouette', examineText: 'Turn west. The city is a smear on the horizon — a gray mass of buildings capped by the Helixion tower. From inside, the city is everything. From out here, it\'s a cluster. A growth on the landscape. You could put your thumb over it and make it disappear.' },
+      { id: 'wild_grass', name: 'wild grass', examineText: 'Grass. Real grass, growing from real soil that nobody engineered. It moves in the wind — not uniformly, but in waves, each stalk responding to the air at its own speed. Growth without intention, life without management, beauty nobody designed.' },
+      { id: 'weather_approaching', name: 'weather', examineText: 'Rain coming. You can see it — a gray curtain moving east across the hills. You can smell it — petrichor, the scent of earth anticipating water. Out here, rain is rain. It falls on you and you get wet and that is the entire relationship.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'WIDE HORIZON', die: 8, benefitsActions: ['scan', 'flee'], hindersActions: ['sneak'], color: '#a5f3fc' }],
+  },
+
+  // ── 4. SENTRY LINE ──────────────────────────────────────────────────────
+
+  z05_r04: {
+    id: 'z05_r04',
+    zone: 'z05',
+    name: 'SENTRY LINE',
+    description:
+`You don't see them. They see you.
+
+The terrain looks empty — more scrubland, a shallow
+depression between two hills, a stand of wind-bent trees.
+Nothing that suggests human presence. No structures. No
+paths. No fire. The nomads are invisible out here because
+they've had years to learn how.
+
+And then a voice behind you. Close. Calm. "Stop. Hands
+where I can see them."
+
+Two figures, emerging from ground-level hides you walked
+past without noticing. Earth-tone clothing. No chrome, no
+implants. Weapons that are old but maintained — a rifle,
+a bow. Faces weathered by outdoor living. Eyes that have
+been watching you since the perimeter.
+
+They're not hostile. They're evaluating.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z05_r03', description: 'west (The Open Ground)' },
+      { direction: 'east', targetRoom: 'z05_r05', description: 'east (The Camp)' },
+    ],
+    npcs: [
+      {
+        id: 'neva', name: 'Neva', type: 'NEUTRAL',
+        faction: 'NOMADS',
+        description: 'The Elder. Seventies. Sharp eyes that read you like weather. Twenty years of keeping fifty people alive in the open. She sits at a smaller fire near the sentry line when expecting visitors.',
+        dialogue: '"Sit. Talk. I\'ll decide when you\'re done. — You\'re from the city. I can tell. You walk like someone who\'s used to walls."',
+        startingDisposition: -10,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'nomad_sentry', name: 'Nomad Sentry', level: 6,
+        description: 'Defensive only. They retreat, use terrain, call reinforcements. They don\'t want to kill you. They want you to leave.',
+        hp: 24, attributes: { ...enemyAttrs(6), REFLEX: 6, COOL: 5 }, damage: 6, armorValue: 2,
+        behavior: 'territorial', spawnChance: 0.0, count: [2, 4],
+        drops: [],
+        xpReward: 0,
+      },
+    ],
+    objects: [
+      { id: 'ground_hides', name: 'ground hides', examineText: 'You walked right past them. The hides are dug into the hillside, covered with scrub and earth-tone fabric. From above, invisible. From ground level, invisible. The nomads have been watching the approach from the city for long enough to make concealment an art form.' },
+      { id: 'analog_weapons', name: 'analog weapons', examineText: 'No energy weapons. No augmented arms. A bolt-action rifle, oiled and maintained. A compound bow with hand-fletched arrows. A knife sharpened so many times the blade has narrowed by half. These weapons are old-world. They don\'t interface with anything. They just work.' },
+      { id: 'sentry_communication', name: 'sentry communication', examineText: 'One of the sentries speaks into a small device — a radio, short-range, analog. Burst transmission: a two-second chirp that sounds like static. The nomads built their own communication network outside the mesh. Crude. Slow. Invisible to Helixion.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 5. THE CAMP ─────────────────────────────────────────────────────────
+
+  z05_r05: {
+    id: 'z05_r05',
+    zone: 'z05',
+    name: 'THE CAMP',
+    description:
+`Tents. A dozen of them — not identical, each one different
+canvas, different shape, different patch pattern from years
+of repair. They're arranged in a loose circle around a
+central fire pit. Vehicles — converted trucks and vans —
+parked at the circle's edge, always facing outward. Ready
+to move. A solar panel array, foldable, powers a single
+generator.
+
+Forty people live here. Maybe fifty. Children play between
+the tents. A woman repairs a solar panel. A man chops wood
+with an axe — a real axe. Someone is cooking on the central
+fire and the smell is extraordinary — real food, real spices.
+
+The camp is orderly without being rigid. Everyone has tasks.
+Nobody is told what to do. If the camp can't move in sixty
+minutes, the camp dies.
+
+They watch you. You are a guest, not a resident.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z05_r04', description: 'west (Sentry Line)' },
+      { direction: 'north', targetRoom: 'z05_r06', description: 'north (Elder\'s Fire)' },
+      { direction: 'east', targetRoom: 'z05_r08', description: 'east (Healer\'s Tent)' },
+      { direction: 'south', targetRoom: 'z05_r09', description: 'south (The Ridge)' },
+    ],
+    npcs: [
+      {
+        id: 'wren', name: 'Wren', type: 'NEUTRAL',
+        faction: 'NOMADS',
+        description: 'A child. Maybe ten. Born outside the city. Never heard the mesh, never worn an implant. Playing near the fire pit or on top of a truck. Her questions reframe the entire game.',
+        dialogue: '"What\'s a mesh? Is it like a net? Does it catch things? — Why does the city hum? The sky doesn\'t hum. Wind doesn\'t hum. Why do people make things that hum?"',
+        startingDisposition: 15,
+      },
+      {
+        id: 'nomad_residents', name: 'Nomad Residents', type: 'NEUTRAL',
+        faction: 'NOMADS',
+        description: 'Forty people. Careful. Each conversation reveals something: why they left the city, how long they\'ve been out, what they fear, what they value.',
+        dialogue: '"You\'re from the city. I can smell it — the synthetic air, the mesh static. Give it a week. The wind cleans you."',
+        startingDisposition: 0,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'central_fire', name: 'central fire', examineText: 'The heart of the camp. Real fire, real wood, real smoke. The cooking pot holds stew made from foraged roots and trapped game. The smell is the first honest food you\'ve encountered — nothing synthesized, nothing optimized, nothing designed. Just ingredients and heat and time.' },
+      { id: 'mobile_vehicles', name: 'vehicles', examineText: 'Converted trucks and vans. Engines maintained, tanks fueled, beds loaded. Always facing outward. The entire community can pack up and relocate in under an hour. This isn\'t paranoia. It\'s survival. A camp that stays in one place is a camp that gets found.' },
+      { id: 'solar_array', name: 'solar array', examineText: 'Foldable panels. The only electricity for kilometers. It charges batteries for the radio network and the camp\'s minimal lighting. At night, the generator goes off. The camp goes dark. The stars come out. That\'s the schedule.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 6. ELDER'S FIRE ─────────────────────────────────────────────────────
+
+  z05_r06: {
+    id: 'z05_r06',
+    zone: 'z05',
+    name: "ELDER'S FIRE",
+    description:
+`A smaller fire, north of the camp's center. Two logs
+smoothed by years of use. A kettle. Herbs drying on a
+rack. This is where decisions get made.
+
+Neva sits here. She's always here. The fire is her office,
+her throne, her church. Twenty years of evaluating people
+who come from the city — some fleeing, some lost, some
+sent. She reads bodies, not words. Words lie. Bodies don't.
+
+The logs face each other. The fire between. You sit across
+from her and she watches you the way a hawk watches the
+ground — patient, still, measuring the distance between
+observation and action.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z05_r05', description: 'south (The Camp)' },
+      { direction: 'east', targetRoom: 'z05_r09', description: 'east (The Ridge)' },
+    ],
+    npcs: [
+      {
+        id: 'elder_thane', name: 'Elder Thane', type: 'NEUTRAL',
+        faction: 'NOMADS',
+        description: 'Former nomad elder. Neva\'s predecessor. Eighties. Sits near the fire but rarely speaks. When he does, everyone listens. He remembers the world before the mesh.',
+        dialogue: '"I remember rain that wasn\'t scheduled. I remember choosing to be cold. Neva leads now. I remember."',
+        startingDisposition: 5,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'elder_fire', name: 'elder fire', examineText: 'Small. Contained. The coals are even — she\'s been tending this fire for hours. Maybe days. The fire is always burning because Neva is always here. This is where she thinks, where she listens, where she makes the decisions that keep fifty people alive in the open.' },
+      { id: 'herb_tea', name: 'herb tea', examineText: 'Hot. Smoky. Bitter with something floral underneath. She grows the herbs herself — carries seeds, plants them at each new camp site, harvests before they move. Consistency in a life defined by movement.' },
+      { id: 'worn_log_seats', name: 'worn log seats', examineText: 'Two. Smoothed by years of use. The grain of the wood is polished to a shine. Hundreds of conversations have happened on these logs — arguments, confessions, negotiations, goodbyes. The wood remembers.' },
+      {
+        id: 'neva_watching', name: 'neva\'s gaze', examineText: 'She\'s not looking at you. She\'s reading you. The way you sit, where your hands go, how your eyes move.',
+        gatedText: [{ attribute: 'COOL', minimum: 6, text: 'Twenty years of evaluating people. She knows within thirty seconds whether you\'re a threat, a refugee, or a spy. You can see the calculation happen in real time — her eyes tracking your posture, your breathing, the micro-movements of your hands. She already knows what you are. The conversation is a formality.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 7. EXILE CAMP ───────────────────────────────────────────────────────
+
+  z05_r07: {
+    id: 'z05_r07',
+    zone: 'z05',
+    name: 'EXILE CAMP',
+    description:
+`Three shelters — if you can call them that. A lean-to made
+from a highway sign. A half-collapsed tent. A depression
+in the ground lined with plastic sheeting. Three people
+live here, or four, or two — the number changes because
+the exiles don't stay together by choice. They stay together
+because they can't stay anywhere else.
+
+The nomads cast them out. Each one for a different reason —
+theft, violence, recklessness that endangered the camp. The
+exile rules are simple: you leave. You don't come back.
+
+A woman sits on a rock, sharpening a piece of metal into
+something that could be a knife or a tool or both. She
+watches you without expression. Deciding.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z05_r03', description: 'north (The Open Ground)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'exile', name: 'Exile', level: 5,
+        description: 'Desperate. Fight when cornered. Retreat if hurt. Not predators — they\'re ruined. Each one was cast out for a human-scale sin.',
+        hp: 18, attributes: { ...enemyAttrs(5), BODY: 5 }, damage: 5, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0.6, count: [1, 3],
+        drops: [
+          { itemId: 'exile_scrap', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'stolen_supplies', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'creds_pouch', chance: 0.3, quantityRange: [2, 6] },
+        ],
+        xpReward: 30,
+      },
+    ],
+    objects: [
+      { id: 'exile_shelters', name: 'exile shelters', examineText: 'A lean-to, a tent, a hole. The architecture of having nothing. The lean-to is clever — the highway sign reflects heat from a small fire. The tent is bad — the fabric leaks. The hole is effective — thermal insulation, wind protection, invisible from a distance. Function over dignity.' },
+      { id: 'sharpened_metal', name: 'sharpened metal', examineText: 'The woman sharpens with patient, mechanical strokes. The metal was a car part. Now it\'s becoming a blade. She doesn\'t look at you while she works. The sharpening is communication: I\'m armed. I\'m patient. I\'m not afraid. Decide what you want.' },
+      { id: 'exile_possessions', name: 'exile possessions', examineText: 'Between the three shelters: very little. A water container half empty. Nutrient bars from the city side of the fence. A blanket shared between two shelters. A book — physical, battered, the cover missing.' },
+      {
+        id: 'daro_marker', name: 'scratched name', examineText: 'Scratched into the highway sign: DARO. The same name from the Scavenger Cache wall. "DON\'T HELP DARO." He was cast out from two communities.',
+        gatedText: [{ attribute: 'INT', minimum: 5, text: 'He\'s been expelled from both the Fringe scavengers and the nomads. Two communities, two judgments, same result. The graffiti in zone 4 and the body language here tell the same story: a man nobody trusts twice. Whether the judgment was fair is a question without an answer.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'DESPERATE TERRITORY', die: 6, benefitsActions: ['sneak'] }],
+  },
+
+  // ── 8. HEALER'S TENT ────────────────────────────────────────────────────
+
+  z05_r08: {
+    id: 'z05_r08',
+    zone: 'z05',
+    name: "HEALER'S TENT",
+    description:
+`The largest tent in the camp. Canvas and hide, stretched
+over a frame of bent saplings. Inside: bundles of dried
+herbs hanging from the crossbeams. A mortar and pestle on
+a flat stone. Clay jars with cork stoppers, each labeled
+in handwriting you can't read — a personal system.
+
+Moss works here. Not a doctor — a healer. The distinction
+matters. Doctors use machines. Moss uses plants, hands,
+knowledge passed from person to person. No implants. No
+scanners. No mesh diagnostics. Touch and observation and
+decades of learning what the body tells you if you listen.
+
+The tent smells like sage and something bitter-sweet that
+you can't identify. The air is warm from a small brazier.
+Patients lie on bedrolls — a child with a wrapped ankle,
+an older man sleeping off a fever.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z05_r05', description: 'west (The Camp)' },
+    ],
+    npcs: [
+      {
+        id: 'moss', name: 'Moss', type: 'SHOPKEEPER',
+        faction: 'NOMADS',
+        description: 'Fifties. Weathered hands, dirt under the nails from digging herbs. No chrome. No augmentation. Eyes that are his own. The most radical person you\'ve met — he chose to stay as he was.',
+        dialogue: '"Sit. Let me look at you. — The city puts things in people. I take things out. Different medicine. Same hands."',
+        startingDisposition: 5,
+        services: ['quest', 'shop', 'heal'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'herb_bundles', name: 'herb bundles', examineText: 'Dozens of species. Dried, labeled, organized by use. Moss knows every plant within a day\'s walk — what heals, what numbs, what kills. The knowledge isn\'t in a database. It\'s in his hands and his memory and the memory of the person who taught him.' },
+      { id: 'mortar_and_pestle', name: 'mortar and pestle', examineText: 'Stone. Heavy. The inside is stained from a thousand preparations. Moss grinds herbs by hand — no machines, no shortcuts. He says the process is part of the medicine. The time you spend preparing is time the body has to tell you what it needs.' },
+      { id: 'no_augmentation', name: 'moss\'s hands', examineText: 'No chrome. No subdermal plating. No enhanced joints. His fingernails have dirt beneath them from digging herbs. His skin is weathered from sun. His eyes are his own. In a world of augmentation, he\'s chosen to stay as he was.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 9. THE RIDGE ────────────────────────────────────────────────────────
+
+  z05_r09: {
+    id: 'z05_r09',
+    zone: 'z05',
+    name: 'THE RIDGE',
+    description:
+`A rocky ridge east of the camp — the highest point in
+nomad territory. The climb is steep but short. At the top:
+a flat rock shelf with a 360-degree view. The camp below.
+The open ground stretching west toward the city's silhouette.
+Hills rolling east and south into country nobody's mapped.
+The sky everywhere.
+
+A telescope on a tripod — salvaged, optical, no electronics.
+Binoculars hanging from a nail driven into a rock crack.
+A hand-drawn map pinned under a stone, marked with today's
+date and observation notes.
+
+At night, from here, you can see the city's glow to the
+west — a dome of light pollution. And above you: the stars.
+More stars than you knew existed.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z05_r05', description: 'west (The Camp)' },
+      { direction: 'north', targetRoom: 'z05_r06', description: 'north (Elder\'s Fire)' },
+      { direction: 'northeast', targetRoom: 'z05_r10', description: 'northeast (Signal Relay)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      {
+        id: 'telescope', name: 'telescope', examineText: 'Optical. No electronics, no mesh interface. Brass and glass. Through it, you can see the perimeter fence, the drone making its circuit, the outer residential blocks, the Helixion tower.',
+        gatedText: [{ attribute: 'TECH', minimum: 5, text: 'The telescope is military surplus — higher magnification than civilian models. Someone brought it from the city. It\'s the nomads\' most valuable piece of equipment.' }],
+      },
+      { id: 'observation_map', name: 'observation map', examineText: 'Hand-drawn. Updated daily. Approach routes from the city, marked with drone circuit times. Animal trails in green. Water sources in blue. Exile locations in red. Today\'s date at the top, weather prediction for tomorrow at the bottom. This is how the nomads survive.' },
+      { id: 'the_stars', name: 'the stars', examineText: 'The sky without light pollution. The Milky Way is a river of light across the zenith. Constellations that city-dwellers never see. The nomads navigate by these stars. They name their children after them. Wren — a small bird that flies by starlight. The stars are the oldest map.' },
+      { id: 'neva_quest_marker', name: 'watch point', examineText: 'The ridge. Six hours of watching the approach route. The land is still. No drones. No retrieval teams. Nothing follows you. The city doesn\'t care that you left. The relief is mixed with something else — you are not important enough to chase. Freedom and insignificance, the same gift.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'ELEVATED VANTAGE', die: 8, benefitsActions: ['scan', 'attack'] }],
+  },
+
+  // ── 10. SIGNAL RELAY ────────────────────────────────────────────────────
+
+  z05_r10: {
+    id: 'z05_r10',
+    zone: 'z05',
+    name: 'SIGNAL RELAY',
+    description:
+`Northeast of the ridge, where the terrain drops into a
+sheltered valley. A single structure — the only permanent
+thing the nomads have built.
+
+An antenna. Handmade. Twenty meters tall, assembled from
+salvaged pipe sections, guyed with cable to rock anchors
+in the hillside. At its base: a solar panel, a battery
+bank, and a transmitter housed in a weatherproof case.
+Analog radio, short-wave. Broadcasting on frequencies too
+old, too low-tech for Helixion's monitoring to scan.
+
+The other nomad camps — further east, further south — they
+all have relays. A network of whispers connecting
+communities that don't exist on any map.
+
+The signal keeper sits beside the transmitter, headphones
+on, listening. She's always listening.`,
+    exits: [
+      { direction: 'southwest', targetRoom: 'z05_r09', description: 'southwest (The Ridge)' },
+    ],
+    npcs: [
+      {
+        id: 'sura', name: 'Sura', type: 'SHOPKEEPER',
+        faction: 'NOMADS',
+        description: 'Thirties. Built the antenna from manuals. Never taken a class. Self-taught engineer who built a communication network connecting communities across hundreds of kilometers.',
+        dialogue: '"Quiet. I\'m listening. — There. Camp twelve, two hundred kilometers south. They moved yesterday. Wind from the east. I hear everything out here. The mesh hears nothing."',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'handmade_antenna', name: 'handmade antenna', examineText: 'Twenty meters of salvaged pipe, guyed to the hillside. Ugly and perfect. The engineering is sound — whoever built this understood propagation, impedance matching, and antenna theory. Sura built it from manuals. She\'s never had a teacher. The mesh connects millions. This connects dozens. It\'s not better. It\'s free.' },
+      { id: 'transmitter', name: 'transmitter', examineText: 'Weatherproof case, analog radio, short-wave. Frequency hopping is manual — Sura changes frequencies on a schedule shared with other camps. Encryption is a one-time pad, handwritten on paper, destroyed after use. Invisible to Helixion because it\'s built on technology so old the scanning algorithms don\'t look for it.' },
+      {
+        id: '33hz_detection', name: '33hz anomaly', examineText: 'The spectrum analyzer shows something. A presence in the low frequencies.',
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: 'There. On the spectrum analyzer. 33hz. Not a transmission — a presence. Coming from below. Even this far from the city, the Substrate\'s frequency is detectable. Weaker here — attenuated by distance and soil depth. But present. The frequency isn\'t urban infrastructure. It\'s geological. It predates the city, the Fringe, and possibly the entire human presence on this landscape.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+};
+
+// ── Zone 05 constant ──────────────────────────────────────────────────────
+
+export const ZONE_05: Zone = {
+  id: 'z05',
+  name: 'THE FRINGE (NOMADS)',
+  depth: 'surface',
+  faction: 'NOMADS',
+  levelRange: [2, 8],
+  description: 'Beyond the city. Beyond the mesh. Open ground, real sky, and people who chose freedom over comfort. The first horizon.',
+  atmosphere: {
+    sound: 'Wind. Real wind. Bird calls. Grass moving. The absence of machine sound.',
+    smell: 'Earth. Grass. Woodsmoke. Rain coming — you smell it an hour before it arrives.',
+    light: 'Natural. Fully natural. Dawn is pink. Stars are visible. The Milky Way.',
+    temp: 'Real weather. Cold at night, warm in sun. No climate control. The air tastes like the world before anyone built on it.',
+  },
+  rooms: Z05_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -7118,6 +7654,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z02: ZONE_02,
   z03: ZONE_03,
   z04: ZONE_04,
+  z05: ZONE_05,
   z06: ZONE_06,
   z07: ZONE_07,
   z08: ZONE_08,

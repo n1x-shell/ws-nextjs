@@ -1714,6 +1714,103 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'quest', tier: 'MIL_SPEC', stackable: false,
     questItem: true,
   },
+
+  // ── Zone 05: Fringe Nomads — Enemy Drops ────────────────────────────────
+
+  predator_pelt: {
+    id: 'predator_pelt', name: 'Predator Pelt',
+    description: 'Wild canid hide. Thick, weather-resistant. The nomads value these as trade goods.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 8,
+  },
+  predator_bone: {
+    id: 'predator_bone', name: 'Predator Bone',
+    description: 'Dense canid bone. Used for tools, needles, and trade. The nomads waste nothing.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 4,
+  },
+  exile_scrap: {
+    id: 'exile_scrap', name: 'Exile Scrap',
+    description: 'Salvaged fragments from the exiles\' camps. Metal, wire, weathered plastic. The residue of people between worlds.',
+    category: 'material', tier: 'SCRAP', stackable: true,
+    sellPrice: 3,
+  },
+  stolen_supplies: {
+    id: 'stolen_supplies', name: 'Stolen Supplies',
+    description: 'Pilfered nutrient bars, water containers, a thermal blanket. City goods smuggled through the perimeter fence.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 6,
+  },
+  retrieval_gear: {
+    id: 'retrieval_gear', name: 'Retrieval Team Gear',
+    description: 'Military-grade Helixion equipment. Tactical vest fragment, comms earpiece, zip restraints. Standard retrieval loadout.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 35,
+  },
+  helixion_keycard_field: {
+    id: 'helixion_keycard_field', name: 'Field Keycard',
+    description: 'Helixion retrieval team access keycard. Field-grade clearance. The magnetic strip is warm — still active.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 50,
+  },
+  tranq_casing: {
+    id: 'tranq_casing', name: 'Tranq Casing',
+    description: 'Spent tranquilizer round casing. Helixion retrieval standard issue. The dosage markings suggest it\'s calibrated for human targets.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 5,
+  },
+
+  // ── Zone 05: Fringe Nomads — Moss's Medicine ────────────────────────────
+
+  herbal_poultice: {
+    id: 'herbal_poultice', name: 'Herbal Poultice',
+    description: 'A compress of crushed herbs and natural binding agents. Slow-working but effective. Medicine without machines.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 12, sellPrice: 5,
+    healAmount: 8,
+  },
+  fever_bark: {
+    id: 'fever_bark', name: 'Fever Bark',
+    description: 'Stripped bark from a tree the nomads cultivate at each camp. Chew it. The bitterness reduces fever and pain. Tastes like discipline.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 8, sellPrice: 3,
+    healAmount: 5,
+  },
+  wound_salve: {
+    id: 'wound_salve', name: 'Wound Salve',
+    description: 'Thick paste made from rendered fat and antiseptic herbs. Applied to open wounds. Prevents infection, promotes healing. The nomads\' version of a medkit.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 18, sellPrice: 7,
+    healAmount: 12,
+  },
+  pain_root: {
+    id: 'pain_root', name: 'Pain Root',
+    description: 'Dried root segment. Numbs pain when chewed. Mild sedative effect. Moss warns you not to take more than one per day.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    buyPrice: 10, sellPrice: 4,
+    healAmount: 6,
+  },
+
+  // ── Zone 05: Fringe Nomads — Sura's Signal Equipment ────────────────────
+
+  signal_booster_nomad: {
+    id: 'signal_booster_nomad', name: 'Nomad Signal Booster',
+    description: 'Handmade amplifier. Extends analog radio range. Built from salvaged components and nomad engineering. Crude, powerful, invisible to Helixion.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 30, sellPrice: 12,
+  },
+  relay_repair_kit: {
+    id: 'relay_repair_kit', name: 'Relay Repair Kit',
+    description: 'Soldering iron, wire, replacement capacitors, antenna theory notes. Everything needed to maintain the nomad relay network.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 10,
+  },
+  frequency_scanner: {
+    id: 'frequency_scanner', name: 'Frequency Scanner',
+    description: 'Analog spectrum analyzer. Scans a frequency range and displays signal strength. The nomads use it to detect approaching drones and Helixion communications.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 35, sellPrice: 15,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -2106,4 +2203,21 @@ export const COMPASS_SHOP: ShopItem[] = [
   { templateId: 'signal_flare', stock: 2 },
   { templateId: 'stim_pack', stock: 3 },
   { templateId: 'medkit', stock: 2 },
+];
+
+// ── Zone 05: Fringe Nomads Shops ──────────────────────────────────────────
+
+export const MOSS_SHOP: ShopItem[] = [
+  { templateId: 'herbal_poultice', stock: 5 },
+  { templateId: 'fever_bark', stock: 8 },
+  { templateId: 'wound_salve', stock: 3 },
+  { templateId: 'pain_root', stock: 5 },
+  { templateId: 'medkit', stock: 2 },
+];
+
+export const SURA_SHOP: ShopItem[] = [
+  { templateId: 'signal_booster_nomad', stock: 2 },
+  { templateId: 'relay_repair_kit', stock: 3 },
+  { templateId: 'frequency_scanner', stock: 1 },
+  { templateId: 'stim_pack', stock: 3 },
 ];
