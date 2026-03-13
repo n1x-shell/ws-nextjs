@@ -1390,6 +1390,117 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'material', tier: 'MIL_SPEC', stackable: true,
     sellPrice: 120,
   },
+
+  // ── Zone 01: Helixion Campus — Enemy Drops ────────────────────────────────
+
+  enforcer_armor: {
+    id: 'enforcer_armor', name: 'Enforcer Armor',
+    description: 'Helixion tactical gear. Armor +5. Corporate insignia on the shoulder. Scratch it off or don\'t — either way, people will know where this came from.',
+    category: 'armor', tier: 'MIL_SPEC', stackable: false,
+    slot: 'armor', armorValue: 5, sellPrice: 45,
+  },
+  mesh_suppressor: {
+    id: 'mesh_suppressor', name: 'Mesh Suppressor',
+    description: 'Military-grade neural dampener. Disables all cyberware for 2 turns on hit. Helixion built weapons specifically to fight people like you.',
+    category: 'weapon_ranged', tier: 'MIL_SPEC', stackable: false,
+    slot: 'weapon_primary', damage: 8, damageType: 'electric', sellPrice: 60,
+  },
+  neural_disruptor: {
+    id: 'neural_disruptor', name: 'Neural Disruptor',
+    description: 'BCI-issue sidearm. Fires a focused mesh pulse. Damage ignores conventional armor. The pain is in your head, not your body.',
+    category: 'weapon_ranged', tier: 'HELIXION', stackable: false,
+    slot: 'weapon_primary', damage: 10, damageType: 'hack', sellPrice: 80,
+  },
+  bci_credentials: {
+    id: 'bci_credentials', name: 'BCI Credentials',
+    description: 'Directorate 9 identification. Opens every door in this building and most doors in the city. Possession is a capital offense.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+    sellPrice: 100,
+  },
+  chrysalis_biosample: {
+    id: 'chrysalis_biosample', name: 'Chrysalis Bio-Sample',
+    description: 'Organic tissue from a Chrysalis subject. Pulsing faintly. Not dead. Not alive. Something in between that Helixion invented and can\'t fully explain.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 35,
+  },
+  targeting_module: {
+    id: 'targeting_module', name: 'Targeting Module',
+    description: 'Automated turret targeting system. Military-grade optics and tracking algorithms. Iron Bloom pays premium for these.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 40,
+  },
+  power_cell: {
+    id: 'power_cell', name: 'Power Cell',
+    description: 'High-capacity energy cell from Helixion automated systems. Fully charged. Powers cyberware, turrets, or anything that needs juice.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 15,
+  },
+  harrow_tablet: {
+    id: 'harrow_tablet', name: "Harrow's Tablet",
+    description: 'Director Harrow\'s personal device. Contains sovereign instance documentation, surveillance protocols, and Chrysalis authorization records. Priceless to Iron Bloom.',
+    category: 'lore', tier: 'HELIXION', stackable: false,
+    loreItem: true, sellPrice: 200,
+  },
+  virek_keycard: {
+    id: 'virek_keycard', name: "Virek's Keycard",
+    description: 'CEO-level access. Opens everything. Including the things that should stay closed. The card is warm to the touch — biometrically linked to a man who no longer needs it.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+    sellPrice: 250,
+  },
+  project_rememberer_data: {
+    id: 'project_rememberer_data', name: 'Project Rememberer Data',
+    description: 'Virek\'s private research into the sovereign frequency. He knew 33hz predated Helixion. He knew the Substrate was alive. This data changes everything.',
+    category: 'lore', tier: 'HELIXION', stackable: false,
+    loreItem: true, questItem: true,
+  },
+
+  // ── Zone 01: Yara Shop Items ──────────────────────────────────────────────
+
+  campus_floor_plan: {
+    id: 'campus_floor_plan', name: 'Campus Floor Plan',
+    description: 'Detailed layout of the Helixion campus. Patrol routes, camera angles, restricted zones. Knowing where to walk is half the job.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 40, sellPrice: 15,
+  },
+  security_schedule: {
+    id: 'security_schedule', name: 'Security Schedule',
+    description: 'Guard rotation timetable. Gap windows marked in red. Updated weekly by someone on the inside.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 50, sellPrice: 20,
+  },
+  access_keycard: {
+    id: 'access_keycard', name: 'Access Keycard',
+    description: 'Opens specific locked doors in the campus. Which doors depends on the clearance level encoded. Better than picking locks.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 60, sellPrice: 25,
+  },
+  helixion_intel_chip: {
+    id: 'helixion_intel_chip', name: 'Helixion Intel Chip',
+    description: 'Encrypted data chip containing internal Helixion communications. Project names, budget allocations, personnel movements. Knowledge is survival.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: true,
+    buyPrice: 35, sellPrice: 15, loreItem: true,
+  },
+
+  // ── Zone 01: Quest Items ──────────────────────────────────────────────────
+
+  chrysalis_research_files: {
+    id: 'chrysalis_research_files', name: 'Chrysalis Research Files',
+    description: 'Complete Chrysalis research data. How the overwrite works. How it interfaces with 33hz. How it replaces identity. This data can stop the project — or accelerate it.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true,
+  },
+  vasik_drive: {
+    id: 'vasik_drive', name: "Vasik's Drive",
+    description: 'Dr. Vasik\'s encrypted backup. Everything she knows about Chrysalis, condensed onto a drive small enough to swallow if things go wrong.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true,
+  },
+  ec_neural_stabilizer: {
+    id: 'ec_neural_stabilizer', name: 'EC Neural Stabilizer',
+    description: 'Custom stabilizer compound synthesized by Serrano at Iron Bloom. Designed for Chrysalis withdrawal. Keeps the subject\'s identity from dissolving.',
+    category: 'consumable', tier: 'HELIXION', stackable: false,
+    healAmount: 50,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -1726,4 +1837,15 @@ export const RADE_OFFICE_SHOP: ShopItem[] = [
   { templateId: 'adrenaline_shot', stock: 3 },
   { templateId: 'neural_sharp', stock: 2 },
   { templateId: 'pit_purse_t1', stock: -1 },
+];
+
+// ── Zone 01: Helixion Campus Shops ──────────────────────────────────────────
+
+export const YARA_SHOP: ShopItem[] = [
+  { templateId: 'campus_floor_plan', stock: 1 },
+  { templateId: 'security_schedule', stock: 2 },
+  { templateId: 'access_keycard', stock: 3 },
+  { templateId: 'helixion_intel_chip', stock: 3 },
+  { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'medkit', stock: 2 },
 ];

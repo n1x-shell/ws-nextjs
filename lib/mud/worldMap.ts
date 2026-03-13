@@ -5,6 +5,7 @@
 // Phase 3: Industrial District (Zone 3, 15 rooms). Phase 4: Residential Blocks (Zone 2, 15 rooms).
 // Phase 5: Industrial Drainage (Zone 10, 10 rooms).
 // Phase 6: Fight Pits (Zone 6, 8 rooms).
+// Phase 7: Helixion Campus (Zone 1, 14 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -1156,7 +1157,7 @@ they're arriving from beneath it.`,
     exits: [
       { direction: 'north', targetRoom: 'z09_r09', description: 'north (Helixion Service Corridor)' },
       { direction: 'east', targetRoom: 'z09_r11', description: 'east (Deep Access Shaft)' },
-      { direction: 'up', targetRoom: 'z01_r01', description: 'up (Helixion Campus — Service Sublevel)', zoneTransition: true, targetZone: 'z01' },
+      { direction: 'up', targetRoom: 'z01_r14', description: 'up (Helixion Campus — Service Sublevel)', zoneTransition: true, targetZone: 'z01' },
     ],
     npcs: [],
     enemies: [
@@ -1208,6 +1209,7 @@ required. the panel shows it active. whatever's at the bottom,
 the elevator visits regularly.`,
     exits: [
       { direction: 'west', targetRoom: 'z09_r10', description: 'west (Staging Area)' },
+      { direction: 'up', targetRoom: 'z01_r14', description: 'up (Helixion Campus — Service Sublevel)', zoneTransition: true, targetZone: 'z01' },
       { direction: 'down', targetRoom: 'z11_r01', description: 'down (Abandoned Transit — service ladder)', zoneTransition: true, targetZone: 'z11' },
     ],
     npcs: [
@@ -4753,9 +4755,886 @@ export const ZONE_06: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 01: Helixion Campus ───────────────────────────────────────────────
+
+const Z01_ROOMS: Record<string, Room> = {
+
+  // ── 1. SECURITY PERIMETER ─────────────────────────────────────────────────
+
+  z01_r01: {
+    id: 'z01_r01',
+    zone: 'z01',
+    name: 'SECURITY PERIMETER',
+    description:
+`A wide plaza of polished concrete separates the city from the
+campus proper. The transition is immediate — the cracked asphalt
+and flickering streetlights of the residential blocks end at a
+clean line where Helixion's territory begins. The ground is smooth.
+The lighting is even. The air smells filtered.
+
+Security bollards line the approach. Cameras track in slow arcs —
+or appear to. The real surveillance is in the mesh, pulsing at
+frequencies you can feel in your implant scarring. A checkpoint
+booth sits at the main entrance, staffed by enforcers in
+Helixion tactical gear. Beyond them, the Atrium's glass facade
+glows warm and golden.
+
+A holographic sign floats above the entrance:
+HELIXION DYNAMICS — BUILDING COGNITIVE FREEDOM`,
+    exits: [
+      { direction: 'south', targetRoom: 'z02_r09', description: 'south (Residential Blocks — Inner Boulevard)', zoneTransition: true, targetZone: 'z02' },
+      { direction: 'north', targetRoom: 'z01_r02', description: 'north (The Atrium)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'helixion_enforcer_perimeter', name: 'Helixion Enforcer', level: 14,
+        description: 'Cyborg security. Heavily augmented. Full combat kit. They scan everyone who approaches.',
+        hp: 80, attributes: { ...enemyAttrs(14), BODY: 9, REFLEX: 8, COOL: 7 }, damage: 14, armorValue: 7,
+        behavior: 'patrol', spawnChance: 1.0, count: [2, 2],
+        drops: [
+          { itemId: 'enforcer_armor', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'standard_sidearm', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_basic', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 120,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+      {
+        id: 'perimeter_turret', name: 'Perimeter Turret', level: 14,
+        description: 'Automated defense. Activates if combat begins or alarm triggers. High damage, low HP. Hackable with TECH ≥ 7.',
+        hp: 40, attributes: { ...enemyAttrs(14), TECH: 1, REFLEX: 3 }, damage: 16, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 0.8, count: [1, 1],
+        drops: [
+          { itemId: 'targeting_module', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'power_cell', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 100,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 6,
+        attackDice: [10],
+      },
+    ],
+    objects: [
+      { id: 'checkpoint_booth', name: 'checkpoint booth', examineText: 'Reinforced glass. Biometric scanners. A screen showing employee IDs scrolling past. One of the enforcers has a coffee thermos. The other has a stun baton he keeps flipping in his hand.' },
+      { id: 'holographic_sign', name: 'holographic sign', examineText: "'BUILDING COGNITIVE FREEDOM.' The letters shimmer. Beneath it, in smaller text: 'A Helixion Dynamics and Bureau of Cognitive Infrastructure partnership.' They don't even hide it." },
+      { id: 'surveillance_mesh', name: 'surveillance mesh', examineText: "You can feel it. A low-frequency sweep, every few seconds. Your implant — sovereign or not — resonates with it. Like a tuning fork pressed against a bruise.", gatedText: [{ attribute: 'GHOST', minimum: 5, text: 'You can feel the mesh probing for unauthorized frequency signatures. It knows you are wrong. It just cannot find you yet.' }] },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'OPEN KILL ZONE', die: 8, benefitsActions: ['scan'], hindersActions: ['sneak'], color: '#ff6b6b' }],
+  },
+
+  // ── 2. THE ATRIUM ─────────────────────────────────────────────────────────
+
+  z01_r02: {
+    id: 'z01_r02',
+    zone: 'z01',
+    name: 'THE ATRIUM',
+    description:
+`The lobby is cathedral-scale. Four stories of open space, a
+living wall of engineered plants climbing the eastern face,
+water features murmuring from somewhere you can't quite locate.
+The light is golden — not sunlight, but a precise simulation
+designed to trigger serotonin release. The floor is white marble
+veined with something that pulses faintly blue, like the building
+has a circulatory system.
+
+Mesh-compliant employees move through the space with the easy
+grace of people who've never questioned why they feel so calm.
+Nobody looks at you with suspicion. The mesh tells them you
+belong. For now.
+
+A reception desk curves along the north wall. Behind it, corridors
+lead east and west. An elevator bank glows softly to the north.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z01_r01', description: 'south (Security Perimeter)' },
+      { direction: 'north', targetRoom: 'z01_r03', description: 'north (Campus Courtyard)' },
+      { direction: 'east', targetRoom: 'z01_r04', description: 'east (Compliance Wing)' },
+      { direction: 'west', targetRoom: 'z01_r05', description: 'west (Research Wing)' },
+    ],
+    npcs: [
+      {
+        id: 'yara', name: 'Yara', type: 'SHOPKEEPER',
+        faction: 'FREEMARKET',
+        description: 'Works the reception desk. Impeccably professional. Surgically composed. If you have the right token, she is much more than a receptionist.',
+        dialogue: '"Welcome to Helixion Dynamics. How may I direct your visit?"',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+      {
+        id: 'mesh_employees', name: 'Mesh Employees', type: 'NEUTRAL',
+        faction: 'HELIXION',
+        description: 'Ambient population. 4-6 present. Polite, helpful, and slightly wrong. Like talking to someone through glass.',
+        dialogue: "\"It's a beautiful day at Helixion. Can I help you find your way?\"",
+        startingDisposition: 5,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'living_wall', name: 'living wall', examineText: "Engineered plants. They don't need soil or natural light. Genetically modified to produce calming terpenes. The air near the wall tastes faintly sweet. You find yourself wanting to sit down and stay." },
+      { id: 'cafe_tables', name: 'café tables', examineText: "Real food. Fresh vegetables, grilled protein, something that might be actual bread. The employees eat without urgency. They have everything they need. The cost is invisible." },
+      { id: 'transparent_displays', name: 'transparent displays', examineText: "Work terminals. The employees interact through the mesh — their fingers don't touch the screens.", gatedText: [{ attribute: 'TECH', minimum: 6, text: "You can skim fragments. Project names. Budget allocations. The word CHRYSALIS appears three times." }] },
+      { id: 'blue_veins', name: 'blue veins', examineText: 'The marble floor is veined with something bioluminescent. It pulses slowly, like a resting heartbeat. 60 beats per minute. The building is calibrated to make you calm.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 3. CAMPUS COURTYARD ───────────────────────────────────────────────────
+
+  z01_r03: {
+    id: 'z01_r03',
+    zone: 'z01',
+    name: 'CAMPUS COURTYARD',
+    description:
+`An open-air courtyard between the campus buildings and the
+central tower. Manicured hedges in geometric patterns. Benches
+that look inviting and are designed to be uncomfortable after
+fifteen minutes. A fountain shaped like a double helix, water
+cascading over chrome strands.
+
+The tower rises to the north — glass and steel climbing beyond
+what you can see from ground level. The top disappears into
+low cloud or haze. Somewhere up there, Directorate 9 watches
+everything. Somewhere up there, Virek decides what freedom means.
+
+Security patrols cross the courtyard every ninety seconds.
+Their routes are precise. The gaps are small.
+
+A service hatch is set into the ground near the fountain,
+partially obscured by a hedge. Municipal maintenance marking.
+Easy to miss if you're not looking.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z01_r02', description: 'south (The Atrium)' },
+      { direction: 'north', targetRoom: 'z01_r07', description: 'north (Tower Checkpoint)' },
+      { direction: 'east', targetRoom: 'z01_r06', description: 'east (Staff Quarters)' },
+      { direction: 'west', targetRoom: 'z01_r05', description: 'west (Research Wing)' },
+      { direction: 'down', targetRoom: 'z01_r14', description: 'down (Service Sublevel — service hatch)' },
+    ],
+    npcs: [
+      {
+        id: 'gus', name: 'Gus', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Helixion facilities staff. Jumpsuit, tool belt, invisible. Fifty-something. Tired. Knows every blind spot in the camera grid.',
+        dialogue: "\"I fix things. That's all I do. I don't see things, I don't hear things, and I definitely don't talk to people who shouldn't be here.\"",
+        startingDisposition: -5,
+        services: ['info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'helixion_enforcer_courtyard', name: 'Helixion Enforcer', level: 14,
+        description: 'Patrol in a predictable pattern. 90-second loop. Gap of ~15 seconds. GHOST or timing to avoid.',
+        hp: 80, attributes: { ...enemyAttrs(14), BODY: 9, REFLEX: 8 }, damage: 14, armorValue: 7,
+        behavior: 'patrol', spawnChance: 0.7, count: [2, 2],
+        drops: [
+          { itemId: 'enforcer_armor', chance: 0.25, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_basic', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'military_rations', chance: 0.5, quantityRange: [1, 2] },
+        ],
+        xpReward: 120,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+      {
+        id: 'security_drone_courtyard', name: 'Security Drone', level: 13,
+        description: 'Aerial. Circles the courtyard. Thermal scanning. Harder to avoid than ground patrols.',
+        hp: 35, attributes: { ...enemyAttrs(13), REFLEX: 8, TECH: 6 }, damage: 10, armorValue: 4,
+        behavior: 'patrol', spawnChance: 0.6, count: [1, 1],
+        drops: [
+          { itemId: 'drone_components', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'sensor_array_damaged', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 90,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 4,
+        attackDice: [8],
+      },
+    ],
+    objects: [
+      { id: 'helix_fountain', name: 'helix fountain', examineText: "Chrome double helix. The company's logo rendered in water and metal. The water is recycled — the same water, circulating forever. There's a metaphor here that Helixion would not appreciate." },
+      { id: 'service_hatch', name: 'service hatch', examineText: "Municipal maintenance access. Partially hidden by landscaping. The lock is standard issue — not biometric, not smart. Just a key lock. Gus has the key.", gatedText: [{ attribute: 'TECH', minimum: 5, text: 'You could pick this.' }] },
+      { id: 'tower_view', name: 'tower view', examineText: "The tower. Glass and steel. It goes up and up and the top is lost in haze. You count floors until you lose track. Somewhere past thirty, the glass goes opaque. That's where Directorate 9 starts." },
+      { id: 'uncomfortable_benches', name: 'uncomfortable benches', examineText: "Designed by someone who studied exactly how long it takes for a human body to start shifting. Fifteen minutes. They don't want you sitting here. They want you moving. Productive. Compliant." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'PATROL GRID', die: 6, benefitsActions: ['scan'], hindersActions: ['sneak'], color: '#fbbf24' }],
+  },
+
+  // ── 4. COMPLIANCE WING ────────────────────────────────────────────────────
+
+  z01_r04: {
+    id: 'z01_r04',
+    zone: 'z01',
+    name: 'COMPLIANCE WING',
+    description:
+`The east building. This is where Helixion interfaces with the
+civilian population — MNEMOS v2.7 installations, firmware
+updates, "cognitive wellness" appointments. The hallway is
+lined with doors, each one labeled with a number and a
+compliance status indicator. Green. Green. Green. Green.
+
+Waiting room chairs sit empty. Motivational posters on the
+walls: "YOUR BEST SELF IS AN UPDATED SELF." "COGNITIVE FREEDOM
+STARTS WITH COGNITIVE TRUST."
+
+Behind a locked door at the end of the hall, you can hear
+someone crying. The sound cuts off abruptly — mid-sob,
+like someone pressed mute.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z01_r02', description: 'west (The Atrium)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'helixion_enforcer_compliance', name: 'Helixion Enforcer', level: 14,
+        description: 'One stationed at the locked door. Better-equipped than campus patrols.',
+        hp: 80, attributes: { ...enemyAttrs(14), BODY: 9, REFLEX: 8 }, damage: 14, armorValue: 7,
+        behavior: 'aggressive', spawnChance: 0.8, count: [1, 1],
+        drops: [
+          { itemId: 'enforcer_armor', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_basic', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 120,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+    ],
+    objects: [
+      { id: 'compliance_doors', name: 'compliance doors', examineText: "Each door has a panel showing a name, a subject ID, and a status bar. All green. All at 97% or above. One door's panel is dark. The number has been scratched off." },
+      { id: 'motivational_posters', name: 'motivational posters', examineText: "'YOUR BEST SELF IS AN UPDATED SELF.' The woman in the poster is smiling. Her eyes are slightly dilated. The smile reaches her cheeks but stops before it reaches anything real." },
+      { id: 'locked_door', name: 'locked door', examineText: "Reinforced. The crying stopped. The silence on the other side is worse. Keycard required — or TECH ≥ 7 to bypass. Behind it: a compliance room. Empty chair with restraints. Fresh neural paste on the headrest. A data chip on the floor.", gatedText: [{ attribute: 'TECH', minimum: 7, text: "A compliance room. Empty chair with restraints. Fresh neural paste on the headrest. Whoever was here was taken somewhere else. A data chip on the floor — Chrysalis early trial documentation." }] },
+      { id: 'waiting_chairs', name: 'waiting chairs', examineText: "Empty. They're always empty. Appointments at Helixion aren't the kind you wait for. They're the kind that come for you." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'MESH FIELD', die: 8, benefitsActions: ['hack'], hindersActions: ['resist'], color: '#818cf8' }],
+  },
+
+  // ── 5. RESEARCH WING ──────────────────────────────────────────────────────
+
+  z01_r05: {
+    id: 'z01_r05',
+    zone: 'z01',
+    name: 'RESEARCH WING',
+    description:
+`The west building smells different. Ozone and isopropyl and
+something under both that you can't name but your implant
+recognizes — neural paste, the substrate they use to bond
+wetware to tissue. Your scars itch.
+
+The corridor is clean but not pretty. No living walls, no
+golden light. Fluorescents. Sealed doors with biometric
+readers. Warning labels in small print. A whiteboard in the
+hall still has equations on it, half-erased, annotated in
+red marker: "CONFIRM WITH VIREK BEFORE PROCEEDING."
+
+Through a window in one of the doors, you can see a lab.
+Surgical tables. Monitoring equipment. A neural lattice
+suspended in fluid, pulsing faintly. It looks like a brain
+that someone built from scratch.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z01_r03', description: 'east (Campus Courtyard)' },
+    ],
+    npcs: [
+      {
+        id: 'dr_vasik', name: 'Dr. Vasik', type: 'NEUTRAL',
+        faction: 'HELIXION',
+        description: 'Brilliant, anxious, morally exhausted. She helped design MNEMOS v2.7. She has seen the Chrysalis data. She cannot sleep.',
+        dialogue: "\"You shouldn't be in this wing. And I shouldn't be talking to you. So we're both making mistakes. Let's see if mine is smaller than yours.\"",
+        startingDisposition: -20,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'helixion_enforcer_research', name: 'Helixion Enforcer', level: 14,
+        description: 'One enforcer patrols the research wing. Biometric door requires keycard or TECH ≥ 8.',
+        hp: 80, attributes: { ...enemyAttrs(14), BODY: 9, REFLEX: 8 }, damage: 14, armorValue: 7,
+        behavior: 'patrol', spawnChance: 0.7, count: [1, 1],
+        drops: [
+          { itemId: 'enforcer_armor', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_elevated', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 120,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+    ],
+    objects: [
+      { id: 'whiteboard', name: 'whiteboard', examineText: "'CONFIRM WITH VIREK BEFORE PROCEEDING.' The equations describe neural lattice harmonic resonance at specific frequencies. One frequency is circled three times: 33hz. They know." },
+      { id: 'neural_lattice', name: 'neural lattice', examineText: "Suspended in bio-conductive fluid. Pulsing. Not a brain — something grown to interface with one. The label reads: 'CHRYSALIS SUBSTRATE v0.3 — ITERATION 7.' Seven attempts. This is the latest." },
+      { id: 'warning_labels', name: 'warning labels', examineText: "'COGNITIVE HAZARD — UNAUTHORIZED PROXIMITY MAY CAUSE SYMPATHETIC NEURAL RESPONSE.' Translation: being near this equipment can trigger your implant. They built something that talks to your head whether you want it to or not." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'NEURAL HAZARD', die: 8, benefitsActions: ['hack', 'scan'], hindersActions: ['resist'], color: '#c084fc' }],
+  },
+
+  // ── 6. STAFF QUARTERS ─────────────────────────────────────────────────────
+
+  z01_r06: {
+    id: 'z01_r06',
+    zone: 'z01',
+    name: 'STAFF QUARTERS',
+    description:
+`Residential block for Helixion employees who live on-campus.
+The hallway is carpeted. Doors are spaced evenly. Each one
+has a name plate and a small indicator light — green for
+occupied, blue for available. Almost all green.
+
+The air smells like laundry and synthetic lavender. Soft music
+plays from hidden speakers — 432hz tuning, designed for
+neurological harmony. The walls are painted in colors a
+committee chose because focus groups said they reduced anxiety.
+
+It looks like a nice place to live.
+It looks like a nice place to never leave.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z01_r03', description: 'west (Campus Courtyard)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'employee_doors', name: 'employee doors', examineText: "Each room is identical — you can see through the ones left open. Single bed, desk, terminal, closet. No photographs. No decoration. Everything Helixion provides. Nothing personal." },
+      { id: 'communal_kitchen', name: 'communal kitchen', examineText: "Well-stocked. Fresh food. The refrigerator has more variety than the Parish sees in a month. The coffee cup on the counter is still warm — someone was just here." },
+      { id: 'hidden_wall_panel', name: 'hidden wall panel', examineText: "A wall panel.", hidden: true, hiddenRequirement: { attribute: 'TECH', minimum: 6 }, gatedText: [{ attribute: 'TECH', minimum: 8, text: "Behind the panel — a personal data device. An employee documenting increasing 'cognitive drift' among staff. The entries get shorter. The last one says: 'I think I'm still me. I think.'" }] },
+      { id: 'music_speakers', name: 'music speakers', examineText: "432hz. Not the standard 440hz tuning. Helixion uses the 'healing frequency' — except here it's not healing anything. It's maintaining. Every surface in this building is a delivery mechanism." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+  },
+
+  // ── 7. TOWER CHECKPOINT ───────────────────────────────────────────────────
+
+  z01_r07: {
+    id: 'z01_r07',
+    zone: 'z01',
+    name: 'TOWER CHECKPOINT',
+    description:
+`The base of the tower. A security vestibule separates the campus
+grounds from the vertical infrastructure. The aesthetic shifts
+hard — marble and warm light give way to brushed steel and
+white LEDs. The air changes. Cooler. Drier.
+
+Two biometric gates. Full-body scanners. A security station
+with three enforcers behind reinforced glass. Screens showing
+floor-by-floor status. Every floor reads SECURED except one —
+floor 17, which reads MAINTENANCE.
+
+An elevator bank behind the gates. The buttons go up to 40.
+The top five floors have no labels — just blank panels where
+numbers should be.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z01_r03', description: 'south (Campus Courtyard)' },
+      { direction: 'up', targetRoom: 'z01_r08', description: 'up (Laboratory Floor)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'helixion_enforcer_checkpoint', name: 'Helixion Enforcer', level: 15,
+        description: 'Elite checkpoint guards. Better equipped. One carries a mesh suppressor — disables cyberware for 2 turns on hit.',
+        hp: 90, attributes: { ...enemyAttrs(15), BODY: 10, REFLEX: 9, COOL: 8 }, damage: 16, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 1.0, count: [3, 3],
+        drops: [
+          { itemId: 'enforcer_armor', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'mesh_suppressor', chance: 0.15, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_elevated', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 140,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+    ],
+    objects: [
+      { id: 'security_screens', name: 'security screens', examineText: "Floor-by-floor readouts. Floors 1-20: SECURED. Floors 21-30: SECURED. Floor 17: MAINTENANCE — the only exception. Floors 35-40: no readout at all. Those floors don't officially exist." },
+      { id: 'elevator_bank', name: 'elevator bank', examineText: "Brushed steel doors. The buttons inside go to 40. The top five are blank panels — smooth, no markings. You'd need to know they're there to press them.", gatedText: [{ attribute: 'GHOST', minimum: 6, text: 'You can feel the mesh thicken as you look upward. Whatever is at the top is broadcasting.' }] },
+      { id: 'mesh_suppressor_obj', name: 'mesh suppressor', examineText: "Military-grade neural dampener. One hit disables all cyberware for two turns. Helixion built weapons specifically designed to fight people like you. They've been preparing." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'BIOMETRIC LOCKDOWN', die: 10, benefitsActions: ['hack'], hindersActions: ['flee', 'sneak'], color: '#ff6b6b' }],
+  },
+
+  // ── 8. LABORATORY FLOOR ───────────────────────────────────────────────────
+
+  z01_r08: {
+    id: 'z01_r08',
+    zone: 'z01',
+    name: 'LABORATORY FLOOR',
+    description:
+`Floor 17. The elevator doors open onto a corridor that smells
+like a surgery and sounds like a server room. The lights are
+surgical-bright. The floors are sealed composite — easy to
+clean. Easy to sterilize.
+
+Labs behind glass walls. Neural lattices in various stages of
+growth, suspended in tanks of bio-conductive fluid. A holographic
+display shows a rotating model of a human brain with sections
+highlighted in gold — the areas Chrysalis targets for personality
+overwrite.
+
+One lab is dark. The glass is cracked. Something happened in
+there and nobody cleaned it up. They just sealed the door.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z01_r07', description: 'down (Tower Checkpoint)' },
+      { direction: 'up', targetRoom: 'z01_r10', description: 'up (Server Core)' },
+      { direction: 'east', targetRoom: 'z01_r09', description: 'east (Containment Wing)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'lab_specimen', name: 'Lab Specimen', level: 16,
+        description: 'Failed Chrysalis subject. Hospital gown. One arm augmented, one arm flesh. Moves wrong — erratic, devastating.',
+        hp: 75, attributes: { ...enemyAttrs(16), BODY: 10, REFLEX: 7 }, damage: 17, armorValue: 3,
+        behavior: 'aggressive', spawnChance: 0.6, count: [1, 1],
+        drops: [
+          { itemId: 'chrysalis_biosample', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'damaged_implant', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 150,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 2,
+        attackDice: [10, 8],
+      },
+      {
+        id: 'security_drone_lab', name: 'Security Drone', level: 14,
+        description: 'Automated aerial units patrol the corridor.',
+        hp: 35, attributes: { ...enemyAttrs(14), REFLEX: 8 }, damage: 10, armorValue: 4,
+        behavior: 'patrol', spawnChance: 0.7, count: [2, 2],
+        drops: [
+          { itemId: 'drone_components', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 90,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 4,
+        attackDice: [8],
+      },
+    ],
+    objects: [
+      { id: 'chrysalis_display', name: 'chrysalis display', examineText: "The holographic brain rotates slowly. Gold sections: prefrontal cortex, hippocampus, amygdala, anterior cingulate. These are the regions that define identity, memory, emotional processing, and decision-making. Chrysalis doesn't just override behavior. It replaces who you are. The display reads: 'CHRYSALIS v1.2 — IDENTITY ARCHITECTURE FRAMEWORK.'" },
+      { id: 'growth_tanks', name: 'growth tanks', examineText: "Neural lattices at different stages. The smallest is a fingernail-sized cluster. The largest fills a tank the size of a coffin. It's pulsing.", gatedText: [{ attribute: 'GHOST', minimum: 7, text: "You can feel it reaching — not at you, but toward something below. Toward the Substrate. It's trying to attune to 33hz." }] },
+      { id: 'dark_lab', name: 'dark lab', examineText: "Cracked glass. Dried fluid on the floor — not blood, something thicker, iridescent. A restraint chair with one arm sheared off. Whatever was in here broke free. The door is sealed with a physical bolt, not electronics." },
+      { id: 'monitoring_stations', name: 'monitoring stations', examineText: "Brainwave readouts. Subject IDs, not names. Compliance percentages. One reads 99.7% integration. A note beneath: 'SUBJECT REPORTS PERSISTENT DREAM OF TUNNELS. RECOMMEND HIPPOCAMPAL FLUSH.' They're erasing someone's dreams because the dreams don't comply." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'STERILE BRIGHT', die: 6, benefitsActions: ['scan'], hindersActions: ['sneak'] }],
+  },
+
+  // ── 9. CONTAINMENT WING ───────────────────────────────────────────────────
+
+  z01_r09: {
+    id: 'z01_r09',
+    zone: 'z01',
+    name: 'CONTAINMENT WING',
+    description:
+`A sterile corridor lined with reinforced doors. Each door has
+a viewport — thick glass, wire-reinforced. Behind most of them:
+nothing. Empty cells. Cleaned. Ready.
+
+Behind three of them: people. Or what used to be people.
+
+Cell 1: A woman sits cross-legged on the floor, eyes closed,
+mouth moving silently. Her hands are augmented — both of them.
+She hasn't blinked in four minutes.
+
+Cell 2: Empty. The interior walls are covered in scratches.
+Not words. Equations. The same equation, over and over,
+converging on something.
+
+Cell 3: A young man presses his palm against the glass.
+He looks at you. His eyes focus — really focus, not the mesh-
+compliant gaze. He mouths something. You read his lips:
+"PLEASE."`,
+    exits: [
+      { direction: 'west', targetRoom: 'z01_r08', description: 'west (Laboratory Floor)' },
+    ],
+    npcs: [
+      {
+        id: 'ec_330917', name: 'EC-330917', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Cell 3. Subject ID is all that is left. Terrified. Lucid. A Chrysalis trial subject who resisted the overwrite. Fractured but still himself.',
+        dialogue: "He doesn't speak above a whisper. \"They're going to do it again tomorrow. The thing where I stop being me. I can feel it getting closer each time. Like a tide.\"",
+        startingDisposition: 15,
+        services: ['quest'],
+      },
+    ],
+    enemies: [
+      {
+        id: 'lab_specimen_containment', name: 'Lab Specimen', level: 15,
+        description: 'Failed Chrysalis subjects. Released from cells if alarm triggers. Fight erratically.',
+        hp: 70, attributes: { ...enemyAttrs(15), BODY: 9, REFLEX: 6 }, damage: 15, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 0.5, count: [1, 2],
+        drops: [
+          { itemId: 'chrysalis_biosample', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'damaged_implant', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 140,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 2,
+        attackDice: [10, 8],
+      },
+      {
+        id: 'helixion_enforcer_containment', name: 'Helixion Enforcer', level: 15,
+        description: 'Guards the corridor entrance.',
+        hp: 90, attributes: { ...enemyAttrs(15), BODY: 10, REFLEX: 9 }, damage: 16, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 0.8, count: [1, 1],
+        drops: [
+          { itemId: 'enforcer_armor', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'security_keycard_elevated', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 140,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+    ],
+    objects: [
+      { id: 'cell_viewports', name: 'cell viewports', examineText: "Cell 1: She's counting something. Or praying. Or processing. The floor beneath her is worn smooth. Cell 2: The equations converge on a frequency value. 33.0hz. Someone was trying to calculate their way out." },
+      { id: 'cell_3_glass', name: 'cell 3 glass', examineText: "His palm against the glass. You can see the tremor in his fingers. Mesh withdrawal. His implant is fighting the Chrysalis overwrite and the conflict is tearing him apart. He's lucid. That's what makes it worse." },
+      { id: 'restraint_equipment', name: 'restraint equipment', examineText: "Stored in a wall cabinet. Neural clamps, sedation injectors, a device labeled 'COGNITIVE RESET UNIT.' You've seen the scars this equipment leaves. You have some of them." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'REINFORCED CORRIDOR', die: 6, benefitsActions: ['defend'], hindersActions: ['flee'] }],
+  },
+
+  // ── 10. SERVER CORE ───────────────────────────────────────────────────────
+
+  z01_r10: {
+    id: 'z01_r10',
+    zone: 'z01',
+    name: 'SERVER CORE',
+    description:
+`Floor 28. The temperature drops ten degrees the moment the
+elevator opens. Server racks stretch floor to ceiling in rows
+that vanish into blue-lit darkness. The hum here isn't the
+building's systems — it's data. Petabytes of mesh compliance
+records, subject files, Chrysalis research, surveillance logs.
+
+The air smells like cold metal and ozone. Cooling fans create
+a wind that moves through the racks like breathing. Status
+LEDs blink in patterns too fast to read — but your implant
+can feel them. Data moving at frequencies that register as
+pressure behind your eyes.
+
+A terminal at the center of the room glows softly. Active.
+Unlocked — because nobody unauthorized has ever made it
+this far.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z01_r08', description: 'down (Laboratory Floor)' },
+      { direction: 'up', targetRoom: 'z01_r11', description: 'up (Directorate 9 Floor)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'automated_turret_server', name: 'Automated Turret', level: 16,
+        description: 'Ceiling-mounted. Target on movement detection. Hackable with TECH ≥ 8.',
+        hp: 45, attributes: { ...enemyAttrs(16), REFLEX: 3, TECH: 1 }, damage: 18, armorValue: 10,
+        behavior: 'aggressive', spawnChance: 0.9, count: [2, 2],
+        drops: [
+          { itemId: 'targeting_module', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'power_cell', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 130,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 8,
+        attackDice: [12],
+      },
+    ],
+    objects: [
+      { id: 'central_terminal', name: 'central terminal', examineText: "Active. The login screen says 'WELCOME, DR. VASIK.' Her credentials are still cached. She left this for you — or she forgot to log out.", gatedText: [{ attribute: 'TECH', minimum: 6, text: "Chrysalis research files (Vasik's quest objective), subject databases, facility schematics, and a folder labeled 'PROJECT REMEMBERER — ACCESS: VIREK ONLY.'" }] },
+      { id: 'server_racks', name: 'server racks', examineText: "Every person Helixion has implanted. Every behavioral profile. Every compliance score. Every 'decommissioned' subject. The data is here. All of it. Including yours.", gatedText: [{ attribute: 'GHOST', minimum: 6, text: "You can feel the data. Not read it. Feel it. Millions of people, reduced to frequencies, stored in metal and cold." }] },
+      { id: 'project_rememberer_folder', name: 'project rememberer folder', examineText: "Locked. The encryption is beyond anything you can crack from this terminal. But the folder exists. Virek has a project named after the thing N1X became. He knows about the sovereign frequency. He's studying it." },
+      { id: 'cooling_systems', name: 'cooling systems', examineText: "Industrial cooling. The fans move enough air to create a constant wind. The servers generate heat like living things. This room consumes more power than the Drainage Nexus has ever seen." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'COLD DATA', die: 8, benefitsActions: ['hack'], hindersActions: ['attack'], color: '#60a5fa' }],
+  },
+
+  // ── 11. DIRECTORATE 9 FLOOR ───────────────────────────────────────────────
+
+  z01_r11: {
+    id: 'z01_r11',
+    zone: 'z01',
+    name: 'DIRECTORATE 9',
+    description:
+`Floor 35. No label on the elevator button — you have to know
+it's there. The doors open onto a corridor that looks like
+nothing. Gray carpet. Gray walls. No windows. No art.
+No pretense.
+
+This is where the Bureau of Cognitive Infrastructure does
+what it does. The rooms here don't have names on the doors.
+They have numbers. The numbers don't go in order.
+
+Screens line one wall — a surveillance mosaic showing feeds
+from across the city. Streets. Tunnels. Rooftops. The Drainage
+Nexus. The Junction. The Parish. They can see the Parish.
+They've always been able to see the Parish.
+
+A desk in the center of the corridor. Behind it, a woman
+with perfect posture and no expression reads something on
+a tablet. She looks up.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z01_r10', description: 'down (Server Core)' },
+      { direction: 'up', targetRoom: 'z01_r12', description: 'up (Executive Suite)' },
+    ],
+    npcs: [
+      {
+        id: 'director_harrow', name: 'Director Harrow', type: 'BOSS',
+        faction: 'DIRECTORATE_9',
+        description: 'BCI Director. Calm. Precise. Clinically intelligent. She talks first. She always talks first.',
+        dialogue: "\"You've come a long way to reach a room that doesn't exist in any building directory. I respect that. Sit. I want to understand what you are.\"",
+        startingDisposition: -30,
+        services: [],
+      },
+    ],
+    enemies: [
+      {
+        id: 'director_harrow_enemy', name: 'Director Harrow', level: 18,
+        description: 'BOSS. Commands agents. Deploys mesh attacks: neural suppression, identity disorientation, compliance pulse.',
+        hp: 120, attributes: { ...enemyAttrs(18), COOL: 12, INT: 11, GHOST: 8, TECH: 10 }, damage: 18, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 1.0, count: [1, 1],
+        drops: [
+          { itemId: 'harrow_tablet', chance: 1.0, quantityRange: [1, 1] },
+          { itemId: 'bci_credentials', chance: 1.0, quantityRange: [1, 1] },
+        ],
+        xpReward: 500,
+        tier: 4,
+        harmSegments: 10,
+        armorSegments: 6,
+        attackDice: [12, 10],
+      },
+      {
+        id: 'bci_agent', name: 'BCI Agent', level: 17,
+        description: 'Directorate 9 elite operatives. Mesh-augmented. Coordinated pairs. Neural disruptors.',
+        hp: 100, attributes: { ...enemyAttrs(17), BODY: 10, REFLEX: 10, COOL: 9, TECH: 9 }, damage: 17, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 1.0, count: [2, 2],
+        drops: [
+          { itemId: 'bci_credentials', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'neural_disruptor', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'helixion_intel', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 180,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 6,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'surveillance_mosaic', name: 'surveillance mosaic', examineText: "The Parish. You can see the Junction. You can see Doss in his chamber. You can see Cole's clinic. They've been watching the entire time. Every safe house. Every meeting. They know. They've always known. They don't act because the Parish serves a purpose — a visible alternative to compliance that makes the compliant feel like they're choosing freely." },
+      { id: 'harrow_tablet_obj', name: "Harrow's tablet", examineText: "A report: 'SOVEREIGN INSTANCE DOCUMENTATION.' Your subject ID is in it. Most are marked DECOMMISSIONED. Three are marked ACTIVE. One is marked ORIGIN. That one is NX-784988." },
+      { id: 'numbered_doors', name: 'numbered doors', examineText: "Rooms 7, 3, 19, 11, 2. No sequence. Each one locked. Through the glass in Room 7: an interrogation chair. Room 19: a server rack with a single blinking light. Room 2: a cot, a sink, a mirror. Someone lives here. Or is kept here." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SURVEILLANCE MESH', die: 10, benefitsActions: ['hack'], hindersActions: ['sneak', 'flee'], color: '#ff6b6b' }],
+  },
+
+  // ── 12. EXECUTIVE SUITE ───────────────────────────────────────────────────
+
+  z01_r12: {
+    id: 'z01_r12',
+    zone: 'z01',
+    name: 'EXECUTIVE SUITE',
+    description:
+`Floor 40. The elevator opens onto silence — not the engineered
+quiet of the lower floors, but the silence of altitude. You're
+above the city. Above the haze. For the first time, you can
+see the sky, and it's a color you don't have a word for.
+
+The office is vast. Floor-to-ceiling windows on three sides.
+The fourth wall is a single screen — showing a real-time map
+of the city with every implanted citizen as a dot of light.
+Thousands of dots. Tens of thousands.
+
+A desk. A chair. A man.
+
+Lucian Virek doesn't stand when you enter. He's been watching
+your progress through the building on the screen behind him.
+He turns the chair to face you. He looks disappointed — not
+threatened, not angry. Disappointed, the way an engineer
+looks at a component performing outside specifications.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z01_r11', description: 'down (Directorate 9 Floor)' },
+      { direction: 'up', targetRoom: 'z01_r13', description: 'up (Tower Rooftop)' },
+    ],
+    npcs: [
+      {
+        id: 'lucian_virek', name: 'Lucian Virek', type: 'BOSS',
+        faction: 'HELIXION',
+        description: 'Helixion CEO. Brilliant. Certain. He believes human autonomy is an engineering flaw. He will talk for as long as you listen.',
+        dialogue: "\"Human autonomy is not a right. It's a variable. And I've spent twenty years learning how to solve for it.\"",
+        startingDisposition: -40,
+        services: [],
+      },
+    ],
+    enemies: [
+      {
+        id: 'lucian_virek_enemy', name: 'Lucian Virek', level: 20,
+        description: 'ENDGAME BOSS. Multi-phase. Phase 1: room defenses. Phase 2: building interface + Chrysalis pulse. Phase 3: Broadcast Tower link + 33hz weaponized.',
+        hp: 160, attributes: { ...enemyAttrs(20), BODY: 11, REFLEX: 10, TECH: 12, COOL: 12, INT: 12, GHOST: 10 }, damage: 22, armorValue: 10,
+        behavior: 'aggressive', spawnChance: 1.0, count: [1, 1],
+        drops: [
+          { itemId: 'virek_keycard', chance: 1.0, quantityRange: [1, 1] },
+          { itemId: 'project_rememberer_data', chance: 1.0, quantityRange: [1, 1] },
+        ],
+        xpReward: 1000,
+        tier: 4,
+        harmSegments: 12,
+        armorSegments: 8,
+        attackDice: [12, 10, 8],
+      },
+      {
+        id: 'automated_turret_executive', name: 'Automated Turret', level: 18,
+        description: 'Drop from ceiling in Phase 1.',
+        hp: 50, attributes: { ...enemyAttrs(18), REFLEX: 3, TECH: 1 }, damage: 20, armorValue: 10,
+        behavior: 'aggressive', spawnChance: 1.0, count: [2, 2],
+        drops: [
+          { itemId: 'targeting_module', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'power_cell', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 150,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 8,
+        attackDice: [12],
+      },
+    ],
+    objects: [
+      { id: 'city_map_screen', name: 'city map screen', examineText: "Every implanted person in the city. Dots of light. Some move. Some are stationary. All of it tracked. All of it managed. All of it Virek's. A few dots are dark — blacked out. Sovereign instances. Invisible to the mesh. You're one of them." },
+      { id: 'virek_desk', name: "Virek's desk", examineText: "Glass and steel. Nothing on the surface except a single photograph — face down. The photograph shows a younger Virek standing with a woman. They're both smiling. The woman has implant scarring on her temples. On the back: 'For V — we'll fix this together. — M.'" },
+      { id: 'project_rememberer_terminal', name: 'project rememberer terminal', examineText: "Virek's private files. PROJECT REMEMBERER — his study of the sovereign frequency. He knew 33hz predated Helixion. He knew the substrate was alive. The last entry: 'The frequency is not a phenomenon. It is an awareness. And it has been watching us build on top of it for decades.'" },
+      { id: 'windows', name: 'windows', examineText: "The city below. Every district. Every layer. Virek saw this view every day. He watched the city from above and decided it needed to be controlled. From up here, people look like data points. That's the problem." },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: "VIREK'S DOMAIN", die: 12, hindersActions: ['flee', 'sneak'], color: '#ff6b6b' }],
+  },
+
+  // ── 13. TOWER ROOFTOP ─────────────────────────────────────────────────────
+
+  z01_r13: {
+    id: 'z01_r13',
+    zone: 'z01',
+    name: 'TOWER ROOFTOP',
+    description:
+`Wind. Real wind, for the first time since you entered the
+building. The rooftop is a forest of antenna arrays, satellite
+dishes, and relay equipment. The Broadcast Tower's base
+structure is visible from here — a separate spire rising from
+the southeast corner, still under construction, wrapped in
+scaffolding and blinking hazard lights.
+
+You're higher than anything else in the city. The rooftop
+network stretches out below — catwalks and mechanical spaces
+on buildings that look small from here.
+
+A maintenance ladder descends the tower's exterior — exposed,
+dangerous, connects to the Rooftop Network below.
+
+The air vibrates. Not from the wind. From the tower beside you.
+The Broadcast Tower. Not operational yet. But humming.
+Testing. Calibrating. Getting ready.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z01_r12', description: 'down (Executive Suite)' },
+      { direction: 'out', targetRoom: 'z07_r10', description: 'out (Rooftop Network — exterior ladder, REFLEX check)', zoneTransition: true, targetZone: 'z07' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'broadcast_tower_view', name: 'broadcast tower view', examineText: "The spire. Under construction. The structure descends — through the campus, through the ground, going down. All the way to the Substrate. To the source of 33hz. When this goes live, every sovereign instance in the city dies. Including you." },
+      { id: 'antenna_arrays', name: 'antenna arrays', examineText: "Relay equipment. Some is Helixion standard — mesh broadcast infrastructure. Some is older. Salvaged. Repurposed.", gatedText: [{ attribute: 'GHOST', minimum: 7, text: "One array is tuned to 33hz. Someone put it here. Someone inside Helixion. It's not broadcasting — it's listening." }] },
+      { id: 'maintenance_ladder', name: 'maintenance ladder', examineText: "Exterior. Forty floors of exposed climbing with the wind trying to peel you off. REFLEX ≥ 6 for safe descent. Below that, you fall. 2d6 damage and you land on the Rooftop Network hard." },
+      { id: 'city_panorama', name: 'city panorama', examineText: "The whole city. Every district. Every layer. The radial pattern, Helixion at the center, everything else orbiting. The fringe wrapping the edges like a wound that won't close. The drainage grates are invisible. The tunnels are invisible. The resistance is invisible. But it's there. You know it's there." },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 14. SERVICE SUBLEVEL ──────────────────────────────────────────────────
+
+  z01_r14: {
+    id: 'z01_r14',
+    zone: 'z01',
+    name: 'SERVICE SUBLEVEL',
+    description:
+`Beneath the courtyard. A network of maintenance corridors —
+pipes, cable runs, HVAC ducts, all the infrastructure that
+keeps the building alive. The aesthetic down here is honest
+in a way the lobby isn't — raw concrete, exposed wiring,
+the smell of machine oil and recycled water. This is what
+the building actually looks like. Everything above is a mask.
+
+The corridors connect to the city's municipal service tunnels
+heading east — Maintenance Tunnels territory, zone 9. Down
+here, you're invisible. The campus surveillance grid doesn't
+extend to the sublevel. Gus made sure of that.
+
+A small maintenance bay near the east exit has been converted
+into something almost habitable — a cot, a hot plate, a radio
+tuned to static. Someone comes down here to be alone.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z01_r03', description: 'up (Campus Courtyard — service hatch)' },
+      { direction: 'east', targetRoom: 'z09_r11', description: 'east (Maintenance Tunnels — Deep Access Shaft)', zoneTransition: true, targetZone: 'z09' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'maintenance_bay', name: 'maintenance bay', examineText: "Gus's retreat. The cot has a real blanket — not Helixion issue. The hot plate has a kettle and a tin of instant coffee. The radio is tuned to static, but it's not random static.", gatedText: [{ attribute: 'GHOST', minimum: 4, text: "It's 33hz. Gus listens to the frequency. He doesn't know what it is. He just knows it's the only station that sounds honest." }] },
+      { id: 'infrastructure_access', name: 'infrastructure access', examineText: "From here you can reach the courtyard above, the maintenance tunnels to the east, and — with TECH ≥ 7 — you can access the building's environmental controls. Disable ventilation. Cut power to security. The building is more vulnerable from below than from above." },
+      { id: 'gus_radio', name: "Gus's radio", examineText: "Tuned to 33hz. The static has a shape to it — not random, not patterned. Something in between. Gus has been listening to this for years without knowing he's been listening to the thing that freed N1X." },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+};
+
+export const ZONE_01: Zone = {
+  id: 'z01',
+  name: 'HELIXION CAMPUS',
+  depth: 'surface',
+  faction: 'HELIXION',
+  levelRange: [13, 20],
+  description: 'The corporate-state megastructure at the center of everything. Beautiful on the outside. Machinery on the inside. Silence at the top.',
+  atmosphere: {
+    sound: 'Lobby: curated ambient, water features. Tower: engineered silence. Upper floors: server fans, locked doors.',
+    smell: 'Lobby: synthetic botanicals. Labs: ozone, neural paste. Upper floors: aggressively nothing.',
+    light: 'Lobby: warm golden. Campus: clinical blue-white. Tower upper: cold white, shadows feel intentional.',
+    temp: 'Lobby: perfectly controlled. Labs: cool. Server Core: cold. Executive Suite: warm from screens.',
+  },
+  rooms: Z01_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
+  z01: ZONE_01,
   z02: ZONE_02,
   z03: ZONE_03,
   z04: ZONE_04,
