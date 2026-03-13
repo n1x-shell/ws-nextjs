@@ -938,6 +938,65 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     prerequisites: [],
     levelRequirement: 10,
   },
+
+  // ── Zone 11: Abandoned Transit Quests ──────────────────────────────────
+
+  q055_dead_section: {
+    id: 'q055_dead_section',
+    title: 'DEAD SECTION',
+    giver: 'compass',
+    tier: 2,
+    type: 'INVESTIGATE',
+    description: `compass has mapped the entire transit system — except one section. the Blue Line south of Central. the Substrate growth is too active for her to survey safely. she needs someone to go in, document the extent of the growth, and report back. what you'll find: the Substrate isn't just growing. it's replacing.`,
+    objectives: [
+      { id: 'obj_talk_compass_dead', description: 'Talk to Compass about the unmapped section', type: 'talk_to', target: 'compass', current: 0, required: 1, completed: false },
+      { id: 'obj_enter_blue_south', description: 'Enter Blue Tunnel South', type: 'go_to', target: 'z11_r11', current: 0, required: 1, completed: false },
+      { id: 'obj_examine_growth', description: 'Document the Substrate growth', type: 'examine', target: 'crystalline_formations', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_south_platform', description: 'Reach South Platform', type: 'go_to', target: 'z11_r12', current: 0, required: 1, completed: false },
+      { id: 'obj_return_compass_dead', description: 'Return survey data to Compass', type: 'talk_to', target: 'compass', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 200, creds: 50, items: ['transit_map_blue'] },
+    repeatable: false,
+    prerequisites: [],
+    levelRequirement: 10,
+  },
+  q056_last_schedule: {
+    id: 'q056_last_schedule',
+    title: 'THE LAST SCHEDULE',
+    giver: 'compass',
+    tier: 2,
+    type: 'INVESTIGATE',
+    description: `compass found something in the transit logs. on the system's final day of operation, every train was rerouted to South Platform. every single one. that's not a shutdown procedure. that's an extraction. someone used the transit system to move something from the deep to the surface. she needs you to investigate South Platform and find out what.`,
+    objectives: [
+      { id: 'obj_talk_compass_sched', description: 'Talk to Compass about the schedule anomaly', type: 'talk_to', target: 'compass', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_south_sched', description: 'Reach South Platform', type: 'go_to', target: 'z11_r12', current: 0, required: 1, completed: false },
+      { id: 'obj_talk_station', description: 'Talk to Station about the final day', type: 'talk_to', target: 'station', current: 0, required: 1, completed: false },
+      { id: 'obj_examine_manifest', description: 'Examine the cargo manifest', type: 'examine', target: 'cargo_manifest', current: 0, required: 1, completed: false },
+      { id: 'obj_return_compass_sched', description: 'Return findings to Compass', type: 'talk_to', target: 'compass', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 225, creds: 55, items: ['cargo_manifest_copy'] },
+    repeatable: false,
+    prerequisites: [],
+    levelRequirement: 10,
+  },
+  q057_the_way_back: {
+    id: 'q057_the_way_back',
+    title: 'THE WAY BACK',
+    giver: 'ever',
+    tier: 2,
+    type: 'ESCORT',
+    description: `ever took the Loop. she's been walking in the dark for two days. her light ran out. she made it to South Platform alive but she can't make it back alone. escort her north through the Blue Line tunnels — through Substrate growth and deep dweller territory — to Central Station. light management is critical. she doesn't have any.`,
+    objectives: [
+      { id: 'obj_talk_ever', description: 'Talk to Ever at South Platform', type: 'talk_to', target: 'ever', current: 0, required: 1, completed: false },
+      { id: 'obj_cross_blue_south', description: 'Cross Blue Tunnel South with Ever', type: 'go_to', target: 'z11_r11', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_central_escort', description: 'Reach Central Station', type: 'go_to', target: 'z11_r04', current: 0, required: 1, completed: false },
+      { id: 'obj_debrief_ever', description: 'Deliver Ever safely to Central Station', type: 'talk_to', target: 'compass', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 175, creds: 40 },
+    repeatable: false,
+    prerequisites: [],
+    levelRequirement: 9,
+  },
 };
 
 // ── Quest State Management ──────────────────────────────────────────────────

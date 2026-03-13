@@ -7,6 +7,7 @@
 // Phase 6: Fight Pits (Zone 6, 8 rooms).
 // Phase 7: Helixion Campus (Zone 1, 14 rooms).
 // Phase 8: Rooftop Network (Zone 7, 12 rooms).
+// Phase 9: Abandoned Transit (Zone 11, 18 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -1211,7 +1212,7 @@ the elevator visits regularly.`,
     exits: [
       { direction: 'west', targetRoom: 'z09_r10', description: 'west (Staging Area)' },
       { direction: 'up', targetRoom: 'z01_r14', description: 'up (Helixion Campus — Service Sublevel)', zoneTransition: true, targetZone: 'z01' },
-      { direction: 'down', targetRoom: 'z11_r01', description: 'down (Abandoned Transit — service ladder)', zoneTransition: true, targetZone: 'z11' },
+      { direction: 'down', targetRoom: 'z11_r09', description: 'down (Abandoned Transit — North Platform)', zoneTransition: true, targetZone: 'z11' },
     ],
     npcs: [
       {
@@ -1475,6 +1476,7 @@ the fringe is empty but the cache fire is always warm.`,
     exits: [
       { direction: 'north', targetRoom: 'z04_r04', description: 'north (Underpass)' },
       { direction: 'east', targetRoom: 'z04_r02', description: 'a scavenger trail cuts through the rubble' },
+      { direction: 'down', targetRoom: 'z11_r18', description: 'down (Abandoned Transit — Loop Terminal)', zoneTransition: true, targetZone: 'z11' },
     ],
     npcs: [],
     enemies: [],
@@ -4193,7 +4195,7 @@ down the fissure wall, adjacent to the waterfall. They
 descend into the fog. Into the deep.`,
     exits: [
       { direction: 'north', targetRoom: 'z10_r09', description: 'north (Flooded Gallery)' },
-      { direction: 'down', targetRoom: 'z11_r01', description: 'down (Abandoned Transit)', zoneTransition: true, targetZone: 'z11' },
+      { direction: 'down', targetRoom: 'z11_r07', description: 'down (Abandoned Transit — East Descent)', zoneTransition: true, targetZone: 'z11' },
     ],
     npcs: [
       {
@@ -6239,6 +6241,870 @@ export const ZONE_07: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 11: Abandoned Transit ──────────────────────────────────────────────
+
+// ── Zone 11: Abandoned Transit ──────────────────────────────────────────────
+
+const Z11_ROOMS: Record<string, Room> = {
+
+  // ── 1. WEST DESCENT ─────────────────────────────────────────────────────
+
+  z11_r01: {
+    id: 'z11_r01',
+    zone: 'z11',
+    name: 'WEST DESCENT',
+    description:
+`The drainage gate opens onto a steep descent — a concrete
+ramp that was a vehicle access tunnel when the metro was
+operational. The ramp drops at a twenty-degree angle for
+fifty meters. Water from the drainage above trickles along
+the left wall, finding its way to the deep.
+
+Your light reaches fifteen meters. Beyond that: nothing.
+The air changes as you descend — cooler, dryer, mineral.
+The smell of rust and wet concrete gives way to old dust
+and machine oil. Fifteen years of stillness. The transit
+system's upper edge.
+
+At the bottom of the ramp, a maintenance door stands
+half-open. Through it: a platform. Through the platform:
+the dark.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z08_r05', description: 'up (Drainage Nexus — Deep Gate)', zoneTransition: true, targetZone: 'z08' },
+      { direction: 'east', targetRoom: 'z11_r02', description: 'east (West Platform)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'vehicle_ramp', name: 'vehicle ramp', examineText: 'Concrete. Wide enough for supply trucks. Tire marks from fifteen years ago, fossilized in dust. The last vehicle down this ramp never came back up.' },
+      { id: 'maintenance_door', name: 'maintenance door', examineText: 'Half-open. Jammed on corroded hinges. Through the gap: the platform edge, tile floor, absolute dark beyond. Your light doesn\'t reach the ceiling.' },
+      { id: 'water_trickle', name: 'water trickle', examineText: 'Drainage seepage following the ramp down. The water is clean — filtered through meters of earth. It pools at the base before draining into the track bed.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'DARK DESCENT', die: 6, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
+  },
+
+  // ── 2. WEST PLATFORM ────────────────────────────────────────────────────
+
+  z11_r02: {
+    id: 'z11_r02',
+    zone: 'z11',
+    name: 'WEST PLATFORM',
+    description:
+`The western terminal of the Red Line. The letters "WEST END"
+are set into the tile wall in ceramic — partially obscured by
+fifteen years of neglect but legible in your light. Beyond
+the light: nothing.
+
+The platform is wide — designed for rush-hour crowds that
+haven't existed in fifteen years. Benches, bolted to the
+floor, sit empty. A ticket machine against the wall, screen
+dark, coin slot jammed. A transit map behind cracked glass
+on the pillar nearest the stairs.
+
+The silence is specific. Not empty — pressurized. The tunnel
+walls hold sound like a bottle holds liquid. Your breathing
+fills the space. Your footsteps echo from surfaces you can't
+see. Somewhere east, deeper in the tunnel, a sound: metal
+contracting in the cold. Or something else.
+
+This is where your light starts to matter.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z11_r01', description: 'west (West Descent)' },
+      { direction: 'east', targetRoom: 'z11_r03', description: 'east (Red Tunnel West — onto the tracks)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'tunnel_predator_west', name: 'Tunnel Predator', level: 8,
+        description: 'Eyeless. Pale. The size of a large dog. Evolved in the deep rock and drawn to the transit tunnels by warmth. Hunts by vibration and sound. In light, it retreats.',
+        hp: 45, attributes: { ...enemyAttrs(8), REFLEX: 7, GHOST: 6 }, damage: 10, armorValue: 2,
+        behavior: 'ambush' as const, spawnChance: 0.5, count: [1, 1],
+        drops: [
+          { itemId: 'predator_parts', chance: 0.6, quantityRange: [1, 2] as [number, number] },
+          { itemId: 'creds_pouch', chance: 0.4, quantityRange: [8, 15] as [number, number] },
+        ],
+        xpReward: 65,
+      },
+    ],
+    objects: [
+      { id: 'transit_map_west', name: 'transit map', examineText: 'Behind cracked glass. The complete system map — three lines, color-coded. Red Line east-west. Blue Line north-south. Yellow Line: the Loop. The map shows the system as designed — connected, functional. The system as it exists now is different.' },
+      { id: 'benches_west', name: 'benches', examineText: 'Bolted to the platform. Designed for waiting. Nobody\'s waiting. Artifacts of a social behavior that no longer exists.' },
+      { id: 'ticket_machine_west', name: 'ticket machine', examineText: 'Screen dark. Coin slot jammed. TECH ≥ 5: The machine still has its internal battery. The final ticket was purchased at 23:47, fifteen years ago. Platform 2 to Central Station. Someone was going home. The train didn\'t come.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'PITCH BLACK', die: 8, benefitsActions: ['sneak'], hindersActions: ['attack', 'scan'], color: '#1a1a2e' }],
+  },
+
+  // ── 3. RED TUNNEL WEST ──────────────────────────────────────────────────
+
+  z11_r03: {
+    id: 'z11_r03',
+    zone: 'z11',
+    name: 'RED TUNNEL WEST',
+    description:
+`On the tracks. The platform drops away behind you and the
+tunnel closes in — three meters diameter, concrete-lined,
+rails set in the floor. The tunnel is straight. Your light
+shows rail for thirty meters before the dark swallows it.
+
+Water between the ties, ankle-deep in places. The rails are
+intact — no rust, surprisingly. The steel is coated in
+something organic. A patina that isn't corrosion. The
+Substrate's influence, reaching this far up.
+
+A sound builds from ahead. Low. Rhythmic. Getting louder.
+Metal on metal. Wheels on rail.
+
+The maintenance train.
+
+It runs the Red Line on a circuit — battery-powered,
+recharged by the Substrate's 33hz field in the growth areas.
+Automated. Fifteen years of empty circuits. It fills the
+tunnel. When it passes, there's nowhere to go except the
+maintenance alcoves cut into the walls every hundred meters.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z11_r02', description: 'west (West Platform)' },
+      { direction: 'east', targetRoom: 'z11_r04', description: 'east (Central Station)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'maintenance_train', name: 'maintenance train', examineText: 'A single-car automated train. Battery panel blinks amber. TECH ≥ 6: The battery is deep-cycle industrial. Should have died years ago. The Substrate growth areas recharge it at 33hz. The train runs because the earth keeps it running. TECH ≥ 7: The emergency stop in the operator cab works. Press it and the train stops permanently. The program can\'t override a physical brake lock. Stopping it removes the hazard. It also stops the last moving thing the old transit system produced.' },
+      { id: 'operator_cab', name: 'operator cab', examineText: 'Empty. Automated from day one. Manual controls: throttle lever, brake lever, emergency stop button. The emergency stop works. The question: is the train a hazard or a life?' },
+      { id: 'maintenance_alcove', name: 'maintenance alcove', examineText: 'Cut into the tunnel wall every hundred meters. Enough room for one person to press flat while the train passes. The walls are scored with scratches — marks from people who waited here while something large went by.' },
+      { id: 'water_pools', name: 'water pools', examineText: 'Seepage from the earth above. Ankle-deep in places. The water is clean — filtered through meters of rock. Some of the purest water in the undercity.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'MAINTENANCE RAILS', die: 8, benefitsActions: ['flee'], hindersActions: ['attack'], color: '#ff6b6b' }],
+  },
+
+  // ── 4. CENTRAL STATION ──────────────────────────────────────────────────
+
+  z11_r04: {
+    id: 'z11_r04',
+    zone: 'z11',
+    name: 'CENTRAL STATION',
+    description:
+`The tunnel opens into space. After the claustrophobic diameter
+of the Red Line bore, Central Station is enormous — a vaulted
+ceiling fifteen meters high, four platforms serving two lines,
+the intersection of everything the transit system was designed
+to connect.
+
+Your light doesn't reach the ceiling. It illuminates the
+nearest platform — tile mosaics reading "CENTRAL" in blue
+and white, columns supporting the vault, the platform edge
+dropping to the track bed below. The station was beautiful.
+The tiles are handcraft. The columns are carved with transit
+insignia. The ceiling, if you could see it, is painted.
+
+Someone has made a camp on Platform 2. A fire ring — cold
+now, but recently used. A cache of glow sticks. Maps drawn
+on the platform floor in chalk. The camp belongs to someone
+who comes here regularly, who knows the station well, and
+who has been mapping the transit system with a thoroughness
+that borders on obsession.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z11_r03', description: 'west (Red Tunnel West)' },
+      { direction: 'east', targetRoom: 'z11_r05', description: 'east (Red Tunnel East)' },
+      { direction: 'north', targetRoom: 'z11_r10', description: 'north (Blue Tunnel North)' },
+      { direction: 'south', targetRoom: 'z11_r11', description: 'south (Blue Tunnel South)' },
+      { direction: 'northeast', targetRoom: 'z11_r08', description: 'northeast (Warrens Stair)', hidden: true },
+    ],
+    npcs: [
+      {
+        id: 'compass', name: 'Compass', type: 'SHOPKEEPER' as const,
+        faction: 'NONE',
+        description: 'Forties. Energetic. Surrounded by maps on Platform 2. She speaks quickly and gestures constantly, pointing at map sections, tracing routes in the air.',
+        dialogue: "\"Another soul in the dark! Excellent. — Have you mapped anything? No? Then you need my maps. Everyone needs my maps. The system is three lines and eighteen stations and I have walked every meter of it. Here — look.\"",
+        startingDisposition: 10,
+        services: ['quest', 'shop', 'info'] as string[],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'fire_ring', name: 'fire ring', examineText: 'Cold but recently used. Compass burns scavenged material for warmth and cooking. The ring is efficient — minimal smoke, maximum heat. She\'s been doing this for three years.' },
+      { id: 'chalk_maps', name: 'chalk maps', examineText: 'Extraordinary detail. Every tunnel, every station, every collapse, every flooded section, every Substrate growth. The maps cover most of Platform 2\'s floor. Compass draws them fresh on every expedition because the chalk fades.' },
+      { id: 'glow_stick_cache', name: 'glow stick cache', examineText: 'Two dozen chemical glow sticks in a waterproof bag. Compass\'s navigation insurance. She carries more light sources than anyone in the zone.' },
+      { id: 'station_mosaics', name: 'tile mosaics', examineText: 'Blue and white ceramic. Individual pieces arranged in geometric patterns that echo the city\'s surface architecture. Handcraft — someone designed these with care. The station was meant to be beautiful.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [],
+  },
+
+  // ── 5. RED TUNNEL EAST ──────────────────────────────────────────────────
+
+  z11_r05: {
+    id: 'z11_r05',
+    zone: 'z11',
+    name: 'RED TUNNEL EAST',
+    description:
+`The Red Line heading east from Central Station. Same geometry
+as the western section — three meters diameter, rails in the
+floor, darkness in every direction. The maintenance train
+runs through here too. The alcoves are spaced identically.
+
+The tunnel is drier on this side. The walls show tool marks
+from the original bore — the machine that carved this passage
+left a spiral pattern in the concrete lining. In your light,
+the pattern looks deliberate. Intentional. It's not. It's
+just what a boring machine does. But in the dark, everything
+looks like it means something.
+
+Faint scratches on the wall at shoulder height. Recent.
+Chalk marks — Compass's navigation system. An arrow pointing
+west, annotated: "CENTRAL 400m." An arrow pointing east:
+"EAST PLATFORM 350m." Below both: "TRAIN EVERY ~40 MIN."`,
+    exits: [
+      { direction: 'west', targetRoom: 'z11_r04', description: 'west (Central Station)' },
+      { direction: 'east', targetRoom: 'z11_r06', description: 'east (East Platform)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'tunnel_predator_east', name: 'Tunnel Predator', level: 9,
+        description: 'Pale, eyeless, hunting by vibration. Larger than the western specimens — the eastern tunnels are warmer, more food sources.',
+        hp: 52, attributes: { ...enemyAttrs(9), REFLEX: 7, GHOST: 6 }, damage: 12, armorValue: 2,
+        behavior: 'ambush' as const, spawnChance: 0.4, count: [1, 1],
+        drops: [
+          { itemId: 'predator_parts', chance: 0.6, quantityRange: [1, 2] as [number, number] },
+        ],
+        xpReward: 75,
+      },
+    ],
+    objects: [
+      { id: 'compass_chalk_east', name: 'chalk marks', examineText: 'Compass\'s navigation system. Arrows, distances, train timing. She refreshes these on every mapping expedition. The consistency is obsessive and lifesaving.' },
+      { id: 'bore_marks', name: 'bore marks', examineText: 'Spiral pattern in the tunnel lining. The boring machine left its signature in the concrete. In the dark, the pattern looks meaningful. It\'s not. It\'s just infrastructure.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'NARROW TRACKS', die: 6, benefitsActions: ['sneak'], hindersActions: ['flee'] }],
+  },
+
+  // ── 6. EAST PLATFORM ────────────────────────────────────────────────────
+
+  z11_r06: {
+    id: 'z11_r06',
+    zone: 'z11',
+    name: 'EAST PLATFORM',
+    description:
+`The eastern end of the Red Line. The platform is narrower —
+this station served the Industrial District's workers, built
+for volume not comfort. The tiles read "EAST INDUSTRIAL" in
+orange and black. Exposed conduit, riveted metal fixtures,
+a clock on the wall that stopped at 23:52.
+
+Two tunnel mouths open from this platform. The western one
+returns to the Red Line — back toward Central. The eastern
+one is the Loop Junction — the Yellow Line, branching south.
+
+A transit sign above the eastern tunnel:
+"YELLOW LINE — LOOP SERVICE"
+Below it, in chalk, in Compass's handwriting:
+"ONE WAY. NO RETURN. I MEAN IT."`,
+    exits: [
+      { direction: 'west', targetRoom: 'z11_r05', description: 'west (Red Tunnel East)' },
+      { direction: 'east', targetRoom: 'z11_r14', description: 'east (Loop Junction)' },
+      { direction: 'south', targetRoom: 'z11_r07', description: 'south (East Descent)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'scavenger_party_east', name: 'Scavenger Party', level: 9,
+        description: 'Surface group descended through the East Descent, looking for salvageable metro hardware. Nervous, armed with improvised weapons. In darkness, they attack first.',
+        hp: 40, attributes: { ...enemyAttrs(9), COOL: 3 }, damage: 10, armorValue: 2,
+        behavior: 'aggressive' as const, spawnChance: 0.4, count: [2, 3],
+        drops: [
+          { itemId: 'salvaged_gear', chance: 0.5, quantityRange: [1, 1] as [number, number] },
+          { itemId: 'creds_pouch', chance: 0.6, quantityRange: [5, 12] as [number, number] },
+        ],
+        xpReward: 70,
+      },
+    ],
+    objects: [
+      { id: 'compass_warning', name: 'compass warning', examineText: "'ONE WAY. NO RETURN. I MEAN IT.' Compass's chalk below the Yellow Line sign. Large enough to read from the platform edge. She also drew an arrow pointing west — 'THIS WAY INSTEAD.' Fresh on every mapping expedition." },
+      { id: 'industrial_clock', name: 'industrial clock', examineText: 'Stopped at 23:52. Eight minutes before midnight on the transit system\'s last day. Analog — physical mechanism that ran on station power. The last eight minutes of public transit, frozen.' },
+      { id: 'platform_graffiti', name: 'platform graffiti', examineText: 'Workers\' marks from operating years. \'THIRD SHIFT FOREVER.\' \'Mika loves Oren.\' Post-shutdown: \'DEEP DWELLERS DON\'T USE DOORS.\' \'Light = life.\' \'Something in the Yellow Line. Don\'t go.\'' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SCAVENGER DARK', die: 8, benefitsActions: ['sneak'], hindersActions: ['scan'], color: '#1a1a2e' }],
+  },
+
+  // ── 7. EAST DESCENT ─────────────────────────────────────────────────────
+
+  z11_r07: {
+    id: 'z11_r07',
+    zone: 'z11',
+    name: 'EAST DESCENT',
+    description:
+`A service shaft connecting the East Platform to the Industrial
+Drainage above. Vertical — metal rungs set in concrete,
+ascending through thirty meters of rock. At the top: the
+chemical waterfall of the Deep Drain. At the bottom: the
+platform.
+
+The shaft smells different. Chemical tang drifts down from
+above — the Industrial Drainage's atmosphere bleeding into
+the deep. The temperature rises as you climb. Cool mineral
+dark below, warm chemical air above. The boundary between
+zones is sensory.
+
+The tunnel predators don't cross upward — the chemicals are
+hostile. The corroded ferals from above don't cross down.
+The boundary is a no-man's-land.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z10_r10', description: 'up (Industrial Drainage — Deep Drain)', zoneTransition: true, targetZone: 'z10' },
+      { direction: 'west', targetRoom: 'z11_r06', description: 'west (East Platform)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'chemical_boundary', name: 'chemical boundary', examineText: 'The air changes over five meters — cool and mineral below, warm and chemical above. Two ecosystems meeting. Neither side can survive the other\'s poison.' },
+      { id: 'metal_rungs', name: 'metal rungs', examineText: 'Corroded but holding. The climb is thirty meters. The rungs get warmer as you ascend.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'CHEMICAL DARK', die: 6, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
+  },
+
+  // ── 8. WARRENS STAIR ────────────────────────────────────────────────────
+
+  z11_r08: {
+    id: 'z11_r08',
+    zone: 'z11',
+    name: 'WARRENS STAIR',
+    description:
+`Behind a maintenance door on Central Station's Platform 3 —
+a narrow staircase descends into older infrastructure. The
+stairs are stone, not concrete. Pre-transit, pre-city. The
+staircase was here before the metro was bored and the builders
+walled it off rather than investigate where it went.
+
+The wall has been opened. Recently — within the last few
+years. The break is clean, tools were used, rubble removed.
+Someone wanted access to what's below Central Station.
+
+The staircase descends for twenty meters and opens into a
+natural cavern that has been colonized by commerce. The
+Black Market Warrens begin here.`,
+    exits: [
+      { direction: 'southwest', targetRoom: 'z11_r04', description: 'southwest (Central Station — Platform 3)' },
+      { direction: 'down', targetRoom: 'z13_r01', description: 'down (Black Market Warrens)', zoneTransition: true, targetZone: 'z13' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'broken_wall', name: 'broken wall', examineText: 'Clean break. Tools, not force. Someone with engineering knowledge opened this passage deliberately. The rubble was removed — not piled, removed. Professional.' },
+      { id: 'stone_stairs', name: 'stone stairs', examineText: 'Pre-concrete. These stairs are older than the transit system. Older than the city above. Whatever they connected to originally, the metro builders sealed it off. The Warrens operators unsealed it.' },
+    ],
+    isSafeZone: false,
+    isHidden: true,
+    hiddenRequirement: { attribute: 'GHOST' as keyof Attributes, minimum: 6 },
+    traitDice: [],
+  },
+
+  // ── 9. NORTH PLATFORM ───────────────────────────────────────────────────
+
+  z11_r09: {
+    id: 'z11_r09',
+    zone: 'z11',
+    name: 'NORTH PLATFORM',
+    description:
+`The northern terminal of the Blue Line. "NORTH CAMPUS" in
+the tiles — the station that served the Helixion Campus
+perimeter. The platform is the most intact in the system —
+nearest to the surface, least affected by water damage.
+
+The air here moves. A draft from above — the connection to
+the Maintenance Tunnels is close. The temperature is warmer
+than the grid tunnels. The proximity to the surface means
+less total darkness — faint ambient light seeps through
+ventilation shafts.
+
+The platform benches are clean. Someone sits here regularly.
+Deep dweller traces — subtle rearrangement of objects,
+moisture marks from containers.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z09_r11', description: 'up (Maintenance Tunnels — Deep Access Shaft)', zoneTransition: true, targetZone: 'z09' },
+      { direction: 'south', targetRoom: 'z11_r10', description: 'south (Blue Tunnel North)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'campus_tiles', name: 'campus tiles', examineText: 'NORTH CAMPUS. The tiles are cleaner than anywhere else in the transit system. Someone maintains them. Deep dweller territory — they take care of the spaces they inhabit.' },
+      { id: 'ventilation_light', name: 'ventilation shafts', examineText: 'Faint ambient light. The surface is closer here than anywhere else in the transit system. The light is barely visible — but after the grid tunnels, it feels like dawn.' },
+      { id: 'dweller_traces', name: 'dweller traces', examineText: 'Subtle. Benches wiped clean. Water condensation patterns suggesting containers were placed here recently. The deep dwellers use this platform as a transit point.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [],
+  },
+
+  // ── 10. BLUE TUNNEL NORTH ───────────────────────────────────────────────
+
+  z11_r10: {
+    id: 'z11_r10',
+    zone: 'z11',
+    name: 'BLUE TUNNEL NORTH',
+    description:
+`The Blue Line heading north from Central. The tunnel is wider
+than the Red Line bore — four meters diameter, built for
+larger rolling stock. The extra meter makes the darkness feel
+different. More space for things to occupy.
+
+This is deep dweller territory. They've lived in the transit
+system long enough to adapt — enlarged pupils, heightened
+hearing, spatial awareness that doesn't require sight. They're
+not feral. They're adapted. The cost was the surface. The
+reward was the dark.
+
+Signs of habitation that you'd miss without looking: signal
+junction boxes opened with components repurposed. Moisture
+marks from water containers. The faintest warmth from bodies
+that recently occupied a space. They're here. They've been
+here the entire time.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z11_r09', description: 'north (North Platform)' },
+      { direction: 'south', targetRoom: 'z11_r04', description: 'south (Central Station)' },
+    ],
+    npcs: [
+      {
+        id: 'deep_dwellers', name: 'Deep Dwellers', type: 'NEUTRAL' as const,
+        faction: 'NONE',
+        description: 'Movement in the dark. Not sound — presence. The displacement of air. The deep dwellers are here. They decided you were acceptable.',
+        dialogue: "\"…you carry light. we hear it. the battery hum. — you are looking for the station? south. the cartographer is there. — we do not trade in creds. we trade in quiet. be quiet and you may pass.\"",
+        startingDisposition: -5,
+        services: ['info'] as string[],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'repurposed_junctions', name: 'signal junctions', examineText: 'Opened and components removed — the useful ones. The dwellers are technically literate. They understand the infrastructure they inhabit. They\'ve repurposed it rather than scavenging it.' },
+      { id: 'dweller_evidence', name: 'dweller evidence', examineText: 'GHOST ≥ 7 (in darkness): Movement. Not sound — presence. The displacement of air as someone passes within two meters. They watched you enter. They decided you were acceptable. In the dark, on their ground, the dwellers hold every advantage.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'DEEP DARK', die: 8, benefitsActions: ['sneak'], hindersActions: ['attack', 'scan'], color: '#1a1a2e' }],
+  },
+
+  // ── 11. BLUE TUNNEL SOUTH ───────────────────────────────────────────────
+
+  z11_r11: {
+    id: 'z11_r11',
+    zone: 'z11',
+    name: 'BLUE TUNNEL SOUTH',
+    description:
+`The Blue Line heading south from Central Station. The tunnel
+geometry is standard for the first two hundred meters. Then
+it changes.
+
+The floor develops texture. Crystalline formations, small at
+first, pushing through the joints between ties. Blue-green.
+Bioluminescent. The first natural light source in the transit
+system. The glow is dim but present — enough to see the
+tunnel walls without artificial light.
+
+The Substrate is growing into the transit infrastructure.
+Organic crystalline structures push through rock and concrete.
+The growths are densest on the floor and lower walls. The
+ceiling is still concrete. The transition is in progress.
+
+The 33hz frequency is strong here. You feel it in the floor,
+through your shoes, through the rails. The rails themselves
+have begun to change — steel developing an organic patina.
+The Substrate is integrating the metro's infrastructure into
+its own architecture.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z11_r04', description: 'north (Central Station)' },
+      { direction: 'south', targetRoom: 'z11_r12', description: 'south (South Platform)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'substrate_growth_blue', name: 'Active Substrate Growth', level: 12,
+        description: 'Crystalline surge — sharp formations erupting from the floor in response to vibration. The Substrate responds to disturbance reflexively. It doesn\'t know you\'re human.',
+        hp: 65, attributes: { ...enemyAttrs(12), BODY: 8, TECH: 6 }, damage: 14, armorValue: 6,
+        behavior: 'territorial' as const, spawnChance: 0.5, count: [1, 1],
+        drops: [
+          { itemId: 'substrate_crystal', chance: 0.7, quantityRange: [1, 2] as [number, number] },
+        ],
+        xpReward: 110,
+      },
+    ],
+    objects: [
+      { id: 'crystalline_formations', name: 'crystalline formations', examineText: 'Blue-green. Bioluminescent. Warm to the touch. TECH ≥ 7: Active growths pulse at a faster rate than passive ones. Walk softly (GHOST ≥ 6) or identify which formations are reactive before approaching.' },
+      { id: 'organic_rails', name: 'organic rails', examineText: 'The steel rails developing a crystalline patina. Not rust — something alive. The Substrate is converting manufactured infrastructure into biological architecture. The integration is slow, persistent, and beautiful.' },
+      { id: 'bioluminescence', name: 'bioluminescence', examineText: 'The first light in the transit system that isn\'t yours. Blue-green. Dim but steady. The Substrate grows its own illumination. In the growth areas, you don\'t need a flashlight. The darkness retreats from something older.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SUBSTRATE GROWTH', die: 10, benefitsActions: ['hack'], hindersActions: ['flee', 'attack'], color: '#4ade80' }],
+    environmentalClocks: [{
+      name: 'SUBSTRATE SURGE',
+      segments: 6,
+      ticksPerRound: 1,
+      onFill: 'complication' as const,
+      description: 'crystalline growth responds to vibration. combat draws it closer.',
+    }],
+  },
+
+  // ── 12. SOUTH PLATFORM ──────────────────────────────────────────────────
+
+  z11_r12: {
+    id: 'z11_r12',
+    zone: 'z11',
+    name: 'SOUTH PLATFORM',
+    description:
+`The southern terminal of the Blue Line. "SOUTH JUNCTION" in
+tiles that glow faintly — the Substrate bioluminescence has
+reached the ceramic, infusing the letters with blue-green
+light. The station is alive. The Substrate has made it alive.
+
+A figure stands at the platform edge, facing the tracks.
+Uniform. Transit authority badge. They turn when you enter
+and their eyes focus — not the vacant mesh-compliance gaze
+but real attention. Real presence. Someone has been standing
+at their post for fifteen years.
+
+Nearby, sitting against a column, a younger figure. Exhausted.
+Scared. She took the Loop. She's been walking for two days
+and her light ran out somewhere in the deep.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z11_r11', description: 'north (Blue Tunnel South)' },
+      { direction: 'west', targetRoom: 'z11_r13', description: 'west (Iron Bloom Passage)' },
+      { direction: 'down', targetRoom: 'z14_r03', description: 'down (Substrate Level — Southern Descent)', zoneTransition: true, targetZone: 'z14' },
+    ],
+    npcs: [
+      {
+        id: 'station', name: 'Station', type: 'NEUTRAL' as const,
+        faction: 'NONE',
+        description: 'Transit operator. Fifties. Uniform pressed. Badge polished. Fifteen years at their post. The Substrate glow has given their skin a faint bioluminescent quality along the veins.',
+        dialogue: "\"Welcome to South Junction station. Current service is temporarily suspended. — How may I assist you? Route information? Schedule? …Cargo manifests? Yes. I have those. I have everything. I filed it all. That's my job.\"",
+        startingDisposition: 5,
+        services: ['quest', 'info'] as string[],
+      },
+      {
+        id: 'ever', name: 'Ever', type: 'NEUTRAL' as const,
+        faction: 'NONE',
+        description: 'Twenties. Scared. Exhausted. She took the Loop because someone told her it was a shortcut. Her light ran out two days ago.',
+        dialogue: "\"…please. I can't — I've been walking. In the dark. For two days. Something was following me and I couldn't see it and I just kept walking. Please. I need to get back to Central Station. I can't do it alone.\"",
+        startingDisposition: 0,
+        services: ['quest'] as string[],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'cargo_manifest', name: 'cargo manifest', examineText: 'Station\'s copy. Final service day: sixty-three containers, classification 7, originating from sub-level loading bay, destination North Campus via Blue Line express. Helixion used the transit system to transport Substrate material from the deep to the campus. The shutdown covered the extraction.' },
+      { id: 'loading_bay', name: 'loading bay', examineText: 'Behind the platform. Now Substrate-overgrown. The bay doors are sealed by crystalline growth. Through gaps in the crystal: the machinery that loaded containers onto trains. The last containers left fifteen years ago.' },
+      { id: 'substrate_tiles', name: 'glowing tiles', examineText: 'The station tiles infused with bioluminescence. The Substrate reached the ceramic and made it glow. SOUTH JUNCTION in letters that produce their own light. The station is becoming part of the Substrate.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [],
+  },
+
+  // ── 13. IRON BLOOM PASSAGE ──────────────────────────────────────────────
+
+  z11_r13: {
+    id: 'z11_r13',
+    zone: 'z11',
+    name: 'IRON BLOOM PASSAGE',
+    description:
+`A service tunnel branching west from South Platform. This
+isn't part of the original transit system — it's been cut
+through the rock in the last few years. The walls show drill
+marks and controlled blasting. Someone with resources and
+engineering knowledge carved a connection between the transit
+system and what lies to the east.
+
+The tunnel is maintained. Clean. The floor is swept. Cable
+runs along the ceiling carry power from a generator you can
+hear humming. Light sources — actual electric lights — mark
+the passage at regular intervals. After the transit system's
+darkness, the illumination is almost shocking.
+
+A reinforced door at the eastern end. Blast-rated. Locked
+from the other side. An intercom and a camera watch the
+approach. Iron Bloom's back door.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z11_r12', description: 'east (South Platform)' },
+      { direction: 'west', targetRoom: 'z12_r02', description: 'west (Iron Bloom — Transit Access)', zoneTransition: true, targetZone: 'z12' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'drill_marks', name: 'drill marks', examineText: 'Controlled blasting. Professional excavation. Iron Bloom carved this passage — the connection between the transit system and their facility. The engineering is recent and competent.' },
+      { id: 'electric_lights', name: 'electric lights', examineText: 'Real electricity. Generator-powered. After the transit darkness, the light is almost painful. Your eyes adjust. The passage is clean, maintained, deliberate.' },
+      { id: 'intercom_camera', name: 'intercom and camera', examineText: 'Iron Bloom security. The camera is active — green indicator light. The intercom connects to the Commons. Nobody enters without two voices confirming.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [],
+  },
+
+  // ── 14. LOOP JUNCTION ───────────────────────────────────────────────────
+
+  z11_r14: {
+    id: 'z11_r14',
+    zone: 'z11',
+    name: 'LOOP JUNCTION',
+    description:
+`The Yellow Line junction. East Platform's second tunnel
+mouth, branching south. The architecture changes here —
+the Red Line's industrial concrete gives way to the Yellow
+Line's deeper bore. The tunnel curves. You can't see what's
+ahead.
+
+WARNING signs. Official transit authority warnings preserved
+under glass. Below them, in chalk, in paint, scratched into
+the tile:
+
+"THE LOOP DOES NOT RETURN."
+"ONE WAY SOUTH. NO GRID CONNECTION."
+"COMPASS: TURN BACK. CENTRAL IS 750m WEST."
+"i took the loop. it took three days to walk out. — ever"
+
+Every warning is different. Every warning says the same thing.
+The Loop is not a shortcut. The Loop is a commitment.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z11_r06', description: 'west (East Platform)' },
+      { direction: 'south', targetRoom: 'z11_r15', description: 'south (Loop South — ONE WAY)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'loop_warnings', name: 'loop warnings', examineText: 'Dozens. Different handwriting. Different materials — chalk, paint, scratches, marker. All saying the same thing. Compass refreshes hers every expedition. Ever\'s is scratched deep. The warnings span years. Nobody listens.' },
+      { id: 'transit_warnings', name: 'transit authority warnings', examineText: 'Official signage under glass. "YELLOW LINE LOOP SERVICE — TERMINAL STATION: WEST FRINGE. NO EASTBOUND RETURN SERVICE." The transit authority warned people when the system was running. The warnings are more relevant now.' },
+      { id: 'yellow_line_sign', name: 'yellow line sign', examineText: 'LOOP SERVICE. The yellow paint is faded but visible. The Yellow Line was the city\'s outer circuit. It worked when both ends connected. Now only one end exists.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'ONE WAY', die: 8, hindersActions: ['flee'], color: '#fbbf24' }],
+  },
+
+  // ── 15. LOOP SOUTH ──────────────────────────────────────────────────────
+
+  z11_r15: {
+    id: 'z11_r15',
+    zone: 'z11',
+    name: 'LOOP SOUTH',
+    description:
+`The Yellow Line curves south and descends. The tunnel is
+older here — pre-metro infrastructure repurposed for the
+Loop. The walls aren't concrete-lined; they're cut rock,
+smooth but irregular. The air is warmer. The dark is total.
+
+Predator territory. The tunnel predators are larger in the
+Loop — isolated population, less competition, more prey.
+The echoes carry differently in the curved tunnel. Sound
+wraps around the bend. You hear things approaching from
+directions that don't exist.
+
+Bones on the track bed. Small animals. Some not small.
+The predators have been the dominant species in the Loop
+for fifteen years. They don't retreat from light here.
+They evaluate it.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z11_r14', description: 'north (Loop Junction)' },
+      { direction: 'south', targetRoom: 'z11_r16', description: 'south (Loop Deep Station)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'tunnel_predator_loop', name: 'Tunnel Predator', level: 12,
+        description: 'Loop variant. Larger than the grid specimens. Doesn\'t retreat from light — evaluates it. Hunts in pairs. Brackets prey from both sides of the curved tunnel.',
+        hp: 70, attributes: { ...enemyAttrs(12), REFLEX: 8, GHOST: 7, BODY: 8 }, damage: 16, armorValue: 3,
+        behavior: 'ambush' as const, spawnChance: 0.7, count: [1, 2],
+        drops: [
+          { itemId: 'predator_parts', chance: 0.7, quantityRange: [1, 3] as [number, number] },
+          { itemId: 'creds_pouch', chance: 0.3, quantityRange: [10, 20] as [number, number] },
+        ],
+        xpReward: 120,
+      },
+    ],
+    objects: [
+      { id: 'track_bones', name: 'bones', examineText: 'On the track bed. Small animals mostly. Some larger — canine-sized. One set of bones is human. Old. Picked clean. The predators have been apex here for fifteen years.' },
+      { id: 'curved_echoes', name: 'curved tunnel', examineText: 'Sound wraps around the bend. Footsteps arrive from behind you even when nothing is there. The acoustic properties of the curved tunnel make spatial awareness unreliable. The predators evolved here. They know the echoes.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'PREDATOR TERRITORY', die: 10, benefitsActions: ['sneak'], hindersActions: ['scan', 'flee'], color: '#ff6b6b' }],
+  },
+
+  // ── 16. LOOP DEEP STATION ───────────────────────────────────────────────
+
+  z11_r16: {
+    id: 'z11_r16',
+    zone: 'z11',
+    name: 'LOOP DEEP STATION',
+    description:
+`The deepest point in the transit system. A station that was
+never finished — the platform exists but the tile work stops
+halfway. Construction scaffolding still stands against the
+far wall. The Yellow Line was being extended when the system
+shut down.
+
+The 33hz frequency is overwhelming here. Not a background
+hum — a physical presence. The vibration rises through the
+floor, through the scaffold, through your body. The air
+tastes metallic. The temperature is wrong — warm, humid,
+as if the earth itself is breathing.
+
+Someone lives here. Not recently arrived — permanently.
+A figure sitting cross-legged on the unfinished platform,
+surrounded by objects arranged in geometric patterns.
+Crystals, wire, broken electronics, arranged with obsessive
+precision. The hermit of the deep.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z11_r15', description: 'north (Loop South)' },
+      { direction: 'south', targetRoom: 'z11_r17', description: 'south (Loop Overgrowth)' },
+    ],
+    npcs: [
+      {
+        id: 'hermit', name: 'Hermit', type: 'NEUTRAL' as const,
+        faction: 'NONE',
+        description: 'Indeterminate age. Gaunt. Eyes adjusted to absolute darkness — they don\'t blink. Surrounded by objects arranged in patterns that might be art, might be communication, might be both.',
+        dialogue: "\"…the frequency is louder here. you hear it. you feel it. — i came down to listen. that was. i don't remember how long ago. the listening takes all the time there is. — the earth is asking a question. i'm trying to understand the question before i try to answer it.\"",
+        startingDisposition: 0,
+        services: ['info'] as string[],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'geometric_patterns', name: 'geometric patterns', examineText: 'Crystals, wire, electronics, arranged in spirals and grids. The patterns don\'t repeat — each one is unique. The hermit has been arranging these for years. GHOST ≥ 8: The patterns correspond to the 33hz frequency\'s waveform structure. The hermit is mapping the Substrate\'s signal in physical objects.' },
+      { id: 'unfinished_platform', name: 'unfinished platform', examineText: 'Tile work stops halfway. Construction scaffolding. The Yellow Line was being extended when the system shut down. The workers left and never came back. The scaffold has been here for fifteen years.' },
+      { id: 'resonance_field', name: 'resonance field', examineText: 'The 33hz frequency is a physical force here. It vibrates the scaffold. It vibrates the air. GHOST ≥ 7: The frequency has structure. Not noise. Nested patterns. Something communicating. The earth\'s question.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'RESONANCE FIELD', die: 10, benefitsActions: ['hack', 'resist'], hindersActions: ['attack'], color: '#818cf8' }],
+  },
+
+  // ── 17. LOOP OVERGROWTH ─────────────────────────────────────────────────
+
+  z11_r17: {
+    id: 'z11_r17',
+    zone: 'z11',
+    name: 'LOOP OVERGROWTH',
+    description:
+`The tunnel is consumed.
+
+The Substrate has replaced the infrastructure entirely.
+Walls, floor, ceiling — all organic crystalline growth.
+Blue-green bioluminescence bathes everything in alien light.
+The tunnel's original shape is preserved as a hollow within
+the growth — the Substrate grew around the space rather than
+filling it.
+
+The air is warm, humid, heavy with the mineral smell of
+living rock. The 33hz frequency isn't heard here — it's felt
+in every surface, in the air, in the moisture on the crystal
+faces. You're inside the Substrate. The boundary between
+infrastructure and organism is gone.
+
+Active growths pulse in the floor. Walking heavily triggers
+crystalline surges. Walk softly or don't walk at all.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z11_r16', description: 'north (Loop Deep Station)' },
+      { direction: 'south', targetRoom: 'z11_r18', description: 'south (Loop Terminal)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'substrate_growth_loop', name: 'Active Substrate Growth', level: 14,
+        description: 'The Substrate has fully consumed this tunnel. Active growths respond to vibration with devastating crystalline surges. The Substrate doesn\'t attack — it reacts. The distinction is academic when crystal spears erupt from the floor.',
+        hp: 80, attributes: { ...enemyAttrs(14), BODY: 10, TECH: 7 }, damage: 18, armorValue: 8,
+        behavior: 'territorial' as const, spawnChance: 0.6, count: [1, 1],
+        drops: [
+          { itemId: 'substrate_crystal', chance: 0.8, quantityRange: [2, 3] as [number, number] },
+        ],
+        xpReward: 140,
+      },
+    ],
+    objects: [
+      { id: 'consumed_tunnel', name: 'consumed tunnel', examineText: 'The Substrate replaced the transit infrastructure. Not destroyed — replaced. The tunnel shape is preserved. The Substrate grew around the space. It\'s not destroying human architecture. It\'s integrating it. Converting it. Making it part of something larger.' },
+      { id: 'crystal_faces', name: 'crystal faces', examineText: 'The bioluminescence reflects and refracts through crystal layers. The light moves. Patterns shift across the surfaces. TECH ≥ 8: The light patterns correspond to the 33hz frequency\'s data structure. The Substrate communicates through bioluminescence.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'CONSUMED TUNNEL', die: 10, hindersActions: ['flee', 'attack', 'scan'], color: '#4ade80' }],
+    environmentalClocks: [{
+      name: 'SUBSTRATE SURGE',
+      segments: 6,
+      ticksPerRound: 1,
+      onFill: 'complication' as const,
+      description: 'crystalline growth responds to vibration. combat draws it closer.',
+    }],
+  },
+
+  // ── 18. LOOP TERMINAL ───────────────────────────────────────────────────
+
+  z11_r18: {
+    id: 'z11_r18',
+    zone: 'z11',
+    name: 'LOOP TERMINAL',
+    description:
+`The end of the line.
+
+The Yellow Line terminates in a station that was designed
+to connect to the western surface but never completed the
+connection properly. The platform exists. The escalators
+exist — frozen, unpowered, leading up through a shaft to
+a sealed entrance in the Fringe ruins. The seal has been
+broken from above. Sunlight — real sunlight — filters down
+the escalator shaft.
+
+After the deep, after the dark, after the Substrate and
+the predators and the consumed tunnels, the light from
+above is disorienting. Your eyes adjust. The shaft leads
+up. To the Fringe. To the surface.
+
+No grid connection. No return to Central. No shortcut home.
+The Loop delivered you to the far western edge of the city.
+The walk back is on the surface, through the Fringe ruins,
+and it is very long.
+
+Compass was right.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z11_r17', description: 'north (Loop Overgrowth)' },
+      { direction: 'up', targetRoom: 'z04_r05', description: 'up (Fringe — Scavenger Cache)', zoneTransition: true, targetZone: 'z04' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'frozen_escalators', name: 'escalators', examineText: 'Unpowered. The steps are locked in place. Climbable but steep. The shaft is thirty meters — a long walk up frozen stairs to the surface.' },
+      { id: 'shaft_sunlight', name: 'sunlight', examineText: 'Real. Natural. Filtering down the escalator shaft from the broken seal above. After the transit system\'s darkness, it feels like a hallucination. It\'s not. It\'s the sky.' },
+      { id: 'compass_was_right', name: 'scratched message', examineText: 'On the platform wall, in several different hands: "compass was right." "ONE WAY." "i walked for three days." "if you\'re reading this, the hard part is over. the fringe is above. — ever"' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [],
+  },
+};
+
+export const ZONE_11: Zone = {
+  id: 'z11',
+  name: 'ABANDONED TRANSIT',
+  depth: 'deep',
+  faction: 'NONE',
+  levelRange: [8, 15],
+  description: 'Fragmented metro system beneath the entire city. Three lines, one grid, total darkness. Light management is survival. The Loop is one-way.',
+  atmosphere: {
+    sound: 'Silence. Then echoes. Then something moving in the dark that stopped when you stopped.',
+    smell: 'Old concrete, stale air, rust, machine oil from trains that ran fifteen years ago.',
+    light: 'None. Absolute darkness except what you bring. Substrate growth glows where it\'s consumed the tunnels.',
+    temp: 'Cool and stable. Gets warmer near Substrate growth. The Loop is warmer than it should be.',
+  },
+  rooms: Z11_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -6251,6 +7117,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z08: ZONE_08,
   z09: ZONE_09,
   z10: ZONE_10,
+  z11: ZONE_11,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────

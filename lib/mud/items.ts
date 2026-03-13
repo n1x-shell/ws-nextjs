@@ -1632,6 +1632,88 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'quest', tier: 'MIL_SPEC', stackable: false,
     questItem: true,
   },
+
+  // ── Zone 11: Abandoned Transit Items ──────────────────────────────────────
+
+  // Maps (Compass's shop)
+  transit_map_red: {
+    id: 'transit_map_red', name: 'Red Line Map',
+    description: 'Compass\'s hand-drawn map of the Red Line. Every station, every collapse, every hazard. West Platform to East Platform via Central Station. Annotated with train timing.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 8,
+  },
+  transit_map_blue: {
+    id: 'transit_map_blue', name: 'Blue Line Map',
+    description: 'Compass\'s hand-drawn map of the Blue Line. North Platform to South Platform via Central. Substrate growth areas marked in green. Deep dweller territory noted.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 25, sellPrice: 8,
+  },
+  transit_map_loop: {
+    id: 'transit_map_loop', name: 'Yellow Line Map (The Loop)',
+    description: 'Compass\'s map of the Loop. ONE WAY in large letters across the top. Every warning she could fit. The map is accurate. The warnings are sincere.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 30, sellPrice: 10,
+  },
+
+  // Light sources
+  glow_stick_bundle: {
+    id: 'glow_stick_bundle', name: 'Glow Stick Bundle',
+    description: 'Six chemical glow sticks. Crack to activate. Four hours each. Mark your path or light your camp. Compass swears by them.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    buyPrice: 15, sellPrice: 5,
+  },
+  lantern_battery: {
+    id: 'lantern_battery', name: 'Lantern Battery',
+    description: 'Deep-cycle rechargeable cell. Fits standard emergency lanterns. Sixty minutes of directional light. The transit system\'s most important currency.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    buyPrice: 20, sellPrice: 7,
+  },
+  emergency_lantern: {
+    id: 'emergency_lantern', name: 'Emergency Lantern',
+    description: 'Directional flashlight with battery slot. Ten-meter cone. The darkness is what you can\'t see. The lantern defines the edge.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 35, sellPrice: 12,
+  },
+  chemical_light: {
+    id: 'chemical_light', name: 'Chemical Light',
+    description: 'Exothermic chemical tube. Bright white light for thirty minutes. Single use. Illuminates a ten-meter radius. The transit system\'s flare.',
+    category: 'utility', tier: 'COMMON', stackable: true,
+    buyPrice: 10, sellPrice: 3,
+  },
+  signal_flare: {
+    id: 'signal_flare', name: 'Signal Flare',
+    description: 'Military-grade magnesium flare. Blindingly bright for two minutes. Drives tunnel predators back. One use. The nuclear option for light management.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: true,
+    buyPrice: 40, sellPrice: 15,
+  },
+
+  // Enemy drops
+  predator_parts: {
+    id: 'predator_parts', name: 'Predator Parts',
+    description: 'Sensory organs from a tunnel predator. The vibration-detection membranes are valuable to researchers. The teeth are valuable to everyone else.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 12,
+  },
+  salvaged_gear: {
+    id: 'salvaged_gear', name: 'Salvaged Gear',
+    description: 'Scavenged metro hardware. Signal relays, junction components, copper wiring. The transit system\'s bones, stripped for parts.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 10,
+  },
+  substrate_crystal: {
+    id: 'substrate_crystal', name: 'Substrate Crystal',
+    description: 'Organic crystalline growth harvested from the Substrate frontier. Bioluminescent. Warm. Pulses at 33hz. Valuable to Iron Bloom researchers and anyone studying the deep.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 30,
+  },
+
+  // Quest items — Zone 11
+  cargo_manifest_copy: {
+    id: 'cargo_manifest_copy', name: 'Cargo Manifest — Final Day',
+    description: 'Station\'s copy. Sixty-three containers, classification 7, destination North Campus. Proof that Helixion used the transit shutdown to cover Substrate extraction.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    questItem: true,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -2009,4 +2091,19 @@ export const WAVELENGTH_SHOP: ShopItem[] = [
   { templateId: 'spectrum_analysis', stock: 1 },
   { templateId: 'mesh_gap_map', stock: 2 },
   { templateId: 'decoded_33hz_fragment', stock: 1 },
+];
+
+// ── Zone 11: Abandoned Transit Shops ──────────────────────────────────────
+
+export const COMPASS_SHOP: ShopItem[] = [
+  { templateId: 'transit_map_red', stock: 1 },
+  { templateId: 'transit_map_blue', stock: 1 },
+  { templateId: 'transit_map_loop', stock: 1 },
+  { templateId: 'glow_stick_bundle', stock: 5 },
+  { templateId: 'lantern_battery', stock: 3 },
+  { templateId: 'emergency_lantern', stock: 1 },
+  { templateId: 'chemical_light', stock: 8 },
+  { templateId: 'signal_flare', stock: 2 },
+  { templateId: 'stim_pack', stock: 3 },
+  { templateId: 'medkit', stock: 2 },
 ];
