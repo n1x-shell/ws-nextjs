@@ -134,7 +134,7 @@ export interface Currency {
 
 // ── Character ───────────────────────────────────────────────────────────────
 
-export type OriginPoint = 'DRAINAGE' | 'IRON_BLOOM' | 'ROOFTOPS' | 'MARKET';
+export type OriginPoint = 'DRAINAGE' | 'IRON_BLOOM' | 'ROOFTOPS' | 'MARKET' | 'AUGMENTED';
 
 export interface MudCharacter {
   handle: string;

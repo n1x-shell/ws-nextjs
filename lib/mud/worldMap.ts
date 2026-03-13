@@ -142,6 +142,14 @@ don't. You're not the first stranger to climb down the ladder.`,
         dialogue: "A woman sorting salvage glances at you. \"New.\" She goes back to sorting.",
         startingDisposition: 0,
       },
+      {
+        id: 'ketch', name: 'Ketch', type: 'SHOPKEEPER',
+        faction: 'FREEMARKET',
+        description: 'Cheerful in a way that\'s clearly performance. Freemarket fence — operates a small stall near the cooking fire. Everything has a price. Knows things he shouldn\'t.',
+        dialogue: "\"Welcome, welcome! — New face, new opportunities. I deal in information, luxuries, and the occasional weapon that fell off a transport. — Everything's negotiable except my margin.\"",
+        startingDisposition: 5,
+        services: ['shop', 'info'],
+      },
     ],
     enemies: [],
     objects: [
@@ -1214,6 +1222,7 @@ the elevator visits regularly.`,
       { direction: 'west', targetRoom: 'z09_r10', description: 'west (Staging Area)' },
       { direction: 'up', targetRoom: 'z01_r14', description: 'up (Helixion Campus — Service Sublevel)', zoneTransition: true, targetZone: 'z01' },
       { direction: 'down', targetRoom: 'z11_r09', description: 'down (Abandoned Transit — North Platform)', zoneTransition: true, targetZone: 'z11' },
+      { direction: 'in', targetRoom: 'z14_r05', description: 'in (Substrate Level — SL-3 elevator, Helixion credentials required)', locked: true, lockId: 'helixion_sl3_access', zoneTransition: true, targetZone: 'z14' },
     ],
     npcs: [
       {
@@ -5147,6 +5156,7 @@ numbers should be.`,
     exits: [
       { direction: 'south', targetRoom: 'z01_r03', description: 'south (Campus Courtyard)' },
       { direction: 'up', targetRoom: 'z01_r08', description: 'up (Laboratory Floor)' },
+      { direction: 'in', targetRoom: 'z15_r03', description: 'in (Broadcast Tower — Lobby, credentials required)', locked: true, lockId: 'tower_lobby_access', zoneTransition: true, targetZone: 'z15' },
     ],
     npcs: [],
     enemies: [
@@ -5201,6 +5211,7 @@ there and nobody cleaned it up. They just sealed the door.`,
       { direction: 'down', targetRoom: 'z01_r07', description: 'down (Tower Checkpoint)' },
       { direction: 'up', targetRoom: 'z01_r10', description: 'up (Server Core)' },
       { direction: 'east', targetRoom: 'z01_r09', description: 'east (Containment Wing)' },
+      { direction: 'in', targetRoom: 'z16_r01', description: 'in (Helixion Lab — restricted elevator, Chrysalis Research Division)', locked: true, lockId: 'chrysalis_lab_access', zoneTransition: true, targetZone: 'z16' },
     ],
     npcs: [],
     enemies: [
@@ -6110,6 +6121,7 @@ airspace now. Everything is monitored. Everything is armed.`,
     exits: [
       { direction: 'north', targetRoom: 'z07_r09', description: 'north (The Kill Zone)' },
       { direction: 'down', targetRoom: 'z01_r13', description: 'down (Helixion Campus — Tower Rooftop)', zoneTransition: true, targetZone: 'z01' },
+      { direction: 'east', targetRoom: 'z15_r02', description: 'east (Broadcast Tower — Entry Platform, scaffolding access)', locked: true, lockId: 'tower_scaffold_access', zoneTransition: true, targetZone: 'z15' },
     ],
     npcs: [],
     enemies: [
@@ -6841,12 +6853,23 @@ approach. Iron Bloom's back door.`,
       { direction: 'east', targetRoom: 'z11_r12', description: 'east (South Platform)' },
       { direction: 'west', targetRoom: 'z12_r02', description: 'west (Iron Bloom — Transit Access)', zoneTransition: true, targetZone: 'z12' },
     ],
-    npcs: [],
+    npcs: [
+      {
+        id: 'rail', name: 'Rail', type: 'NEUTRAL',
+        faction: 'IRON_BLOOM',
+        description: 'Thirties. Calm. Sitting at the passage\'s midpoint — a checkpoint without a checkpoint\'s infrastructure. Just a person, in the tunnel, waiting. She carries a lantern but uses it only for others. She navigates without light.',
+        dialogue: "\"Hold. — Who sent you? — …Acceptable. Follow me. Stay close. Don't touch the walls — the growths are reactive in the next section. I'll tell you when it's safe.\"",
+        startingDisposition: -5,
+        services: ['info'],
+      },
+    ],
     enemies: [],
     objects: [
       { id: 'drill_marks', name: 'drill marks', examineText: 'Controlled blasting. Professional excavation. Iron Bloom carved this passage — the connection between the transit system and their facility. The engineering is recent and competent.' },
       { id: 'electric_lights', name: 'electric lights', examineText: 'Real electricity. Generator-powered. After the transit darkness, the light is almost painful. Your eyes adjust. The passage is clean, maintained, deliberate.' },
       { id: 'intercom_camera', name: 'intercom and camera', examineText: 'Iron Bloom security. The camera is active — green indicator light. The intercom connects to the Commons. Nobody enters without two voices confirming.' },
+      { id: 'iron_bloom_markers', name: 'iron bloom markers', examineText: 'Gear inside a bloom. The resistance logo, scratched into the tunnel wall at intervals. The marks are small — invisible unless you know to look. They confirm direction: the gear points toward the facility. The bloom points toward the transit system.' },
+      { id: 'managed_growths', name: 'managed growths', examineText: 'The Substrate growths in this passage have been pruned. Iron Bloom maintains the passage — cutting back active growths, channeling the bioluminescence for navigation. Rail trims them monthly. The relationship is gardening — Iron Bloom tends the Substrate, and the Substrate provides light and warmth. Mutualism, at a very small scale.' },
     ],
     isSafeZone: true,
     isHidden: false,
@@ -7768,6 +7791,7 @@ export function getOriginSpawnRoom(origin: import('./types').OriginPoint): strin
   switch (origin) {
     case 'DRAINAGE':   return 'z08_r01'; // South Entry
     case 'IRON_BLOOM': return 'z12_r01'; // Iron Bloom Entry (stub)
+    case 'AUGMENTED':  return 'z12_r05'; // Iron Bloom Clinic (stub — post-rescue origin)
     case 'ROOFTOPS':   return 'z07_r01'; // Rooftop Network
     case 'MARKET':     return 'z03_r01'; // Industrial District (stub)
     default:           return 'z08_r01';
