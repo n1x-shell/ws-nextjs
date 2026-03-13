@@ -9,7 +9,6 @@
 
 import Ably from 'ably';
 import { generateText } from 'ai';
-import { onyx } from '@/lib/onyxProvider';
 import { Redis } from '@upstash/redis';
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit';
 import {
@@ -132,7 +131,7 @@ export async function POST(req: Request) {
     };
 
     const result = await generateText({
-      model:           onyx('alibaba/qwen3-max'),
+      model:           'alibaba/qwen3-max',
       system:          buildUnpromptedPrompt(ctx),
       messages:        [{ role: 'user', content: '[emit unprompted transmission]' }],
       maxOutputTokens: 100,
@@ -166,7 +165,7 @@ export async function POST(req: Request) {
     };
 
     const result = await generateText({
-      model:           onyx('alibaba/qwen3-max'),
+      model:           'alibaba/qwen3-max',
       system:          buildChimePrompt(ctx),
       messages:        [{ role: 'user', content: '[chime if you have something real to say]' }],
       maxOutputTokens: 80,
@@ -256,7 +255,7 @@ export async function POST(req: Request) {
   const systemPrompt = `${trustContext}\n\n${buildMultiplayerPrompt(ctx)}`;
 
   const result = await generateText({
-    model:           onyx('alibaba/qwen3-max'),
+    model:           'alibaba/qwen3-max',
     system:          systemPrompt,
     messages:        historyMessages,
     maxOutputTokens: 400,
