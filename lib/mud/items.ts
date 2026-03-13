@@ -1501,6 +1501,137 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'consumable', tier: 'HELIXION', stackable: false,
     healAmount: 50,
   },
+
+  // ── Zone 07: Rooftop Network Items ──────────────────────────────────────
+
+  // Kite's shop — signal intel
+  signal_booster: {
+    id: 'signal_booster', name: 'Signal Booster',
+    description: 'Amplifies pirate frequency reception. +1 GHOST on rooftop network rooms. Kite\'s design — compact, concealed in a belt clip.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    slot: 'utility_1',
+    buyPrice: 60, sellPrice: 20,
+  },
+  drone_jammer: {
+    id: 'drone_jammer', name: 'Drone Jammer',
+    description: 'Temporary area denial. Disrupts Helixion drone sensors for 5 minutes. Single use. The drones adapt — second use in the same area is less effective.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: true,
+    buyPrice: 85, sellPrice: 30,
+  },
+  frequency_map: {
+    id: 'frequency_map', name: 'Frequency Map',
+    description: 'Current-week frequency allocation across the city. Dead spots, coverage gaps, pirate-safe bands. Kite updates these weekly.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 45, sellPrice: 15,
+  },
+  intercept_data: {
+    id: 'intercept_data', name: 'Intercept Data',
+    description: 'Captured Helixion mesh traffic. Logistics schedules, D9 movement orders, corporate communications. Valuable to the right buyer.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: true,
+    buyPrice: 70, sellPrice: 35,
+  },
+
+  // Torque's shop — hardware
+  pirate_antenna_kit: {
+    id: 'pirate_antenna_kit', name: 'Pirate Antenna Kit',
+    description: 'Everything needed to extend the network. Relay module, amplifier, mounting hardware. Cell Two engineering — not elegant, powerful.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 90, sellPrice: 30,
+  },
+  cable_anchor: {
+    id: 'cable_anchor', name: 'Cable Anchor',
+    description: 'Structural anchor for cable runs between buildings. Rated for human weight plus cargo. Torque tests every one personally.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    buyPrice: 40, sellPrice: 12,
+  },
+  signal_amplifier: {
+    id: 'signal_amplifier', name: 'Signal Amplifier',
+    description: 'Boosts broadcast range and signal penetration. Cell Two design — brute-force approach to the frequency problem. Works through factory noise floors.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    slot: 'utility_2',
+    buyPrice: 110, sellPrice: 40,
+  },
+
+  // Vantage's shop — intelligence reports
+  surveillance_report: {
+    id: 'surveillance_report', name: 'Surveillance Report',
+    description: 'Vantage\'s compiled observation data. Patrol timing, supply movements, construction activity, population patterns. The most comprehensive intelligence in the game.',
+    category: 'lore', tier: 'MIL_SPEC', stackable: true,
+    buyPrice: 80, sellPrice: 30,
+  },
+  patrol_schedule_rooftop: {
+    id: 'patrol_schedule_rooftop', name: 'Rooftop Patrol Schedule',
+    description: 'Drone and ground patrol timing for every visible district. Mapped from the spire over years of observation. Gap windows marked.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 55, sellPrice: 18,
+  },
+  tower_observation_log: {
+    id: 'tower_observation_log', name: 'Tower Observation Log',
+    description: 'Vantage\'s record of Broadcast Tower construction progress. Crew schedules. Delivery timing. The tower is almost complete. The log shows how little time remains.',
+    category: 'lore', tier: 'COMMON', stackable: false,
+    buyPrice: 50, sellPrice: 15,
+  },
+
+  // Wavelength's shop — signal analysis
+  spectrum_analysis: {
+    id: 'spectrum_analysis', name: 'Spectrum Analysis',
+    description: 'Comprehensive frequency mapping of every active signal in the city\'s sky. Dead zones, anomalies, the 33hz carrier. Wavelength\'s life work, summarized.',
+    category: 'lore', tier: 'HELIXION', stackable: false,
+    buyPrice: 120, sellPrice: 45,
+  },
+  mesh_gap_map: {
+    id: 'mesh_gap_map', name: 'Mesh Gap Map',
+    description: 'The mesh has holes. Coverage gaps. Dead spots where pirate signal can exist undetected. This map shows where to hide in the electromagnetic spectrum.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 75, sellPrice: 25,
+  },
+  decoded_33hz_fragment: {
+    id: 'decoded_33hz_fragment', name: 'Decoded 33hz Fragment',
+    description: 'Partial analysis of the 33hz signal\'s internal structure. The patterns repeat. They nest. They look like language. Something beneath the city is speaking.',
+    category: 'lore', tier: 'HELIXION', stackable: false,
+    buyPrice: 150, sellPrice: 50,
+    loreItem: true,
+  },
+
+  // Enemy drops — Zone 07
+  sensor_data: {
+    id: 'sensor_data', name: 'Sensor Data',
+    description: 'Helixion drone sensor logs. Flight paths, scan results, target classification. Useful for predicting patrol patterns.',
+    category: 'material', tier: 'COMMON', stackable: true,
+    sellPrice: 15,
+  },
+  d9_tactical_gear: {
+    id: 'd9_tactical_gear', name: 'D9 Tactical Gear',
+    description: 'Directorate 9 field equipment. Lightweight armor components, encrypted comms, stealth fabric. Military-grade but well-used.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 35,
+  },
+  encrypted_intel: {
+    id: 'encrypted_intel', name: 'Encrypted Intel',
+    description: 'D9 operational data. Encrypted. Wavelength could crack it. Or Iron Bloom. The contents could reveal ongoing operations.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 40,
+  },
+  turret_components: {
+    id: 'turret_components', name: 'Turret Components',
+    description: 'Helixion MDS-7 turret internals. Targeting servo, thermal sensor array, ammunition feed mechanism. Rare — you only get these by disabling the turret.',
+    category: 'material', tier: 'HELIXION', stackable: true,
+    sellPrice: 60,
+  },
+  military_drone_parts: {
+    id: 'military_drone_parts', name: 'Military Drone Parts',
+    description: 'Campus security drone components. Armored housing, stun projector elements, hardened processor. Higher grade than standard patrol drone salvage.',
+    category: 'material', tier: 'HELIXION', stackable: true,
+    sellPrice: 45,
+  },
+
+  // Quest items — Zone 07
+  kite_archive_data: {
+    id: 'kite_archive_data', name: 'Kite\'s Archive Data',
+    description: 'Three years of intercepted Helixion communications. The 33hz carrier wave pattern. Kite needs this analyzed by someone with the tools she doesn\'t have.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    questItem: true,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -1848,4 +1979,34 @@ export const YARA_SHOP: ShopItem[] = [
   { templateId: 'helixion_intel_chip', stock: 3 },
   { templateId: 'stim_pack', stock: 5 },
   { templateId: 'medkit', stock: 2 },
+];
+
+// ── Zone 07: Rooftop Network Shops ──────────────────────────────────────────
+
+export const KITE_SHOP: ShopItem[] = [
+  { templateId: 'signal_booster', stock: 2 },
+  { templateId: 'drone_jammer', stock: 3 },
+  { templateId: 'frequency_map', stock: 2 },
+  { templateId: 'intercept_data', stock: 3 },
+  { templateId: 'stim_pack', stock: 5 },
+];
+
+export const TORQUE_SHOP: ShopItem[] = [
+  { templateId: 'pirate_antenna_kit', stock: 2 },
+  { templateId: 'cable_anchor', stock: 5 },
+  { templateId: 'signal_amplifier', stock: 1 },
+  { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'medkit', stock: 3 },
+];
+
+export const VANTAGE_SHOP: ShopItem[] = [
+  { templateId: 'surveillance_report', stock: 3 },
+  { templateId: 'patrol_schedule_rooftop', stock: 2 },
+  { templateId: 'tower_observation_log', stock: 1 },
+];
+
+export const WAVELENGTH_SHOP: ShopItem[] = [
+  { templateId: 'spectrum_analysis', stock: 1 },
+  { templateId: 'mesh_gap_map', stock: 2 },
+  { templateId: 'decoded_33hz_fragment', stock: 1 },
 ];

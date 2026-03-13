@@ -6,6 +6,7 @@
 // Phase 5: Industrial Drainage (Zone 10, 10 rooms).
 // Phase 6: Fight Pits (Zone 6, 8 rooms).
 // Phase 7: Helixion Campus (Zone 1, 14 rooms).
+// Phase 8: Rooftop Network (Zone 7, 12 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -1948,6 +1949,7 @@ streams of yellow and orange.`,
       { direction: 'north', targetRoom: 'z03_r02', description: 'north (Cargo Docks)' },
       { direction: 'west', targetRoom: 'z03_r09', description: 'west (Wolf Garage)' },
       { direction: 'south', targetRoom: 'z03_r04', description: 'south (Runoff Channel)' },
+      { direction: 'up', targetRoom: 'z07_r07', description: 'up (Rooftop Network — Cell Two)', zoneTransition: true, targetZone: 'z07' },
     ],
     npcs: [
       {
@@ -5631,6 +5633,612 @@ export const ZONE_01: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 07: Rooftop Network ────────────────────────────────────────────────
+
+const Z07_ROOMS: Record<string, Room> = {
+
+  // ── 1. RESIDENTIAL ROOFTOPS ─────────────────────────────────────────────
+
+  z07_r01: {
+    id: 'z07_r01',
+    zone: 'z07',
+    name: 'RESIDENTIAL ROOFTOPS',
+    description:
+`You climb the last ladder from the Residential Blocks and
+the city opens up beneath you. Apartment towers spread in
+every direction — flat rooftops connected by fire escapes,
+maintenance catwalks, and planks the signal pirates laid
+between buildings close enough to bridge. Water towers squat
+on their stilts. Satellite dishes point in directions that
+have nothing to do with the mesh. Laundry lines stretch
+between antenna masts, someone's shirts drying beside a
+pirate broadcast relay.
+
+The wind hits you. Unblocked. This is what the city feels
+like from above — smaller, flatter, less intimidating. The
+streets are canyons below, reduced to geometry. The surveillance
+cameras point down, not up. Up here, you're above the eye line.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z02_r15', description: 'down (Residential Blocks — Rooftop Access)', zoneTransition: true, targetZone: 'z02' },
+      { direction: 'south', targetRoom: 'z07_r02', description: 'south (Water Tower Station)' },
+    ],
+    npcs: [
+      {
+        id: 'pirate_residents', name: 'Signal Pirates (Cell One)', type: 'NEUTRAL' as const,
+        faction: 'THE_SIGNAL',
+        description: 'Cell One pirates maintaining equipment and adjusting antennas. The residential segment is the network\'s on-ramp.',
+        dialogue: 'A woman adjusting an antenna mount nods at you. "New? Kite\'s at the water tower. South. Don\'t touch the cables."',
+        startingDisposition: 5,
+      },
+    ],
+    enemies: [
+      {
+        id: 'helixion_sky_drone', name: 'Helixion Sky Drone', level: 8,
+        description: 'Patrol circuit over the residential rooftops. Scans for pirate broadcast signatures. Engages equipment first, people second.',
+        hp: 26, attributes: { ...enemyAttrs(8), TECH: 6, GHOST: 1 }, damage: 6, armorValue: 3,
+        behavior: 'patrol', spawnChance: 0.4, count: [1, 1],
+        drops: [
+          { itemId: 'drone_components', chance: 0.6, quantityRange: [1, 2] },
+          { itemId: 'sensor_data', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 40,
+        tier: 1,
+        harmSegments: 4,
+        armorSegments: 4,
+        attackDice: [6],
+      },
+    ],
+    objects: [
+      { id: 'the_view', name: 'the view', examineText: 'The city from above. The residential blocks spread east to west — a grid of apartment towers, their rooftops a patchwork of water tanks, vents, and pirate hardware. To the west, the Helixion tower rises above everything, lit from within. To the east, the Fringe is a dark smear — no lights, no structure, just the absence of city.' },
+      { id: 'pirate_hardware', name: 'pirate hardware', examineText: 'Antenna masts bolted to water tower frames. Cables running between buildings — data lines, power lines, signal relay chains. Solar panels angled for maximum exposure. The pirates have threaded their infrastructure through the residential rooftops like a second nervous system.' },
+      { id: 'laundry_lines', name: 'laundry lines', examineText: 'Someone\'s shirts, drying in the wind next to a broadcast antenna. The domesticity is surreal — people live up here. Sleep on rooftops, cook on portable stoves, hang their laundry to dry in the open air. The rooftops are a neighborhood. An invisible one.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'OPEN SKY', die: 6, benefitsActions: ['scan'], hindersActions: ['sneak'] }],
+  },
+
+  // ── 2. WATER TOWER STATION ──────────────────────────────────────────────
+
+  z07_r02: {
+    id: 'z07_r02',
+    zone: 'z07',
+    name: 'WATER TOWER STATION',
+    description:
+`A cluster of four water towers on a large rooftop — the
+tallest building in the residential blocks. The towers are
+dry and the pirates have repurposed the tanks: one houses
+broadcast equipment, one stores supplies, one is sleeping
+quarters with hammocks, and one has been converted into a
+signal intercept station — its curved walls lined with
+receivers, spectrum analyzers, and handwritten frequency logs.
+
+This is Cell One's base. From here, they monitor mesh traffic,
+intercept Helixion communications, and broadcast counter-signal
+on frequencies that slip between the mesh's coverage gaps.
+
+The Span is visible from here — a cable stretching east across
+a gap between buildings that shouldn't be crossable.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z07_r01', description: 'north (Residential Rooftops)' },
+      { direction: 'east', targetRoom: 'z07_r04', description: 'east (The Span)' },
+      { direction: 'south', targetRoom: 'z07_r03', description: 'south (Cell One HQ)' },
+    ],
+    npcs: [
+      {
+        id: 'kite', name: 'Kite', type: 'SHOPKEEPER' as const,
+        faction: 'THE_SIGNAL',
+        description: 'Cell One leader. Late twenties. Quick, alert. Headphones on, one ear. She built the signal infrastructure that carries Asha\'s pirate broadcasts across the city.',
+        dialogue: 'You got up here. Good. Most people look at the ladder and decide the streets are fine. — I\'m Kite. I run the signal over the blocks. You want to use our network, you do something for us first. Fair?',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'intercept_station', name: 'intercept station', examineText: 'The water tank\'s curved interior, lined with salvaged receivers and spectrum analyzers. Frequency logs cover the walls — handwritten, months of data. Kite\'s team monitors five frequencies simultaneously: mesh standard, mesh command, Helixion corporate, D9 tactical, and a fifth they call \'the ghost\' — 33hz. It\'s always there. They can\'t decode it.' },
+      { id: 'the_span_view', name: 'the span', examineText: 'Look east. Forty meters of open air above a six-story drop. A cable stretches across — steel, anchored to the water tower frame on this side and a crane platform on the other. The cable sways in the wind. People cross this. On purpose.' },
+      { id: 'hammock_quarters', name: 'hammock quarters', examineText: 'One of the dry water tanks, converted. Hammocks strung between the internal steel struts. Sleeping bags. A portable stove. Books, magazines, a deck of cards. The pirates live up here — some haven\'t been to street level in weeks.' },
+      { id: 'frequency_logs', name: 'frequency logs', examineText: 'Handwritten. Dated. Each log records intercepted transmissions — time, frequency, content summary, source estimate. Three years of eavesdropping.', gatedText: [{ attribute: 'TECH', minimum: 7, text: 'In the margins, annotations in Kite\'s hand. D9 shift changes. Helixion firmware update schedules. Supply convoy timing. And the ghost frequency — 33hz — marked with question marks. She\'s been tracking it longer than anyone except Kai in his tower.' }] },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 3. CELL ONE HQ ─────────────────────────────────────────────────────
+
+  z07_r03: {
+    id: 'z07_r03',
+    zone: 'z07',
+    name: 'CELL ONE HQ',
+    description:
+`A rooftop maintenance shed, expanded. The original structure
+was a ventilation housing — concrete block, flat roof, one
+door. The pirates added walls, a second room, and a rooftop
+antenna array that makes the building look like it grew spines.
+
+Inside: maps. The city from above, hand-drawn on stolen
+building plans. Every route in the network is marked. Every
+drone patrol is timed and plotted. A communication console —
+analog radio, digital intercept, mesh scanner — fills one wall.
+The room smells like solder and coffee.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z07_r02', description: 'north (Water Tower Station)' },
+    ],
+    npcs: [
+      {
+        id: 'ghost_wire', name: 'Ghost Wire', type: 'NEUTRAL' as const,
+        faction: 'THE_SIGNAL',
+        description: 'Runner. Courier. Twenties, wiry, fast — the fastest person on the rooftops. Gender ambiguous. Augmented legs — subtle, enhanced joints.',
+        dialogue: 'Can\'t stop. Well — thirty seconds. What do you need? Route? Message? Package? I\'m heading industrial-side in ten. Going my way?',
+        startingDisposition: 10,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'network_map', name: 'network map', examineText: 'The entire rooftop network, drawn on layered building plans. Each cell\'s territory in different colors. Routes in solid lines (safe) and dashed lines (dangerous). Drone patrol circuits in red with timing notations.', gatedText: [{ attribute: 'TECH', minimum: 6, text: 'Some routes are drawn in pencil, faintly. Ghost Wire\'s personal shortcuts. Not shared with the cells.' }] },
+      { id: 'communication_console', name: 'communication console', examineText: 'Three systems in one. Analog radio — cell-to-cell communication, encrypted, frequency-hopping. Digital intercept — captures mesh traffic. Mesh scanner — maps signal strength overhead. The console is the network\'s brain.' },
+      { id: 'stolen_building_plans', name: 'building plans', examineText: 'Municipal archives, liberated. Building floor plans, structural assessments, utility routing. The pirates use them to find roof access points, structural load capacity, and cable anchor points. Some of the old communication conduits are still intact. The pirates run cable through them.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 4. THE SPAN ─────────────────────────────────────────────────────────
+
+  z07_r04: {
+    id: 'z07_r04',
+    zone: 'z07',
+    name: 'THE SPAN',
+    description:
+`A steel cable stretching between the residential segment's
+water tower and the industrial segment's crane platform.
+Forty meters of open air. Six stories below: the street.
+A parallel guide wire runs at chest height. Your feet go
+on the lower wire. Your hands go on the upper wire. And
+you walk.
+
+The wind is stronger in the gap. The cable vibrates. The
+guide wire hums. Below, traffic moves. The people on the
+street don't look up. They never look up.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z07_r02', description: 'west (Water Tower Station)' },
+      { direction: 'east', targetRoom: 'z07_r06', description: 'east (Crane Platform)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'helixion_sky_drone', name: 'Helixion Sky Drone', level: 9,
+        description: 'The gap between segments is exposed to sky. If a drone detects you mid-crossing, it engages. Fighting on the cable is terrible — REFLEX penalties, no dodge space.',
+        hp: 30, attributes: { ...enemyAttrs(9), TECH: 6, GHOST: 1 }, damage: 7, armorValue: 3,
+        behavior: 'patrol', spawnChance: 0.5, count: [1, 1],
+        drops: [
+          { itemId: 'drone_components', chance: 0.6, quantityRange: [1, 2] },
+          { itemId: 'sensor_data', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 45,
+        tier: 1,
+        harmSegments: 4,
+        armorSegments: 4,
+        attackDice: [6],
+      },
+    ],
+    objects: [
+      { id: 'the_cable', name: 'the cable', examineText: 'Steel. Two centimeters thick. Anchored to structural steel on both sides. It sways but it holds. The pirates inspect it monthly — any fraying and they replace it. The cable has carried hundreds of crossings. It\'s the most maintained piece of infrastructure in the zone.' },
+      { id: 'the_gap', name: 'the gap', examineText: 'Look down. Six stories. The street is a ribbon of light and shadow. The gap between buildings is where the city stops pretending it\'s solid. From the street, the buildings look connected. From up here, you see the truth: the city is fragments with air between them.' },
+      { id: 'wind_patterns', name: 'wind patterns', examineText: 'The gap funnels wind. The buildings create a Venturi effect — the air accelerates through the narrow space.', gatedText: [{ attribute: 'TECH', minimum: 5, text: 'The wind is predictable. Gusts cycle with a period of about twelve seconds. Time your steps to the lulls and the crossing is manageable. Fight the gusts and the cable fights you.' }] },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'WIND EXPOSURE', die: 10, hindersActions: ['flee', 'attack'], color: '#ff6b6b' }],
+  },
+
+  // ── 5. INDUSTRIAL ROOFTOPS ──────────────────────────────────────────────
+
+  z07_r05: {
+    id: 'z07_r05',
+    zone: 'z07',
+    name: 'INDUSTRIAL ROOFTOPS',
+    description:
+`The character of the rooftops changes over the Industrial
+District. The buildings are lower, wider — factory roofs,
+warehouse roofs. Smokestacks exhale heat and chemical haze.
+The air temperature jumps — thermals from active factories
+create updrafts that push against you.
+
+The pirate infrastructure here is heavier. Larger antennas,
+more robust cable runs. Cell Two controls this segment and
+they built it to last. Below, the Industrial District spreads:
+loading cranes, cargo containers, the waterfront beyond.
+The city's metabolism, visible as logistics.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z07_r06', description: 'north (Crane Platform)' },
+      { direction: 'south', targetRoom: 'z07_r07', description: 'south (Cell Two HQ)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'rival_pirate_patrol', name: 'Rival Pirate', level: 9,
+        description: 'Cell Two enforcer. Armed. Challenges anyone without Cell Two access. Negotiate, pay, or fight. Killing a pirate costs reputation across the network.',
+        hp: 32, attributes: { ...enemyAttrs(9), REFLEX: 6, COOL: 5 }, damage: 8, armorValue: 2,
+        behavior: 'territorial', spawnChance: 0.6, count: [1, 2],
+        drops: [
+          { itemId: 'scrap_metal', chance: 0.4, quantityRange: [1, 2] },
+        ],
+        xpReward: 50,
+        tier: 2,
+        harmSegments: 6,
+        armorSegments: 2,
+        attackDice: [8],
+      },
+    ],
+    objects: [
+      { id: 'industrial_vista', name: 'industrial vista', examineText: 'Factory roofs stretch below — skylights glowing with production light. Smokestacks trailing chemical haze. The Wolf Den is visible as a cluster of warm light. From above, you can see the supply chain: containers from the docks moving to factories, product from factories moving to campus.' },
+      { id: 'thermal_updrafts', name: 'thermal updrafts', examineText: 'Hot air rising from active factories below. The thermals push you off balance on exposed walkways but the heat shimmer makes you harder to spot from above. Cell Two built their infrastructure to withstand it — heavier gauge cable, reinforced mounts.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'THERMAL UPDRAFT', die: 8, benefitsActions: ['sneak'], hindersActions: ['scan'], color: '#fbbf24' }],
+  },
+
+  // ── 6. CRANE PLATFORM ───────────────────────────────────────────────────
+
+  z07_r06: {
+    id: 'z07_r06',
+    zone: 'z07',
+    name: 'CRANE PLATFORM',
+    description:
+`A decommissioned loading crane at the edge of the industrial
+segment. The platform at the top — thirty meters up — serves
+as the Span's eastern anchor point and a transit hub between
+the industrial rooftops and the routes heading toward the
+crown and the campus periphery.
+
+The crane's arm extends over the street below, swaying slightly
+in the wind. From up here, both the residential and industrial
+segments are visible. Cell Two uses the platform as a lookout
+post — you can see drone patrols, supply convoys, and foot
+traffic in every direction.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z07_r04', description: 'west (The Span)' },
+      { direction: 'south', targetRoom: 'z07_r05', description: 'south (Industrial Rooftops)' },
+      { direction: 'east', targetRoom: 'z07_r08', description: 'east (Drone Corridor)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'helixion_sky_drone', name: 'Helixion Sky Drone', level: 10,
+        description: 'The crane\'s height makes it visible to patrol circuits. Drones scan the platform regularly.',
+        hp: 34, attributes: { ...enemyAttrs(10), TECH: 7, GHOST: 1 }, damage: 8, armorValue: 4,
+        behavior: 'patrol', spawnChance: 0.4, count: [1, 1],
+        drops: [
+          { itemId: 'drone_components', chance: 0.6, quantityRange: [1, 2] },
+          { itemId: 'sensor_data', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 50,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 4,
+        attackDice: [8],
+      },
+    ],
+    objects: [
+      { id: 'crane_arm', name: 'crane arm', examineText: 'Steel lattice extending over the street. The arm still rotates — pirates use it to move heavy equipment between buildings. At the end, a cargo hook with a pirate antenna bolted to it, broadcasting from the highest fixed point in the industrial segment.' },
+      { id: 'lookout_post', name: 'lookout post', examineText: 'A windbreak of corrugated metal with a spotting scope bolted to the railing. Notebooks record observations — convoy timing, drone patrol gaps, shift changes at the factories below. Cell Two maintains this 24 hours. Knowledge is the real infrastructure.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'HIGH GROUND', die: 8, benefitsActions: ['scan', 'attack'], hindersActions: ['flee'] }],
+  },
+
+  // ── 7. CELL TWO HQ ─────────────────────────────────────────────────────
+
+  z07_r07: {
+    id: 'z07_r07',
+    zone: 'z07',
+    name: 'CELL TWO HQ',
+    description:
+`A warehouse rooftop, fortified. The perimeter is ringed with
+antenna towers — fifteen meters of welded steel, directional
+arrays pointing at every district. The equipment is heavier
+here than Cell One's. Where Kite's operation is finesse,
+Torque's is brute engineering.
+
+An oil drum barbecue sits near the equipment housing. The
+smell of grilled sausages and solder. Chrome Wolf aesthetic
+bleeds through — leather, chrome, the same \'build it, claim
+it\' attitude. Torque left the Wolves but they didn't leave him.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z07_r05', description: 'north (Industrial Rooftops)' },
+      { direction: 'down', targetRoom: 'z03_r01', description: 'down (Industrial District — Waterfront)', zoneTransition: true, targetZone: 'z03' },
+    ],
+    npcs: [
+      {
+        id: 'torque', name: 'Torque', type: 'SHOPKEEPER' as const,
+        faction: 'THE_SIGNAL',
+        description: 'Cell Two leader. Thirties. Built like someone who installs antenna towers solo. Former Chrome Wolf — left on good terms. Handles the industrial segment with hardware-first mentality.',
+        dialogue: 'You\'re on my roof. — Kite sent you? Fine. Kite and I have an arrangement. You and I don\'t. Yet. What can you do?',
+        startingDisposition: -5,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'antenna_tower', name: 'antenna tower', examineText: 'Fifteen meters of welded steel. Torque built this himself — you can see the weld lines, each one consistent, each one strong. The directional antennas point at every district. From here, Cell Two broadcasts on frequencies that penetrate the factory noise floor. It\'s not elegant. It\'s powerful.' },
+      { id: 'oil_drum_barbecue', name: 'oil drum barbecue', examineText: 'Cut lengthwise, grate laid across the top. Coals still warm. Sausages, actual sausages, from a source Torque won\'t name. The barbecue is a social center — pirates eat here, argue about signal propagation theory over grilled meat.' },
+      { id: 'wolf_overlap', name: 'wolf overlap', examineText: 'Cell Two\'s aesthetic bleeds Chrome Wolf. The leather. The chrome. The music. The overlap is functional — Cell Two gets hardware through Wolf channels, the Wolves get intelligence from Cell Two\'s surveillance. It\'s not formal. It works.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 8. DRONE CORRIDOR ───────────────────────────────────────────────────
+
+  z07_r08: {
+    id: 'z07_r08',
+    zone: 'z07',
+    name: 'DRONE CORRIDOR',
+    description:
+`The route from the industrial segment toward the campus
+periphery crosses a stretch of rooftops with no cover.
+Low-rise commercial buildings — flat roofs, no parapets.
+Above: Helixion drone airspace. The density of sky drones
+triples here. Their patrol patterns overlap, creating a
+coverage mesh in the air.
+
+Beyond the corridor: the campus periphery. The automated
+defense zone. The corridor is the last thing that's dangerous
+because it's difficult. After this, things become dangerous
+because they're lethal.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z07_r06', description: 'west (Crane Platform)' },
+      { direction: 'east', targetRoom: 'z07_r12', description: 'east (Signal Nexus)' },
+      { direction: 'south', targetRoom: 'z07_r09', description: 'south (The Kill Zone)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'helixion_sky_drone', name: 'Helixion Sky Drone', level: 11,
+        description: 'Dense patrol. Overlapping circuits. Getting caught alerts ground response — D9 arrives in 5 minutes.',
+        hp: 38, attributes: { ...enemyAttrs(11), TECH: 7, GHOST: 1 }, damage: 9, armorValue: 4,
+        behavior: 'patrol', spawnChance: 0.7, count: [2, 3],
+        drops: [
+          { itemId: 'drone_components', chance: 0.6, quantityRange: [1, 2] },
+          { itemId: 'sensor_data', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 55,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 4,
+        attackDice: [8],
+      },
+      {
+        id: 'd9_rooftop_operative', name: 'D9 Operative', level: 12,
+        description: 'Counter-intelligence. Armed, trained, drone support priority. Encountering one here is bad luck. They\'re hunting pirate cells but engage any target of opportunity.',
+        hp: 50, attributes: { ...enemyAttrs(12), REFLEX: 8, GHOST: 5, TECH: 7 }, damage: 11, armorValue: 4,
+        behavior: 'ambush', spawnChance: 0.15, count: [1, 1],
+        drops: [
+          { itemId: 'd9_tactical_gear', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'encrypted_intel', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 120,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+    ],
+    objects: [
+      { id: 'drone_patterns', name: 'drone patterns', examineText: 'Watch. The drones fly in overlapping figure-eight patterns. Each circuit takes four minutes. The gap between circuits — when two drones are at maximum distance — lasts forty-five seconds. Barely enough.', gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'There. A timing window where all three circuits align away from the southern approach. Ninety seconds. If you know it\'s coming, you can move.' }] },
+      { id: 'exposed_rooftops', name: 'exposed rooftops', examineText: 'Flat commercial roofs with nothing on them. No water towers, no vents, no parapets. The buildings are too low and too flat to provide concealment. The corridor is a kill zone for anyone without the right timing or the right tools.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'NO COVER', die: 10, benefitsActions: ['scan'], hindersActions: ['sneak', 'flee'], color: '#ff6b6b' }],
+  },
+
+  // ── 9. THE KILL ZONE ────────────────────────────────────────────────────
+
+  z07_r09: {
+    id: 'z07_r09',
+    zone: 'z07',
+    name: 'THE KILL ZONE',
+    description:
+`The automated defense perimeter around the Helixion campus
+rooftop. Three turrets mounted on rooftop corners with clear
+sightlines. Motion-tracking, thermal-imaging, IFF-enabled.
+No human authorization required. The turrets decide. The
+turrets act.
+
+The turrets have killed three pirates in the network's history.
+The rooftops inside the kill zone are empty. Clean. No hardware,
+no cable runs, no signs of human presence. The turrets have
+sterilized the space.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z07_r08', description: 'north (Drone Corridor)' },
+      { direction: 'south', targetRoom: 'z07_r10', description: 'south (Campus Ridge)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'automated_turret_kz', name: 'Kill Zone Turret', level: 14,
+        description: 'Helixion MDS-7 automated defense platform. Fixed position, 120-degree arc. Overlapping coverage. Kinetic rounds — fast, accurate, lethal. Not a conventional fight.',
+        hp: 30, attributes: { ...enemyAttrs(14), TECH: 10 }, damage: 16, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 1.0, count: [3, 3],
+        drops: [
+          { itemId: 'turret_components', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 150,
+        tier: 3,
+        harmSegments: 4,
+        armorSegments: 8,
+        attackDice: [12],
+      },
+    ],
+    objects: [
+      { id: 'turret_systems', name: 'turret systems', examineText: 'Angular. Small. Mounted on rooftop corners. Each one a Helixion MDS-7 automated defense platform. They operate independently — no human authorization required.', gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The MDS-7 has a maintenance cycle — a 3-second reboot every 24 hours. The reboot is staggered between units. But if you could trigger a synchronized reboot...' }] },
+      { id: 'empty_rooftops', name: 'empty rooftops', examineText: 'Clean. No pirate hardware. No cables. No footprints. The turrets have sterilized this space. Even the drones route around the kill zone. Birds don\'t land here. The turrets fire on birds.' },
+      { id: 'the_three_marks', name: 'the three marks', examineText: 'Impact marks on a rooftop parapet. Kinetic rounds. The concrete is chipped in a tight grouping. Below, a dark stain that weather hasn\'t fully removed. One of the three.', hidden: true, hiddenRequirement: { attribute: 'GHOST', minimum: 5 } },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'AUTOMATED KILLBOX', die: 12, hindersActions: ['sneak', 'flee', 'attack'], color: '#ff0000' }],
+  },
+
+  // ── 10. CAMPUS RIDGE ────────────────────────────────────────────────────
+
+  z07_r10: {
+    id: 'z07_r10',
+    zone: 'z07',
+    name: 'CAMPUS RIDGE',
+    description:
+`The Helixion campus rooftop, approached from above. The
+tower rises beside you — close enough to see the glass,
+the steel, the lights burning behind sealed windows. The
+Broadcast Tower's spire extends into the sky, its warning
+lights blinking red.
+
+From here, a maintenance ladder descends to the campus Tower
+Rooftop. The campus security grid extends to the rooftops —
+armored drones patrol in tight circuits. You're in corporate
+airspace now. Everything is monitored. Everything is armed.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z07_r09', description: 'north (The Kill Zone)' },
+      { direction: 'down', targetRoom: 'z01_r13', description: 'down (Helixion Campus — Tower Rooftop)', zoneTransition: true, targetZone: 'z01' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'campus_security_drone', name: 'Campus Security Drone', level: 13,
+        description: 'Armored. Stun projector. Immediate engagement protocol. These aren\'t the patrol drones from the residential rooftops — these are military hardware with corporate firmware.',
+        hp: 48, attributes: { ...enemyAttrs(13), TECH: 8, REFLEX: 7 }, damage: 12, armorValue: 6,
+        behavior: 'aggressive', spawnChance: 0.6, count: [1, 2],
+        drops: [
+          { itemId: 'military_drone_parts', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'drone_components', chance: 0.6, quantityRange: [1, 2] },
+        ],
+        xpReward: 100,
+        tier: 2,
+        harmSegments: 6,
+        armorSegments: 6,
+        attackDice: [10],
+      },
+    ],
+    objects: [
+      { id: 'tower_view_close', name: 'the tower', examineText: 'Close enough to touch the glass. The Helixion tower rises from the campus like a bone needle. Inside: floors of people working, or being worked on. The Broadcast Tower spire extends from the rooftop — under construction, scaffolded, humming with test signals. When this goes live, every sovereign instance in the city dies.' },
+      { id: 'campus_below', name: 'campus below', examineText: 'The campus courtyard is visible from above. Clean lines. The fountain. Security personnel moving in patterns. The atrium glows warm gold. It looks inviting from up here. That\'s the design.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'CORPORATE AIRSPACE', die: 8, benefitsActions: ['scan'], hindersActions: ['sneak'], color: '#818cf8' }],
+  },
+
+  // ── 11. THE SPIRE ───────────────────────────────────────────────────────
+
+  z07_r11: {
+    id: 'z07_r11',
+    zone: 'z07',
+    name: 'THE SPIRE',
+    description:
+`The highest point in the city accessible to anyone who isn't
+Helixion. A decommissioned broadcast tower — sixty meters of
+steel lattice with climbing rungs, four platform stages, the
+wind increasing with height. The last fifteen meters sway.
+
+At the top: a five-meter-square platform, railed, exposed to
+everything. One person lives here. Their name is Vantage.
+Military-grade telescope. Binoculars. A spotting scope. All
+optical — no electronics. Vantage doesn't trust electronics
+because electronics can be detected. Everything they use is
+passive. Glass and light. The oldest surveillance technology.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z07_r12', description: 'down (Signal Nexus)' },
+    ],
+    npcs: [
+      {
+        id: 'vantage', name: 'Vantage', type: 'SHOPKEEPER' as const,
+        faction: 'THE_SIGNAL',
+        description: 'Indeterminate age. Lean, weathered. Permanent sun exposure. They don\'t leave the spire. Food comes up via rope-and-pulley. Their memory for visual detail is inhuman.',
+        dialogue: '…you climbed. Good. Most people stop at the third platform. The wind gets bad there. — What do you want to see? Point. I\'ll tell you what\'s there.',
+        startingDisposition: 5,
+        services: ['shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'the_360_view', name: 'the 360 view', examineText: 'Everything. The entire city. West: the Fringe, dark, the overpass a broken line. East: the Nomad territory, open ground. North and south: the city spreading, districts identifiable by their light profiles. And at the center: the tower. Always the tower.' },
+      { id: 'the_pulse', name: 'the pulse', examineText: 'Watch the city lights. Not the traffic, not the neon. The building lights. Watch them for two minutes.', gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'There. A wave. Starting at the center, radiating outward. The lights dim slightly, then brighten. A pulse. Once every 33 seconds. The mesh synchronizes the city\'s electrical draw in a frequency pattern. From down in the streets, it\'s invisible. From up here, the city breathes. And the breath is not its own.' }] },
+      { id: 'vantage_equipment', name: 'vantage equipment', examineText: 'Military-grade telescope. Binoculars. A spotting scope. All optical — no electronics. Vantage doesn\'t trust electronics because electronics can be detected. Glass and light. The oldest surveillance technology. The most invisible.' },
+      { id: 'the_climb', name: 'the climb', examineText: 'Sixty meters of steel lattice with climbing rungs. Four platform stages. The wind increases with height. The last fifteen meters sway. The final platform is five meters square, railed, exposed to everything. Vantage does this every day for supplies.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 12. SIGNAL NEXUS ────────────────────────────────────────────────────
+
+  z07_r12: {
+    id: 'z07_r12',
+    zone: 'z07',
+    name: 'SIGNAL NEXUS',
+    description:
+`At the base of the spire tower, on the municipal building's
+roof. The largest concentration of pirate hardware in the
+network: a ring of antenna arrays, relay stations, signal
+processing equipment. Cables converge from every direction.
+
+This is the central node that connects every cell, every relay,
+every broadcast antenna. All pirate communications route through
+here. The room — a rooftop enclosure built around the spire base —
+hums with equipment. Banks of receivers, transmitters, spectrum
+analyzers, and a central terminal displaying real-time network
+status. Every node. Every connection. Every signal.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z07_r11', description: 'up (The Spire)' },
+      { direction: 'west', targetRoom: 'z07_r08', description: 'west (Drone Corridor)' },
+    ],
+    npcs: [
+      {
+        id: 'wavelength', name: 'Wavelength', type: 'SHOPKEEPER' as const,
+        faction: 'THE_SIGNAL',
+        description: 'Signal technician. Forties. Quiet. Intense focus. The most technically skilled non-Helixion person in the city. Designed the network\'s routing protocol, encryption, and frequency-hopping schedule.',
+        dialogue: 'The nexus is not a public space. — You\'re here because someone trusts you. I don\'t. Yet. What do you know about signal architecture?',
+        startingDisposition: -5,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'central_terminal', name: 'central terminal', examineText: 'Real-time network status. Every pirate relay, every broadcast antenna, every intercept station — all represented as nodes on a screen. Green nodes are active. Yellow are degraded. Red are jammed or destroyed. The network breathes. Wavelength watches it breathe.' },
+      { id: 'network_topology', name: 'network topology', examineText: 'The pirate network\'s complete topology — every node, every connection, every relay. Hand-drawn by Wavelength, updated in real-time. The architecture is elegant: redundant paths ensure losing any single node doesn\'t break the network. Cell One and Cell Two are complementary halves. It mirrors neural architecture. Wavelength says this is coincidence. Their face says they\'re not sure.' },
+      { id: 'spectrum_wall', name: 'spectrum wall', examineText: 'A wall of spectrum analysis displays. Every frequency in the city\'s sky, visualized as amplitude over time. The mesh is a bright band. The pirate frequencies are thin lines in the gaps. D9 tactical is intermittent bursts. And at 33hz — a steady, low signal. Always there. Always the same amplitude. Wavelength has been staring at it for years.', gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The 33hz signal has structure. Not random noise — repeating patterns. Nested patterns. It looks like data. It looks like language.' }] },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    hasFastTravel: true,
+    fastTravelType: 'signal_relay',
+    fastTravelRequirement: { attribute: 'GHOST', minimum: 6 },
+  },
+};
+
+export const ZONE_07: Zone = {
+  id: 'z07',
+  name: 'ROOFTOP NETWORK',
+  depth: 'surface',
+  faction: 'THE_SIGNAL',
+  levelRange: [8, 15],
+  description: 'The city\'s parallel highway above the streets. Signal pirate territory. Antenna arrays, cable crossings, and the sky. Every district connected by wire and nerve.',
+  atmosphere: {
+    sound: 'Wind. Constant open wind. Antenna buzz, static crackle, metal creaking. Below: the city, muffled.',
+    smell: 'Cold air, rust, cable insulation baking in sun. Rising thermals carry zone-specific smells from below.',
+    light: 'Open sky. City light pollution colors the clouds. Antenna warning lights blink red. Pirate gear glows blue-green.',
+    temp: 'Exposed to weather. Wind chill on crossings. Thermals rising from industrial rooftops.',
+  },
+  rooms: Z07_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -5639,6 +6247,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z03: ZONE_03,
   z04: ZONE_04,
   z06: ZONE_06,
+  z07: ZONE_07,
   z08: ZONE_08,
   z09: ZONE_09,
   z10: ZONE_10,
@@ -5749,7 +6358,7 @@ export function getOriginSpawnRoom(origin: import('./types').OriginPoint): strin
   switch (origin) {
     case 'DRAINAGE':   return 'z08_r01'; // South Entry
     case 'IRON_BLOOM': return 'z12_r01'; // Iron Bloom Entry (stub)
-    case 'ROOFTOPS':   return 'z07_r01'; // Rooftop Network (stub)
+    case 'ROOFTOPS':   return 'z07_r01'; // Rooftop Network
     case 'MARKET':     return 'z03_r01'; // Industrial District (stub)
     default:           return 'z08_r01';
   }

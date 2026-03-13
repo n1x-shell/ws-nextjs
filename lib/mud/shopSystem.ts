@@ -4,7 +4,7 @@
 
 import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
-import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP, SPIT_SHOP, PATCH_SHOP, NEEDLE_SHOP, RADE_OFFICE_SHOP, YARA_SHOP } from './items';
+import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP, SPIT_SHOP, PATCH_SHOP, NEEDLE_SHOP, RADE_OFFICE_SHOP, YARA_SHOP, KITE_SHOP, TORQUE_SHOP, VANTAGE_SHOP, WAVELENGTH_SHOP } from './items';
 import type { ShopItem } from './items';
 import { getNPCRelation } from './persistence';
 
@@ -33,6 +33,10 @@ export function getShopInventory(npcId: string): ShopItem[] | null {
     case 'patch': return PATCH_SHOP;
     case 'needle': return NEEDLE_SHOP;
     case 'yara': return YARA_SHOP;
+    case 'kite': return KITE_SHOP;
+    case 'torque': return TORQUE_SHOP;
+    case 'vantage': return VANTAGE_SHOP;
+    case 'wavelength': return WAVELENGTH_SHOP;
     default: return null;
   }
 }
@@ -60,6 +64,10 @@ export function getShopkeeperName(npcId: string): string {
     case 'patch': return 'Patch';
     case 'needle': return 'Needle';
     case 'yara': return 'Yara';
+    case 'kite': return 'Kite';
+    case 'torque': return 'Torque';
+    case 'vantage': return 'Vantage';
+    case 'wavelength': return 'Wavelength';
     default: return npcId;
   }
 }
