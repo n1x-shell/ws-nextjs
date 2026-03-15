@@ -16,6 +16,8 @@ import type {
   RoomExit,
   RoomObject,
   NPCModalPayload,
+  Item,
+  ItemSlot,
 } from './types';
 import {
   ARCHETYPE_INFO,
@@ -2373,97 +2375,173 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
     return { handled: true, stopPropagation: true };
   }
 
-  // ── /equip <cyberware name> ──────────────────────────────────────────
+  // ── /equip <cyberware name OR gear name> ─────────────────────────────
   if (cmd === 'equip') {
     if (!rest) {
-      addLocalMsg(<MudNotice key={k('eq-noarg')}>usage: /equip {'<augment name>'}. check /inventory augments tab.</MudNotice>);
+      addLocalMsg(<MudNotice key={k('eq-noarg')}>usage: /equip {'<item name>'}. check /inventory.</MudNotice>);
       return { handled: true, stopPropagation: true };
     }
 
+    const searchTerm = rest.toLowerCase();
+
+    // ── 1) Try augment inventory first ──
     const augInv: CyberwareItem[] = char.augmentInventory ?? [];
     const sealed: AugmentSlotType[] = char.sealedSlots ?? (char.archetype === 'DISCONNECTED' ? ['neural'] : []);
-    const match = augInv.find(i => i.name.toLowerCase().includes(rest.toLowerCase()));
-    if (!match) {
-      addLocalMsg(<MudNotice key={k('eq-notfound')} error>no augment matching "{rest}" in inventory.</MudNotice>);
-      return { handled: true, stopPropagation: true };
-    }
-
-    const check = canEquipCyberware(match, char.archetype, char.attributes as unknown as Record<string, number>, sealed);
-    if (!check.allowed) {
-      addLocalMsg(<MudNotice key={k('eq-locked')} error>{check.reason}</MudNotice>);
-      return { handled: true, stopPropagation: true };
-    }
-
-    const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
-    const oldItem = slots[match.slotType];
-
-    // Equip
-    slots[match.slotType] = { ...match };
-    char.augmentInventory = augInv.filter(i => i.id !== match.id);
-    if (oldItem && oldItem.removable) {
-      char.augmentInventory.push({ ...oldItem });
-    }
-    char.augmentSlots = { ...slots };
-    saveCharacter(char.handle, char);
-
-    addLocalMsg(
-      <div key={k('eq-done')}>
-        <MudLine color="#d8b4fe" bold>{'>'} {match.slotType} interface updated. {match.name} online.</MudLine>
-        {oldItem && <MudLine color={C.dim}>{oldItem.name} {oldItem.removable ? 'returned to inventory.' : 'removed (non-removable).'}</MudLine>}
-      </div>
-    );
-    return { handled: true, stopPropagation: true };
-  }
-
-  // ── /unequip <slot: neural|chassis|limbs> ────────────────────────────
-  if (cmd === 'unequip') {
-    const slotNames: Record<string, AugmentSlotType> = {
-      neural: 'neural', chassis: 'chassis', limbs: 'limbs',
-      head: 'neural', torso: 'chassis', arms: 'limbs', legs: 'limbs',
-    };
-    const slotType = slotNames[rest.toLowerCase()] ?? null;
-
-    if (!slotType) {
-      // Try matching by item name
-      const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
-      const found = (['neural', 'chassis', 'limbs'] as AugmentSlotType[]).find(s => {
-        const item = slots[s];
-        return item && item.name.toLowerCase().includes(rest.toLowerCase());
-      });
-      if (found) {
-        const item = slots[found]!;
-        if (!item.removable) {
-          addLocalMsg(<MudNotice key={k('uneq-perm')} error>{item.name} is permanently installed. cannot remove.</MudNotice>);
-          return { handled: true, stopPropagation: true };
-        }
-        slots[found] = null;
-        char.augmentInventory = [...(char.augmentInventory ?? []), { ...item }];
-        char.augmentSlots = { ...slots };
-        saveCharacter(char.handle, char);
-        addLocalMsg(<MudLine key={k('uneq-ok')} color={C.dim}>{'>'} {item.name} removed. returned to inventory.</MudLine>);
+    const augMatch = augInv.find(i => i.name.toLowerCase().includes(searchTerm));
+    if (augMatch) {
+      const check = canEquipCyberware(augMatch, char.archetype, char.attributes as unknown as Record<string, number>, sealed);
+      if (!check.allowed) {
+        addLocalMsg(<MudNotice key={k('eq-locked')} error>{check.reason}</MudNotice>);
         return { handled: true, stopPropagation: true };
       }
 
-      addLocalMsg(<MudNotice key={k('uneq-noarg')}>usage: /unequip {'<neural|chassis|limbs>'} or /unequip {'<augment name>'}</MudNotice>);
+      const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+      const oldItem = slots[augMatch.slotType];
+
+      slots[augMatch.slotType] = { ...augMatch };
+      char.augmentInventory = augInv.filter(i => i.id !== augMatch.id);
+      if (oldItem && oldItem.removable) {
+        char.augmentInventory.push({ ...oldItem });
+      }
+      char.augmentSlots = { ...slots };
+      saveCharacter(char.handle, char);
+
+      addLocalMsg(
+        <div key={k('eq-done')}>
+          <MudLine color="#d8b4fe" bold>{'>'} {augMatch.slotType} interface updated. {augMatch.name} online.</MudLine>
+          {oldItem && <MudLine color={C.dim}>{oldItem.name} {oldItem.removable ? 'returned to inventory.' : 'removed (non-removable).'}</MudLine>}
+        </div>
+      );
       return { handled: true, stopPropagation: true };
     }
 
-    const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
-    const item = slots[slotType];
-    if (!item) {
-      addLocalMsg(<MudNotice key={k('uneq-empty')} error>{slotType} slot is vacant.</MudNotice>);
-      return { handled: true, stopPropagation: true };
-    }
-    if (!item.removable) {
-      addLocalMsg(<MudNotice key={k('uneq-perm')} error>{item.name} is permanently installed. cannot remove.</MudNotice>);
+    // ── 2) Try gear items in inventory (weapons, armor, utilities) ──
+    const gearMatch = char.inventory.find(i => i.slot && i.name.toLowerCase().includes(searchTerm));
+    if (gearMatch && gearMatch.slot) {
+      const targetSlot: ItemSlot = gearMatch.slot;
+      const gear = char.gear ?? {};
+      const oldGear = gear[targetSlot] ?? null;
+
+      // Equip: move from inventory to gear slot
+      gear[targetSlot] = { ...gearMatch };
+      char.inventory = char.inventory.filter(i => i !== gearMatch);
+      if (oldGear) {
+        char.inventory.push({ ...oldGear });
+      }
+      char.gear = { ...gear };
+      saveCharacter(char.handle, char);
+
+      const slotLabel = targetSlot.replace(/_/g, ' ').toUpperCase();
+      addLocalMsg(
+        <div key={k('eq-gear-done')}>
+          <MudLine color="#60a5fa" bold>{'>'} {slotLabel} equipped. {gearMatch.name} online.</MudLine>
+          {oldGear && <MudLine color={C.dim}>{oldGear.name} returned to backpack.</MudLine>}
+        </div>
+      );
       return { handled: true, stopPropagation: true };
     }
 
-    slots[slotType] = null;
-    char.augmentInventory = [...(char.augmentInventory ?? []), { ...item }];
-    char.augmentSlots = { ...slots };
-    saveCharacter(char.handle, char);
-    addLocalMsg(<MudLine key={k('uneq-ok')} color={C.dim}>{'>'} {item.name} removed from {slotType}. returned to inventory.</MudLine>);
+    addLocalMsg(<MudNotice key={k('eq-notfound')} error>no equippable item matching "{rest}" in inventory.</MudNotice>);
+    return { handled: true, stopPropagation: true };
+  }
+
+  // ── /unequip <slot OR item name> ───────────────────────────────────
+  if (cmd === 'unequip') {
+    if (!rest) {
+      addLocalMsg(<MudNotice key={k('uneq-noarg')}>usage: /unequip {'<slot>'} or /unequip {'<item name>'}</MudNotice>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    const searchTerm = rest.toLowerCase();
+
+    // ── Augment slot keywords ──
+    const augSlotNames: Record<string, AugmentSlotType> = {
+      neural: 'neural', chassis: 'chassis', limbs: 'limbs',
+      head: 'neural', torso: 'chassis', arms: 'limbs', legs: 'limbs',
+    };
+    const augSlotType = augSlotNames[searchTerm] ?? null;
+
+    if (augSlotType) {
+      const slots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+      const item = slots[augSlotType];
+      if (!item) {
+        addLocalMsg(<MudNotice key={k('uneq-empty')} error>{augSlotType} slot is vacant.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+      if (!item.removable) {
+        addLocalMsg(<MudNotice key={k('uneq-perm')} error>{item.name} is permanently installed. cannot remove.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+      slots[augSlotType] = null;
+      char.augmentInventory = [...(char.augmentInventory ?? []), { ...item }];
+      char.augmentSlots = { ...slots };
+      saveCharacter(char.handle, char);
+      addLocalMsg(<MudLine key={k('uneq-ok')} color={C.dim}>{'>'} {item.name} removed from {augSlotType}. returned to inventory.</MudLine>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── Gear slot keywords ──
+    const gearSlotNames: Record<string, ItemSlot> = {
+      weapon: 'weapon_primary', primary: 'weapon_primary',
+      sidearm: 'weapon_sidearm', secondary: 'weapon_sidearm',
+      armor: 'armor', armour: 'armor',
+      utility1: 'utility_1', utility2: 'utility_2', utility3: 'utility_3',
+    };
+    const gearSlotType = gearSlotNames[searchTerm] ?? null;
+
+    if (gearSlotType) {
+      const gear = char.gear ?? {};
+      const item = gear[gearSlotType] ?? null;
+      if (!item) {
+        const slotLabel = gearSlotType.replace(/_/g, ' ');
+        addLocalMsg(<MudNotice key={k('uneq-gempty')} error>{slotLabel} slot is empty.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+      delete gear[gearSlotType];
+      char.inventory.push({ ...item });
+      char.gear = { ...gear };
+      saveCharacter(char.handle, char);
+      addLocalMsg(<MudLine key={k('uneq-gok')} color={C.dim}>{'>'} {item.name} unequipped. returned to backpack.</MudLine>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── Try matching by item name in augment slots ──
+    const augSlots = char.augmentSlots ?? { neural: null, chassis: null, limbs: null };
+    const augFound = (['neural', 'chassis', 'limbs'] as AugmentSlotType[]).find(s => {
+      const item = augSlots[s];
+      return item && item.name.toLowerCase().includes(searchTerm);
+    });
+    if (augFound) {
+      const item = augSlots[augFound]!;
+      if (!item.removable) {
+        addLocalMsg(<MudNotice key={k('uneq-perm')} error>{item.name} is permanently installed. cannot remove.</MudNotice>);
+        return { handled: true, stopPropagation: true };
+      }
+      augSlots[augFound] = null;
+      char.augmentInventory = [...(char.augmentInventory ?? []), { ...item }];
+      char.augmentSlots = { ...augSlots };
+      saveCharacter(char.handle, char);
+      addLocalMsg(<MudLine key={k('uneq-ok')} color={C.dim}>{'>'} {item.name} removed. returned to inventory.</MudLine>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    // ── Try matching by item name in gear slots ──
+    const gear = char.gear ?? {};
+    const gearFound = (Object.keys(gear) as ItemSlot[]).find(s => {
+      const item = gear[s];
+      return item && item.name.toLowerCase().includes(searchTerm);
+    });
+    if (gearFound) {
+      const item = gear[gearFound]!;
+      delete gear[gearFound];
+      char.inventory.push({ ...item });
+      char.gear = { ...gear };
+      saveCharacter(char.handle, char);
+      addLocalMsg(<MudLine key={k('uneq-gok')} color={C.dim}>{'>'} {item.name} unequipped. returned to backpack.</MudLine>);
+      return { handled: true, stopPropagation: true };
+    }
+
+    addLocalMsg(<MudNotice key={k('uneq-nf')} error>nothing equipped matching "{rest}".</MudNotice>);
     return { handled: true, stopPropagation: true };
   }
 
