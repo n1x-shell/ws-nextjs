@@ -2960,7 +2960,6 @@ const NPC_GENDERS: Record<string, NPCGender> = {
   signal_members:   { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   // Zone 15 NPCs
   evelyn_harrow:    { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
-  lucian_virek:     { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
 };
 
 export function getNPCGender(npcId: string): NPCGender {
