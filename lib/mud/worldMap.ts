@@ -10344,7 +10344,7 @@ But Virek outranks Harrow.`,
       { direction: 'up', targetRoom: 'z15_r12', description: 'up (Frequency Capture Array)' },
     ],
     npcs: [
-      { id: 'lucian_virek', name: 'Lucian Virek', disposition: 0, dialogue: 'you came. good. i was hoping for this conversation.' },
+      { id: 'lucian_virek', name: 'Lucian Virek', type: 'NEUTRAL', faction: 'HELIXION', description: 'Tall. Still. Corporate-grade augmentations, invisible until he moves. Watching the countdown on a tablet. He looks calm. The project is the end of free will. He\'s satisfied.', dialogue: 'you came. good. i was hoping for this conversation.', startingDisposition: 0 },
     ],
     enemies: [
       {
