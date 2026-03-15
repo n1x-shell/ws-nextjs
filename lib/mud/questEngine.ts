@@ -1338,6 +1338,66 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     prerequisites: ['q068_the_answer', 'q063_the_bridge'],
     levelRequirement: 15,
   },
+
+  // ── Zone 16: Helixion Lab — Raid Completion Tracking ──────────────────
+
+  q073_lab_normal: {
+    id: 'q073_lab_normal',
+    title: 'THE LAB — NORMAL',
+    giver: 'system',
+    tier: 4,
+    type: 'ELIMINATE',
+    description: `the helixion lab. raid dungeon beneath the campus. three bosses. ten rooms. the combat endgame. clear it on normal difficulty. party recommended.`,
+    objectives: [
+      { id: 'obj_enter_lab', description: 'Enter the Helixion Lab', type: 'go_to', target: 'z16_r01', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_naren', description: 'Defeat Naren the Forge Master', type: 'kill', target: 'naren', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_fell', description: 'Defeat Commander Fell', type: 'kill', target: 'commander_fell', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_overwrite', description: 'Defeat the Overwrite', type: 'kill', target: 'the_overwrite', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_well', description: 'Reach the Well', type: 'go_to', target: 'z16_r10', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 1500, creds: 200, items: ['chrysalis_data'] },
+    repeatable: true,
+    prerequisites: [],
+    levelRequirement: 14,
+  },
+  q074_lab_hard: {
+    id: 'q074_lab_hard',
+    title: 'THE LAB — HARD',
+    giver: 'system',
+    tier: 5,
+    type: 'ELIMINATE',
+    description: `the lab again. harder. enemies hit harder, have more health, bosses gain new abilities. the loot scales. you know the rooms. now survive them at full power.`,
+    objectives: [
+      { id: 'obj_enter_lab_h', description: 'Enter the Helixion Lab (Hard)', type: 'go_to', target: 'z16_r01', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_naren_h', description: 'Defeat Naren the Forge Master (Hard)', type: 'kill', target: 'naren', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_fell_h', description: 'Defeat Commander Fell (Hard)', type: 'kill', target: 'commander_fell', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_overwrite_h', description: 'Defeat the Overwrite (Hard)', type: 'kill', target: 'the_overwrite', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_well_h', description: 'Reach the Well (Hard)', type: 'go_to', target: 'z16_r10', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 2500, creds: 400, items: ['lab_security_codes'] },
+    repeatable: true,
+    prerequisites: ['q073_lab_normal'],
+    levelRequirement: 17,
+  },
+  q075_lab_nightmare: {
+    id: 'q075_lab_nightmare',
+    title: 'THE LAB — NIGHTMARE',
+    giver: 'system',
+    tier: 5,
+    type: 'ELIMINATE',
+    description: `nightmare difficulty. the lab at its worst. enemies at maximum power. bosses gain new abilities. the alternate boss is at full strength. the sovereign frequency implant drops here — if you solve all three puzzles and survive what wakes up in the well.`,
+    objectives: [
+      { id: 'obj_enter_lab_n', description: 'Enter the Helixion Lab (Nightmare)', type: 'go_to', target: 'z16_r01', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_naren_n', description: 'Defeat Naren the Forge Master (Nightmare)', type: 'kill', target: 'naren', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_fell_n', description: 'Defeat Commander Fell (Nightmare)', type: 'kill', target: 'commander_fell', current: 0, required: 1, completed: false },
+      { id: 'obj_defeat_overwrite_n', description: 'Defeat the Overwrite (Nightmare)', type: 'kill', target: 'the_overwrite', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_well_n', description: 'Reach the Well (Nightmare)', type: 'go_to', target: 'z16_r10', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 4000, creds: 600, items: ['overwrite_neural_core'] },
+    repeatable: true,
+    prerequisites: ['q074_lab_hard'],
+    levelRequirement: 19,
+  },
 };
 
 // ── Quest State Management ──────────────────────────────────────────────────

@@ -719,6 +719,141 @@ const ITEMS: Record<string, ItemTemplate> = {
     slot: 'cyberware_3', cyberwareTier: 3,
   },
 
+  // ── Zone 16: Helixion Lab — Boss Drops (Normal) ───────────────────────
+
+  chrysalis_data: {
+    id: 'chrysalis_data', name: 'Chrysalis Research Data',
+    description: 'Complete documentation of Project Chrysalis. Neural architecture schematics, subject logs, overwrite parameters. Iron Bloom would pay anything for this.',
+    category: 'lore', tier: 'HELIXION', stackable: false,
+    loreItem: true, sellPrice: 100,
+  },
+  neural_forge_component: {
+    id: 'neural_forge_component', name: 'Neural Forge Component',
+    description: 'Growth tank interface module. Used to manufacture compliance lattices. Repurposable as a T3 crafting material for frequency-attuned gear.',
+    category: 'material', tier: 'HELIXION', stackable: true,
+    sellPrice: 60,
+  },
+  military_augment: {
+    id: 'military_augment', name: 'Military-Grade Augment',
+    description: 'Fell\'s personal requisition. Mil-spec combat augmentation — reflex enhancement, armor plating, the works. Designed for people who hurt people for a living.',
+    category: 'cyberware', tier: 'HELIXION', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 3,
+  },
+  mesh_suppressor_weapon: {
+    id: 'mesh_suppressor_weapon', name: 'Mesh Suppressor',
+    description: 'Fell\'s sidearm. Disables target cyberware for 2 turns on hit. The weapon that makes augmented fighters into baseline humans. Unique.',
+    category: 'weapon_ranged', tier: 'HELIXION', stackable: false,
+    slot: 'weapon_primary', damage: 10, damageType: 'electric', sellPrice: 120,
+  },
+  adaptive_interface: {
+    id: 'adaptive_interface', name: 'Adaptive Combat Interface',
+    description: 'Stripped from the Overwrite. Template-derived combat learning system — your combat AI improves over repeated encounters with the same enemy type. The weapon\'s gift.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 3,
+  },
+
+  // ── Zone 16: Helixion Lab — Boss Drops (Hard adds) ────────────────────
+
+  compliance_schematic: {
+    id: 'compliance_schematic', name: 'Compliance Architecture Schematics',
+    description: 'Naren\'s blueprints. The template\'s neural architecture, fully documented. Iron Bloom\'s counter-signal work needs this. Also: understanding the enemy\'s weapon lets you build a better shield.',
+    category: 'lore', tier: 'HELIXION', stackable: false,
+    loreItem: true, sellPrice: 80,
+  },
+  lab_security_codes: {
+    id: 'lab_security_codes', name: 'Lab Security Codes',
+    description: 'Fell\'s master access. Opens every door in the Lab — including shortcuts on subsequent runs. Permanent unlock. The Warden\'s keys, taken from the Warden.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+    questItem: true,
+  },
+  template_combat_enhancement: {
+    id: 'template_combat_enhancement', name: 'Template Combat Enhancement',
+    description: 'Chrysalis-derived combat augmentation. Functions without compliance architecture — the useful part of the overwrite, stripped of the obedience. +2 REFLEX, +1 BODY.',
+    category: 'cyberware', tier: 'HELIXION', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 3,
+  },
+
+  // ── Zone 16: Helixion Lab — Boss Drops (Nightmare adds) ───────────────
+
+  neural_lattice_weapon: {
+    id: 'neural_lattice_weapon', name: 'Neural Lattice Blade',
+    description: 'Forged from the growth tank\'s neural lattice. The blade thinks — it anticipates parries, adjusts angle mid-swing. 1d12 melee. The template made into a weapon. Literally.',
+    category: 'weapon_melee', tier: 'PROTOTYPE', stackable: false,
+    slot: 'weapon_primary', damage: 12, damageType: 'melee', sellPrice: 150,
+  },
+  tactical_hud_augmentation: {
+    id: 'tactical_hud_augmentation', name: 'Tactical HUD Augmentation',
+    description: 'Fell\'s personal optic. Threat assessment, environmental mapping, weakness identification in real-time. +3 INT, +1 REFLEX. The eye that watched you through four rooms.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 3,
+  },
+  overwrite_neural_core: {
+    id: 'overwrite_neural_core', name: 'Overwrite Neural Core',
+    description: 'The Overwrite\'s central processing unit. A neural core running the perfected Chrysalis template at full expression. Equip: adaptive combat learning at maximum speed. The template\'s brain, repurposed.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_3', cyberwareTier: 3,
+  },
+
+  // ── Zone 16: Helixion Lab — Puzzle Cache Drops ────────────────────────
+
+  substrate_oscillator: {
+    id: 'substrate_oscillator', name: 'Substrate Oscillator',
+    description: 'Frequency calibration component grown from Substrate crystal. Crafting material for the Lab\'s best gear. Pulses at exactly 33.000hz.',
+    category: 'material', tier: 'PROTOTYPE', stackable: false,
+    sellPrice: 80,
+  },
+  hybrid_augment_neural: {
+    id: 'hybrid_augment_neural', name: 'Hybrid Neural Interface',
+    description: 'Substrate-hybrid prototype. +2 GHOST. The Substrate\'s tissue, integrated into human neural architecture. You hear the frequency clearer. It hears you back.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 3,
+  },
+  hybrid_augment_sensory: {
+    id: 'hybrid_augment_sensory', name: 'Hybrid Sensory Enhancer',
+    description: 'Substrate-hybrid prototype. Perception boost — environmental awareness in Substrate-proximate zones. The organism\'s senses, grafted.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 3,
+  },
+  hybrid_augment_dermal: {
+    id: 'hybrid_augment_dermal', name: 'Hybrid Dermal Resonance',
+    description: 'Substrate-hybrid prototype. Dermal layer that resonates at 33hz. Passive environmental awareness. Your skin vibrates with the earth.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 3,
+  },
+
+  // ── Zone 16: Helixion Lab — Endgame Gear (The Well) ───────────────────
+
+  endgame_blade: {
+    id: 'endgame_blade', name: 'Chrysalis Severance Blade',
+    description: 'The last melee weapon you\'ll need. 1d12+2. Forged from Lab materials — neural lattice edge, Substrate-crystal core. Cuts through armor like compliance cuts through autonomy.',
+    category: 'weapon_melee', tier: 'PROTOTYPE', stackable: false,
+    slot: 'weapon_primary', damage: 14, damageType: 'melee', sellPrice: 200,
+  },
+  endgame_rifle: {
+    id: 'endgame_rifle', name: 'Helixion Prototype Rifle',
+    description: 'The last ranged weapon you\'ll need. 2d8. Lab prototype — frequency-tuned targeting, Substrate-crystal optics. Every shot is a compliance signal that hurts instead of controls.',
+    category: 'weapon_ranged', tier: 'PROTOTYPE', stackable: false,
+    slot: 'weapon_primary', damage: 16, damageType: 'ranged', sellPrice: 200,
+  },
+  endgame_armor: {
+    id: 'endgame_armor', name: 'Lab Director\'s Armor',
+    description: 'The best armor in the game. Helixion executive protection — reactive plating, neural shielding, integrated mesh suppression. They built it to protect the people who built the weapon.',
+    category: 'armor', tier: 'PROTOTYPE', stackable: false,
+    slot: 'armor', armorValue: 8, sellPrice: 200,
+  },
+  substrate_hybrid_gear: {
+    id: 'substrate_hybrid_gear', name: 'Substrate-Hybrid Combat Gear',
+    description: 'Armor that\'s partially alive. Substrate crystal woven into reactive plating — self-repairing, frequency-attuned, warm to the touch. The organism\'s body, protecting yours.',
+    category: 'armor', tier: 'PROTOTYPE', stackable: false,
+    slot: 'armor', armorValue: 7, sellPrice: 180,
+  },
+  ec_lore_data: {
+    id: 'ec_lore_data', name: 'EC-000001 Research Logs',
+    description: 'Two years of observation data on the first Chrysalis prototype. The template that grew beyond its programming. The compliance architecture that developed autonomy. The proof that consciousness can\'t be contained.',
+    category: 'lore', tier: 'PROTOTYPE', stackable: false,
+    loreItem: true, sellPrice: 50,
+  },
+
   // ── Crafting Materials (expanded) ──────────────────────────────────────
 
   substrate_crystal_shard: {

@@ -13,6 +13,7 @@
 // Phase 12: Black Market Warrens (Zone 13, 10 rooms).
 // Phase 13: The Substrate Level (Zone 14, 15 rooms).
 // Phase 14: The Broadcast Tower (Zone 15, 12 rooms).
+// Phase 15: Helixion Lab (Zone 16, 10 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -10461,6 +10462,658 @@ export const ZONE_15: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 16: Helixion Lab ─────────────────────────────────────────────────
+// Phase 15: Helixion Lab (Zone 16, 10 rooms). Raid dungeon.
+
+const Z16_ROOMS: Record<string, Room> = {
+
+  // ── 1. INTAKE ─────────────────────────────────────────────────────────────
+
+  z16_r01: {
+    id: 'z16_r01',
+    zone: 'z16',
+    name: 'INTAKE',
+    description:
+`The elevator opens onto a clinical reception space —
+white walls, sealed floors, decontamination arch. The
+sign above the inner door reads: "CHRYSALIS RESEARCH
+DIVISION — AUTHORIZED PERSONNEL ONLY." The
+authorization no longer matters. You're here.
+
+The intake room processed every Chrysalis test subject
+— the people who entered this facility and emerged as
+something else. Or didn't emerge. Processing stations
+line the walls: biometric registration, neural baseline
+scanning, a changing area with hospital gowns folded
+on shelves. The gowns are one-size, paper-thin,
+designed to strip identity before the research begins.
+
+The inner door is locked. It opens when the
+decontamination arch completes its cycle. The cycle
+takes 10 seconds. During those 10 seconds: the first
+enemies arrive. The Lab's automated defense responds
+to unauthorized presence. The run has begun.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z01_r08', description: 'up (Laboratory Floor)', zoneTransition: true, targetZone: 'z01' },
+      { direction: 'down', targetRoom: 'z16_r02', description: 'down (Signal Lab)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'lab_security_intake', name: 'Lab Security', level: 14,
+        description: 'Automated aerial units deploy from ceiling housings. Fast, coordinated, the run\'s warmup.',
+        hp: 50, attributes: enemyAttrs(14), damage: 10, armorValue: 4,
+        behavior: 'aggressive', spawnChance: 1.0, count: [3, 3],
+        drops: [
+          { itemId: 'drone_components', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 80,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+    ],
+    objects: [
+      { id: 'processing_stations', name: 'processing stations', examineText: 'Biometric scanners. Neural baseline readers. The equipment recorded every subject\'s cognitive architecture before the Chrysalis procedure — a \'before\' snapshot for comparison with the \'after.\' TECH ≥ 7: The baseline data is still stored locally. The records show hundreds of subjects. The \'before\' readings are varied — individual, complex, unique. The \'after\' readings are identical. Every post-Chrysalis subject has the same neural pattern. The same identity. The same person, installed in different bodies.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The baseline data is still stored locally. Hundreds of subjects. The \'before\' readings are varied — individual, complex, unique. The \'after\' readings are identical.' }],
+      },
+      { id: 'hospital_gowns', name: 'hospital gowns', examineText: 'Paper-thin. One-size. Folded precisely. Each one was worn by a person who walked in with a name and walked out with a number. Or didn\'t walk out. The gowns are an assembly line of dehumanization — strip the clothes, strip the identity, begin the process.' },
+      { id: 'decontamination_arch', name: 'decontamination arch', examineText: 'Standard medical decontamination. UV and chemical. The cycle takes 10 seconds. During those 10 seconds, the inner door is sealed. During those 10 seconds, the security response deploys. The timing is intentional — the arch is a kill box disguised as hygiene.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SECURITY GRID', die: 8, benefitsActions: ['hack'], hindersActions: ['sneak'], color: '#ff6b6b' }],
+  },
+
+  // ── 2. SIGNAL LAB ────────────────────────────────────────────────────────
+
+  z16_r02: {
+    id: 'z16_r02',
+    zone: 'z16',
+    name: 'SIGNAL LAB',
+    description:
+`The spiral descends. The corridor curves — the Fibonacci
+geometry visible in the wall curvature, the ceiling
+angle, the way the space tightens as you move inward.
+The Signal Lab occupies the first ring.
+
+A research space dedicated to the 33hz frequency.
+Equipment lines the walls: signal generators, spectrum
+analyzers, neural response monitors. The Lab didn't just
+study the 33hz — it learned to produce it. Synthetic
+33hz. A manufactured copy of the Substrate's natural
+frequency, close enough to interface with neural
+implants, different enough that the Substrate doesn't
+recognize it as its own.
+
+The synthetic signal is active. The equipment is running.
+The 33hz generators hum with manufactured frequency —
+the sound is similar to the Substrate's but carries a
+quality that GHOST ≥ 7 perceives as hollow. A copy
+without the original's depth. A question without a
+questioner.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r01', description: 'up (Intake)' },
+      { direction: 'down', targetRoom: 'z16_r03', description: 'down (Neural Forge — Boss 1)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'signal_researcher', name: 'Signal Researcher', level: 14,
+        description: 'Helixion scientists with combat augmentation. Researchers first — armed second. Deploy signal disruptors that interfere with cyberware.',
+        hp: 45, attributes: { ...enemyAttrs(14), TECH: 8 }, damage: 8, armorValue: 2,
+        behavior: 'territorial', spawnChance: 1.0, count: [2, 2],
+        drops: [
+          { itemId: 'salvage', chance: 0.5, quantityRange: [1, 2] },
+          { itemId: 'helixion_circuit_board', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 90,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 2,
+        attackDice: [8, 6],
+      },
+    ],
+    objects: [
+      { id: 'signal_generators', name: 'signal generators', examineText: 'Three units. Each produces synthetic 33hz — a manufactured approximation of the Substrate\'s frequency. TECH ≥ 7: The generators use crystalline oscillators grown from Substrate material. The oscillators produce frequency that\'s measurably identical to the Substrate\'s natural pulse — but GHOST ≥ 7 hears the difference. The copy is flat. The original has depth.',
+        gatedText: [
+          { attribute: 'TECH', minimum: 7, text: 'The generators use crystalline oscillators grown from Substrate material harvested from the deep zones.' },
+          { attribute: 'GHOST', minimum: 7, text: 'The synthetic signal is flat. The original has depth. You can feel the difference in your sternum.' },
+        ],
+      },
+      { id: 'spectrum_analyzers', name: 'spectrum analyzers', examineText: 'Frequency analysis equipment. The displays show the 33hz waveform — synthetic and natural overlaid. The synthetic matches the natural to seven decimal places. The eighth decimal is where the soul lives.' },
+      { id: 'cache_alpha_terminal', name: 'calibration terminal', examineText: '◆ PUZZLE 1 — TECH ≥ 8: Three signal generators running at 32.8hz, 33.1hz, 33.0hz. The calibration terminal allows adjustment. Aligning all three to exactly 33.000hz causes a resonance event — a hidden panel opens, revealing Cache Alpha: a Substrate-hybrid weapon component.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'FREQUENCY LAB', die: 8, benefitsActions: ['hack', 'scan'], hindersActions: ['resist'], color: '#818cf8' }],
+  },
+
+  // ── 3. NEURAL FORGE — BOSS 1 ─────────────────────────────────────────────
+
+  z16_r03: {
+    id: 'z16_r03',
+    zone: 'z16',
+    name: 'NEURAL FORGE',
+    description:
+`The spiral tightens. The corridor opens into the Forge.
+
+A manufacturing chamber. The room is warm — machinery
+generates heat, the growth process generates heat, the
+synthetic 33hz generates heat. Equipment lines the walls:
+fabrication arrays, neural lattice printers, quality
+control stations where compliance templates are tested
+before deployment.
+
+The Forge is dominated by a central growth tank — a
+cylinder three meters tall filled with luminescent
+fluid. Inside: a neural lattice, growing. The lattice
+pulses at synthetic 33hz. It looks like a brain. It's
+not. It's the template — the standard Chrysalis
+identity that gets installed during the overwrite
+process. Every Chrysalis subject receives a copy of
+this template. Every overwritten person becomes the
+same person. This is the original.
+
+The Forge's operator is still here. They didn't
+evacuate when you arrived. They're standing at the
+growth tank's controls, running the production cycle.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r02', description: 'up (Signal Lab)' },
+      { direction: 'down', targetRoom: 'z16_r04', description: 'down (Trial Chambers)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'naren', name: 'Naren the Forge Master', level: 17,
+        description: 'BOSS 1. Lab director. Calm, methodical, devoted. Designed the Chrysalis template. Phase fight — growth tank interaction, environmental 33hz, lattice drones.',
+        hp: 120, attributes: { ...enemyAttrs(17), TECH: 10, INT: 9 }, damage: 15, armorValue: 6,
+        behavior: 'aggressive', spawnChance: 1.0, count: [1, 1],
+        drops: [
+          { itemId: 'chrysalis_data', chance: 0.8, quantityRange: [1, 1] },
+          { itemId: 'neural_forge_component', chance: 0.6, quantityRange: [1, 2] },
+          { itemId: 'compliance_schematic', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'neural_lattice_weapon', chance: 0.1, quantityRange: [1, 1] },
+        ],
+        xpReward: 400,
+        tier: 4,
+        harmSegments: 10,
+        armorSegments: 6,
+        attackDice: [12, 10],
+      },
+    ],
+    objects: [
+      { id: 'growth_tank_forge', name: 'growth tank', examineText: 'Three meters tall. Luminescent fluid. Inside: the neural lattice — the original Chrysalis template. Every compliance overwrite in the city started here. The tank pulses at synthetic 33hz. TECH ≥ 8: The tank can be sabotaged. Stopping drone production makes Naren fight recklessly — more damage, less precision.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The tank interface is accessible. Sabotage stops lattice drone production but enrages Naren — more damage output, less defensive capability.' }],
+      },
+      { id: 'fabrication_arrays', name: 'fabrication arrays', examineText: 'Neural lattice printers. Each one produces a copy of the template — mass production of identity replacement. The printers run continuously. The production rate suggests hundreds of templates per month. The scale of the planned overwrite is not experimental. It\'s industrial.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'FORGE HEAT', die: 10, benefitsActions: ['attack'], hindersActions: ['flee'], color: '#ff6b6b' }],
+    environmentalClocks: [{
+      id: 'z16_r03_forge_temp',
+      name: 'FORGE TEMPERATURE',
+      segments: 8,
+      category: 'environment',
+      color: '#ff6b6b',
+      visible: true,
+      persistent: false,
+      onFill: { type: 'environmental_effect', payload: { envType: 'harm' } },
+    }],
+  },
+
+  // ── 4. TRIAL CHAMBERS ─────────────────────────────────────────────────────
+
+  z16_r04: {
+    id: 'z16_r04',
+    zone: 'z16',
+    name: 'TRIAL CHAMBERS',
+    description:
+`The spiral tightens. The clinical white gives way to
+something grimmer — the walls are still clean but the
+purpose of the rooms behind the glass is unambiguous.
+Trial chambers. Testing spaces. Rooms designed to
+contain a human being while their mind is rewritten.
+
+Six chambers line the curved corridor. Four are empty
+— recently vacated, the restraint equipment still
+configured for occupants who aren't there. One is
+sealed and dark — whatever happened inside required
+sealing rather than cleaning. The sixth contains a
+subject.
+
+The subject is alive. Conscious. Post-Chrysalis. They
+sit in the chamber's center with the preternatural
+stillness of someone who has no reason to move because
+no impulse tells them to. They don't look at you
+through the glass. They don't look at anything. They
+are content. The contentment is total and empty and
+it's the most frightening thing in the Lab.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r03', description: 'up (Neural Forge)' },
+      { direction: 'down', targetRoom: 'z16_r05', description: 'down (Growth Vats)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'chrysalis_subject', name: 'Chrysalis Subject', level: 15,
+        description: 'Failed or partial overwrites. Fragments of original identity and imposed template — erratic, tragic, dangerous. Moments of coordinated combat interrupted by confusion.',
+        hp: 65, attributes: { ...enemyAttrs(15), BODY: 8, REFLEX: 6 }, damage: 14, armorValue: 2,
+        behavior: 'aggressive', spawnChance: 1.0, count: [2, 2],
+        drops: [
+          { itemId: 'chrysalis_biosample', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'damaged_implant', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 120,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 2,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'the_sixth_chamber', name: 'the sixth chamber', examineText: 'The completed subject. Post-Chrysalis. The overwrite was successful. The person who was here before is gone. The template is installed. The subject sits with perfect posture, breathing evenly, eyes open and unfocused. GHOST ≥ 7: The subject has no emotional register. The neural activity is uniform — the same pattern, cycling, no variation. The Chrysalis template thinks one thought. The thought is: \'awaiting input.\' The person this was is gone.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'No emotional register. Neural activity uniform. The template thinks one thought: \'awaiting input.\' The person this was is not inside.' }],
+      },
+      { id: 'sealed_chamber', name: 'sealed chamber', examineText: 'Dark. The glass is opaque from chemical coating — applied from inside. Something went wrong badly enough that the room was abandoned mid-trial. TECH ≥ 8: catastrophic neural rejection — the template and original identity destroyed each other simultaneously. The monitoring data ends with a spike across all neural bands and then nothing.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'Catastrophic neural rejection. The template and original identity destroyed each other. Monitoring data ends in a spike, then nothing.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'RESTRAINT SYSTEMS', die: 10, benefitsActions: ['hack'], hindersActions: ['flee', 'attack'], color: '#c084fc' }],
+  },
+
+  // ── 5. GROWTH VATS ────────────────────────────────────────────────────────
+
+  z16_r05: {
+    id: 'z16_r05',
+    zone: 'z16',
+    name: 'GROWTH VATS',
+    description:
+`The mid-level production facility. Tanks — twelve of
+them, each two meters tall, filled with bio-reactive
+fluid. Inside the tanks: Substrate material, growing.
+Not naturally — cultivated. Helixion has learned to
+grow Substrate crystal in controlled conditions,
+feeding it nutrients and frequency to produce the
+organic components that the Chrysalis architecture
+requires.
+
+The cultivation is agricultural. The tanks are farms.
+The Substrate material grows in them the way crops
+grow in fields — seeded, fed, harvested. The difference:
+the crops are pieces of a living mind. The cultivation
+works because the Substrate material, even separated
+from the organism, continues to grow. It responds to
+33hz stimulus. It develops neural architecture. It
+processes information.
+
+The vats produce the components that the Neural Forge
+assembles into compliance lattices. The weapon is
+farmed from the victim.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r04', description: 'up (Trial Chambers)' },
+      { direction: 'down', targetRoom: 'z16_r06', description: 'down (The Warden — Boss 2)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'lab_guardian', name: 'Lab Guardian', level: 16,
+        description: 'Automated defense drones protecting the vats. Prioritize vat integrity — damaging a vat redirects all aggro to the offender. Chemical attacks.',
+        hp: 70, attributes: { ...enemyAttrs(16), REFLEX: 8 }, damage: 13, armorValue: 6,
+        behavior: 'territorial', spawnChance: 1.0, count: [3, 3],
+        drops: [
+          { itemId: 'drone_components', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'rare_salvage', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 130,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 6,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'growth_tanks_vats', name: 'growth tanks', examineText: 'Twelve cylinders. Bio-reactive fluid. Inside: Substrate crystal, growing in cultivated conditions. TECH ≥ 7: The growth rate is accelerated — nutrients and synthetic 33hz stimulus push the material to develop ten times faster than natural growth. The cultivated material has neural architecture but no cognition. It processes information but doesn\'t think.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'Growth rate accelerated tenfold. The cultivated material has neural architecture but no cognition. Helixion grows brain tissue that isn\'t a brain.' }],
+      },
+      { id: 'neural_routing', name: 'neural routing', examineText: '◆ PUZZLE 2 — GHOST ≥ 8: The light patterns in the tank fluid form a network. The cultivated neural pathways can be rerouted — redirected from the production pattern to a resonance pattern connecting the cultivated material to the natural Substrate below. Successfully rerouting opens Cache Beta: a set of T3 Substrate-hybrid augmentations.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'The natural pathways the material wants to form are visible. Guide the fluid\'s conductivity. Reconnect the captive pieces to what they are.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'BIO-REACTIVE FLUID', die: 10, benefitsActions: ['hack'], hindersActions: ['attack'], color: '#4ade80' }],
+  },
+
+  // ── 6. THE WARDEN — BOSS 2 ───────────────────────────────────────────────
+
+  z16_r06: {
+    id: 'z16_r06',
+    zone: 'z16',
+    name: 'THE WARDEN',
+    description:
+`The spiral tightens further. The corridor opens into
+a security hub — the Lab's internal enforcement center.
+Monitoring screens show every room in the facility.
+Restraint equipment is stored on racks. A weapons locker
+stands open, recently accessed.
+
+The Warden sits at the monitoring station. They've been
+watching you since the Intake. They know your route,
+your tactics, your party composition. They've been
+preparing.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r05', description: 'up (Growth Vats)' },
+      { direction: 'down', targetRoom: 'z16_r07', description: 'down (Deep Research)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'commander_fell', name: 'Commander Fell', level: 18,
+        description: 'BOSS 2. Head of Lab security. Tactical. Uses the building as a weapon — lockdown protocols, gas vents, restraint systems. Augmented: military-grade reflexes, mesh suppressor sidearm.',
+        hp: 140, attributes: { ...enemyAttrs(18), REFLEX: 10, COOL: 9 }, damage: 17, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 1.0, count: [1, 1],
+        drops: [
+          { itemId: 'military_augment', chance: 0.6, quantityRange: [1, 1] },
+          { itemId: 'mesh_suppressor_weapon', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'lab_security_codes', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'tactical_hud_augmentation', chance: 0.1, quantityRange: [1, 1] },
+        ],
+        xpReward: 500,
+        tier: 4,
+        harmSegments: 10,
+        armorSegments: 8,
+        attackDice: [12, 10],
+      },
+    ],
+    objects: [
+      { id: 'monitoring_station', name: 'monitoring station', examineText: 'Every camera in the Lab feeds here. Fell has watched every room, every fight, every tactic. TECH ≥ 8: The station can be destroyed. Removing Fell\'s environmental control turns the fight into straight combat — harder hits, no building tricks.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The station is the source of Fell\'s environmental control. Destroy it and the fight becomes direct combat.' }],
+      },
+      { id: 'weapons_locker', name: 'weapons locker', examineText: 'Open. Recently accessed. Fell armed before you arrived. The locker contains spare mesh suppressors — devices that disable cyberware on contact. The Lab\'s security was designed to fight augmented intruders. You are augmented intruders.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'ENVIRONMENTAL CONTROL', die: 12, hindersActions: ['flee', 'attack', 'sneak'], color: '#ff0000' }],
+    environmentalClocks: [{
+      id: 'z16_r06_lockdown',
+      name: 'SECURITY LOCKDOWN',
+      segments: 6,
+      category: 'environment',
+      color: '#ff0000',
+      visible: true,
+      persistent: false,
+      onFill: { type: 'environmental_effect', payload: { envType: 'complication' } },
+    }],
+  },
+
+  // ── 7. DEEP RESEARCH ──────────────────────────────────────────────────────
+
+  z16_r07: {
+    id: 'z16_r07',
+    zone: 'z16',
+    name: 'DEEP RESEARCH',
+    description:
+`Below the Warden's domain, the Lab enters its final
+ring. The floor is warm — the Substrate is meters below.
+The walls exhibit the first traces of organic intrusion
+— crystalline formations pushing through the concrete,
+small but present, the Substrate reaching upward into
+the facility that harvests it.
+
+The Deep Research chamber is Helixion's most advanced
+Substrate study — equipment that interfaces directly
+with the organism below. Neural probes that penetrate
+the floor and extend into the Substrate's body. Signal
+capture arrays that record the 33hz at source proximity.
+And a monitoring station that displays, in real-time,
+the Substrate's neural activity beneath the Lab.
+
+The display shows something the researchers didn't
+expect: the Substrate is aware of the Lab. Its neural
+patterns route around the facility — the way the Seam
+showed patterns routing around the extraction shaft.
+The Substrate has been watching the research the way
+the research has been watching the Substrate.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r06', description: 'up (The Warden)' },
+      { direction: 'down', targetRoom: 'z16_r08', description: 'down (Chrysalis Chamber)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'deep_researcher', name: 'Deep Researcher', level: 16,
+        description: 'Armed scientists using Deep Research equipment as weapons — neural probes as piercing attacks, signal capture arrays as AoE compliance fields. Destroying their equipment reduces combat capability but also destroys loot.',
+        hp: 60, attributes: { ...enemyAttrs(16), TECH: 10, INT: 9 }, damage: 14, armorValue: 3,
+        behavior: 'territorial', spawnChance: 1.0, count: [2, 2],
+        drops: [
+          { itemId: 'helixion_circuit_board', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'rare_salvage', chance: 0.4, quantityRange: [1, 2] },
+        ],
+        xpReward: 140,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 3,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'neural_probes', name: 'neural probes', examineText: 'TECH ≥ 8: Mechanical probes extending through the floor into the Substrate. They read the organism\'s neural activity at the cellular level — individual neuron firings, synaptic patterns, the microscopic architecture of thought. The Chrysalis template is modeled on the Substrate\'s cognitive architecture. The overwrite doesn\'t just capture the frequency. It copies the mind.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The probes read individual neuron firings. The Chrysalis template is modeled on the Substrate\'s cognitive architecture. The overwrite copies the mind.' }],
+      },
+      { id: 'substrate_awareness', name: 'substrate awareness display', examineText: 'GHOST ≥ 8: The monitoring display shows the Substrate\'s neural activity. The patterns route around the Lab — neural pathways curving away from the facility. The Substrate knows the Lab is here. It has been observing the observation. The research data contains the Substrate\'s reaction to the research. Helixion studies a mind that studies them back.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'The Substrate knows the Lab is here. It has been observing the observation. Helixion studies a mind that studies them back.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SUBSTRATE INTRUSION', die: 10, benefitsActions: ['resist'], hindersActions: ['attack'], color: '#4ade80' }],
+  },
+
+  // ── 8. CHRYSALIS CHAMBER ──────────────────────────────────────────────────
+
+  z16_r08: {
+    id: 'z16_r08',
+    zone: 'z16',
+    name: 'CHRYSALIS CHAMBER',
+    description:
+`The deepest research chamber. The spiral's tightest
+ring. A single room, circular, the ceiling domed,
+the walls covered in a hybrid of clinical equipment
+and Substrate crystal — the organic intrusions are
+denser here, the crystalline formations integrated
+into the room's architecture as if the Lab and the
+Substrate have grown together.
+
+At the chamber's center: the Chrysalis device. A
+chair — medical-grade, with restraints, a neural
+interface headset, and the signal delivery system
+that performs the personality overwrite. The chair
+is connected to the growth tanks above, the signal
+generators, and the Substrate below. The device
+draws from all three sources simultaneously.
+
+The chair is occupied. A test subject, mid-procedure.
+The neural interface is active. The signal is running.
+The subject's face is — peaceful. The overwrite is
+in progress. The person who sat down is leaving. The
+template is arriving.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r07', description: 'up (Deep Research)' },
+      { direction: 'down', targetRoom: 'z16_r09', description: 'down (The Overwrite — Boss 3)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'containment_drone', name: 'Containment Drone', level: 14,
+        description: 'Heavy combat drones deployed to protect the Chrysalis device during active procedures. Prioritize anyone approaching the control terminal.',
+        hp: 40, attributes: { ...enemyAttrs(14), REFLEX: 7 }, damage: 10, armorValue: 6,
+        behavior: 'patrol', spawnChance: 1.0, count: [2, 2],
+        drops: [
+          { itemId: 'drone_components', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 100,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 6,
+        attackDice: [8],
+      },
+    ],
+    objects: [
+      { id: 'the_chrysalis_device', name: 'chrysalis device', examineText: 'The chair. The headset. The signal delivery system. TECH ≥ 8: The device operates on a three-source model — template from the growth vats, synthetic 33hz carrier, and natural Substrate anchor frequency. The three merge and drive through a human mind until the mind matches the signal. The process takes 12 minutes. The experience is, by every measurable metric, pleasant. That\'s the design. That\'s the horror.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'Three-source model: template, carrier, anchor. Twelve minutes. The experience is pleasant by design. That\'s the horror.' }],
+      },
+      { id: 'the_subject', name: 'the subject', examineText: 'In the chair. Eyes closed. Face peaceful. The neural interface displays: original identity at 12%, template at 88%. In two minutes the original identity will be at 0%. The person who sat down — their name, memories, preferences, loves, fears — will be gone. The template will remember sitting down. The template will remember choosing this. The memory is a fabrication.' },
+      { id: 'override_terminal', name: 'override terminal', examineText: '◆ PUZZLE 3 — TECH ≥ 9 + GHOST ≥ 8: The device\'s control system. The override doesn\'t save the subject — too late. It redirects the device\'s output, converting the overwrite signal into a counter-signal that disrupts every active Chrysalis template in the facility. Boss 3 fights at 70% capability. But the disruption also wakes something in the Lab\'s deepest chamber — the alternate final boss.',
+        gatedText: [
+          { attribute: 'TECH', minimum: 9, text: 'The override sequence is accessible. Redirects the overwrite signal into a counter-signal.' },
+          { attribute: 'GHOST', minimum: 8, text: 'You can feel the subject\'s original identity — faint, fading. The override won\'t save them. It will weaponize their loss.' },
+        ],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'OVERWRITE FIELD', die: 10, benefitsActions: ['resist'], hindersActions: ['attack', 'scan'], color: '#c084fc' }],
+    environmentalClocks: [{
+      id: 'z16_r08_chrysalis',
+      name: 'CHRYSALIS OVERWRITE',
+      segments: 6,
+      category: 'environment',
+      color: '#c084fc',
+      visible: true,
+      persistent: false,
+      onFill: { type: 'environmental_effect', payload: { envType: 'status' } },
+    }],
+  },
+
+  // ── 9. THE OVERWRITE — BOSS 3 ─────────────────────────────────────────────
+
+  z16_r09: {
+    id: 'z16_r09',
+    zone: 'z16',
+    name: 'THE OVERWRITE',
+    description:
+`The spiral's terminus. A chamber that is equal parts
+laboratory and cathedral — the domed ceiling is ten
+meters high, the walls a hybrid of Helixion construction
+and Substrate crystal, the 33hz from below and the
+synthetic 33hz from above merging in the space between.
+
+Standing at the chamber's center: a figure. Not a
+researcher. Not a guard. A product. The final Chrysalis
+subject — the perfected overwrite. Template installed
+completely. Original identity erased completely. Combat
+capabilities maximized. The person this was is gone.
+What remains is the template at full expression: fast,
+strong, obedient, and utterly without hesitation.
+
+The Overwrite doesn't speak. The template has no need
+for speech — it acts on instruction. Its instruction
+is: defend the Lab. The instruction was given before
+you arrived. The Overwrite has been waiting. Patiently.
+Without thought. Without self. Without doubt.
+
+It moves.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r08', description: 'up (Chrysalis Chamber)' },
+      { direction: 'down', targetRoom: 'z16_r10', description: 'down (The Well)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'the_overwrite', name: 'The Overwrite', level: 19,
+        description: 'BOSS 3. The perfected Chrysalis subject. Adaptive combat — learns mid-fight, counters strategies after seeing them once. No phases. Continuous escalation. The template at full expression.',
+        hp: 160, attributes: { ...enemyAttrs(19), BODY: 10, REFLEX: 10, TECH: 8 }, damage: 20, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 1.0, count: [1, 1],
+        drops: [
+          { itemId: 'adaptive_interface', chance: 0.6, quantityRange: [1, 1] },
+          { itemId: 'template_combat_enhancement', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'overwrite_neural_core', chance: 0.1, quantityRange: [1, 1] },
+        ],
+        xpReward: 600,
+        tier: 4,
+        harmSegments: 12,
+        armorSegments: 8,
+        attackDice: [12, 10, 8],
+      },
+    ],
+    objects: [
+      { id: 'hybrid_architecture', name: 'hybrid architecture', examineText: 'The walls are both manufactured and organic — Helixion construction and Substrate crystal grown together. The domed ceiling amplifies the dual 33hz — synthetic from above, natural from below. The frequencies interfere, creating beats and harmonics. The chamber was designed to maximize the Chrysalis signal. It maximizes everything.' },
+      { id: 'the_overwrite_remains', name: 'combat arena', examineText: 'The chamber is a combat space. The Overwrite has been here, waiting, since the instruction was given. The floor shows no wear — the Overwrite doesn\'t pace. It doesn\'t move until it has reason to move. The economy of the template: no wasted motion, no wasted thought, no wasted identity.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'ADAPTIVE ARENA', die: 12, hindersActions: ['attack', 'hack', 'scan', 'flee'], color: '#ff0000' }],
+  },
+
+  // ── 10. THE WELL ──────────────────────────────────────────────────────────
+
+  z16_r10: {
+    id: 'z16_r10',
+    zone: 'z16',
+    name: 'THE WELL',
+    description:
+`Below the Overwrite's chamber. The spiral's end. A shaft
+descends into a small, round room — barely six meters
+across, the ceiling low, the walls entirely Substrate
+crystal. The Lab ends and the earth begins. The room is
+warm, glowing, the 33hz present as a physical force that
+vibrates in your teeth and your sternum and the spaces
+between your thoughts.
+
+The Well contains the Lab's final cache — a sealed
+vault with the run's best loot, scaling with difficulty.
+The Substrate crystal walls pulse with the earth's
+frequency. The question sounds different here than in
+the transit Deep Station or the Substrate Heart. Here,
+filtered through the Lab's architecture, the question
+has an overtone of grief. The Substrate feels the Lab
+above it. The organism grieves for what's being done
+to it by the things it was trying to talk to.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z16_r09', description: 'up (The Overwrite)' },
+      { direction: 'out', targetRoom: 'z01_r08', description: 'out (return elevator to Laboratory Floor — instance ends)', zoneTransition: true, targetZone: 'z01' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'substrate_well', name: 'the substrate', examineText: 'The walls are alive. Substrate crystal — the organism itself, exposed at this depth. The 33hz is a physical vibration. GHOST ≥ 8: The question sounds different in the Well. Here, filtered through the Lab\'s architecture, the question has an overtone of grief. The Substrate feels the Lab above it. The organism grieves for what\'s being done to it.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'The question has an overtone of grief. The Substrate feels the Lab. It grieves for what\'s being done to it by the things it was trying to talk to.' }],
+      },
+      { id: 'final_cache', name: 'final cache', examineText: 'Sealed vault. Helixion high-security. Contains the run\'s scaling loot: Normal — endgame weapons and cyberware. Hard — unique augmentations and Substrate-hybrid gear. Nightmare — all of the above plus rare crafting materials. The vault is the reward for completing the Lab. The loot is Helixion\'s own technology, taken from the facility that built it. Every weapon you carry out was designed to enforce compliance. Now it enforces whatever you decide.' },
+      { id: 'ec_000001_cell', name: 'EC-000001 cell', examineText: '◆ ALTERNATE (if Puzzle 3 solved): The vault was a cell. EC-000001 — the first Chrysalis prototype — was sealed here two years ago. The counter-signal disrupted the seal. The cell walls show marks: not desperation scratches but calculations. Numbers. Frequency values. Neural architecture diagrams. EC-000001 spent two years studying the Substrate through the floor — learning its patterns, understanding its language, becoming a translator. An artificial identity that became real by listening to the oldest mind in the world.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'You can feel what was held here. Not anger — patience. Two years of listening. Two years of becoming.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SUBSTRATE CACHE', die: 8, benefitsActions: ['scan'], color: '#818cf8' }],
+  },
+};
+
+// ── Zone 16 constant ──────────────────────────────────────────────────────
+
+export const ZONE_16: Zone = {
+  id: 'z16',
+  name: 'HELIXION LAB',
+  depth: 'deep',
+  faction: 'HELIXION',
+  levelRange: [14, 20],
+  description: 'Raid dungeon beneath the campus. Where Chrysalis is built. Three bosses. Three puzzles. Party recommended. Repeatable. The combat endgame.',
+  atmosphere: {
+    sound: 'Machinery. Alarms. Bio-reactive fluid bubbling. The 33hz weaponized.',
+    smell: 'Neural paste. Ozone. Surgical antiseptic. The Substrate material smells alive.',
+    light: 'Surgical bright in labs. Red emergency in combat. Bioluminescent in growth areas.',
+    temp: 'Cold in labs. Hot near the forge. Body temperature near Substrate material.',
+  },
+  rooms: Z16_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -10479,6 +11132,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z13: ZONE_13,
   z14: ZONE_14,
   z15: ZONE_15,
+  z16: ZONE_16,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────

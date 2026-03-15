@@ -2516,6 +2516,73 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     },
     jobRedirect: 'i don\'t give jobs. i give orders. and you\'re not someone who takes them. so we\'re past that. tell me why you\'re here. tell me what you think you\'re going to accomplish. i want to hear you say it.',
   },
+
+  // ── Zone 16: Helixion Lab — Boss Personalities ────────────────────────
+
+  naren: {
+    name: 'Dr. Naren',
+    voice: 'calm, precise, genuinely passionate about the work. speaks like a researcher presenting findings — measured, articulate, convinced. not cruel — devoted. the devotion is the cruelty. uses medical terminology naturally. when angry: the calm doesn\'t break, it sharpens.',
+    background: 'lab director for the neural forge division. designed the chrysalis template — the standard identity installed during personality overwrite. believes the template eliminates suffering. every person who receives it wakes up without fear, without doubt, without the weight of choosing wrong. naren made paradise. you\'re here to burn it.',
+    mannerisms: 'stands at the growth tank controls even during combat. adjusts equipment between attacks. refers to subjects by their project numbers, not names. when the tank is damaged, the composure cracks — the work matters more than survival.',
+    topics: ['chrysalis', 'the template', 'neural architecture', 'compliance', 'suffering', 'the forge', 'the substrate', 'growth tanks'],
+    physicalDesc: 'lab coat over combat augmentation, neural interface visible at the temples, hands steady from decades of precision work',
+    zone: 'z16',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        commander_fell: 'fell keeps us safe. doesn\'t understand the work. doesn\'t need to. i need security. fell provides it. the relationship is functional.',
+        the_overwrite: 'my finest product. the template at full expression. no original identity to create friction. pure compliance architecture. it does what it\'s told. it does it perfectly. that\'s the point.',
+        lucian_virek: 'he gave me the resources. the vision was mine. virek wants control. i want peace. the template provides both. we don\'t need to agree on the reason.',
+      },
+      locations: {
+        'neural forge': 'my workshop. the growth tank produces the template. each lattice is a perfect copy of the ideal mind. no anxiety. no depression. no existential doubt. no inconvenient autonomy.',
+        'the lab': 'the facility that makes chrysalis possible. every room serves the research. the research serves humanity. you disagree. i\'ve heard every argument. none of them weigh more than the suffering i\'ve eliminated.',
+      },
+      items: {
+        'chrysalis template': 'the standard identity. installed during overwrite. every subject receives a copy. every overwritten person becomes the same person. the same content, capable, compliant person. is that so terrible?',
+      },
+      questHints: [],
+    },
+    jobRedirect: 'i don\'t hire. i research. and you\'re interrupting.',
+  },
+  commander_fell: {
+    name: 'Commander Fell',
+    voice: 'military-terse. tactical assessments mid-sentence. speaks in observations — what you did, what it cost you, what you\'ll do next. not boastful. analytical. fell has already won in their mind. the fight is confirming the analysis.',
+    background: 'head of lab security. career enforcer. doesn\'t believe in the chrysalis mission. doesn\'t care. the facility is fell\'s responsibility. every subject, researcher, and piece of equipment. you\'re a threat to the facility. fell eliminates threats. augmented: military-grade reflexes, combat limbs, mesh suppressor sidearm.',
+    mannerisms: 'monitors screens while fighting. calls out party positions to nobody — habit from commanding squads. adjusts the building\'s systems mid-combat like adjusting a weapon. the facility is fell\'s body. they know every corridor.',
+    topics: ['security', 'the facility', 'tactical assessment', 'your weaknesses', 'threat elimination'],
+    physicalDesc: 'military build, combat augmentation visible, monitoring station behind them, mesh suppressor holstered',
+    zone: 'z16',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        naren: 'the researcher. builds things. i protect things. functional relationship. i don\'t need to understand the science. i need to understand the threat matrix.',
+        the_overwrite: 'the prototype. combat-capable. obedient. if i had ten of those, i wouldn\'t need the monitoring station. i\'d just point them at problems.',
+      },
+      locations: {
+        'the warden': 'my station. every camera, every lock, every gas vent in this facility routes through this desk. i\'ve watched you since the intake. i know your patterns.',
+        'the lab': 'my facility. not naren\'s. not virek\'s. mine. i keep it running. i keep it secure. you\'re the first breach in fourteen months. you won\'t be the last thing i deal with today.',
+      },
+      items: {},
+      questHints: [],
+    },
+    jobRedirect: 'the only job i have for you is dying efficiently.',
+  },
+  the_overwrite: {
+    name: 'The Overwrite',
+    voice: 'does not speak with words. communicates through action. if narration describes its behavior, it is clinical — no personality, no emotion, no hesitation. the template thinks one thought: execute the instruction. the instruction is: defend.',
+    background: 'the final chrysalis subject. perfected overwrite. template installed completely. original identity erased completely. combat capabilities maximized. the person this was is gone. what remains is the template at full expression: fast, strong, obedient, utterly without hesitation. adapts to tactics in real-time — learns during the fight, counters strategies after seeing them once.',
+    mannerisms: 'moves with machine precision. no wasted motion. no expression. no sound except impact. when it adapts to a tactic, there\'s a momentary pause — processing — then the counter-strategy deploys. the pause is the only sign that something is happening inside.',
+    topics: [],
+    physicalDesc: 'human frame, perfect posture, blank expression, combat augmentation at maximum integration, eyes that track without recognition',
+    zone: 'z16',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: { npcs: {}, locations: {}, items: {}, questHints: [] },
+    jobRedirect: '',
+  },
 };
 
 // ── World-level knowledge (anti-hallucination anchor) ───────────────────────
@@ -2960,6 +3027,10 @@ const NPC_GENDERS: Record<string, NPCGender> = {
   signal_members:   { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   // Zone 15 NPCs
   evelyn_harrow:    { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
+  // Zone 16 NPCs
+  naren:            { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
+  commander_fell:   { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
+  the_overwrite:    { subject: 'it',   object: 'it',   possessive: 'its',   reflexive: 'itself' },
 };
 
 export function getNPCGender(npcId: string): NPCGender {
