@@ -1247,7 +1247,7 @@ function fetchCombatNarrative(res: PlayerResolveResult, char: MudCharacter, targ
     }),
   }).then(r => r.json()).then(data => {
     if (data.narrative) {
-      eventBus.emit('mud:transient', { text: data.narrative, duration: 4000, type: 'combat' });
+      eventBus.emit('mud:transient-message', { text: data.narrative, duration: 4000, type: 'combat' });
     }
   }).catch(() => { /* narration is non-blocking */ });
 }

@@ -2729,3 +2729,26 @@ export const RELIC_SHOP: ShopItem[] = [
   { templateId: 'substrate_artifact', stock: 1 },
   { templateId: 'anomalous_object', stock: 1 },
 ];
+
+export const FENCE_SHOP: ShopItem[] = [
+  // Weapons
+  { templateId: 'scrap_weapon', stock: 3 },
+  { templateId: 'shock_baton', stock: 2 },
+  { templateId: 'scavenged_pistol', stock: 2 },
+  { templateId: 'modified_weapon', stock: 1 },
+  // Armor
+  { templateId: 'light_armor', stock: 2 },
+  { templateId: 'ballistic_vest', stock: 1 },
+  // Consumables
+  { templateId: 'stim_pack', stock: 8 },
+  { templateId: 'medkit', stock: 4 },
+  { templateId: 'antitox', stock: 3 },
+  { templateId: 'neural_stabilizer', stock: 2 },
+  // Salvage & Components
+  { templateId: 'salvage', stock: 10 },
+  { templateId: 'drone_components', stock: 3 },
+  { templateId: 'data_chip', stock: 4 },
+  // Misc
+  { templateId: 'nutrient_bar', stock: 6 },
+  { templateId: 'military_rations', stock: 5 },
+];

@@ -398,6 +398,7 @@ something nests.
 
 Scratch marks on the walls. Fresh ones.`,
     exits: [
+      { direction: 'north', targetRoom: 'z08_r13', description: 'north (The Seep)' },
       { direction: 'east', targetRoom: 'z08_r03', description: 'east (The Junction)' },
       { direction: 'south', targetRoom: 'z10_r01', description: 'south (Industrial Drainage)', zoneTransition: true, targetZone: 'z10' },
       { direction: 'west', targetRoom: 'z10_r08', description: 'west (Industrial Drainage — Parish Outpost)', zoneTransition: true, targetZone: 'z10' },
@@ -797,12 +798,12 @@ that shouldn't exist.`,
     ],
     npcs: [
       {
-        id: 'moth', name: 'Moth', type: 'SHOPKEEPER',
+        id: 'moth', name: 'Moth', type: 'NEUTRAL',
         faction: 'NONE',
         description: 'Small woman, fifties. Moves like the rats — quick, quiet, against the walls. Sitting at the gallery midpoint eating from a can.',
         dialogue: "\"…don't scream. I'm not going to hurt you. I just need to know if you're alone.\"",
         startingDisposition: -10,
-        services: ['shop', 'info'],
+        services: ['info'],
       },
     ],
     enemies: [],
@@ -1224,6 +1225,7 @@ raw tunnel. third level — SL-3 — locked. helixion credentials
 required. the panel shows it active. whatever's at the bottom,
 the elevator visits regularly.`,
     exits: [
+      { direction: 'north', targetRoom: 'z09_r08', description: 'north (Smuggler\'s Corridor)' },
       { direction: 'west', targetRoom: 'z09_r10', description: 'west (Staging Area)' },
       { direction: 'up', targetRoom: 'z01_r14', description: 'up (Helixion Campus — Service Sublevel)', zoneTransition: true, targetZone: 'z01' },
       { direction: 'down', targetRoom: 'z11_r09', description: 'down (Abandoned Transit — North Platform)', zoneTransition: true, targetZone: 'z11' },
@@ -1533,6 +1535,7 @@ you. waiting for you to wake up.
 "easy. you're safe. drink this. i'll explain what i can."`,
     exits: [
       { direction: 'north', targetRoom: 'z04_r02', description: 'north (Rubble Streets)' },
+      { direction: 'east', targetRoom: 'z04_r08', description: 'east (Collapsed Highway)' },
       { direction: 'south', targetRoom: 'z04_r09', description: 'south (Deep Ruins)' },
     ],
     npcs: [
@@ -1849,6 +1852,7 @@ older than the mesh.
 the 33hz hum is strong here. you feel it in the ground through
 the soles of your shoes.`,
     exits: [
+      { direction: 'north', targetRoom: 'z04_r11', description: 'north (The Signal)' },
       { direction: 'northeast', targetRoom: 'z04_r09', description: 'northeast (Deep Ruins)' },
       { direction: 'south', targetRoom: 'z04_r13', description: 'south (Iron Bloom Entrance)' },
     ],
@@ -3015,6 +3019,7 @@ on the south-facing tower, has plants growing on the
 upper landings. Real plants.`,
     exits: [
       { direction: 'north', targetRoom: 'z02_r03', description: 'north (Block Market)' },
+      { direction: 'east', targetRoom: 'z02_r10', description: 'east (Mesh Clinic)' },
       { direction: 'south', targetRoom: 'z02_r11', description: 'south (Transit Station)' },
       { direction: 'up', targetRoom: 'z02_r13', description: 'up (Rooftop Garden — fire escape)' },
     ],
@@ -3705,6 +3710,7 @@ helps. Above the chamber entrance, a spray-painted wolf
 skull marks territory. Below the skull, smaller text:
 "BREATHE SHALLOW."`,
     exits: [
+      { direction: 'north', targetRoom: 'z08_r09', description: 'north (Drainage Nexus — West Overflow)', zoneTransition: true, targetZone: 'z08' },
       { direction: 'up', targetRoom: 'z03_r04', description: 'up (Industrial District — Runoff Channel)', zoneTransition: true, targetZone: 'z03' },
       { direction: 'east', targetRoom: 'z10_r02', description: 'east (East Access)' },
       { direction: 'south', targetRoom: 'z10_r03', description: 'south (Wolf Checkpoint)' },
@@ -5623,6 +5629,7 @@ tuned to static. Someone comes down here to be alone.`,
     exits: [
       { direction: 'up', targetRoom: 'z01_r03', description: 'up (Campus Courtyard — service hatch)' },
       { direction: 'east', targetRoom: 'z09_r11', description: 'east (Maintenance Tunnels — Deep Access Shaft)', zoneTransition: true, targetZone: 'z09' },
+      { direction: 'down', targetRoom: 'z09_r10', description: 'down (Maintenance Tunnels — Helixion Side)', zoneTransition: true, targetZone: 'z09' },
     ],
     npcs: [],
     enemies: [],
@@ -8272,12 +8279,12 @@ someone designed for commerce.`,
     ],
     npcs: [
       {
-        id: 'flicker', name: 'Flicker', type: 'SHOPKEEPER',
+        id: 'flicker', name: 'Flicker', type: 'NEUTRAL',
         faction: 'FREEMARKET',
         description: 'Twenties. Fast-talking, bright-eyed, knows everyone. The Warrens\' unofficial guide — she knows which vendors are honest, which are running scams, which have the best prices.',
         dialogue: '"First time? I can tell. You\'re looking at everything. Regulars look at nothing — they know where they\'re going. — I\'m Flicker. I know this market the way you know your own hands. Want the tour? The short version is free. The useful version costs."',
         startingDisposition: 10,
-        services: ['quest', 'shop', 'info'],
+        services: ['quest', 'info'],
       },
     ],
     enemies: [],

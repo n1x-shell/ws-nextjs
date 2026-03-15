@@ -62,7 +62,7 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     topics: ['trade', 'salvage', 'scrap', 'prices', 'the tunnels', 'supplies', 'helixion components', 'the pump room'],
     physicalDesc: 'woman cleaning circuit boards, trader, shopkeeper',
     zone: 'z08',
-    isQuestGiver: false,
+    isQuestGiver: true,
     isShopkeeper: true,
     knowledge: {
       npcs: {
@@ -100,7 +100,7 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     topics: ['medicine', 'injuries', 'helixion', 'mnemos', 'implants', 'augmentation', 'healing', 'the clinic', 'bio-samples'],
     physicalDesc: 'man with steady hands, doctor, medic, the one suturing',
     zone: 'z08',
-    isQuestGiver: false,
+    isQuestGiver: true,
     isShopkeeper: true,
     knowledge: {
       npcs: {
@@ -2582,6 +2582,55 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     isShopkeeper: false,
     knowledge: { npcs: {}, locations: {}, items: {}, questHints: [] },
     jobRedirect: '',
+  },
+
+  ketch: {
+    name: 'Ketch',
+    voice: 'cheerful in a way that\'s clearly performance. upbeat, transactional. everything has a price and he knows what it is. speaks like a salesman who believes his own pitch.',
+    background: 'freemarket fence operating a stall in the drainage nexus junction, near mara\'s pump room. sells information, luxury items, better food, clean water, stimulants, and occasionally weapons above what mara stocks. buys data chips, helixion intel, stolen goods. the freemarket remembers good customers.',
+    mannerisms: 'smiles too much. gestures at his wares. leans forward when negotiating. always watching the junction entrance — counting foot traffic is a professional habit.',
+    topics: ['trade', 'prices', 'information', 'the freemarket', 'luxury goods', 'data chips', 'helixion intel', 'the junction', 'the parish'],
+    physicalDesc: 'man at a vendor stall, the cheerful trader, freemarket fence',
+    zone: 'z08',
+    isQuestGiver: false,
+    isShopkeeper: true,
+    knowledge: {
+      npcs: {
+        mara: 'mara runs the salvage side. i run the everything-else side. we don\'t compete. different markets, different margins.',
+        doss: 'the parish elder. good man. pragmatic. he tolerates freemarket presence because we bring things the parish can\'t scavenge.',
+        cole: 'the doc. buys medical supplies from me sometimes. pays fair. doesn\'t haggle. i respect that.',
+      },
+      locations: {
+        'the junction': 'best location in the nexus. foot traffic. visibility. mara\'s next door for the scavengers. i get the people who want more than scrap.',
+        'the freemarket': 'we\'re everywhere. the warrens, the tunnels, the fringe. wherever there\'s demand and no corporate supply chain, there\'s us.',
+      },
+      lore: {
+        'the freemarket': 'commerce without helixion. that\'s the pitch. the reality is messier but the pitch is accurate.',
+        'prices': 'i know what things cost. not what they\'re worth — what they cost. there\'s a difference. worth is personal. cost is mathematics.',
+      },
+    },
+  },
+
+  salvage_workers: {
+    name: 'Salvage Workers',
+    voice: 'gruff, collective. they talk over each other. short sentences. practical. they speak like people who work with their hands and don\'t have time for conversation.',
+    background: 'crew of industrial salvagers working the factory district. they strip decommissioned machinery, sort components, and sell what\'s usable. the operation is informal but efficient. they know every piece of hardware in the district by sight.',
+    mannerisms: 'one talks while the others work. they rotate who deals with customers. tools never stop moving. they assess you the way they assess salvage — quickly, by visible condition.',
+    topics: ['salvage', 'components', 'the factories', 'scrap', 'machinery', 'industrial district', 'prices', 'helixion equipment'],
+    physicalDesc: 'crew of workers sorting salvage, industrial laborers, the salvage team',
+    zone: 'z03',
+    isQuestGiver: false,
+    isShopkeeper: true,
+    knowledge: {
+      npcs: {},
+      locations: {
+        'industrial district': 'the factories run. we strip what they discard. the cycle works.',
+        'salvage yard': 'our operation. everything sorted. everything priced. don\'t touch the piles — there\'s a system.',
+      },
+      lore: {
+        'salvage': 'helixion throws away more than most people own. we catch it on the way down. that\'s the job.',
+      },
+    },
   },
 };
 
