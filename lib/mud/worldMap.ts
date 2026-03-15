@@ -12,6 +12,7 @@
 // Phase 11: Iron Bloom Server Farm (Zone 12, 10 rooms).
 // Phase 12: Black Market Warrens (Zone 13, 10 rooms).
 // Phase 13: The Substrate Level (Zone 14, 15 rooms).
+// Phase 14: The Broadcast Tower (Zone 15, 12 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -9704,6 +9705,762 @@ export const ZONE_14: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 15: The Broadcast Tower ──────────────────────────────────────────
+
+const Z15_ROOMS: Record<string, Room> = {
+
+  // ── 1. ROOT LEVEL — Route A Entry ──────────────────────────────────────
+
+  z15_r01: {
+    id: 'z15_r01',
+    zone: 'z15',
+    name: 'ROOT LEVEL',
+    description:
+`The Tower Root's shaft ascends. You climb from the
+Substrate Level's living warmth into manufactured
+structure — the shaft transitions from organic
+crystalline architecture to reinforced concrete and
+steel over a span of twenty meters. The transition is
+the reverse of the Seam: biology becoming construction,
+the living becoming the built. The Substrate's glow
+fades. Helixion's lighting takes over — emergency strips,
+dim amber, the minimum illumination for maintenance access.
+
+The shaft opens into the Tower's root level — the deepest
+floor of the building, below ground level, a mechanical
+space that houses the Tower's structural foundation and
+the cable routing for the frequency capture system. The
+cables are thick — each one carries the captured 33hz
+signal from the Substrate amplifiers upward through the
+building. They pulse. Not with electricity. With
+frequency. The cables vibrate at 33hz.
+
+GHOST ≥ 8: The 33hz in the cables carries the Substrate's
+emotional register. You climbed through the Substrate's
+body and now you're climbing through the weapon pointed
+at the Substrate's body.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z14_r15', description: 'down (Substrate Level — Tower Root)', zoneTransition: true, targetZone: 'z14' },
+      { direction: 'up', targetRoom: 'z15_r06', description: 'up (Mechanical Core)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'sensor_grid', name: 'Sensor Grid', level: 14,
+        description: 'Automated camera networks and motion sensors. Detection triggers lockdown — blast doors seal until security responds.',
+        hp: 1, attributes: enemyAttrs(14), damage: 0, armorValue: 0,
+        behavior: 'patrol', spawnChance: 0.8, count: [1, 1],
+        drops: [
+          { itemId: 'tower_security_keycard', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 50,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 0,
+        attackDice: [6],
+      },
+    ],
+    objects: [
+      { id: 'frequency_cables', name: 'frequency cables', examineText: 'Thick cable bundles running from the foundation upward through the building\'s core. Each cable is a waveguide — designed to carry the 33hz signal with minimal loss. The cables are shielded but the shielding doesn\'t contain the frequency — it vibrates through the shielding into the surrounding structure. The entire building resonates because the cables make it resonate. The Tower is a tuning fork. The cables are the tines.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The waveguide design is elegant. Minimal signal loss over forty stories. The shielding is copper-beryllium alloy — expensive, military-grade. Helixion spent more on these cables than the Parish has seen in a decade.' }],
+      },
+      { id: 'foundation_structure', name: 'foundation structure', examineText: 'The Tower\'s base — reinforced concrete and steel, extending downward into the Substrate. The foundation is the weapon\'s handle. Everything above it exists to elevate the frequency capture array to broadcast height.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'The concrete at the foundation\'s lowest point is warm. The Substrate\'s warmth, conducted through the rock, into the building. The weapon is built on the body it targets. The body warms the weapon.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SUBSTRATE ROOTS', die: 8, benefitsActions: ['hack', 'resist'], hindersActions: ['attack'], color: '#4ade80' }],
+  },
+
+  // ── 2. ENTRY PLATFORM — Route B Entry ──────────────────────────────────
+
+  z15_r02: {
+    id: 'z15_r02',
+    zone: 'z15',
+    name: 'ENTRY PLATFORM',
+    description:
+`The construction scaffolding begins at the Tower's tenth
+floor — accessible from the campus rooftop ridge. The
+scaffolding is industrial: steel poles, cross-braces,
+planking, safety netting that's been cut in places for
+access. Construction materials stacked on platforms,
+tools secured for the night, evidence of work paused
+rather than completed.
+
+You step onto the scaffolding and the city opens below
+you. Ten stories up. The campus spreads at the Tower's
+base — lit, ordered, the corporate geometry visible from
+above. Beyond the campus: the districts. The residential
+blocks to the east. The industrial district to the south.
+The Fringe to the west, dark.
+
+The wind is constant at this height. The scaffolding
+moves with it — not dangerously, but perceptibly. The
+Tower itself doesn't sway. The scaffolding does.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z07_r10', description: 'west (Rooftop Network — Campus Ridge)', zoneTransition: true, targetZone: 'z07' },
+      { direction: 'up', targetRoom: 'z15_r05', description: 'up (Low Scaffold)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'construction_patrol', name: 'Construction Patrol', level: 14,
+        description: 'Armed security guards on the scaffolding perimeter. They patrol in a circuit — 8-minute loop. Time the gap or fight on narrow planking.',
+        hp: 55, attributes: { ...enemyAttrs(14), REFLEX: 7 }, damage: 12, armorValue: 4,
+        behavior: 'patrol', spawnChance: 0.7, count: [1, 2],
+        drops: [
+          { itemId: 'construction_pass', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'salvage', chance: 0.5, quantityRange: [1, 2] },
+        ],
+        xpReward: 100,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [8, 6],
+      },
+    ],
+    objects: [
+      { id: 'the_city_below', name: 'the city below', examineText: 'Ten stories. The campus is a clean geometry of light. Beyond it: the city. From here, at this height, the city looks manageable — a system of districts, a pattern of light and dark. But you know what\'s beneath. The drainage. The tunnels. The transit. The Substrate. The city from above is a mask. The face is underground.' },
+      { id: 'scaffolding_structure', name: 'scaffolding structure', examineText: 'Industrial. Temporary by design. The scaffolding extends from floor 10 to floor 35. The structure is solid but not elegant. Planking shows wear. Cross-braces have been replaced where corrosion set in. The workers who climb this daily are braver than they know.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SCAFFOLDING WIND', die: 8, benefitsActions: ['flee'], hindersActions: ['attack'], color: '#fbbf24' }],
+  },
+
+  // ── 3. TOWER LOBBY — Route C Entry ──────────────────────────────────────
+
+  z15_r03: {
+    id: 'z15_r03',
+    zone: 'z15',
+    name: 'TOWER LOBBY',
+    description:
+`You walk in. Through the door. Like you belong here.
+
+The Tower lobby is corporate magnificence — Helixion's
+architectural statement, condensed into a ground-floor
+space designed to communicate power. The ceiling is four
+stories high. The floor is polished stone. A reception
+desk, staffed, processes employees and authorized
+visitors. Security checkpoints flank the elevator bank —
+biometric scanners, badge readers, armed guards in
+Helixion corporate security uniforms.
+
+Your credentials sit in your pocket or your implant like
+a held breath. The lobby is the test. Walk through it
+wrong and the credentials won't matter. Walk through it
+right — with the posture, the pace, the casual disinterest
+of someone who works here — and the lobby opens like a door.
+
+COOL ≥ 7: You belong here. Your body says so. The badge
+reader accepts the credentials. The guard nods. The
+elevator doors open.`,
+    exits: [
+      { direction: 'south', targetRoom: 'z01_r07', description: 'south (Helixion Campus — Tower Checkpoint)', zoneTransition: true, targetZone: 'z01' },
+      { direction: 'up', targetRoom: 'z15_r04', description: 'up (Security Floor)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'lobby_security', name: 'Lobby Security', level: 15,
+        description: 'Corporate security guards. Professional but routine. Credential failure brings 4 guards in 30 seconds.',
+        hp: 50, attributes: { ...enemyAttrs(15), COOL: 7 }, damage: 11, armorValue: 4,
+        behavior: 'territorial', spawnChance: 0.5, count: [2, 4],
+        drops: [
+          { itemId: 'tower_security_keycard', chance: 0.5, quantityRange: [1, 1] },
+          { itemId: 'salvage', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 90,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [8, 6],
+      },
+    ],
+    objects: [
+      { id: 'the_lobby', name: 'the lobby', examineText: 'Four-story ceiling. Polished stone. The Helixion logo on the wall behind reception — brushed metal, three meters tall. Motivational text beneath it: \'CONNECTION. COMPLIANCE. COMMUNITY.\' The words mean what Helixion wants them to mean. Down in the Substrate, the words would mean something else entirely.' },
+      { id: 'elevator_bank', name: 'elevator bank', examineText: 'Six elevators. Three for general access (floors 1-20). Two for restricted access (floors 20-35, requires enhanced credentials). One — marked \'EXECUTIVE — AUTHORIZED PERSONNEL\' — goes to 40. The peak. The elevator to 40 requires biometric verification that forged credentials can\'t satisfy.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'MESH SATURATION', die: 8, benefitsActions: ['hack'], hindersActions: ['resist'], color: '#818cf8' }],
+  },
+
+  // ── 4. SECURITY FLOOR — Route C Continues ──────────────────────────────
+
+  z15_r04: {
+    id: 'z15_r04',
+    zone: 'z15',
+    name: 'SECURITY FLOOR',
+    description:
+`The elevator opens onto a floor that doesn't match the
+lobby's corporate warmth. Floor 20 is a transition —
+below this: offices, meeting rooms, administrative
+infrastructure. Above this: restricted construction,
+military security, the Tower's operational core. The
+Security Floor is the barrier between the two.
+
+D9 operates from this floor. The hallway is staffed with
+agents — not in uniforms, but recognizable by the way
+they move, the way they watch. The floor layout is a
+checkpoint: a security desk, a secondary biometric
+scanner, and a corridor that leads to the service
+stairwell and the construction elevator.
+
+Getting past requires enhanced credentials, a distraction,
+or social engineering. COOL ≥ 9 to fast-talk a D9 agent
+into escorting you through as a "consultant."`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r03', description: 'down (Tower Lobby)' },
+      { direction: 'up', targetRoom: 'z15_r07', description: 'up (Control Center)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'd9_tower_agent', name: 'D9 Agent', level: 16,
+        description: 'Professional. Alert. Combat-trained, coordinated, subvocal communication. They process everyone going above floor 20.',
+        hp: 65, attributes: { ...enemyAttrs(16), COOL: 9, INT: 8, REFLEX: 8 }, damage: 14, armorValue: 6,
+        behavior: 'aggressive', spawnChance: 0.8, count: [2, 4],
+        drops: [
+          { itemId: 'd9_tactical_data', chance: 0.4, quantityRange: [1, 1] },
+          { itemId: 'd9_tactical_gear', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 140,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 6,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'biometric_scanner', name: 'biometric scanner', examineText: 'Helixion BMS-5 enhanced biometric platform. Palm geometry, retinal scan, neural signature verification. This scanner reads the mesh implant\'s unique identifier — a forged badge can\'t duplicate the neural signature. The scanner is the real barrier on Route C.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The scanner\'s firmware can be disrupted with a targeted EMP pulse or Hale\'s utility override codes. Coil\'s power disruption plan also takes it offline for 90 seconds.' }],
+      },
+      { id: 'd9_operations', name: 'D9 operations', examineText: 'The D9 agents on this floor aren\'t just processing security. They\'re running operations — monitoring screens showing surveillance feeds from across the city. The Tower\'s activation is a D9 operation as much as a Helixion one.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'Harrow is coordinating from above. The agents here are her field team, deployed to ensure the activation proceeds without interference. They\'re looking for resistance activity. They\'re looking for you.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'D9 TERRITORY', die: 10, benefitsActions: ['hack'], hindersActions: ['sneak', 'flee'], color: '#ff6b6b' }],
+  },
+
+  // ── 5. LOW SCAFFOLD — Route B Continues ────────────────────────────────
+
+  z15_r05: {
+    id: 'z15_r05',
+    zone: 'z15',
+    name: 'LOW SCAFFOLD',
+    description:
+`The scaffolding ascent through the Tower's lower
+construction zone. The exterior structure here is
+finished — glass curtain wall, sealed. The scaffolding
+is attached to the finished exterior for access to
+upper construction — ladders between platforms, narrow
+walkways along the building's edge.
+
+The view expands with every floor. The city peels away
+below — buildings that were eye-level at the entry
+platform are now rooftops. The residential blocks'
+water towers are visible. The industrial smokestacks
+trail below. The Fringe is a dark margin at the city's
+edge.
+
+Security on the scaffolding is lighter than inside —
+the assumption that nobody would climb the outside of
+a forty-story building limits the patrol investment.
+The assumption is almost correct.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r02', description: 'down (Entry Platform)' },
+      { direction: 'up', targetRoom: 'z15_r08', description: 'up (High Scaffold)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'exterior_patrol', name: 'Exterior Patrol', level: 14,
+        description: 'Single guard making rounds on the scaffold levels. The scaffolding\'s geometry provides multiple paths to avoid detection.',
+        hp: 50, attributes: { ...enemyAttrs(14), REFLEX: 7 }, damage: 11, armorValue: 3,
+        behavior: 'patrol', spawnChance: 0.6, count: [1, 1],
+        drops: [
+          { itemId: 'construction_pass', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 80,
+        tier: 2,
+        harmSegments: 6,
+        armorSegments: 3,
+        attackDice: [8],
+      },
+    ],
+    objects: [
+      { id: 'expanding_view', name: 'expanding view', examineText: 'Floor 15. The city is a system. You can see the districts\' relationship to each other — the campus at the center, the residential blocks radiating east, the industrial district filling the southeast. The rooftop network is visible as antenna arrays. The Fringe Ruins are a dark gap in the western grid. From this height, the city\'s structure reveals its priorities: the center is bright, the edges are dark.' },
+      { id: 'material_hoist', name: 'material hoist', examineText: 'A motorized platform for lifting construction materials between scaffold levels. Not designed for personnel — but functional. The hoist can carry you between scaffold platforms silently.',
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: 'The motor is simple. Bypass the safety interlock and the platform moves on command. The motor noise is masked by wind at height. The hoist bypasses 3 floors of climbing.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'EXPOSED HEIGHT', die: 8, benefitsActions: ['scan'], hindersActions: ['flee'], color: '#fbbf24' }],
+  },
+
+  // ── 6. MECHANICAL CORE — Route A Continues ─────────────────────────────
+
+  z15_r06: {
+    id: 'z15_r06',
+    zone: 'z15',
+    name: 'MECHANICAL CORE',
+    description:
+`The Tower's interior infrastructure. The shaft from the
+root level continues upward through the building's core
+— a vertical channel of cables, pipes, ventilation ducts,
+and the frequency waveguide that carries the 33hz from
+the Substrate to the peak. The core is the Tower's spine
+and circulatory system combined.
+
+The core is not designed for human traversal. Maintenance
+ladders connect the mechanical floors — access platforms
+where the building's systems can be serviced. The
+platforms are cramped, dark, dominated by the hum of
+the frequency cables. The 33hz is strongest in the core
+— the waveguide amplifies the signal as it ascends,
+each floor louder than the last.
+
+GHOST ≥ 8: The frequency in the waveguide is changing.
+As it ascends, the modulation shifts — the Substrate's
+raw signal is being processed by the building's
+infrastructure. Each floor adds a layer of modification.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r01', description: 'down (Root Level)' },
+      { direction: 'up', targetRoom: 'z15_r09', description: 'up (Signal Conduit)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'automated_maintenance', name: 'Automated Maintenance System', level: 14,
+        description: 'Diagnostic drones and sensor nodes. Not combat-capable but report anomalies. Detection summons human response in minutes.',
+        hp: 25, attributes: enemyAttrs(14), damage: 5, armorValue: 2,
+        behavior: 'patrol', spawnChance: 0.6, count: [1, 2],
+        drops: [
+          { itemId: 'drone_components', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 60,
+        tier: 2,
+        harmSegments: 4,
+        armorSegments: 2,
+        attackDice: [6],
+      },
+    ],
+    objects: [
+      { id: 'waveguide', name: 'frequency waveguide', examineText: 'The central cable — thicker than the others. The waveguide carries the primary 33hz signal from the Substrate capture point to the peak. It converts \'Are you part of me?\' into \'You are part of us,\' one filter at a time.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'Feel the signal change as you climb. Floor 10: the Substrate\'s raw frequency — warm, curious, the question intact. Floor 15: the harmonics are stripped. Floor 20: the phase alignment shifts. Floor 25: the compliance modulation is applied. The building performs the corruption vertically.' }],
+      },
+      { id: 'modification_layers', name: 'modification layers', examineText: 'Each mechanical floor adds processing hardware to the waveguide path. The signal passes through filters, phase-aligning circuits, harmonic suppressors. The Substrate\'s organic complexity is stripped layer by layer.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The processing is reversible at each stage. If you had Serrano\'s tools, you could undo the modifications floor by floor. But the modifications aren\'t the weapon — the broadcast is. Stop the broadcast, stop the weapon.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'FREQUENCY CONDUIT', die: 8, benefitsActions: ['resist'], hindersActions: ['attack'], color: '#818cf8' }],
+  },
+
+  // ── 7. CONTROL CENTER — Route C Continues ──────────────────────────────
+
+  z15_r07: {
+    id: 'z15_r07',
+    zone: 'z15',
+    name: 'CONTROL CENTER',
+    description:
+`The Tower's operational brain. A floor-spanning control
+room — banks of monitors, terminal stations, a central
+display showing the Tower's systems status in real-time.
+The room is staffed: Helixion technicians managing the
+activation sequence, D9 agents providing security, and
+at the center, a command platform where the Tower's
+activation will be authorized.
+
+The countdown shows: hours.
+
+Route C has carried you through the lobby, past the
+security floor, through the occupied levels. The control
+center is the last obstacle before the construction zone
+above. To pass through: blend with the technicians
+(COOL ≥ 8), use the confusion of the activation
+preparations to slip past, or disable systems that
+create a distraction (TECH ≥ 8).`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r04', description: 'down (Security Floor)' },
+      { direction: 'up', targetRoom: 'z15_r10', description: 'up (Upper Construction)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'd9_tower_agent_cc', name: 'D9 Agent', level: 16,
+        description: 'Three agents on the control floor. More alert than the technicians. Any combat here triggers full Tower alert.',
+        hp: 65, attributes: { ...enemyAttrs(16), COOL: 9, INT: 8 }, damage: 14, armorValue: 6,
+        behavior: 'aggressive', spawnChance: 0.7, count: [2, 3],
+        drops: [
+          { itemId: 'd9_tactical_data', chance: 0.4, quantityRange: [1, 1] },
+        ],
+        xpReward: 140,
+        tier: 3,
+        harmSegments: 8,
+        armorSegments: 6,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'countdown_display', name: 'countdown display', examineText: 'Main screen. Hours remaining. The activation sequence, visualized — every subsystem color-coded, every milestone tracked. Green: complete. Yellow: in progress. Red: pending. Most of it is green. The countdown is real.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The activation sequence can\'t be stopped from this terminal. The authorization is biometric — Virek\'s, specifically. But individual subsystems can be delayed. Disabling the frequency calibration adds time. Not much. But some.' }],
+      },
+      { id: 'system_terminals', name: 'system terminals', examineText: 'Rows of workstations. Each one monitors a Tower subsystem — structural integrity, power distribution, frequency calibration, compliance modulation, broadcast targeting. The technicians cycle between them, adjusting parameters. They\'re building a weapon and they think they\'re running a building.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The technicians don\'t feel the frequency. Their implants filter it. They work inside the weapon and the weapon protects them from feeling what it does. Compliance as occupational safety.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'OPERATIONS HUB', die: 8, benefitsActions: ['hack', 'scan'], hindersActions: ['flee'] }],
+  },
+
+  // ── 8. HIGH SCAFFOLD — Route B Continues ───────────────────────────────
+
+  z15_r08: {
+    id: 'z15_r08',
+    zone: 'z15',
+    name: 'HIGH SCAFFOLD',
+    description:
+`The upper scaffolding. Floors 20-30.
+
+The wind is severe at this height. Thirty stories up.
+The scaffolding sways measurably — centimeters of
+lateral movement that the body registers as instability.
+The safety netting is incomplete. Construction materials
+stacked on platforms are secured against wind but the
+loose items — tarps, rope, tools — shift and clatter.
+
+The view is total. The entire city visible. Every
+district. The Fringe to the horizon. At night: the city
+lights pulsing at 33 seconds — the city breathing, the
+mesh synchronizing the electrical grid. The Broadcast
+Tower under construction, seen from within the
+construction, is a skeleton that will cage the sky.
+
+Security here is concentrated: construction zone access
+is restricted, guards patrol the perimeter, and the
+scaffolding's exposed geometry makes stealth harder.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r05', description: 'down (Low Scaffold)' },
+      { direction: 'up', targetRoom: 'z15_r10', description: 'up (Upper Construction)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'construction_security', name: 'Construction Security', level: 16,
+        description: 'Armed with nonlethal stun projectors — Helixion doesn\'t want bodies falling from height onto the campus below. A stunned player on exposed scaffolding may fall.',
+        hp: 60, attributes: { ...enemyAttrs(16), REFLEX: 8 }, damage: 13, armorValue: 4,
+        behavior: 'territorial', spawnChance: 0.8, count: [2, 3],
+        drops: [
+          { itemId: 'construction_pass', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'mesh_projector_component', chance: 0.2, quantityRange: [1, 1] },
+        ],
+        xpReward: 120,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [10],
+      },
+    ],
+    objects: [
+      { id: 'the_skeleton', name: 'the skeleton', examineText: 'The Tower\'s structural steel — the bones of the building, exposed without their skin. The steel members are massive — engineered for a forty-story structure that must resist wind load, seismic forces, and the vibration of the 33hz frequency transmitted through its core.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The structural design includes vibration dampers at every floor — the 33hz would eventually cause resonance failure without them. The Tower is designed to vibrate safely. The building is engineered to carry the Substrate\'s voice without shaking itself apart.' }],
+      },
+      { id: 'array_approach', name: 'array approach', examineText: 'Look up. Five floors above: the frequency capture array. The Fibonacci spiral is visible as steel framework awaiting its final components — the Substrate-grown resonance amplifiers. The array glows faintly — the Substrate material already installed bioluminesces, blue-green light visible against the night sky. The weapon\'s crown, taking shape.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'EXTREME EXPOSURE', die: 10, benefitsActions: ['scan'], hindersActions: ['flee', 'attack'], color: '#ff6b6b' }],
+  },
+
+  // ── 9. SIGNAL CONDUIT — Route A Continues ──────────────────────────────
+
+  z15_r09: {
+    id: 'z15_r09',
+    zone: 'z15',
+    name: 'SIGNAL CONDUIT',
+    description:
+`The upper core. The frequency waveguide widens here —
+the signal processing intensifies as the 33hz approaches
+the peak. The core's mechanical space opens into a
+chamber — the signal conditioning room, where the final
+modulation stages convert the Substrate's frequency into
+the Chrysalis compliance signal.
+
+The room contains the Chrysalis modulation engine — a
+rack of processing hardware that takes the stripped,
+phase-aligned 33hz signal and applies the compliance
+architecture. The engine is the weapon's brain. It
+receives a question and outputs a command.
+
+GHOST ≥ 9: You can feel the signal transform. Below
+this room: the Substrate's voice, damaged but
+recognizable. Above this room: the compliance signal,
+precise and empty. The Chrysalis engine is the boundary.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r06', description: 'down (Mechanical Core)' },
+      { direction: 'up', targetRoom: 'z15_r10', description: 'up (Upper Construction)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'chrysalis_engine_defense', name: 'Chrysalis Engine Field', level: 16,
+        description: 'Automated. The engine generates a compliance field — any implanted person within range receives a targeted compliance pulse. GHOST ≥ 9 to resist.',
+        hp: 40, attributes: { ...enemyAttrs(16), GHOST: 10 }, damage: 10, armorValue: 4,
+        behavior: 'aggressive', spawnChance: 0.9, count: [1, 1],
+        drops: [
+          { itemId: 'mesh_projector_component', chance: 0.5, quantityRange: [1, 1] },
+        ],
+        xpReward: 130,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [10, 8],
+      },
+    ],
+    objects: [
+      { id: 'chrysalis_engine', name: 'chrysalis engine', examineText: 'Hardware racks. The Chrysalis modulation engine. Signal processing arrays that take the captured 33hz and apply the compliance architecture — neural instructions encoded in frequency modulation, designed to rewrite implant behavioral parameters.',
+        gatedText: [
+          { attribute: 'TECH', minimum: 8, text: 'The architecture is a firmware pattern designed to interface with mesh implants, designed to make the recipient feel that compliance is autonomy.' },
+          { attribute: 'TECH', minimum: 9, text: 'The engine can be sabotaged. Destroying the modulation hardware stops the compliance conversion permanently — the Tower broadcasts the Substrate\'s raw signal instead. The question, asked at citywide volume.' },
+        ],
+      },
+      { id: 'the_transformation', name: 'the transformation', examineText: 'The boundary between question and command. The engine sits between them and performs the translation that changes everything.',
+        gatedText: [{ attribute: 'GHOST', minimum: 9, text: 'Feel it. Below: the question. \'Are you part of me?\' The warmth, the curiosity, the hope. Above: the answer Helixion wrote. \'You are part of us.\' The authority, the certainty, the emptiness. Between: this room. Twelve seconds from capture to broadcast.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'CHRYSALIS FIELD', die: 10, benefitsActions: ['resist'], hindersActions: ['attack', 'flee'], color: '#c084fc' }],
+    environmentalClocks: [{
+      id: 'z15_r09_chrysalis',
+      name: 'CHRYSALIS PULSE',
+      segments: 6,
+      category: 'environment',
+      color: '#c084fc',
+      visible: true,
+      persistent: false,
+      onFill: { type: 'environmental_effect', payload: { envType: 'frequency' } },
+    }],
+  },
+
+  // ── 10. UPPER CONSTRUCTION — Routes Converge ───────────────────────────
+
+  z15_r10: {
+    id: 'z15_r10',
+    zone: 'z15',
+    name: 'UPPER CONSTRUCTION',
+    description:
+`The three routes converge. Whether you climbed through
+the spine, scaled the scaffolding, or walked through
+the front door — you're here. Floor 35. The last
+constructed floor. Above this: the frequency capture
+array, the peak, the open sky.
+
+The floor is a staging area for the array's final
+assembly. Construction materials — Substrate-grown
+resonance amplifiers in sealed containers, structural
+steel for the array framework, cable bundles for the
+signal routing. Workers should be here but aren't —
+the activation countdown has cleared the construction
+zone. Everyone who isn't essential is below. Everyone
+who is essential is above.
+
+A staircase leads up. Polished steel. The only
+beautiful thing in the construction zone. It was
+built for Virek's feet.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r09', description: 'down (Signal Conduit — Route A)' },
+      { direction: 'scaffold', targetRoom: 'z15_r08', description: 'scaffold (High Scaffold — Route B)' },
+      { direction: 'interior', targetRoom: 'z15_r07', description: 'interior (Control Center — Route C)' },
+      { direction: 'up', targetRoom: 'z15_r11', description: 'up (The Confrontation)' },
+    ],
+    npcs: [],
+    enemies: [
+      {
+        id: 'elite_security', name: 'Elite Security', level: 18,
+        description: 'Helixion\'s best — augmented, combat-trained, equipped with compliance field generators. They guard the staircase. The last line of defense.',
+        hp: 90, attributes: { ...enemyAttrs(18), BODY: 10, REFLEX: 9, COOL: 8 }, damage: 18, armorValue: 7,
+        behavior: 'aggressive', spawnChance: 1.0, count: [3, 4],
+        drops: [
+          { itemId: 'harrow_credentials', chance: 0.3, quantityRange: [1, 1] },
+          { itemId: 'rare_salvage', chance: 0.5, quantityRange: [1, 2] },
+        ],
+        xpReward: 200,
+        tier: 4,
+        harmSegments: 8,
+        armorSegments: 6,
+        attackDice: [12, 8],
+      },
+    ],
+    objects: [
+      { id: 'substrate_amplifiers', name: 'substrate amplifiers', examineText: 'Sealed containers. Inside: the resonance amplifiers built from Substrate material, manufactured at the Assembly Line, transported through the staging area. They hum through the containers. 33hz. The Substrate\'s voice, captured, packaged, ready for installation.' },
+      { id: 'virek_staircase', name: 'virek staircase', examineText: 'Polished steel. The only architectural elegance in the construction zone. The staircase was built for the moment Virek stands at the peak and watches his weapon activate. The final five steps are transparent glass — looking down through the building\'s forty-story height.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'ELITE ZONE', die: 10, hindersActions: ['flee', 'sneak'], color: '#ff6b6b' }],
+  },
+
+  // ── 11. THE CONFRONTATION ──────────────────────────────────────────────
+
+  z15_r11: {
+    id: 'z15_r11',
+    zone: 'z15',
+    name: 'THE CONFRONTATION',
+    description:
+`Two floors below the peak. A platform — open-sided,
+the construction walls absent, the wind constant. The
+city in every direction. The sky above. The frequency
+capture array overhead, its Fibonacci spiral casting
+bioluminescent light downward. The platform is bathed
+in blue-green and starlight.
+
+Two people are here.
+
+Lucian Virek stands at the platform's edge, facing the
+city. Tall. Still. Augmentations subtle — corporate-grade.
+He's watching the countdown on a tablet. He looks calm.
+The project is the end of free will. He's satisfied.
+
+Evelyn Harrow stands behind him. D9 Director. Compact,
+military bearing in civilian clothing. Her eyes are
+moving — watching the platform, the staircase, the
+access points. She's been expecting this.
+
+They know you're here. The confrontation is designed,
+not accidental. Virek wants to have this conversation
+before the button is pressed. Harrow just wants you dead.
+But Virek outranks Harrow.`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r10', description: 'down (Upper Construction)' },
+      { direction: 'up', targetRoom: 'z15_r12', description: 'up (Frequency Capture Array)' },
+    ],
+    npcs: [
+      { id: 'lucian_virek', name: 'Lucian Virek', disposition: 0, dialogue: ['you came. good. i was hoping for this conversation.'] },
+    ],
+    enemies: [
+      {
+        id: 'evelyn_harrow', name: 'Director Harrow', level: 19,
+        description: 'BOSS. D9 Director. Tactically intelligent, augmented, calls reinforcements. Defeating her doesn\'t require killing her — disabling augmentations (TECH ≥ 9) or restraining her (BODY ≥ 9) ends the fight.',
+        hp: 130, attributes: { ...enemyAttrs(19), COOL: 12, INT: 11, GHOST: 8, TECH: 10, REFLEX: 10, BODY: 9 }, damage: 20, armorValue: 8,
+        behavior: 'aggressive', spawnChance: 1.0, count: [1, 1],
+        drops: [
+          { itemId: 'harrow_credentials', chance: 1.0, quantityRange: [1, 1] },
+          { itemId: 'mesh_projector_component', chance: 0.8, quantityRange: [1, 1] },
+        ],
+        xpReward: 500,
+        tier: 4,
+        harmSegments: 10,
+        armorSegments: 8,
+        attackDice: [12, 10],
+      },
+      {
+        id: 'security_reinforcements', name: 'Security Reinforcements', level: 16,
+        description: 'Waves arriving every 3 minutes if the fight extends. They stop when Harrow is defeated.',
+        hp: 60, attributes: { ...enemyAttrs(16), REFLEX: 8 }, damage: 14, armorValue: 5,
+        behavior: 'aggressive', spawnChance: 0.6, count: [1, 2],
+        drops: [
+          { itemId: 'tower_security_keycard', chance: 0.3, quantityRange: [1, 1] },
+        ],
+        xpReward: 100,
+        tier: 3,
+        harmSegments: 6,
+        armorSegments: 4,
+        attackDice: [10, 6],
+      },
+    ],
+    objects: [
+      { id: 'virek_tablet', name: 'virek tablet', examineText: 'The countdown. Hours becoming minutes. The activation sequence, running. Virek watches it the way someone watches a sunrise — patient, certain.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The tablet contains Virek\'s personal log. He knows the Substrate is alive. He knows the 33hz is a question. He\'s capturing it anyway. Entry: \'The Substrate asks if we\'re connected. We will be. Not because it asks — because we answer. The Tower is the answer.\'' }],
+      },
+      { id: 'the_view', name: 'the view', examineText: 'The city. All of it. Every district visible from floor 38. The residential blocks, the people in them. The industrial district, the factories still running. The Fringe, the Nomads beyond the perimeter — the only people who won\'t receive the signal because they don\'t have implants. The rooftop network, the signal pirates\' antennas. And below: the undercity. The Parish. Iron Bloom. The Substrate. Everything you\'ve been fighting for.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: "HARROW'S DOMAIN", die: 12, hindersActions: ['flee', 'sneak'], color: '#ff0000' }],
+  },
+
+  // ── 12. FREQUENCY CAPTURE ARRAY — The Peak ─────────────────────────────
+
+  z15_r12: {
+    id: 'z15_r12',
+    zone: 'z15',
+    name: 'FREQUENCY CAPTURE ARRAY',
+    description:
+`The top of the world.
+
+Floor 40. Open. No walls. No ceiling. The frequency
+capture array rises around you — a Fibonacci spiral
+of resonance amplifiers, each one a piece of Substrate
+crystal set in a steel framework, glowing blue-green
+against the night sky. The spiral is twenty meters
+across, rising to a point five meters above the
+platform. The array is the Tower's crown. The weapon's
+focus.
+
+The wind is absolute. The height is absolute. The sky
+is absolute. Stars are visible — the first stars in
+the game, the same stars the Nomads see from the
+Open Ground but seen from above the city, from above
+the light pollution.
+
+The array's central mounting point is accessible —
+a structural socket at the spiral's focus. The socket
+receives the array's core activator. The socket is
+also where Serrano's counter-frequency generator fits.
+
+The 33hz rises from below. Through the building.
+Through the waveguide. Through the amplifiers. And
+from below, if you carry Threshold's crystal: the
+Substrate's real voice. Unmodified. The question
+as it was asked.
+
+The countdown reaches its final minutes. The choice:`,
+    exits: [
+      { direction: 'down', targetRoom: 'z15_r11', description: 'down (The Confrontation)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'tower_frequency_array', name: 'frequency array socket', examineText: 'The central socket. A structural mounting point at the Fibonacci spiral\'s focus. The socket receives the core activator — or Serrano\'s counter-frequency generator. The deployment point. The matchbox-sized device. The place where the choice is made.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The socket accepts any device with the correct form factor. Serrano designed the generator to fit this socket exactly. Threshold\'s crystal, combined with the generator, also fits. The weapon\'s vulnerability is its precision — the socket doesn\'t verify what it receives.' }],
+      },
+      { id: 'the_spiral', name: 'the spiral', examineText: 'The Fibonacci spiral. Twenty meters of Substrate crystal in steel framework. Each amplifier glows — blue-green bioluminescence, the Substrate\'s signature. The spiral is mathematics made physical. The resonance pattern is fractal — each amplifier reinforces its neighbors. The design is beautiful. The purpose is totalitarian. The beauty doesn\'t care.' },
+      { id: 'the_sky', name: 'the sky', examineText: 'Stars. Wind. The city below. The Substrate below that. You stand between them — between the sky that doesn\'t know and the earth that asks. The 33hz rises through your feet. The wind takes it from the array and scatters it. For now. In minutes, the array will focus it. In minutes, a million people will hear the question — or the command. The choice is yours.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'THE PEAK', die: 12, benefitsActions: ['resist'], color: '#818cf8' }],
+  },
+};
+
+// ── Zone 15 constant ──────────────────────────────────────────────────────
+
+export const ZONE_15: Zone = {
+  id: 'z15',
+  name: 'THE BROADCAST TOWER',
+  depth: 'surface',
+  faction: 'HELIXION',
+  levelRange: [14, 20],
+  description: 'The weapon. Rises from the Substrate through every layer to the sky. Three routes up. The ascent transforms the 33hz from question to command. The peak is where it ends.',
+  atmosphere: {
+    sound: 'Construction noise below. Silence above. The 33hz intensifying with altitude.',
+    smell: 'Steel, concrete, ozone. Higher: nothing. Scrubbed air. The frequency replaces smell.',
+    light: 'Construction lighting below. Corporate white mid-tower. Raw frequency glow at the peak.',
+    temp: 'Warm from machinery below. Cold from altitude above. The array is body temperature.',
+  },
+  rooms: Z15_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -9721,6 +10478,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z12: ZONE_12,
   z13: ZONE_13,
   z14: ZONE_14,
+  z15: ZONE_15,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────

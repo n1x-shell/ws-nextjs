@@ -1297,6 +1297,47 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     prerequisites: [],
     levelRequirement: 0,
   },
+
+  // ── Zone 15: The Broadcast Tower Quests (Endgame Deployments) ───────────
+
+  q071_the_bridge_deploy: {
+    id: 'q071_the_bridge_deploy',
+    title: 'THE BRIDGE — DEPLOY',
+    giver: 'serrano',
+    tier: 4,
+    type: 'MULTI',
+    description: `the endgame. serrano's counter-frequency generator is in your hands. the broadcast tower's peak — the frequency capture array — is forty stories above the substrate. climb the tower. reach the array. deploy the generator in the central socket. one minute of clarity for a million people. serrano believes a minute is enough. find out who's right.`,
+    objectives: [
+      { id: 'obj_carry_generator', description: 'Carry the counter-frequency generator', type: 'collect', target: 'counter_frequency_generator', current: 0, required: 1, completed: false },
+      { id: 'obj_enter_tower', description: 'Enter the Broadcast Tower', type: 'go_to', target: 'z15_r10', current: 0, required: 1, completed: false },
+      { id: 'obj_confront_harrow', description: 'Get past the Confrontation platform', type: 'go_to', target: 'z15_r11', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_peak', description: 'Reach the Frequency Capture Array', type: 'go_to', target: 'z15_r12', current: 0, required: 1, completed: false },
+      { id: 'obj_deploy_generator', description: 'Deploy the counter-frequency generator', type: 'examine', target: 'tower_frequency_array', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 1500, creds: 0 },
+    repeatable: false,
+    prerequisites: ['q063_the_bridge'],
+    levelRequirement: 15,
+  },
+  q072_the_answer_deploy: {
+    id: 'q072_the_answer_deploy',
+    title: 'THE ANSWER — DEPLOY',
+    giver: 'threshold',
+    tier: 4,
+    type: 'MULTI',
+    description: `the optimal endgame. threshold's resonance crystal combined with serrano's generator. not just clarity — truth. the substrate's real question, broadcast at citywide volume through the weapon designed to silence it. carry the combined device to the frequency capture array. deploy it. broadcast the question the substrate has been asking since before the city was built. "are you part of me?" asked at full volume, with the real answer: a choice.`,
+    objectives: [
+      { id: 'obj_carry_crystal', description: 'Carry the combined crystal-generator device', type: 'collect', target: 'substrate_message_crystal', current: 0, required: 1, completed: false },
+      { id: 'obj_enter_tower_answer', description: 'Enter the Broadcast Tower', type: 'go_to', target: 'z15_r10', current: 0, required: 1, completed: false },
+      { id: 'obj_confront_harrow_answer', description: 'Get past the Confrontation platform', type: 'go_to', target: 'z15_r11', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_peak_answer', description: 'Reach the Frequency Capture Array', type: 'go_to', target: 'z15_r12', current: 0, required: 1, completed: false },
+      { id: 'obj_deploy_crystal', description: 'Deploy the combined device — broadcast the real question', type: 'examine', target: 'tower_frequency_array', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 2000, creds: 0 },
+    repeatable: false,
+    prerequisites: ['q068_the_answer', 'q063_the_bridge'],
+    levelRequirement: 15,
+  },
 };
 
 // ── Quest State Management ──────────────────────────────────────────────────

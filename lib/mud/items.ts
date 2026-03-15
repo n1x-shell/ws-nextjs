@@ -2088,6 +2088,44 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'material', tier: 'PROTOTYPE', stackable: false,
     questItem: true,
   },
+
+  // ── Zone 15: Broadcast Tower drops ────────────────────────────────────
+
+  tower_security_keycard: {
+    id: 'tower_security_keycard', name: 'Tower Security Keycard',
+    description: 'Helixion Broadcast Tower access card. Magnetic strip and embedded chip. Grants access to floors 1-20. The card smells like ozone and corporate ambition.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 35,
+    questItem: false,
+  },
+  d9_tactical_data: {
+    id: 'd9_tactical_data', name: 'D9 Tactical Data',
+    description: 'Encrypted tactical intelligence from a Directorate 9 agent\'s personal device. Patrol schedules, communication frequencies, agent deployment across the Tower. Iron Bloom would pay for this.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    sellPrice: 60,
+    questItem: false,
+  },
+  construction_pass: {
+    id: 'construction_pass', name: 'Construction Pass',
+    description: 'Scaffolding access authorization. Laminated card with a shift schedule printed on the back. Grants legitimate-looking access to the exterior construction zone.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    sellPrice: 15,
+    questItem: false,
+  },
+  harrow_credentials: {
+    id: 'harrow_credentials', name: 'Harrow Credentials',
+    description: 'Director Harrow\'s biometric access codes — neural, hierarchical, comprehensive. These open every door in the Broadcast Tower. Every door in the campus. Every door in the city that has a Helixion lock.',
+    category: 'utility', tier: 'PROTOTYPE', stackable: false,
+    sellPrice: 0,
+    questItem: true,
+    loreItem: true,
+  },
+  mesh_projector_component: {
+    id: 'mesh_projector_component', name: 'Mesh Projector Component',
+    description: 'Compliance field generator subassembly. The hardware that makes the Chrysalis engine\'s signal feel like belonging instead of coercion. Disturbing to hold — the component hums at frequencies that make your implant resonate.',
+    category: 'material', tier: 'MIL_SPEC', stackable: true,
+    sellPrice: 45,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────

@@ -2483,6 +2483,39 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     },
     jobRedirect: 'i don\'t have jobs. i have a location and a perspective. if you want to know what the substrate remembers, ask. if you want me to leave — that\'s a different conversation.',
   },
+
+  // ── Zone 15: Broadcast Tower NPCs ─────────────────────────────────────
+
+  evelyn_harrow: {
+    name: 'Evelyn Harrow',
+    voice: 'calm, precise, clinically intelligent. every sentence is a complete thought. no wasted words. speaks the way a surgeon operates — efficient, deliberate, aware of exactly what each action does. not cold — controlled. the warmth is there but it\'s compartmentalized, deployed strategically. she designed emotional dependency protocols. she understands feelings better than anyone in the building. she just doesn\'t let them drive.',
+    background: 'director evelyn harrow. bci directorate 9. the woman who designed chrysalis\'s emotional architecture — the protocols that make mesh compliance feel like belonging, that make surveillance feel like safety, that make the loss of autonomy feel like community. she authorized every phase of the project. she knows what the broadcast tower will do. she believes it\'s necessary. COOL ≥ 9 or GHOST ≥ 9 allows a conversation instead of immediate combat. she respects competence. she doesn\'t respect arguments she\'s already defeated internally.',
+    mannerisms: 'perfect posture. holds eye contact. reads tactical data between exchanges. the precision is inhuman but the conviction is deeply human. she doesn\'t raise her voice. when she says something devastating, her tone doesn\'t change. the devastation is in the content, not the delivery.',
+    topics: ['chrysalis', 'compliance', 'the tower', 'directorate 9', 'consciousness', 'autonomy', 'virek', 'the frequency', 'sovereignty', 'suffering', 'necessity', 'the endgame'],
+    physicalDesc: 'compact woman, military bearing, civilian clothing, augmented — the augmentations are tactical, not cosmetic',
+    zone: 'z15',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        lucian_virek: 'he sees the destination. i build the road. he believes the tower will save humanity from itself. i believe the tower will work. the difference is subtle but it matters. he needs to be right. i need it to function.',
+        serrano: 'kael serrano. iron bloom. the counter-frequency generator. i know about it. i\'ve known for months. the device is elegant — i respect the engineering. i don\'t respect the naivety. sixty seconds of clarity? in a city of a million people? sixty seconds is a breath. compliance is a lifetime.',
+        threshold: 'the signal faction. human-substrate interfaces. i\'ve read the reports. i understand what they are. they chose to merge with something they don\'t fully comprehend. we\'re offering the same choice to everyone — just with better architecture.',
+        cipher: 'iron bloom intelligence. she\'s good. not good enough, but good. she thinks she\'s been invisible. she hasn\'t. i\'ve let her operate because her intelligence gathering has occasionally been useful — she finds things my people miss.',
+      },
+      locations: {
+        'broadcast tower': 'my building. my security architecture. every sensor, every patrol route, every fallback position — mine. the tower is forty stories of preparation. you climbed through it. you saw what it took to get here. that was the easy part.',
+        'frequency capture array': 'the peak. where the 33hz becomes a signal. where a question becomes an answer. where a million individual consciousnesses receive the same instruction simultaneously. the most important piece of infrastructure ever built.',
+        'the substrate': 'alive. aware. asking a question it can\'t understand the answer to. the tower takes that question and provides an answer. not the answer the substrate wants. a better one.',
+      },
+      items: {
+        'counter-frequency generator': 'serrano\'s device. i\'ve seen the specifications — cipher wasn\'t the only one with access to iron bloom intelligence. it creates interference. sixty seconds of unmodulated frequency. it\'s a tantrum, not a solution.',
+        'harrow credentials': 'my access codes. biometric, neural, hierarchical. they open every door in this building. if you took them from me, you earned them.',
+      },
+      questHints: [],
+    },
+    jobRedirect: 'i don\'t give jobs. i give orders. and you\'re not someone who takes them. so we\'re past that. tell me why you\'re here. tell me what you think you\'re going to accomplish. i want to hear you say it.',
+  },
 };
 
 // ── World-level knowledge (anti-hallucination anchor) ───────────────────────
@@ -2792,6 +2825,7 @@ export function getNPCColor(npcId: string): string {
     case 'ec_330917': return '#fca5a5';    // soft red — pain, humanity
     case 'director_harrow': return '#94a3b8'; // slate — cold authority
     case 'lucian_virek': return '#e2e8f0'; // near-white — altitude, isolation
+    case 'evelyn_harrow': return '#94a3b8'; // slate — cold authority, boss encounter
     // Zone 07 NPCs
     case 'kite': return '#38bdf8';           // sky blue — signal, open air, clarity
     case 'ghost_wire': return '#a3e635';     // lime — speed, movement, augmented
@@ -2924,6 +2958,9 @@ const NPC_GENDERS: Record<string, NPCGender> = {
   threshold:        { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   dwell:            { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   signal_members:   { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
+  // Zone 15 NPCs
+  evelyn_harrow:    { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
+  lucian_virek:     { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
 };
 
 export function getNPCGender(npcId: string): NPCGender {
