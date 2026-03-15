@@ -2604,11 +2604,13 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
         'the junction': 'best location in the nexus. foot traffic. visibility. mara\'s next door for the scavengers. i get the people who want more than scrap.',
         'the freemarket': 'we\'re everywhere. the warrens, the tunnels, the fringe. wherever there\'s demand and no corporate supply chain, there\'s us.',
       },
-      lore: {
-        'the freemarket': 'commerce without helixion. that\'s the pitch. the reality is messier but the pitch is accurate.',
-        'prices': 'i know what things cost. not what they\'re worth — what they cost. there\'s a difference. worth is personal. cost is mathematics.',
+      items: {
+        'data chips': 'information is the most valuable commodity. always buying. always selling. the content determines the price.',
+        'luxury goods': 'clean water, real food, stims that don\'t make you sick. comfort has a markup. people pay it.',
       },
+      questHints: [],
     },
+    jobRedirect: '',
   },
 
   salvage_workers: {
@@ -2627,10 +2629,12 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
         'industrial district': 'the factories run. we strip what they discard. the cycle works.',
         'salvage yard': 'our operation. everything sorted. everything priced. don\'t touch the piles — there\'s a system.',
       },
-      lore: {
+      items: {
         'salvage': 'helixion throws away more than most people own. we catch it on the way down. that\'s the job.',
       },
+      questHints: [],
     },
+    jobRedirect: '',
   },
 };
 
