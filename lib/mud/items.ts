@@ -2510,6 +2510,9 @@ export const RADE_SHOP: ShopItem[] = [
   { templateId: 'pit_entry_ticket', stock: -1 },
   { templateId: 'fighter_registration', stock: 1 },
   { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'adrenaline_shot', stock: 3 },
+  { templateId: 'neural_sharp', stock: 2 },
+  { templateId: 'pit_purse_t1', stock: -1 },
 ];
 
 export const COSTA_SHOP: ShopItem[] = [
@@ -2590,13 +2593,6 @@ export const NEEDLE_SHOP: ShopItem[] = [
   { templateId: 'reflex_overclocker', stock: 2 },
   { templateId: 'subdermal_hardener', stock: 2 },
   { templateId: 'targeting_assist', stock: 2 },
-];
-
-export const RADE_OFFICE_SHOP: ShopItem[] = [
-  { templateId: 'stim_pack', stock: 5 },
-  { templateId: 'adrenaline_shot', stock: 3 },
-  { templateId: 'neural_sharp', stock: 2 },
-  { templateId: 'pit_purse_t1', stock: -1 },
 ];
 
 // ── Zone 01: Helixion Campus Shops ──────────────────────────────────────────

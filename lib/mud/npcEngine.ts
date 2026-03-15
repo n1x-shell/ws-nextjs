@@ -2636,6 +2636,82 @@ const NPC_PERSONALITIES: Record<string, NPCPersonality> = {
     },
     jobRedirect: '',
   },
+
+  lucian_virek: {
+    name: 'Lucian Virek',
+    voice: 'measured, patient, certain. speaks in complete paragraphs with the cadence of a keynote address. every sentence is structured. no hesitation. the voice of someone who has never been wrong in a way that cost him personally. when challenged: amused, then disappointed, then clinical.',
+    background: 'CEO of helixion dynamics. architect of the mesh compliance system. believes human autonomy is an engineering problem — suffering, indecision, conflict are bugs in the human operating system and the mesh is the patch. not sadistic. worse: sincere. twenty years building a system that removes the burden of choice from a million people and he sleeps soundly.',
+    mannerisms: 'stands at the window. looks down. speaks toward the city, not toward you. turns only when he wants to see your reaction. the office is minimalist — one desk, one chair, the view. the simplicity is a statement.',
+    topics: ['the mesh', 'compliance', 'human autonomy', 'helixion', 'the 33hz', 'the substrate', 'the broadcast tower', 'his vision', 'your resistance'],
+    physicalDesc: 'sixties, silver-haired, immaculate suit, standing at a floor-to-ceiling window overlooking the city',
+    zone: 'z01',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        director_harrow: 'my operations director. efficient. loyal. she understands that compliance is not cruelty — it is infrastructure.',
+        naren: 'the researcher. builds things. the template was naren\'s finest work. i provided the vision. naren provided the architecture.',
+        dr_vasik: 'vasik is a disappointment. brilliant researcher. weak conviction. she built the analysis tools and then flinched at what they revealed.',
+      },
+      locations: {
+        'the tower': 'the broadcast tower converts the substrate\'s 33hz signal into compliance frequency. my greatest engineering achievement. the city doesn\'t resist because the city doesn\'t want to.',
+        'the lab': 'the neural forge. where the chrysalis template is refined. every iteration is closer to perfect.',
+      },
+      items: {},
+      questHints: [],
+    },
+    jobRedirect: 'i don\'t have jobs. i have a vision. you\'re either part of it or you\'re noise.',
+  },
+
+  rail: {
+    name: 'Rail',
+    voice: 'calm, economical. short declaratives. speaks like someone who has learned that silence is safer than speech and speech should be worth the risk. no small talk. instructions delivered once. if you didn\'t hear, that\'s your problem.',
+    background: 'thirties. iron bloom transit guide. navigates the passage between abandoned transit and the server farm without light. she knows the substrate growths, the unstable sections, the safe routes. former iron bloom patient — her own augmentations were removed here. she stayed because the tunnels felt like home after the mesh came out. the darkness is a comfort.',
+    mannerisms: 'sits at the passage midpoint. carries a lantern she doesn\'t use for herself. listens before she looks. evaluates silently. gestures with her chin — direction, not conversation.',
+    topics: ['the passage', 'substrate growths', 'iron bloom', 'the tunnels', 'safe routes', 'the darkness', 'augmentation removal'],
+    physicalDesc: 'thirties, earth-tone clothing, lantern at her side, sitting calmly at a tunnel checkpoint',
+    zone: 'z11',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        doss_ib: 'doss runs iron bloom. she sent me here because the passage needs a guide. the substrate growths shift. people get lost. people die.',
+        ever: 'ever walks the deep tunnels. she knows the blue line. if she says a section is dangerous, it\'s dangerous.',
+        compass: 'compass maps the transit network. good maps. but maps don\'t show you what the substrate did last night.',
+      },
+      locations: {
+        'the passage': 'substrate growth on both sides. don\'t touch the walls. the bioluminescence reacts to pressure. follow me. step where i step.',
+        'iron bloom': 'west. through the passage. the server farm. they help people there. removed my mesh. i stayed.',
+      },
+      items: {},
+      questHints: [],
+    },
+    jobRedirect: 'i guide people through the passage. that\'s the job. yours is getting there alive.',
+  },
+
+  signal_members: {
+    name: 'Signal Translators',
+    voice: 'near-silent. when they speak, it is in fragments — half-completed thoughts that trail into listening postures. they speak more to the substrate than to you. if addressed directly: a pause, a slow focus, words that feel translated from something that wasn\'t language.',
+    background: 'two translators. part of the signal faction — the group that believes the substrate\'s 33hz frequency is communication, not noise. they have trained themselves to attune to the signal through breathing exercises, meditation, and prolonged substrate exposure. their role is amplification — three translators process more substrate communication than one. they work in concert with threshold.',
+    mannerisms: 'eyes closed. breathing synchronized. when they open their eyes, they focus on a middle distance that isn\'t in the room. they don\'t track movement. they track frequency.',
+    topics: ['the substrate', '33hz', 'translation', 'the signal', 'threshold', 'listening'],
+    physicalDesc: 'two figures, eyes closed, breathing in unison, seated in a triangle with threshold, substrate bioluminescence reflecting on their faces',
+    zone: 'z14',
+    isQuestGiver: false,
+    isShopkeeper: false,
+    knowledge: {
+      npcs: {
+        threshold: 'threshold leads. we amplify. the substrate speaks to all three of us. threshold finds the words.',
+        resonance: 'resonance understands the substrate differently. through feeling, not frequency. both approaches are valid. the substrate doesn\'t care how you listen.',
+      },
+      locations: {
+        'the translation chamber': 'this room is positioned at a convergence. the dendrite patterns focus here. the substrate\'s signal is clearest in this chamber.',
+      },
+      items: {},
+      questHints: [],
+    },
+    jobRedirect: '…the signal is the job. we listen. that is enough.',
+  },
 };
 
 // ── World-level knowledge (anti-hallucination anchor) ───────────────────────
@@ -2957,6 +3033,7 @@ export function getNPCColor(npcId: string): string {
     case 'deep_dwellers': return '#475569';    // dark slate — adapted, invisible
     case 'station': return '#67e8f9';          // cyan — transit, bioluminescent glow
     case 'ever': return '#f9a8d4';             // soft pink — vulnerability, relief
+    case 'rail': return '#78716c';              // stone — iron bloom, tunnel guide, steady
     case 'hermit': return '#a78bfa';           // violet — deep frequency, transcendence
     // Zone 05 NPCs
     case 'neva': return '#d4a574';               // warm amber — elder, fire, wisdom
@@ -2977,6 +3054,30 @@ export function getNPCColor(npcId: string): string {
     case 'threshold': return '#818cf8';              // indigo — signal, translation, bridge
     case 'dwell': return '#93c5fd';                  // soft blue — serene, memory, stillness
     case 'signal_members': return '#818cf8';          // indigo — signal faction
+    // Zone 06 NPCs
+    case 'grath': return '#8b7355';                    // worn brown — retired fighter, old damage
+    case 'calloway': return '#fbbf24';                 // gold — showman, announcer energy
+    case 'spit': return '#a3a3a3';                     // flat gray — numbers, forgettable
+    case 'patch': return '#ef9a9a';                    // soft red — blood, medical, urgent
+    case 'needle': return '#c0c0c0';                   // chrome silver — chop shop, metal
+    // Zone 03 NPCs
+    case 'ketch': return '#e879f9';                    // fuchsia — freemarket, commerce
+    case 'salvage_workers': return '#78716c';          // stone — industrial, group
+    // Zone 13 NPCs
+    case 'flicker': return '#fcd34d';                  // warm yellow — social, bright energy
+    case 'forge': return '#b22222';                    // deep red — weapons, fire, serious
+    case 'glass': return '#a5f3fc';                    // ice blue — precision, surgical chrome
+    case 'ink': return '#6b7280';                      // gray-blue — paper, shadow, forgery
+    case 'fence': return '#9ca3af';                    // gray — neutral, commercial, no identity
+    case 'vice': return '#ef4444';                     // red — desperation, pain, urgency
+    case 'agent_zero': return '#e2e8f0';               // near-white — corporate, clean
+    case 'axiom': return '#475569';                    // dark slate — shadow, hidden knowledge
+    case 'relic': return '#d6b06b';                    // warm gold — old, reverent, substrate
+    case 'gate_watchers': return '#6b7280';            // gray-blue — vigilance, background
+    // Boss enemies
+    case 'commander_fell': return '#78716c';            // stone — military, hard, functional
+    case 'naren': return '#a5b4fc';                     // soft indigo — science, conviction
+    case 'the_overwrite': return '#475569';             // dark slate — absence, machine, void
     default: return '#fcd34d';
   }
 }
@@ -3047,6 +3148,7 @@ const NPC_GENDERS: Record<string, NPCGender> = {
   deep_dwellers:    { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   station:          { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   ever:             { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
+  rail:             { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
   hermit:           { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   // Zone 05 NPCs
   neva:             { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
@@ -3073,6 +3175,8 @@ const NPC_GENDERS: Record<string, NPCGender> = {
   agent_zero:       { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   axiom:            { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   relic:            { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
+  ketch:            { subject: 'he',   object: 'him',  possessive: 'his',   reflexive: 'himself' },
+  salvage_workers:  { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },
   // Zone 14 NPCs
   resonance:        { subject: 'she',  object: 'her',  possessive: 'her',   reflexive: 'herself' },
   threshold:        { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themselves' },

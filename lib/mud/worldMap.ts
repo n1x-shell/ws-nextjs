@@ -574,6 +574,7 @@ The Parish's protection ends at this cloth.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'NARROW TUNNEL', die: 6, benefitsActions: ['sneak'], hindersActions: ['flee'] }],
   },
 
   // ── 13. THE SEEP ────────────────────────────────────────────────────────
@@ -768,6 +769,7 @@ these tunnels. you're not alone down here.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'LOW CEILING', die: 6, benefitsActions: ['attack'], hindersActions: ['flee'] }],
   },
 
   // ── 2. CABLE GALLERY ─────────────────────────────────────────────────────
@@ -863,6 +865,7 @@ waveguides. you breathe the mesh. literally.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'ECHOING CHAMBER', die: 8, hindersActions: ['sneak'], color: '#a5f3fc' }],
   },
 
   // ── 4. SMUGGLER'S CORRIDOR ───────────────────────────────────────────────
@@ -1036,6 +1039,7 @@ and they move.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'SENSOR GRID', die: 8, benefitsActions: ['hack'], hindersActions: ['sneak'], color: '#fbbf24' }],
   },
 
   // ── 8. THE GAP (hidden room) ─────────────────────────────────────────────
@@ -1145,6 +1149,7 @@ are d9's circulatory system.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'WIDE SERVICE CORRIDOR', die: 8, benefitsActions: ['scan'], hindersActions: ['sneak'] }],
   },
 
   // ── 10. STAGING AREA ─────────────────────────────────────────────────────
@@ -1199,6 +1204,7 @@ they're arriving from beneath it.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'MILITARY STAGING', die: 10, benefitsActions: ['hack'], hindersActions: ['flee', 'sneak'], color: '#ff6b6b' }],
   },
 
   // ── 11. DEEP ACCESS SHAFT ────────────────────────────────────────────────
@@ -1373,6 +1379,7 @@ it's deciding if you're food or competition.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'BROKEN GROUND', die: 6, benefitsActions: ['sneak'], hindersActions: ['flee'] }],
   },
 
   // ── 3. COLLAPSED OVERPASS ─────────────────────────────────────────────────
@@ -1421,6 +1428,7 @@ the collapse. people who are still here.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'UNSTABLE STRUCTURE', die: 8, hindersActions: ['flee'], color: '#fbbf24' }],
   },
 
   // ── 4. UNDERPASS ──────────────────────────────────────────────────────────
@@ -1469,6 +1477,7 @@ something deeper in the underpass is watching you.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'CONCRETE PILLARS', die: 8, benefitsActions: ['sneak'], hindersActions: ['scan'], color: '#1a1a2e' }],
   },
 
   // ── 5. SCAVENGER CACHE ────────────────────────────────────────────────────
@@ -1605,6 +1614,7 @@ you the way down is safe. that someone is waiting at the bottom.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'TIGHT BASEMENT', die: 6, benefitsActions: ['attack'], hindersActions: ['flee'] }],
   },
 
   // ── 8. THE CLINIC ─────────────────────────────────────────────────────────
@@ -1720,6 +1730,7 @@ you are not alone here.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'NARROW STREETS', die: 8, benefitsActions: ['sneak'], hindersActions: ['flee', 'scan'], color: '#1a1a2e' }],
   },
 
   // ── 10. STALKER TERRITORY ─────────────────────────────────────────────────
@@ -1773,6 +1784,7 @@ you shouldn't be here. they know you are.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'STALKER NEST', die: 8, hindersActions: ['flee', 'sneak'], color: '#ff6b6b' }],
   },
 
   // ── 11. THE HERMIT'S TOWER ───────────────────────────────────────────────
@@ -2002,6 +2014,7 @@ streams of yellow and orange.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'OPEN EMBANKMENT', die: 6, benefitsActions: ['scan', 'flee'], hindersActions: ['sneak'] }],
   },
 
   // ── 2. CARGO DOCKS ────────────────────────────────────────────────────────
@@ -2073,6 +2086,7 @@ the yard. Lights on. Someone's watching.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'CONTAINER MAZE', die: 8, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
   },
 
   // ── 3. SALVAGE YARD ───────────────────────────────────────────────────────
@@ -2142,6 +2156,7 @@ been partially ground off. He doesn't look up.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'SCRAP COVER', die: 8, benefitsActions: ['sneak'], hindersActions: ['flee'], color: '#fbbf24' }],
   },
 
   // ── 4. RUNOFF CHANNEL ─────────────────────────────────────────────────────
@@ -2194,6 +2209,7 @@ to drink the water. That was a mistake.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'CHEMICAL RUNOFF', die: 8, benefitsActions: ['hack'], hindersActions: ['attack'], color: '#4ade80' }],
   },
 
   // ── 5. FACTORY ROW ────────────────────────────────────────────────────────
@@ -2255,6 +2271,7 @@ They're not looking for trouble. They're showing the flag.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'WIDE BOULEVARD', die: 6, benefitsActions: ['scan'], hindersActions: ['sneak'] }],
   },
 
   // ── 6. ACTIVE FACTORY ─────────────────────────────────────────────────────
@@ -2314,6 +2331,7 @@ they can't discuss — the mesh doesn't let them form the words.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'PERIMETER FENCE', die: 8, benefitsActions: ['scan'], hindersActions: ['sneak', 'flee'], color: '#ff6b6b' }],
   },
 
   // ── 7. DEAD FACTORY ───────────────────────────────────────────────────────
@@ -2376,6 +2394,7 @@ The deeper sections haven't been cleared.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'ABANDONED FLOOR', die: 6, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
   },
 
   // ── 8. AUTOMATA FLOOR ─────────────────────────────────────────────────────
@@ -2430,6 +2449,7 @@ they'll never complete.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'EMERGENCY RED', die: 8, benefitsActions: ['sneak'], hindersActions: ['scan'], color: '#ff6b6b' }],
   },
 
   // ── 9. WOLF GARAGE ────────────────────────────────────────────────────────
@@ -2688,6 +2708,7 @@ Broadcast Tower is made of.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'CLEAN ROOM', die: 8, benefitsActions: ['scan'], hindersActions: ['sneak'], color: '#a5f3fc' }],
   },
 
   // ── 14. DOCK BOSS OFFICE ──────────────────────────────────────────────────
@@ -2793,6 +2814,7 @@ meat. Evaluating.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'WASTE GROUND', die: 6, benefitsActions: ['flee'], hindersActions: ['scan'] }],
   },
 };
 
@@ -2886,6 +2908,7 @@ crossed out "OR" and wrote "AND."`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'BROKEN STREETSCAPE', die: 6, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
   },
 
   // ── 2. THE CORNER ────────────────────────────────────────────────────────
@@ -3053,6 +3076,7 @@ upper landings. Real plants.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'CROWD COVER', die: 6, benefitsActions: ['sneak'], hindersActions: ['scan'] }],
   },
 
   // ── 5. BACK ALLEY ────────────────────────────────────────────────────────
@@ -3117,6 +3141,7 @@ Nobody uses his real name.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'TIGHT ALLEY', die: 6, benefitsActions: ['attack'], hindersActions: ['flee'] }],
   },
 
   // ── 6. CONDEMNED TOWER ───────────────────────────────────────────────────
@@ -3167,6 +3192,7 @@ to be empty. It is not.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'UNSTABLE FLOORS', die: 8, benefitsActions: ['sneak'], hindersActions: ['flee'], color: '#fbbf24' }],
   },
 
   // ── 7. SQUATTER FLOORS ───────────────────────────────────────────────────
@@ -3282,6 +3308,7 @@ Nobody believes him.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'OPEN PLAZA', die: 6, benefitsActions: ['scan'], hindersActions: ['sneak'] }],
   },
 
   // ── 9. INNER BOULEVARD ───────────────────────────────────────────────────
@@ -3468,6 +3495,7 @@ train there.`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'TRANSIT CROWD', die: 8, benefitsActions: ['sneak'], hindersActions: ['attack'], color: '#a5f3fc' }],
     hasFastTravel: true,
     fastTravelType: 'transit_station',
   },
@@ -3525,6 +3553,7 @@ The mesh still shows their status as "active."`,
     ],
     isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'LOCKED FLOOR', die: 8, hindersActions: ['flee'], color: '#ff6b6b' }],
   },
 
   // ── 13. ROOFTOP GARDEN ───────────────────────────────────────────────────
@@ -7361,8 +7390,9 @@ They're not hostile. They're evaluating.`,
       { id: 'analog_weapons', name: 'analog weapons', examineText: 'No energy weapons. No augmented arms. A bolt-action rifle, oiled and maintained. A compound bow with hand-fletched arrows. A knife sharpened so many times the blade has narrowed by half. These weapons are old-world. They don\'t interface with anything. They just work.' },
       { id: 'sentry_communication', name: 'sentry communication', examineText: 'One of the sentries speaks into a small device — a radio, short-range, analog. Burst transmission: a two-second chirp that sounds like static. The nomads built their own communication network outside the mesh. Crude. Slow. Invisible to Helixion.' },
     ],
-    isSafeZone: true,
+    isSafeZone: false,
     isHidden: false,
+    traitDice: [{ name: 'OPEN SCRUBLAND', die: 6, benefitsActions: ['flee', 'scan'], hindersActions: ['sneak'] }],
   },
 
   // ── 5. THE CAMP ─────────────────────────────────────────────────────────
