@@ -10278,8 +10278,8 @@ beautiful thing in the construction zone. It was
 built for Virek's feet.`,
     exits: [
       { direction: 'down', targetRoom: 'z15_r09', description: 'down (Signal Conduit — Route A)' },
-      { direction: 'scaffold', targetRoom: 'z15_r08', description: 'scaffold (High Scaffold — Route B)' },
-      { direction: 'interior', targetRoom: 'z15_r07', description: 'interior (Control Center — Route C)' },
+      { direction: 'out', targetRoom: 'z15_r08', description: 'out (High Scaffold — Route B)' },
+      { direction: 'in', targetRoom: 'z15_r07', description: 'in (Control Center — Route C)' },
       { direction: 'up', targetRoom: 'z15_r11', description: 'up (The Confrontation)' },
     ],
     npcs: [],
