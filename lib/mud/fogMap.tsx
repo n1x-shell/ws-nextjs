@@ -8,6 +8,10 @@ import type { MudSession, Direction, Zone, Room } from './types';
 import { getAllZones, getRoom } from './worldMap';
 import { loadWorld } from './persistence';
 import { eventBus } from '@/lib/eventBus';
+import {
+  getMapRevealedRooms, getMapHiddenRevealZones,
+  getMapEnemyMarkedZones, revealsHiddenInCurrentZone,
+} from './mapSystem';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -200,7 +204,19 @@ export function FogMap({ session, onClose }: {
     return new Set(room.exits.filter(e => !e.locked).map(e => e.targetRoom));
   }, [char.currentRoom]);
 
-  // "Known" rooms = visited + adjacent to any visited room
+  // ── Map-system computed sets (passive — derived from inventory) ──────────
+  const mapRevealed = useMemo(() => getMapRevealedRooms(char), [char]);
+  const mapHiddenZones = useMemo(() => getMapHiddenRevealZones(char), [char]);
+  const mapEnemyZones = useMemo(() => getMapEnemyMarkedZones(char), [char]);
+  const mapRevealsCurrentHidden = useMemo(() => revealsHiddenInCurrentZone(char), [char]);
+
+  // Get current zone from the room's zone field
+  const currentRoomData = useMemo(() => getRoom(char.currentRoom), [char.currentRoom]);
+  const currentZoneId = currentRoomData?.zone ?? char.currentRoom.replace(/_r\d+$/, '');
+  const allZones = useMemo(() => getAllZones(), []);
+  const currentZone = allZones.find(z => z.id === currentZoneId);
+
+  // "Known" rooms = visited + adjacent-to-visited + map-revealed + hidden-revealed
   const knownRooms = useMemo(() => {
     const known = new Set(visitedSet);
     for (const rid of visitedSet) {
@@ -211,14 +227,19 @@ export function FogMap({ session, onClose }: {
         }
       }
     }
+    // Map-revealed rooms
+    for (const rid of mapRevealed) known.add(rid);
+    // Hidden rooms in zones where maps reveal them
+    if (currentZone) {
+      const shouldRevealHidden = mapHiddenZones.has(currentZone.id) || mapRevealsCurrentHidden;
+      if (shouldRevealHidden) {
+        for (const room of Object.values(currentZone.rooms)) {
+          if (room.isHidden) known.add(room.id);
+        }
+      }
+    }
     return known;
-  }, [visitedSet]);
-
-  // Get current zone from the room's zone field
-  const currentRoomData = useMemo(() => getRoom(char.currentRoom), [char.currentRoom]);
-  const currentZoneId = currentRoomData?.zone ?? char.currentRoom.replace(/_r\d+$/, '');
-  const allZones = useMemo(() => getAllZones(), []);
-  const currentZone = allZones.find(z => z.id === currentZoneId);
+  }, [visitedSet, mapRevealed, mapHiddenZones, mapRevealsCurrentHidden, currentZone]);
 
   const layout = useMemo(() => {
     if (!currentZone) return null;
@@ -422,13 +443,28 @@ export function FogMap({ session, onClose }: {
               if (!bothKnown) return null;
 
               const bothVisited = fromNode && toNode && visitedSet.has(fromNode.roomId) && visitedSet.has(toNode.roomId);
+              const eitherMapped = fromNode && toNode && (mapRevealed.has(fromNode.roomId) || mapRevealed.has(toNode.roomId));
+              const bothMapped = fromNode && toNode && !bothVisited && eitherMapped;
+
+              let stroke: string;
+              let dash: string;
+              if (bothVisited) {
+                stroke = 'rgba(var(--phosphor-rgb),0.25)';
+                dash = 'none';
+              } else if (bothMapped) {
+                stroke = 'rgba(251,191,36,0.15)';
+                dash = 'none';
+              } else {
+                stroke = 'rgba(var(--phosphor-rgb),0.08)';
+                dash = '3 3';
+              }
 
               return (
                 <line key={i}
                   x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke={bothVisited ? 'rgba(var(--phosphor-rgb),0.25)' : 'rgba(var(--phosphor-rgb),0.08)'}
+                  stroke={stroke}
                   strokeWidth={1}
-                  strokeDasharray={bothVisited ? 'none' : '3 3'}
+                  strokeDasharray={dash}
                 />
               );
             })}
@@ -441,6 +477,8 @@ export function FogMap({ session, onClose }: {
             const isCurrent = node.roomId === char.currentRoom;
             const isAdjacent = adjacentRooms.has(node.roomId);
             const canClick = isAdjacent && !isCurrent;
+            const isMapped = !isVisited && mapRevealed.has(node.roomId);
+            const showMappedEnemies = !isVisited && node.hasEnemies && mapEnemyZones.has(currentZoneId);
 
             // Fog: hide rooms that aren't known at all
             if (!isKnown) return null;
@@ -468,6 +506,16 @@ export function FogMap({ session, onClose }: {
                 borderColor = 'rgba(var(--phosphor-rgb),0.5)';
                 glow = '0 0 6px rgba(var(--phosphor-rgb),0.2)';
               }
+            } else if (isMapped) {
+              // Map-revealed but not yet visited — amber hand-drawn look
+              bg = 'rgba(251,191,36,0.04)';
+              borderColor = 'rgba(251,191,36,0.22)';
+              textColor = 'rgba(251,191,36,0.50)';
+              if (isAdjacent) {
+                borderColor = 'rgba(251,191,36,0.45)';
+                bg = 'rgba(251,191,36,0.07)';
+                glow = '0 0 5px rgba(251,191,36,0.15)';
+              }
             } else {
               // Known but unvisited — dim outline, no name
               bg = 'rgba(var(--phosphor-rgb),0.02)';
@@ -481,9 +529,9 @@ export function FogMap({ session, onClose }: {
               }
             }
 
-            // Enemy rooms get red tint (only if visited)
-            if (node.hasEnemies && isVisited && !isCurrent) {
-              bg = 'rgba(255,68,68,0.05)';
+            // Enemy rooms get red tint (visited or map-marked)
+            if (node.hasEnemies && (isVisited || showMappedEnemies) && !isCurrent) {
+              bg = isVisited ? 'rgba(255,68,68,0.05)' : 'rgba(255,68,68,0.03)';
             }
 
             return (
@@ -494,7 +542,7 @@ export function FogMap({ session, onClose }: {
                   e.stopPropagation();
                   if (canClick) handleNavigate(node.roomId);
                 }}
-                title={isVisited ? `${node.name}${canClick ? ' — click to move' : ''}` : '???'}
+                title={(isVisited || isMapped) ? `${node.name}${canClick ? ' — click to move' : ''}` : '???'}
                 style={{
                   position: 'absolute',
                   left: px, top: py,
@@ -521,7 +569,7 @@ export function FogMap({ session, onClose }: {
                   (e.currentTarget as HTMLElement).style.boxShadow = glow;
                 }}
               >
-                {/* Room name — only if visited */}
+                {/* Room name — visible if visited OR mapped */}
                 <span style={{
                   fontSize: '7px',
                   color: textColor,
@@ -534,29 +582,32 @@ export function FogMap({ session, onClose }: {
                   width: '100%',
                   textShadow: isCurrent ? '0 0 6px rgba(var(--phosphor-rgb),0.5)' : 'none',
                 }}>
-                  {isVisited ? node.name : '???'}
+                  {(isVisited || isMapped) ? node.name : '???'}
                 </span>
 
-                {/* Corner indicators — only on visited rooms */}
-                {isVisited && node.isSafe && (
+                {/* Corner indicators — visited rooms OR map-revealed intel */}
+                {(isVisited || isMapped) && node.isSafe && (
                   <div style={{
                     position: 'absolute', top: 2, right: 2,
                     width: 4, height: 4, borderRadius: '50%',
                     background: '#a5f3fc', boxShadow: '0 0 3px rgba(165,243,252,0.5)',
+                    opacity: isVisited ? 1 : 0.5,
                   }} />
                 )}
-                {isVisited && node.hasNPCs && !node.hasEnemies && (
+                {(isVisited || isMapped) && node.hasNPCs && !node.hasEnemies && (
                   <div style={{
                     position: 'absolute', bottom: 2, right: 2,
                     width: 4, height: 4, borderRadius: '50%',
                     background: '#fcd34d', boxShadow: '0 0 3px rgba(252,211,77,0.5)',
+                    opacity: isVisited ? 1 : 0.5,
                   }} />
                 )}
-                {isVisited && node.hasEnemies && (
+                {(isVisited || showMappedEnemies) && node.hasEnemies && (
                   <div style={{
                     position: 'absolute', bottom: 2, left: 2,
                     width: 4, height: 4, borderRadius: '50%',
                     background: '#ff6b6b', boxShadow: '0 0 3px rgba(255,107,107,0.5)',
+                    opacity: isVisited ? 1 : 0.5,
                   }} />
                 )}
                 {/* Clickable indicator on adjacent rooms */}
@@ -598,6 +649,10 @@ export function FogMap({ session, onClose }: {
         <span style={{ display: 'flex', alignItems: 'center', gap: '0.3ch' }}>
           <span style={{ display: 'inline-block', width: 8, height: 8, border: '1px dashed rgba(var(--phosphor-rgb),0.1)', borderRadius: 1 }} />
           unknown
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3ch' }}>
+          <span style={{ display: 'inline-block', width: 8, height: 8, border: '1px solid rgba(251,191,36,0.22)', background: 'rgba(251,191,36,0.04)', borderRadius: 1 }} />
+          mapped
         </span>
         <span style={{ color: 'rgba(var(--phosphor-rgb),0.25)' }}>{'\u00b7'}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '0.3ch' }}>

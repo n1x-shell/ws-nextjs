@@ -107,6 +107,7 @@ import { getDiscoveredSynergies, checkNewSynergies } from './synergies';
 import { rollCombatLoot } from './lootEngine';
 import { emitPlayerHit, emitPlayerDamage, emitEnemyDeath } from './combatFX';
 import { emitCommerceTransient, emitCombatTransient } from './transientMessage';
+import { getEncounterAvoidanceChance } from './mapSystem';
 
 // ── Helper: build NPCModalPayload from a RoomNPC ───────────────────────────
 
@@ -1265,6 +1266,20 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
 
   const spawned = rollRoomEnemies(char.currentRoom);
   if (spawned.length === 0) return;
+
+  // ── Map-based encounter avoidance ──────────────────────────────────────
+  const avoidChance = getEncounterAvoidanceChance(char, room.zone);
+  if (avoidChance > 0) {
+    const roll = crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF;
+    if (roll < avoidChance) {
+      addLocalMsg(
+        <MudLine key={k('map-avoid')} color={C.dim} style={{ fontStyle: 'italic' }}>
+          your map routes you around the danger. hostiles nearby but unaware.
+        </MudLine>
+      );
+      return;
+    }
+  }
 
   const combat = initClockCombat(char, spawned, room.environmentalClocks?.map(ct => createClockFromTemplate(ct)) ?? undefined);
   // Copy room trait dice into combat state

@@ -48,6 +48,7 @@ import {
 import { isNPCQuestGiver } from './npcEngine';
 import { eventBus } from '@/lib/eventBus';
 import { getItemTemplate } from './items';
+import { hasMapEffect, getMapEffectSummary } from './mapSystem';
 import { MapPanel, generateMapData, SY, GY } from './mudMap';
 import { processLevelUp, type LevelUpResult } from './character';
 import {
@@ -2429,6 +2430,7 @@ function InventoryModal({ session, data, onClose }: {
           const isQuest = item.questItem;
           const isLore = item.loreItem;
           const isMaterial = item.category === 'material';
+          const isMap = hasMapEffect(item.id);
           const catColor = ITEM_CAT_COLORS[item.category] ?? C.dim;
 
           return (
@@ -2466,6 +2468,10 @@ function InventoryModal({ session, data, onClose }: {
                   fontSize: '0.7em', color: C.faint,
                   border: '1px solid rgba(var(--phosphor-rgb),0.1)', padding: '0 0.3rem', borderRadius: 2,
                 }}>LORE</span>}
+                {isMap && !isQuest && !isLore && <span style={{
+                  fontSize: '0.7em', color: '#fbbf24', fontWeight: 'bold',
+                  border: '1px solid rgba(251,191,36,0.25)', padding: '0 0.3rem', borderRadius: 2,
+                }} title={getMapEffectSummary(item.id) ?? undefined}>MAP</span>}
                 {isConsumable && !isQuest && !isLore && (
                   <button className="mud-btn" onClick={() => {
                     eventBus.emit('mud:execute-command', { command: `/use ${item.name}` });
