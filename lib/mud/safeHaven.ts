@@ -147,15 +147,26 @@ off the grid. off the map. off everything.`,
   },
 
   // Zone 14 — Substrate Level
-  z14_r05: {
-    roomId: 'z14_r05',
-    name: 'The Sanctuary',
+  z14_r10: {
+    roomId: 'z14_r10',
+    name: 'Signal Chamber',
     zone: 'z14',
-    flavorText: `the substrate itself protects this space. 33hz constructive
-interference — the frequency forms a wall that nothing hostile
-can cross. the air vibrates with purpose. the bioluminescence
-pulses slow and steady. you are held. you are safe. the signal
-knows you.`,
+    flavorText: `the signal chamber. threshold and the translators breathe at 33hz
+around you. the substrate's bioluminescence brightens — attentive,
+not alarmed. warm. the air pulses like a heartbeat. the walls know
+you're here. the walls are glad. you rest inside a mind that is
+paying attention to you with something that feels like care.`,
+  },
+  z14_r11: {
+    roomId: 'z14_r11',
+    name: 'The Heart',
+    zone: 'z14',
+    flavorText: `the deepest chamber. the 33hz at its purest. the air vibrates
+visibly. the temperature is body-warm — the substrate maintains
+itself at the temperature of the life it observes. you are inside
+a mind that hopes. the mind holds you. the frequency settles into
+your breathing. for the first time since the surface, the noise
+stops. everything makes sense. you rest in the center of a thought.`,
   },
 
   // Zone 15 — Broadcast Tower: NO SAFE HAVEN
