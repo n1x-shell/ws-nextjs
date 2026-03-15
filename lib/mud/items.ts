@@ -2059,6 +2059,35 @@ const ITEMS: Record<string, ItemTemplate> = {
     buyPrice: 200, sellPrice: 60,
     questItem: true,
   },
+
+  // ── Zone 14: Substrate Level Items ─────────────────────────────────────
+
+  substrate_message_crystal: {
+    id: 'substrate_message_crystal', name: 'Substrate Message Crystal',
+    description: 'Four years of translation, compressed into crystalline architecture. The Substrate\'s response to its own question — encoded in resonant material. Carry it to the Tower Root. Combine it with Serrano\'s generator. Broadcast the real question.',
+    category: 'quest', tier: 'PROTOTYPE', stackable: false,
+    questItem: true,
+  },
+  substrate_memory_shard: {
+    id: 'substrate_memory_shard', name: 'Substrate Memory Shard',
+    description: 'A thin crystalline sheet from the Memory Chamber\'s strata. Compressed experience — hold it and feel warmth, patience, curiosity. A page torn from a book written in feelings. The Substrate\'s history, in fragment.',
+    category: 'utility', tier: 'PROTOTYPE', stackable: false,
+    sellPrice: 0,
+    loreItem: true,
+  },
+  substrate_attunement_stone: {
+    id: 'substrate_attunement_stone', name: 'Substrate Attunement Stone',
+    description: 'Crystalline formation from the Oldest Thing\'s chamber. Warm. Resonating. The 33hz sharpens when held. Permanent GHOST +1. The Substrate grew it recently — the crystal structure is fresh, the bioluminescence bright. It feels like a gift.',
+    category: 'utility', tier: 'PROTOTYPE', stackable: false,
+    sellPrice: 0,
+    loreItem: true,
+  },
+  substrate_growth_sample: {
+    id: 'substrate_growth_sample', name: 'Substrate Growth Sample',
+    description: 'Fresh regrowth from the Helixion Excavation wound edges. Metabolically active — still processing nutrients, still connected to the larger organism through fluid channels. Useful for neural regeneration compound synthesis.',
+    category: 'material', tier: 'PROTOTYPE', stackable: false,
+    questItem: true,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────

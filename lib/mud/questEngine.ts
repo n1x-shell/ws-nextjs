@@ -1260,6 +1260,43 @@ export const QUEST_REGISTRY: Record<string, Quest> = {
     prerequisites: [],
     levelRequirement: 12,
   },
+  // ── Zone 14: The Substrate Level Quests ──────────────────────────────────
+
+  q068_the_answer: {
+    id: 'q068_the_answer',
+    title: 'THE ANSWER',
+    giver: 'threshold',
+    tier: 4,
+    type: 'DELIVERY',
+    description: `the substrate has a message. not the 33hz — that's the question. this is the answer. threshold has spent four years translating it. the message is stored in a resonance crystal — compressed experience, encoded in crystalline architecture. carry the crystal to the tower root. combine it with serrano's counter-frequency generator. deploy the combined device. broadcast the substrate's real question — not the captured version, not the weaponized version. the real one. the game's optimal endgame resolution.`,
+    objectives: [
+      { id: 'obj_talk_threshold_answer', description: 'Talk to Threshold about the Substrate\'s message', type: 'talk_to', target: 'threshold', current: 0, required: 1, completed: false },
+      { id: 'obj_receive_crystal', description: 'Receive the message crystal from Threshold', type: 'collect', target: 'substrate_message_crystal', current: 0, required: 1, completed: false },
+      { id: 'obj_reach_tower_root', description: 'Reach the Tower Root', type: 'go_to', target: 'z14_r15', current: 0, required: 1, completed: false },
+      { id: 'obj_combine_devices', description: 'Combine crystal with Serrano\'s generator at deployment point', type: 'examine', target: 'deployment_point', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 1000, creds: 0, items: ['substrate_message_crystal'] },
+    repeatable: false,
+    prerequisites: ['q063_the_bridge'],
+    levelRequirement: 0,
+  },
+  q070_dwells_return: {
+    id: 'q070_dwells_return',
+    title: 'DWELL\'S RETURN',
+    giver: 'dwell',
+    tier: 3,
+    type: 'ESCORT',
+    description: `dwell has been in the memory chamber for six months. iron bloom thinks they're dead. they're not dead — they're at peace in a way that is either enlightenment or erasure. you can convince them to return. or you can let them stay. both have value. if they return, iron bloom gains a substrate specialist whose understanding is experiential, not theoretical. if they stay, the substrate gains a permanent human interface in its deepest memory. the choice is real.`,
+    objectives: [
+      { id: 'obj_talk_dwell', description: 'Talk to Dwell in the Memory Chamber', type: 'talk_to', target: 'dwell', current: 0, required: 1, completed: false },
+      { id: 'obj_convince_dwell', description: 'Convince Dwell to return (COOL ≥ 8) or let them stay', type: 'talk_to', target: 'dwell', current: 0, required: 1, completed: false },
+      { id: 'obj_escort_or_report', description: 'Escort Dwell to Iron Bloom or report their status', type: 'go_to', target: 'z12_r01', current: 0, required: 1, completed: false },
+    ],
+    rewards: { xp: 300, creds: 50 },
+    repeatable: false,
+    prerequisites: [],
+    levelRequirement: 0,
+  },
 };
 
 // ── Quest State Management ──────────────────────────────────────────────────

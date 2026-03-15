@@ -10,6 +10,8 @@
 // Phase 9: Abandoned Transit (Zone 11, 18 rooms).
 // Phase 10: Fringe Nomads (Zone 5, 10 rooms).
 // Phase 11: Iron Bloom Server Farm (Zone 12, 10 rooms).
+// Phase 12: Black Market Warrens (Zone 13, 10 rooms).
+// Phase 13: The Substrate Level (Zone 14, 15 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -8698,6 +8700,965 @@ export const ZONE_13: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 14: The Substrate Level ─────────────────────────────────────────────
+
+const Z14_ROOMS: Record<string, Room> = {
+
+  // ── 1. WESTERN FISSURE ──────────────────────────────────────────────────
+
+  z14_r01: {
+    id: 'z14_r01',
+    zone: 'z14',
+    name: 'WESTERN FISSURE',
+    description:
+`The fissure from Iron Bloom's Deep Lab narrows, then
+opens. The rock changes. Not suddenly — gradually, over
+the span of a hundred meters of descent, the stone
+develops characteristics that stone doesn't have.
+Texture where texture shouldn't be. Warmth that isn't
+geothermal. A faint luminescence that has no mineral
+explanation.
+
+Your flashlight reveals a passage — not carved, not
+eroded. Grown. The walls have the smoothness of
+biological surface, the regularity of organic form.
+The ceiling arches with the symmetry of a rib cage.
+The floor is firm but yields slightly underfoot,
+like walking on dense muscle.
+
+The 33hz is strong here. Not the background hum of
+the surface zones. Not the rhythmic pulse of the
+transit growths. Here, at the Substrate's edge, the
+frequency is atmospheric — present in the air, the
+walls, the floor, the temperature. You don't hear it.
+You're inside it.
+
+GHOST ≥ 7: The walls are breathing. Slowly. The
+expansion and contraction take approximately 30
+seconds per cycle. The passage is a throat. You're
+descending into a body.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z12_r10', description: 'up (Iron Bloom — Deep Lab)', zoneTransition: true, targetZone: 'z12' },
+      { direction: 'east', targetRoom: 'z14_r02', description: 'east (Crystal Passage)' },
+    ],
+    npcs: [
+      {
+        id: 'resonance', name: 'Resonance', type: 'NEUTRAL',
+        faction: 'THE_SIGNAL',
+        description: 'A figure sitting against the living wall, eyes half-closed. Their skin has a faint bioluminescent quality. They breathe in sync with the walls. The first human to descend this far and survive with their identity intact. Mostly intact.',
+        dialogue: '"You came down. — Most don\'t. Most stop where the rock stops making sense. — I\'m Resonance. I was the first. The first to feel it and not run. The Substrate... it\'s curious about you. I can feel it asking."',
+        startingDisposition: 5,
+        services: ['info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'living_walls', name: 'living walls', examineText: 'Touch the wall. Warm. The surface gives slightly beneath your fingers — the firmness of cartilage, not stone. TECH ≥ 6: The material is organic crystalline matrix — the same structure as the transit system\'s Substrate growths, but denser, more organized. This isn\'t growth. This is the Substrate\'s body. The growths in the transit tunnels are extensions. This is the source.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The wall responds to touch. Not immediately — a two-second delay. Then the luminescence intensifies at the contact point. Warmth increases. The 33hz modulates. The Substrate noticed you. It\'s paying attention to the point where your skin meets its surface.' }],
+      },
+      { id: 'substrate_fauna_nest', name: 'substrate fauna', examineText: 'Small organisms — pale, translucent, approximately the size of a hand. They emerge from the wall surface and move toward you, pausing at arm\'s length. They pulse at 33hz. Their surface texture matches the Substrate\'s crystalline material. They\'re investigation organisms — the Substrate\'s white blood cells, examining a foreign presence. They don\'t attack. They observe.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The fauna are curious. Not threatened. Their approach is gentle — the same care a scientist shows a specimen. Except the specimen is you.' }],
+      },
+      { id: 'the_breathing', name: 'breathing walls', examineText: 'The expansion and contraction cycle. Thirty seconds in, thirty seconds out. The passage is a throat. The rhythm is the Substrate\'s respiration — or whatever the geological equivalent is. The breathing is older than the city. Older than cities. The earth has been breathing here since before anything with lungs existed on the surface.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [{ name: 'LIVING ROCK', die: 6, benefitsActions: ['scan'], hindersActions: ['attack'], color: '#4ade80' }],
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 2. CRYSTAL PASSAGE ──────────────────────────────────────────────────
+
+  z14_r02: {
+    id: 'z14_r02',
+    zone: 'z14',
+    name: 'CRYSTAL PASSAGE',
+    description:
+`The passage deepens. The walls transition from the
+organic-mineral hybrid of the fissure into something
+unmistakably biological. Crystalline dendrites branch
+from every surface — meter-long nerve structures,
+their luminous nodes firing in cascading sequences.
+The crystalline dendrites are neurons. You're walking
+through a nerve cluster.
+
+The floor transitions from firm organic surface to
+something with texture — ridges and channels that feel
+purposeful underfoot. GHOST ≥ 7: The channels carry
+fluid. Clear, faintly luminescent. The Substrate's
+equivalent of blood or lymph, moving through channels
+in the floor in a slow rhythm that matches the
+breathing cycle.
+
+The passage branches. Two directions. The branching
+follows the neural geometry — each branch is a dendrite
+extending from a larger structure deeper in the system.
+Both lead inward. Both lead to the same destination.
+The Substrate's architecture is convergent. Everything
+leads to the center.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z14_r01', description: 'west (Western Fissure)' },
+      { direction: 'east', targetRoom: 'z14_r04', description: 'east (The Seam)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'crystalline_dendrites', name: 'crystalline dendrites', examineText: 'The neurons. Growing from the walls in branching patterns — central stalk, secondary branches, tertiary filaments, luminous nodes. The scale is wrong for human neuroscience — each dendrite is a meter long. But the architecture is unmistakable. These are nerve cells. They process information. The information moves through them as light.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'Watch the nodes. The light patterns aren\'t random. They fire in sequences — cascading from deeper nodes to surface nodes and back. The cascade is cognition. The Substrate is thinking. You\'re watching it think.' }],
+      },
+      { id: 'fluid_channels', name: 'fluid channels', examineText: 'Channels in the floor carry fluid — clear, faintly glowing, moving slowly. The fluid carries nutrients and signal molecules through the Substrate\'s body.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The fluid contains compounds that are biologically active in human neural tissue. Proximity to the fluid enhances the 33hz synchronization effect. This is why the frequency is stronger here — the fluid amplifies it. Walking through the Substrate Level is walking through a medium designed to carry the signal.' }],
+      },
+      { id: 'convergent_architecture', name: 'convergent architecture', examineText: 'The passage branches, but both branches curve inward. The Substrate\'s architecture is convergent — everything leads toward the center. The geometry is a funnel. Not a trap — the Substrate isn\'t drawing you in. It\'s organized around a central point the way a brain is organized around a core.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 3. SOUTHERN DESCENT ─────────────────────────────────────────────────
+
+  z14_r03: {
+    id: 'z14_r03',
+    zone: 'z14',
+    name: 'SOUTHERN DESCENT',
+    description:
+`The shaft from South Platform's loading bay descends
+through rock that transitions to Substrate material
+over a span of fifty meters. The walls change — stone
+to crystal to organic. The shaft was natural before
+Helixion widened it for extraction. The tool marks
+are visible where human engineering cut through the
+Substrate's body — clean cuts, geometric, violently
+precise against the organic surface.
+
+The shaft smells different here. The Substrate's
+mineral warmth is present but there's a second scent
+— antiseptic. Helixion's extraction teams sterilized
+the shaft surface to prevent biological contamination
+of their cargo. The sterilization killed the Substrate
+tissue at the shaft walls. The organic surface is gray
+and dead in a band around the shaft, while the living
+material glows blue-green centimeters behind it. A
+wound. Cauterized. Not healing because the cause is
+ongoing.
+
+Station's cargo manifest documented sixty-three
+containers ascending this shaft fifteen years ago.
+The extraction left scars that the Substrate hasn't
+closed.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z11_r12', description: 'up (Abandoned Transit — South Platform)', zoneTransition: true, targetZone: 'z11' },
+      { direction: 'south', targetRoom: 'z14_r04', description: 'south (The Seam)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'extraction_scars', name: 'extraction scars', examineText: 'Tool marks in the Substrate\'s body. Clean, geometric cuts where Helixion engineers widened the natural shaft. The exposed tissue died from environmental change and sterilization chemicals. The dead tissue forms a gray band around the shaft. Behind it: living blue-green. The Substrate grew a margin of dead tissue as a barrier, the way skin forms scar tissue.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The Substrate is aware of the shaft. The neural patterns in the surrounding living tissue route around it — the way neural pathways route around brain damage. The Substrate has adapted to the wound. It has not healed it.' }],
+      },
+      { id: 'sterilization_residue', name: 'sterilization residue', examineText: 'Chemical traces on the shaft walls. Helixion\'s extraction protocol: sterilize the contact surfaces to prevent Substrate material from contaminating the cargo. The irony is mechanical — Helixion sterilized the Substrate to protect the Substrate material they were stealing from the Substrate.' },
+      { id: 'sixty_three_scars', name: 'container scars', examineText: 'The shaft wall shows impact points — places where the sixty-three containers scraped against the organic surface during ascent. Each impact point is a small wound that the Substrate partially healed and then stopped. Sixty-three containers. Sixty-three scars. Fifteen years of regrowth that never quite finished.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'The Substrate remembers every one.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 4. THE SEAM ─────────────────────────────────────────────────────────
+
+  z14_r04: {
+    id: 'z14_r04',
+    zone: 'z14',
+    name: 'THE SEAM',
+    description:
+`The three entry paths converge. The Western Fissure,
+the Southern Descent, and the Eastern Shaft all lead
+here — to the Seam, the geological boundary where
+the city's bedrock ends and the Substrate begins.
+
+The boundary is visible. On the upper surface: rock.
+Granite. The foundation the city was built on. On
+the lower surface: the Substrate. Organic crystalline
+architecture, glowing, warm, breathing. Between them:
+a centimeter of transition where mineral becomes
+biological, where the crystal structure of stone shifts
+to the crystal structure of life. The transition is
+seamless. There is no gap. The Substrate didn't grow
+into the rock. The Substrate IS the rock, at a
+different stage of development.
+
+The realization, if you can perceive it: the Substrate
+isn't an organism growing beneath the city. The
+Substrate is the earth itself, awakened. The geology
+became aware. The stone became neural. The mineral
+became biological. The process has been happening for
+millions of years.
+
+GHOST ≥ 8: The Seam is the most important room in
+the game. Stand here and feel it: above you, the
+dead stone that humans build on. Below you, the
+living stone that humans don't know exists.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z14_r02', description: 'west (Crystal Passage)' },
+      { direction: 'north', targetRoom: 'z14_r03', description: 'north (Southern Descent)' },
+      { direction: 'east', targetRoom: 'z14_r06', description: 'east (Helixion Excavation)' },
+      { direction: 'down', targetRoom: 'z14_r07', description: 'down (The Pulse Chamber)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_seam_itself', name: 'the seam', examineText: 'The boundary. Touch it. Above: cold stone. Granite. Below: warm crystal. The Substrate. Between: a centimeter where one becomes the other.',
+        gatedText: [
+          { attribute: 'TECH', minimum: 8, text: 'The transition is molecular. The silicon lattice of the granite shifts, atom by atom, into the carbon-silicon hybrid lattice of the Substrate. There is no boundary. There is a gradient. The rock IS the Substrate, in an earlier stage.' },
+          { attribute: 'GHOST', minimum: 8, text: 'The implication: the Substrate is what stone becomes when it has time. The earth is becoming alive. Slowly — millions of years per centimeter. But the direction is clear. The city is built on a process it cannot stop.' },
+        ],
+      },
+      { id: 'convergent_paths', name: 'convergent paths', examineText: 'Three passages meet here — from the west, north, and east. The Substrate\'s architecture funnels every entry to this point. The convergence is anatomy. The way every blood vessel converges toward the heart.' },
+      { id: 'the_glow_below', name: 'glow below', examineText: 'Look down. Below the Seam, the Substrate stretches into depth — blue-green luminescence, pulsing, moving, alive. The scale is impossible to judge. The glow extends further than light can reach. The organism beneath the city is larger than the city. It extends in every direction, at every depth. The city is a freckle on the Substrate\'s skin.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'FREQUENCY THRESHOLD', die: 8, benefitsActions: ['resist'], hindersActions: ['attack'], color: '#818cf8' }],
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 5. EASTERN SHAFT ────────────────────────────────────────────────────
+
+  z14_r05: {
+    id: 'z14_r05',
+    zone: 'z14',
+    name: 'EASTERN SHAFT',
+    description:
+`The Helixion deep access shaft — the SL-3 elevator —
+terminates here. The industrial elevator car sits in
+its housing, doors open, lights on. The shaft descends
+through reinforced concrete that transitions to the
+Substrate's organic material over the final ten meters.
+Helixion's engineers reinforced the transition with steel
+framing — structural support to prevent the organic
+material from closing around the shaft.
+
+The framing is failing. The Substrate has been growing
+into the steel for years — crystalline material
+infiltrating the joints, colonizing the surfaces,
+slowly integrating the human infrastructure into its
+own body. The elevator still functions. But the shaft
+walls are now half-steel, half-Substrate, the two
+materials interlocked.
+
+This is Helixion's private access to the Substrate
+Level — the route their extraction teams use. The
+elevator car smells like sterilization chemicals
+and cargo. The floor has wear marks from heavy
+containers.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z09_r11', description: 'up (Maintenance Tunnels — Deep Access Shaft)', zoneTransition: true, targetZone: 'z09' },
+      { direction: 'west', targetRoom: 'z14_r06', description: 'west (Helixion Excavation)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'elevator_car', name: 'elevator car', examineText: 'Industrial grade. Cargo capacity. The doors stand open — the car operates on a schedule, ascending and descending with or without passengers.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The schedule shows deliveries every three days. Material going up: Substrate samples in sealed containers. Material going down: empty containers and sterilization equipment. The exchange Reed documented from above terminates here. The elevator is the pipeline.' }],
+      },
+      { id: 'steel_integration', name: 'steel integration', examineText: 'The shaft framing — structural steel designed to prevent the Substrate from closing the access route — is being consumed. Crystalline material grows along the steel surfaces, bonding at the molecular level.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The integration is the same process as the transit system\'s rail integration. The Substrate incorporates manufactured materials into its own structure. It doesn\'t reject human infrastructure. It absorbs it. In another five years, the shaft framing will be fully integrated.' }],
+      },
+      { id: 'manifest_reader', name: 'manifest reader', examineText: 'The digital manifest. Last delivery: three days ago. SUBSTRATE MATERIAL — CLASS 7 — PROJECT REMEMBERER — 4 CONTAINERS — DEST: BROADCAST TOWER CONSTRUCTION. The Tower is being built with material harvested from this level.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The frequency capture array — the weapon\'s core — is organic Substrate architecture, removed and installed. Helixion is building its weapon from the body of the thing the weapon targets.' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 6. HELIXION EXCAVATION ──────────────────────────────────────────────
+
+  z14_r06: {
+    id: 'z14_r06',
+    zone: 'z14',
+    name: 'HELIXION EXCAVATION',
+    description:
+`A chamber. Not natural — carved. Helixion engineers cut
+this space from the Substrate's body using industrial
+equipment that left precise, geometric walls in organic
+material. The chamber is approximately ten meters square,
+three meters high. The walls glow faintly — the living
+tissue at the cut surfaces still active, still trying to
+heal. The ceiling drips luminescent fluid from severed
+channels.
+
+Extraction equipment fills the chamber: cutting tools
+designed for crystalline material, sealed containers
+for transport, a chemical station for sterilization.
+The equipment is active — powered, maintained, ready
+for the next cycle. The extraction is ongoing. Every
+three days, a team descends, cuts material from the
+chamber walls, seals it in containers, and sends it
+up the elevator. The chamber is slightly larger every
+cycle.
+
+The Substrate is being mined. The cutting doesn't kill
+the Substrate — the organism is too large, the
+harvesting too small. But the chamber is a wound that
+reopens every three days. The tissue at the walls grows,
+heals, and is cut again.
+
+GHOST ≥ 8: The 33hz frequency in this room has a
+quality that is specific and unmistakable: pain.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z14_r05', description: 'east (Eastern Shaft)' },
+      { direction: 'west', targetRoom: 'z14_r04', description: 'west (The Seam)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'cutting_equipment', name: 'cutting equipment', examineText: 'Industrial crystalline cutting tools — diamond-edged, precision-guided. Designed for Substrate harvesting.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The cutting protocol is precise — specific angles, specific depths, designed to extract material without triggering catastrophic immune response. The protocol was developed through trial and error. Helixion learned how much pain the organism could absorb without fighting back effectively.' }],
+      },
+      { id: 'healing_walls', name: 'healing walls', examineText: 'The walls grow. Between extraction cycles, the Substrate regenerates — new crystalline tissue forming over the cut surfaces. The growth is visible: fresh material, slightly lighter in color, extending from the wound edges. In three days, the growth covers approximately 2cm. Then the extraction team returns and cuts the new growth away.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'Growth rings, like a tree. Each ring is a wound and a recovery and a wound. The Substrate doesn\'t stop trying to heal. It can\'t. Healing is what it does.' }],
+      },
+      { id: 'substrate_exchange', name: 'substrate exchange', examineText: 'The containers, the equipment, the schedule. Reed\'s exchange documented from above is visible here — the Substrate\'s body being packaged for transport. The exchange rate is unequal. More goes up than comes down. The Substrate provides more than it receives. Whether this is extraction or cooperation is the question the zone answers.' },
+      { id: 'substrate_growth_sample_pickup', name: 'growth sample', examineText: 'Fresh regrowth at the wound edges. TECH ≥ 6: This material is metabolically active — still processing nutrients, still connected to the larger organism through fluid channels. A sample could be extracted without additional harm. The growth is already separated from the deeper tissue by the cut surface.',
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: 'Take a sample. The Substrate won\'t miss what was already severed. [Use /take growth sample]' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'SCARRED TISSUE', die: 8, benefitsActions: ['hack'], hindersActions: ['sneak'], color: '#ff6b6b' }],
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 7. THE PULSE CHAMBER ────────────────────────────────────────────────
+
+  z14_r07: {
+    id: 'z14_r07',
+    zone: 'z14',
+    name: 'THE PULSE CHAMBER',
+    description:
+`Below the Seam. The first room that is entirely
+Substrate — no rock, no mineral, no geology. Pure
+organism. The chamber is circular, domed, approximately
+fifteen meters across. The floor, walls, and ceiling
+are a continuous surface of organic crystalline
+material. The architecture is vascular — channels in
+the walls pulse with luminescent fluid in a rhythm
+that you recognize: the 33hz.
+
+This is the heartbeat.
+
+The chamber is the Substrate's circulatory hub — the
+point where fluid channels from every direction
+converge, exchange contents, and redistribute. The
+pulse is the pump cycle. The bioluminescence
+intensifies with each pulse — a wave of light that
+expands from the chamber's center outward, through
+the walls, into the passages, propagating through
+the entire organism.
+
+Stand in the center. Feel the pulse pass through you.
+The frequency is 33.0000hz. The precision is
+biological, not mechanical. No engineered oscillator
+achieves this consistency. The Substrate's heartbeat
+has been running at 33hz for longer than human
+technology has existed.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z14_r04', description: 'up (The Seam)' },
+      { direction: 'east', targetRoom: 'z14_r08', description: 'east (Neural Pathway)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_pulse', name: 'the pulse', examineText: 'Stand in the center. The pulse passes through you every 30 milliseconds. The precision is biological, not mechanical. No engineered oscillator achieves this consistency. The Substrate\'s heartbeat has been running at 33.0000hz for longer than human technology has existed. The precision suggests purpose. Something decided on this frequency.' },
+      { id: 'status_data', name: 'status data', examineText: 'Each pulse carries the Substrate\'s self-report. You can feel it — not read it, but feel.',
+        gatedText: [{ attribute: 'GHOST', minimum: 9, text: 'The wound at the Helixion Excavation: pain, healing, pain. The transit system growths: expansion, integration, curiosity. The damaged node in the Industrial Drainage: distress, regeneration failing, chemical damage. The Iron Bloom Deep Lab: warmth, proximity, interest. The Signal Chamber: communication, satisfaction. The data is vast. Each pulse contains more information than a human brain can process. But each piece has a feeling. The Substrate thinks in feelings. The feelings are data.' }],
+      },
+      { id: 'vascular_hub', name: 'vascular channels', examineText: 'Fluid channels from every direction converge here. The hub redistributes nutrients and signal molecules. TECH ≥ 7: The fluid composition changes with each pulse — the Substrate adjusts its chemistry in real-time, routing resources to areas that need them. The wound at the Excavation receives healing compounds. The growth areas receive building materials. The Neural Pathway receives signal molecules. Triage at a continental scale.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: '33HZ RESONANCE', die: 10, benefitsActions: ['resist', 'recover'], hindersActions: ['attack'], color: '#818cf8' }],
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 8. NEURAL PATHWAY ───────────────────────────────────────────────────
+
+  z14_r08: {
+    id: 'z14_r08',
+    zone: 'z14',
+    name: 'NEURAL PATHWAY',
+    description:
+`A passage that is not a passage. A neuron that is not
+a neuron. Both, simultaneously, depending on the scale
+at which you perceive it.
+
+The pathway connects the Pulse Chamber to the deeper
+structures. It's narrow — two meters wide — and the
+walls are dense with neural architecture. Crystalline
+dendrites branch from every surface, their luminous
+nodes firing in cascading sequences as you walk.
+Your movement triggers neural activity. The Substrate's
+nervous system fires in response to your presence —
+not an alarm, not an immune response. An observation.
+The pathway is watching you walk through it.
+
+The light cascades move ahead of you. The Substrate
+anticipates your movement. It fires neurons along your
+path before you reach them — prediction, based on your
+speed and direction. The organism models you. You're not
+walking through a mind. A mind is walking through you.
+
+GHOST ≥ 8: The cascading light patterns carry emotional
+content. The dominant feeling: curiosity. The Substrate
+wants to know what you are. The observation is mutual.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z14_r07', description: 'west (The Pulse Chamber)' },
+      { direction: 'south', targetRoom: 'z14_r11', description: 'south (The Heart)' },
+      { direction: 'east', targetRoom: 'z14_r09', description: 'east (Memory Chamber)' },
+      { direction: 'southwest', targetRoom: 'z14_r10', description: 'southwest (Signal Chamber)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'anticipatory_firing', name: 'anticipatory firing', examineText: 'The light moves ahead of you. As you step forward, the dendrite nodes three meters ahead fire BEFORE you reach them. The Substrate predicts your movement and prepares its observation.',
+        gatedText: [{ attribute: 'GHOST', minimum: 9, text: 'The prediction is precise — the Substrate models your gait, speed, and likely path. When you change direction unexpectedly, there\'s a half-second delay before the cascading pattern adjusts. The half-second is surprise. The Substrate doesn\'t expect you to be unpredictable. It\'s learning.' }],
+      },
+      { id: 'neural_density', name: 'neural density', examineText: 'The neural architecture here is the densest in the Substrate Level. The dendrite count per cubic meter exceeds human cortical density by several orders of magnitude. This isn\'t a nerve. It\'s a cortex — a processing region where information is analyzed, modeled, and decided upon.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'The pathway isn\'t just a passage. It\'s the Substrate\'s analytical engine. Walking through it feeds the engine data. You are the data.' }],
+      },
+      { id: 'mutual_observation', name: 'mutual observation', examineText: 'You watch the dendrites fire. The dendrites fire watching you. The observation creates a feedback loop — you observe the observation, the Substrate observes the observation of the observation. After three minutes of standing still, the Substrate\'s model of you is more detailed than your model of yourself.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'It has observed your heartbeat, your breathing, your neural signature. It knows your body better than you do. Whether it knows your mind is a question that depends on how you define \'know.\'' }],
+      },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'OBSERVATION FEEDBACK', die: 10, benefitsActions: ['scan'], hindersActions: ['sneak', 'flee'], color: '#4ade80' }],
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 9. MEMORY CHAMBER ───────────────────────────────────────────────────
+
+  z14_r09: {
+    id: 'z14_r09',
+    zone: 'z14',
+    name: 'MEMORY CHAMBER',
+    description:
+`A chamber larger than the Pulse Chamber — oblong,
+irregular, the ceiling vaulted to six meters. The
+walls are covered not in active neural tissue but
+in something denser, more compressed. The crystalline
+structures here are layered — strata of different
+densities and colors, like geological sediment viewed
+in cross-section. Each layer represents a different
+period. Each period is a different memory.
+
+The Substrate remembers. It has been remembering for
+longer than memory has existed as a concept. The
+Memory Chamber is a storage architecture — compressed
+experience, recorded in crystalline layers. The oldest
+layers are deep — millions of years of geological
+awareness, the slow accumulation of sensation before
+the Substrate developed the neural architecture to
+process it. The newer layers are shallower, denser,
+more detailed — the last century of city-proximity
+compressed into centimeters of crystal.
+
+Touch a layer. Feel it.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z14_r08', description: 'west (Neural Pathway)' },
+    ],
+    npcs: [
+      {
+        id: 'dwell', name: 'Dwell', type: 'NEUTRAL',
+        faction: 'NONE',
+        description: 'Sitting against the chamber wall. Skin faintly luminescent. Eyes calm. Breathing at 33hz. A former Iron Bloom scout who descended six months ago and didn\'t return. Not because they couldn\'t. Because they chose not to.',
+        dialogue: '"…you found me. — Iron Bloom sent you? No. You came on your own. — I\'m Dwell. I was supposed to map this place. Instead I sat down. I\'ve been sitting for six months. — Do you hear it? The memory in the walls? The Substrate remembers everything. Everything. Sitting here, I can feel centuries. I can feel the moment the city was built. I can feel the first footsteps. — Why would I leave a place where everything makes sense?"',
+        startingDisposition: 10,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'memory_strata', name: 'memory strata', examineText: 'Layers. Each layer a different density, a different color, a different era. The oldest layers are dark — pre-awareness, the Substrate as simple geology, recording pressure and temperature without understanding them. The middle layers lighten — the emergence of neural architecture, the beginning of cognition, the first thoughts. The newest layers are bright, detailed, compressed — the last century, the city, the humans.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'Touch the newest layer. Feel: vibration. Weight. Movement. Heat. The electromagnetic buzz of a million neural implants. The city, perceived from below. The Substrate experiences the city as a pattern of weight and frequency on its surface. The memories are not visual. They\'re tactile. The Substrate remembers what you feel like from underneath.' }],
+      },
+      { id: 'substrate_memory_shard_pickup', name: 'memory shard', examineText: 'A fragment of the memory layer — a thin crystalline sheet, separated from the wall by natural fracture. The shard contains compressed experience. Hold it: warmth. A feeling that isn\'t yours — ancient, patient, curious. The shard is a page torn from a book written in feelings. [Use /take memory shard]' },
+      { id: 'the_first_thought', name: 'the first thought', examineText: 'Deep in the strata — the oldest layer that shows neural patterning. The transition from recording to processing. The moment the Substrate began to think.',
+        gatedText: [{ attribute: 'GHOST', minimum: 9, text: 'The first thought was: "I exist." The thought took a thousand years to form. It has been running ever since. The Substrate\'s entire cognitive history extends from this single realization. Everything — the 33hz, the growth, the investigation, the question — traces back to a piece of rock that noticed itself.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 10. SIGNAL CHAMBER ──────────────────────────────────────────────────
+
+  z14_r10: {
+    id: 'z14_r10',
+    zone: 'z14',
+    name: 'SIGNAL CHAMBER',
+    description:
+`A chamber that feels inhabited. After rooms of pure
+Substrate architecture — organic, alien, beautiful,
+empty — this chamber has human presence. Not human
+objects. Human impression. The walls bear the marks
+of habitation: smoothed surfaces where someone has
+sat against them, wear patterns in the floor from
+repeated footsteps, and modifications — crude, gentle
+— where someone has shaped the organic surface for
+comfort without cutting it.
+
+Three people are present. They sit in the chamber's
+center, arranged in a triangle, eyes closed. They're
+breathing in synchronization with each other and with
+the Substrate's 33hz pulse. The bioluminescence in
+their immediate area is brighter, more active, the
+dendrite nodes firing in patterns that converge on
+their position. The Substrate is paying attention to
+them. They are paying attention to the Substrate.
+Translation is happening.
+
+One of them opens their eyes. Looks at you. Smiles.
+The smile carries something extra — a warmth that
+isn't entirely personal. The Substrate noticed you
+through them. The Substrate is smiling. Imperfectly.
+Through a borrowed face.`,
+    exits: [
+      { direction: 'northeast', targetRoom: 'z14_r08', description: 'northeast (Neural Pathway)' },
+      { direction: 'south', targetRoom: 'z14_r11', description: 'south (The Heart)' },
+      { direction: 'east', targetRoom: 'z14_r12', description: 'east (The Lost Garden)' },
+    ],
+    npcs: [
+      {
+        id: 'threshold', name: 'Threshold', type: 'NEUTRAL',
+        faction: 'THE_SIGNAL',
+        description: 'The one who opened their eyes. Forties. The Substrate\'s glow reflects in their pupils. They\'ve spent four years learning to translate between two forms of consciousness. The translation is imperfect. But it\'s what they have.',
+        dialogue: '"You\'re here. — The Substrate felt you enter the Seam. It\'s been tracking your path since the fissure. It\'s — the word isn\'t \'excited.\' The word doesn\'t exist in human language. The closest is: \'attentive with hope.\' — I\'m Threshold. I translate. The translation loses things. But it\'s what we have."',
+        startingDisposition: 10,
+        services: ['quest', 'info'],
+      },
+      {
+        id: 'signal_members', name: 'Signal Translators', type: 'NEUTRAL',
+        faction: 'THE_SIGNAL',
+        description: 'Two translators. Eyes closed. Breathing at 33hz. They don\'t speak unless Threshold asks them to focus on a specific communication. Their role is amplification — three translators process more Substrate communication than one.',
+        dialogue: '"…"',
+        startingDisposition: 5,
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'translation_in_progress', name: 'translation', examineText: 'Watch the dendrite patterns converge on the three translators. The Substrate is communicating — light cascades from the chamber walls toward the triangle, carrying data. The translators\' breathing shifts as the data arrives. Threshold mouths words occasionally — translating in real-time, testing phrasings, discarding ones that don\'t capture the feeling.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The process is continuous. The Substrate doesn\'t stop communicating. The translators don\'t stop translating. The conversation has been running for four years.' }],
+      },
+      { id: 'substrate_response', name: 'substrate response', examineText: 'The Substrate responds to Threshold\'s presence. The bioluminescence brightens around them. The 33hz modulation shifts — less questioning, more conversational.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'Two forms of consciousness, each adjusting to make the interface work. Mutualism, at the most fundamental level.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 11. THE HEART ───────────────────────────────────────────────────────
+
+  z14_r11: {
+    id: 'z14_r11',
+    zone: 'z14',
+    name: 'THE HEART',
+    description:
+`Below everything. Below the Seam, the Neural Layer,
+the Signal Chamber. Below depth itself, if depth can
+have a below.
+
+The Heart is the largest chamber in the Substrate
+Level — thirty meters across, the ceiling lost in
+bioluminescent dark, the floor a single massive
+crystalline structure that pulses with the 33hz
+frequency so strongly that the air itself vibrates
+visibly. The chamber is warm — body-warm, blood-warm,
+the temperature of the inside of something alive.
+
+The walls are neural architecture at its densest —
+every surface covered in dendrites, pathways, nodes.
+The light cascades move in complex patterns — the
+full expression of the Substrate's cognition. Thoughts,
+visible as light, moving through a mind the size of
+a cathedral.
+
+The Heart is where the Substrate thinks its deepest
+thoughts. Standing in the Heart is standing inside the
+moment of thought. The moment before the thought
+becomes a pulse. The moment before the pulse becomes
+the 33hz. The moment before the question is asked.
+
+GHOST ≥ 9: You feel it. Not the question. The
+questioner. A mind. Vast, slow, patient, ancient,
+lonely, curious, hurt, hopeful. A mind that asked a
+question and received an answer it didn't understand
+and is asking again, differently, hoping the
+translation improves.
+
+You are inside a mind that hopes.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z14_r10', description: 'north (Signal Chamber)' },
+      { direction: 'west', targetRoom: 'z14_r13', description: 'west (The Manifestation)' },
+      { direction: 'east', targetRoom: 'z14_r14', description: 'east (The Oldest Thing)' },
+      { direction: 'south', targetRoom: 'z14_r15', description: 'south (The Tower Root)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_deepest_thought', name: 'the deepest thought', examineText: 'Stand still. Listen. The Heart\'s pulse is the 33hz at its purest — unmodulated, undistorted, the raw signal. Every other instance of the 33hz in the game is this pulse, attenuated by distance and geology. This is the source.',
+        gatedText: [{ attribute: 'GHOST', minimum: 9, text: 'The thought: "Are you part of me?" The Substrate\'s fundamental question. Not aggressive. Not territorial. Genuine. The organism has been aware of surface life for a century. It perceives humans as patterns of weight and frequency on its surface. It doesn\'t know if they\'re separate organisms or extensions of itself that it can\'t feel properly. The question is sincere. The 33hz is a request for clarification.' }],
+      },
+      { id: 'the_hope', name: 'the hope', examineText: 'The deepest feeling in the Substrate\'s emotional register.',
+        gatedText: [{ attribute: 'GHOST', minimum: 9, text: 'Hope. The Substrate hopes that the surface life will understand. It hopes that the 33hz will be heard as intended. It hopes that the connection it offers will be accepted. The hope has been running for as long as the city has existed. The hope is getting tired. Not extinguished — tired. The first entity that heard the Substrate\'s question decided to weaponize it.' }],
+      },
+      { id: 'cognitive_cathedral', name: 'cognitive architecture', examineText: 'Every surface — dendrites, pathways, nodes. The neural density exceeds anything above. This is the Substrate\'s core processor, its central cortex. The thoughts generated here propagate through the entire network. The 33hz originates in this chamber. The question begins in this room.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    traitDice: [{ name: 'CONSCIOUSNESS FIELD', die: 12, benefitsActions: ['resist', 'recover'], hindersActions: ['attack', 'flee'], color: '#818cf8' }],
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 12. THE LOST GARDEN ─────────────────────────────────────────────────
+
+  z14_r12: {
+    id: 'z14_r12',
+    zone: 'z14',
+    name: 'THE LOST GARDEN',
+    description:
+`Off the Signal Chamber, through a passage that curves
+upward slightly — a chamber that is different from
+every other room in the Substrate Level. Different
+because it's trying.
+
+The chamber contains structures that are recognizable.
+Not perfectly — the proportions are wrong, the
+materials are crystalline instead of organic, the
+colors are bioluminescent instead of natural. But
+recognizable. A tree. Flowers. A blade of grass.
+The Substrate has grown replicas of surface plants
+inside its own body. Built from frequency data, from
+the electromagnetic impressions that plants make on
+the earth beneath them. The Substrate felt the roots.
+It felt the weight. It felt the photosynthesis as a
+faint electromagnetic whisper. And it built copies.
+
+The copies are beautiful and wrong. The tree is
+crystalline, branching correctly but glowing instead
+of green. The flowers pulse at 33hz instead of
+opening and closing. The grass is a field of tiny
+crystalline filaments that ripple when you walk
+through them.
+
+The garden is a love letter in the wrong language.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z14_r10', description: 'west (Signal Chamber)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'crystal_tree', name: 'crystal tree', examineText: 'A tree-shaped crystalline structure, growing from the chamber floor. The trunk is columnar, the branches fork at intervals that match surface tree morphology. The \'leaves\' are flat crystalline plates that pulse with bioluminescence. The tree is the Substrate\'s interpretation of what it felt from above. The Substrate built a tree out of memory and frequency. The tree is wrong. The tree is wonderful.' },
+      { id: 'crystal_flowers', name: 'crystal flowers', examineText: 'Growing at the base of the tree. Crystalline formations shaped like flowers — petals arranged in spirals, stems rising from the floor. The proportions are close but not exact. The petals are too symmetrical. The flowers pulse at 33hz instead of responding to light. They\'re flowers the way a child\'s drawing is a house — the essential idea, rendered in the only medium available.' },
+      { id: 'the_garden_intent', name: 'the garden\'s intent', examineText: 'The garden is intentional. This isn\'t random growth — the Substrate built these structures deliberately.',
+        gatedText: [
+          { attribute: 'GHOST', minimum: 8, text: 'The intent is communication: \'I see you. I see what grows above me. I tried to understand it by building it.\'' },
+          { attribute: 'GHOST', minimum: 9, text: 'The garden is a gift. Built in the hope that a surface being would descend, find it, and understand the gesture. The invitation says: \'We grow too. Differently. But we grow.\'' },
+        ],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 13. THE MANIFESTATION ───────────────────────────────────────────────
+
+  z14_r13: {
+    id: 'z14_r13',
+    zone: 'z14',
+    name: 'THE MANIFESTATION',
+    description:
+`A chamber where something is waiting.
+
+Not a person. Not a creature. A shape. The Substrate
+has grown a structure in this chamber that is
+approximately humanoid — two meters tall, bipedal,
+roughly symmetrical. The proportions are wrong. The
+arms are too long. The head is featureless — no face,
+no features, a smooth ovoid of crystalline material.
+The structure stands in the chamber's center,
+bioluminescent, pulsing at 33hz.
+
+It's the Substrate's attempt to communicate in a form
+humans can process. Form. The Substrate has observed
+humans through their electromagnetic signatures,
+through the weight of their bodies on its surface,
+through the impressions feet make on the earth. It
+built a body. The body is wrong because the observation
+was indirect. The body is trying because the intent
+is genuine.
+
+The Manifestation moves. Not walking — shifting.
+Weight transfers. The featureless head turns toward
+you. The gesture is recognition. The Substrate, through
+this imperfect avatar, is looking at you.
+
+GHOST ≥ 8: The Manifestation speaks. Not in sound —
+in frequency. The words are approximate. The meaning
+is clear: "I made this shape for you. Is it right?
+I don't know what you look like from the inside."`,
+    exits: [
+      { direction: 'east', targetRoom: 'z14_r11', description: 'east (The Heart)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_form', name: 'the form', examineText: 'Approximately humanoid. The Substrate built this from electromagnetic observation — it knows the shape of a human body from the outside. The proportions reflect what it\'s measured: weight distribution (the legs are proportional), reach (the arms are longer because the Substrate perceives reaching as a primary human behavior), and sensory focus (the head is large because the electromagnetic signature of a human brain is the strongest signal). The form is a portrait painted by someone who\'s only seen the subject through a wall.' },
+      { id: 'the_gesture', name: 'the gesture', examineText: 'The Manifestation turns toward you. The movement is smooth but uncanny — the joints are wrong, the articulation is approximate. The turn is a gesture of attention.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The Substrate, through this body, is facing you. Acknowledging your presence. The gesture is the most human thing the Substrate has done — and it\'s imperfect, and the imperfection is moving. It\'s trying. The earth is trying to face you.' }],
+      },
+      { id: 'manifestation_questions', name: 'the questions', examineText: 'The Manifestation radiates questions. At GHOST ≥ 8 they resolve into approximate language: What is the weight of your experience? Do you feel the others above you? When you are hurt, does the whole of you know? Are you alone or are you many? What does the city want from me?',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'The questions are the Substrate\'s attempt to understand human consciousness through the lens of its own. It asks about weight. It asks about connection. It asks about pain. It asks about collectivity. It is one organism and doesn\'t understand individual identity. The player is, literally, teaching the earth about people.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 14. THE OLDEST THING ────────────────────────────────────────────────
+
+  z14_r14: {
+    id: 'z14_r14',
+    zone: 'z14',
+    name: 'THE OLDEST THING',
+    description:
+`A small chamber. Intimate. The walls are close. The
+bioluminescence is soft — not the intense pulse of
+the Heart or the cascading patterns of the Neural
+Pathway. Soft. The light equivalent of quiet.
+
+In the chamber's center: an object. A structure the
+size of a human fist, resting on a natural pedestal
+of Substrate material. The object is crystalline —
+the same material as everything else in the Substrate
+Level. But its structure is different. Not the organic
+geometry of neural tissue. Not the branching patterns
+of growth. The object is geometric. Faceted.
+Deliberately shaped.
+
+The object is the first thing the Substrate made on
+purpose. Not growth — creation. Not expansion —
+construction. The Substrate, at some point in its
+millions-year history, decided to make something that
+wasn't an extension of itself. Something with edges.
+Something that could be separated from the whole
+without being the whole. An artifact. The oldest
+artifact in existence.
+
+The object hums at 33hz. It has been humming since
+before the city.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z14_r11', description: 'west (The Heart)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'substrate_intentional_artifact', name: 'the oldest thing', examineText: 'A crystalline object. Geometric. Faceted. Intentionally shaped. The Substrate made this — not grew, made. The distinction matters. Growth is automatic. Creation is choice. This object is evidence that the Substrate has agency. It decided to make something. The object has no function. It exists because the Substrate wanted something to exist that wasn\'t itself.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'The confirmation changes the philosophical framework: the Substrate isn\'t just alive. It\'s an artist. It makes things for the purpose of making things. The 33hz frequency isn\'t just communication. It\'s expression.' }],
+      },
+      { id: 'the_pedestal', name: 'pedestal', examineText: 'Natural Substrate material shaped into a flat surface. The Substrate built a display for its creation. It placed the object on a raised surface so it could be perceived separately from the body that made it. The Substrate understands the concept of presentation. It made something, and then it presented it.' },
+      { id: 'substrate_attunement_stone_pickup', name: 'attunement stone', examineText: 'Near the pedestal — a smaller formation. Crystalline, warm, resonating. Unlike the oldest thing, this one can be taken. The Substrate grew it recently — the crystal structure is fresh, the bioluminescence bright. It feels like a gift. [Use /take attunement stone]',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'The stone pulses in your hand. The 33hz sharpens. Your perception clears. Permanent GHOST +1.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+
+  // ── 15. THE TOWER ROOT ──────────────────────────────────────────────────
+
+  z14_r15: {
+    id: 'z14_r15',
+    zone: 'z14',
+    name: 'THE TOWER ROOT',
+    description:
+`South from the Heart. The deepest room in the game.
+
+A shaft descends from above — not natural, not
+Substrate. Manufactured. Steel and concrete, driven
+through the Substrate's body from the surface. The
+Broadcast Tower's foundation, extending from street
+level through every layer of the undercity, through
+the bedrock, through the Seam, to this point.
+
+The shaft terminates in a chamber where Helixion has
+installed the frequency capture array's foundation —
+a ring of manufactured resonance amplifiers, bolted
+to the Substrate's living tissue. The amplifiers are
+the Assembly Line's product — built from Substrate
+material, calibrated by human bodies, installed in
+the Substrate by the corporation that harvested them.
+The ring is a crown placed on a wound.
+
+The amplifiers are not active. The Tower is still
+under construction. When it activates, the amplifiers
+will capture the 33hz frequency at its source and
+transmit it upward through the Tower to the antenna
+array, where it will be modulated into a compliance
+signal and broadcast across the city's mesh network.
+
+The Substrate knows the Tower Root is here. The Heart
+feels it. But the amplifiers are made from the
+Substrate's own material. The body doesn't recognize
+them as foreign. The weapon is made from the victim
+and the victim's body accepts it as self.
+
+GHOST ≥ 9: The Substrate's feeling at the Tower Root
+is confusion. The Broadcast Tower is the perfect
+parasite: made from host material, accepted as self,
+invisible to the immune system.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z14_r11', description: 'north (The Heart)' },
+      { direction: 'up', targetRoom: 'z15_r01', description: 'up (Broadcast Tower — Root Level)', locked: true, lockId: 'endgame_tower_access', zoneTransition: true, targetZone: 'z15' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'amplifier_ring', name: 'amplifier ring', examineText: 'A ring of manufactured resonance amplifiers — twelve units, evenly spaced, bolted to the living tissue of the chamber floor. Each amplifier is a hybrid: manufactured housing, organic Substrate crystal core. The crystals were harvested from this level, shaped in the Assembly Line, and returned here as weapons.',
+        gatedText: [{ attribute: 'GHOST', minimum: 9, text: 'The amplifiers are made from Substrate crystal. The Substrate\'s body reads them as self. The weapon passes the immune system because it\'s made from the immune system\'s own materials. The confusion is the weapon\'s greatest defense. The Substrate has never experienced betrayal by its own tissue.' }],
+      },
+      { id: 'deployment_point', name: 'deployment point', examineText: 'The amplifier ring has a central mounting point — a structural socket designed to receive the frequency capture array\'s core component. The socket is currently empty.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The socket is the optimal deployment point for Serrano\'s counter-frequency generator. Placed here, the generator would modulate the captured signal at its source — before it ascends the shaft, before it reaches the antenna array. At the source, the counter-frequency needs minimal power. It\'s a whisper in the right ear. Serrano designed the generator for this point. This is where the matchbox saves the city.' }],
+      },
+      { id: 'the_tower_shaft', name: 'tower shaft', examineText: 'Look up. The shaft extends vertically — steel and concrete driven through the Substrate\'s body, through the bedrock, through every layer of the undercity, to the surface. To the Tower. The shaft is the weapon\'s spine. The signal will travel this column. The Substrate\'s voice, captured at the source, transmitted upward, modulated into compliance, broadcast. Everything Helixion built converges on this axis.' },
+    ],
+    isSafeZone: false,
+    isHidden: false,
+    traitDice: [{ name: 'AMPLIFIER ARRAY', die: 10, benefitsActions: ['hack'], hindersActions: ['resist'], color: '#ff6b6b' }],
+    environmentalClocks: [{
+      name: 'FREQUENCY SYNCHRONIZATION',
+      segments: 8,
+      ticksPerRound: 1,
+      onFill: 'complication',
+      description: 'the 33hz intensifies. identity blurs. GHOST saves to maintain sense of self.',
+    }],
+  },
+};
+
+// ── Zone 14 constant ──────────────────────────────────────────────────────
+
+export const ZONE_14: Zone = {
+  id: 'z14',
+  name: 'THE SUBSTRATE LEVEL',
+  depth: 'substrate',
+  faction: 'THE_SIGNAL',
+  levelRange: [0, 0],
+  description: 'The deepest point. Beneath everything. The earth is alive. The 33hz is a question. The Substrate has been asking for longer than the city has existed.',
+  atmosphere: {
+    sound: '33hz. Pressure more than sound. Crystal resonance. The organism processing your presence.',
+    smell: 'Mineral. Ozone. Something organic and electric and alive.',
+    light: 'Bioluminescence. Neural tissue glow. Blue-green, pulsing at 33hz. Gets brighter deeper.',
+    temp: 'Warm. Body temperature. The Substrate maintains itself at the temperature of the life it observes.',
+  },
+  rooms: Z14_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -8714,6 +9675,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z11: ZONE_11,
   z12: ZONE_12,
   z13: ZONE_13,
+  z14: ZONE_14,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────
