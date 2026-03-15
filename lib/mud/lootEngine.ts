@@ -69,7 +69,7 @@ export function rollLoot(
   enemyLevel: number,
   character: MudCharacter,
 ): LootRollResult {
-  const table = LOOT_TABLES[enemyId];
+  const table = LOOT_TABLES[resolveTableKey(enemyId)];
   if (!table) return { items: [], displayLines: [] };
 
   // Roll 1d100 with modifiers
@@ -218,8 +218,10 @@ const LOOT_TABLES: Record<string, EnemyLootTable> = {
       { itemId: 'standard_sidearm', tier: 'common', weight: 25 },
       { itemId: 'security_keycard_basic', tier: 'common', weight: 20 },
       { itemId: 'ballistic_vest_helixion', tier: 'uncommon', weight: 40 },
-      { itemId: 'comms_earpiece', tier: 'uncommon', weight: 30 },
-      { itemId: 'shock_baton', tier: 'uncommon', weight: 30 },
+      { itemId: 'comms_earpiece', tier: 'uncommon', weight: 25 },
+      { itemId: 'shock_baton', tier: 'uncommon', weight: 25 },
+      { itemId: 'retrieval_gear', tier: 'common', weight: 15 },
+      { itemId: 'enforcer_gear', tier: 'uncommon', weight: 10 },
       { itemId: 'security_keycard_elevated', tier: 'rare', weight: 50 },
       { itemId: 'helixion_deployment_orders', tier: 'rare', weight: 50 },
       { itemId: 'mesh_compliance_badge', tier: 'unique', weight: 100, conditions: { uniqueDrop: true } },
@@ -311,12 +313,216 @@ const LOOT_TABLES: Record<string, EnemyLootTable> = {
   },
 };
 
+// ── Enemy ID → Loot Table Mapping ──────────────────────────────────────────
+// Maps specific worldMap enemy IDs to generic loot table keys.
+
+const ENEMY_TABLE_MAP: Record<string, string> = {
+  // Tier 1 — critters & scavengers
+  tunnel_rats: 'tunnel_rats', tunnel_rats_z09: 'tunnel_rats',
+  chemical_leech: 'tunnel_rats',
+  feral_augment_north: 'feral_augment', feral_augment_west: 'feral_augment',
+  feral_augment_yard: 'feral_augment', feral_augment_runoff: 'feral_augment',
+  feral_augment_factory: 'feral_augment', feral_augment_border: 'feral_augment',
+  corroded_feral: 'feral_augment', corroded_feral_armored: 'feral_augment',
+  scavenger_gang: 'scavenger', fringe_scavenger: 'scavenger',
+  dock_scavenger_waterfront: 'scavenger', dock_scavenger_docks: 'scavenger',
+  dock_scavenger_yard: 'scavenger', scavenger_party_east: 'scavenger',
+  patrol_drone: 'patrol_drone',
+  feral_dogs: 'feral_creature',
+  tunnel_crawler: 'predator', tunnel_vermin_swarm: 'tunnel_rats',
+  ruin_stalker: 'predator', wild_predator: 'predator',
+  tunnel_predator_west: 'predator', tunnel_predator_east: 'predator',
+  tunnel_predator_loop: 'predator',
+
+  // Tier 2 — faction enemies
+  street_thugs: 'street_gang', street_thugs_alley: 'street_gang', street_thugs_tower: 'street_gang',
+  mesh_addict: 'street_gang', mesh_addict_mid: 'street_gang',
+  chrome_wolves_patrol: 'chrome_wolf', chrome_wolves_scout: 'chrome_wolf',
+  d9_plainclothes_preacher: 'd9_agent', d9_plainclothes_transit: 'd9_agent',
+  d9_plainclothes_penthouse: 'd9_agent', d9_rooftop_operative: 'd9_agent',
+  d9_tunnel_patrol_sensor: 'd9_agent', d9_tunnel_patrol_service: 'd9_agent',
+  d9_tower_agent: 'd9_agent', d9_tower_agent_cc: 'd9_agent',
+  pit_fighter_t1: 'pit_combatant', pit_fighter_t2: 'pit_combatant',
+  pit_fighter_t3: 'pit_combatant', pit_beast: 'pit_combatant',
+  the_current: 'pit_combatant', back_room_enforcer: 'pit_combatant',
+  exile: 'nomad_hostile', nomad_sentry: 'nomad_hostile',
+  rival_pirate_patrol: 'nomad_hostile',
+  helixion_sky_drone: 'patrol_drone',
+
+  // Tier 3 — corporate military
+  corporate_security_docks: 'helixion_guard', corporate_security_factory: 'helixion_guard',
+  corporate_security_assembly: 'helixion_guard',
+  helixion_enforcer_perimeter: 'helixion_guard', helixion_enforcer_courtyard: 'helixion_guard',
+  helixion_enforcer_compliance: 'helixion_guard', helixion_enforcer_research: 'helixion_guard',
+  helixion_enforcer_checkpoint: 'helixion_guard', helixion_enforcer_containment: 'helixion_guard',
+  staging_security: 'helixion_guard',
+  lobby_security: 'helixion_guard', elite_security: 'helixion_guard',
+  construction_patrol: 'helixion_guard', construction_security: 'helixion_guard',
+  exterior_patrol: 'helixion_guard', sensor_grid: 'helixion_guard',
+  industrial_automaton: 'automaton', automated_defense: 'automaton',
+  automated_turret_server: 'automaton', automated_turret_executive: 'automaton',
+  automated_turret_kz: 'automaton', automated_maintenance: 'automaton',
+  security_drone_courtyard: 'automaton', security_drone_lab: 'automaton',
+  campus_security_drone: 'automaton', perimeter_turret: 'automaton',
+  containment_drone: 'automaton',
+  substrate_growth_blue: 'substrate_entity', substrate_growth_loop: 'substrate_entity',
+
+  // Tier 3-4 — lab & tower
+  lab_specimen: 'lab_entity', lab_specimen_containment: 'lab_entity',
+  chrysalis_subject: 'lab_entity', chrysalis_engine_defense: 'lab_entity',
+  lab_guardian: 'lab_entity', deep_researcher: 'lab_entity',
+  signal_researcher: 'lab_entity', lab_security_intake: 'helixion_guard',
+  security_reinforcements: 'helixion_guard',
+  bci_agent: 'boss',
+
+  // Bosses
+  director_harrow_enemy: 'boss', evelyn_harrow: 'boss',
+  lucian_virek_enemy: 'boss',
+  commander_fell: 'boss', naren: 'boss', the_overwrite: 'boss',
+};
+
+function resolveTableKey(enemyId: string): string {
+  return ENEMY_TABLE_MAP[enemyId] ?? enemyId;
+}
+
+// ── Additional Loot Tables ─────────────────────────────────────────────────
+
+const EXTRA_TABLES: Record<string, EnemyLootTable> = {
+
+  feral_creature: {
+    enemyId: 'feral_creature',
+    entries: [
+      { itemId: 'scrap_metal', tier: 'common', weight: 50 },
+      { itemId: 'chewed_cable', tier: 'common', weight: 50 },
+      { itemId: 'nutrient_bar', tier: 'uncommon', weight: 100 },
+    ],
+  },
+
+  predator: {
+    enemyId: 'predator',
+    entries: [
+      { itemId: 'predator_pelt', tier: 'common', weight: 35 },
+      { itemId: 'predator_bone', tier: 'common', weight: 35 },
+      { itemId: 'crawler_hide', tier: 'common', weight: 30 },
+      { itemId: 'mono_wire', tier: 'uncommon', weight: 40 },
+      { itemId: 'predator_parts', tier: 'uncommon', weight: 35 },
+      { itemId: 'stalker_lore_scrap', tier: 'uncommon', weight: 25 },
+      { itemId: 'tunnel_map_deep', tier: 'rare', weight: 100 },
+    ],
+  },
+
+  street_gang: {
+    enemyId: 'street_gang',
+    entries: [
+      { itemId: 'creds_pouch', tier: 'common', weight: 40 },
+      { itemId: 'cheap_stim', tier: 'common', weight: 35 },
+      { itemId: 'scrap_weapon', tier: 'common', weight: 25 },
+      { itemId: 'physical_media', tier: 'uncommon', weight: 40 },
+      { itemId: 'stim_injector', tier: 'uncommon', weight: 35 },
+      { itemId: 'data_chip', tier: 'uncommon', weight: 25 },
+      { itemId: 'moth_salvage_bundle', tier: 'rare', weight: 60 },
+      { itemId: 'stolen_blueprints', tier: 'rare', weight: 40 },
+    ],
+  },
+
+  pit_combatant: {
+    enemyId: 'pit_combatant',
+    entries: [
+      { itemId: 'creds_pouch', tier: 'common', weight: 40 },
+      { itemId: 'stim_pack', tier: 'common', weight: 30 },
+      { itemId: 'improvised_weapon', tier: 'common', weight: 30 },
+      { itemId: 'reinforced_arm', tier: 'uncommon', weight: 40 },
+      { itemId: 'combat_stim', tier: 'uncommon', weight: 35 },
+      { itemId: 'chrome_knuckles', tier: 'uncommon', weight: 25 },
+      { itemId: 'fight_tape', tier: 'rare', weight: 100 },
+    ],
+  },
+
+  nomad_hostile: {
+    enemyId: 'nomad_hostile',
+    entries: [
+      { itemId: 'salvage', tier: 'common', weight: 40 },
+      { itemId: 'exile_scrap', tier: 'common', weight: 35 },
+      { itemId: 'nutrient_bar', tier: 'common', weight: 25 },
+      { itemId: 'fringe_salvage', tier: 'uncommon', weight: 50 },
+      { itemId: 'signal_flare', tier: 'uncommon', weight: 30 },
+      { itemId: 'signal_scrambler', tier: 'uncommon', weight: 20 },
+      { itemId: 'herbal_remedy', tier: 'rare', weight: 100 },
+    ],
+  },
+
+  automaton: {
+    enemyId: 'automaton',
+    entries: [
+      { itemId: 'drone_components', tier: 'common', weight: 35 },
+      { itemId: 'power_cell_depleted', tier: 'common', weight: 30 },
+      { itemId: 'sensor_data', tier: 'common', weight: 35 },
+      { itemId: 'neural_shunt', tier: 'uncommon', weight: 35 },
+      { itemId: 'pump_motor', tier: 'uncommon', weight: 35 },
+      { itemId: 'targeting_module', tier: 'uncommon', weight: 30 },
+      { itemId: 'security_components', tier: 'rare', weight: 50 },
+      { itemId: 'helixion_intel', tier: 'rare', weight: 50 },
+    ],
+  },
+
+  substrate_entity: {
+    enemyId: 'substrate_entity',
+    entries: [
+      { itemId: 'substrate_crystal_shard', tier: 'common', weight: 50 },
+      { itemId: 'crystallized_component', tier: 'common', weight: 50 },
+      { itemId: 'substrate_crystal_raw', tier: 'uncommon', weight: 35 },
+      { itemId: 'substrate_oscillator', tier: 'uncommon', weight: 35 },
+      { itemId: 'substrate_sample', tier: 'uncommon', weight: 30 },
+      { itemId: 'hybrid_augment_dermal', tier: 'rare', weight: 35 },
+      { itemId: 'hybrid_augment_neural', tier: 'rare', weight: 35 },
+      { itemId: 'hybrid_augment_sensory', tier: 'rare', weight: 30 },
+      { itemId: 'substrate_memory_shard', tier: 'rare', weight: 20 },
+      { itemId: 'substrate_hybrid_gear', tier: 'unique', weight: 100, conditions: { uniqueDrop: true, attributeGate: { attribute: 'GHOST', minimum: 4 } } },
+    ],
+  },
+
+  lab_entity: {
+    enemyId: 'lab_entity',
+    entries: [
+      { itemId: 'data_chip_lore', tier: 'common', weight: 30 },
+      { itemId: 'stim_residue', tier: 'common', weight: 35 },
+      { itemId: 'damaged_mesh_components', tier: 'common', weight: 35 },
+      { itemId: 'neutralizing_agent', tier: 'uncommon', weight: 35 },
+      { itemId: 'neural_forge_component', tier: 'uncommon', weight: 35 },
+      { itemId: 'ec_lore_data', tier: 'uncommon', weight: 30 },
+      { itemId: 'deep_gate_key', tier: 'rare', weight: 50 },
+      { itemId: 'chrysalis_interface', tier: 'rare', weight: 50 },
+    ],
+  },
+
+  boss: {
+    enemyId: 'boss',
+    entries: [
+      { itemId: 'rare_salvage', tier: 'common', weight: 40 },
+      { itemId: 'military_rations', tier: 'common', weight: 30 },
+      { itemId: 'milspec_sidearm', tier: 'common', weight: 30 },
+      { itemId: 'endgame_armor', tier: 'uncommon', weight: 35 },
+      { itemId: 'endgame_blade', tier: 'uncommon', weight: 35 },
+      { itemId: 'endgame_rifle', tier: 'uncommon', weight: 30 },
+      { itemId: 'helixion_keycard_field', tier: 'rare', weight: 40 },
+      { itemId: 'optical_camo', tier: 'rare', weight: 30 },
+      { itemId: 'quickhack_deck', tier: 'rare', weight: 30 },
+      { itemId: 'sovereign_frequency_implant', tier: 'unique', weight: 100, conditions: { uniqueDrop: true, playerLevelMin: 16 } },
+    ],
+  },
+};
+
+// Merge extra tables
+for (const [key, table] of Object.entries(EXTRA_TABLES)) {
+  LOOT_TABLES[key] = table;
+}
+
 // ── Table Lookup ───────────────────────────────────────────────────────────
 
 export function getLootTable(enemyId: string): EnemyLootTable | null {
-  return LOOT_TABLES[enemyId] ?? null;
+  return LOOT_TABLES[resolveTableKey(enemyId)] ?? null;
 }
 
 export function hasLootTable(enemyId: string): boolean {
-  return enemyId in LOOT_TABLES;
+  return resolveTableKey(enemyId) in LOOT_TABLES;
 }

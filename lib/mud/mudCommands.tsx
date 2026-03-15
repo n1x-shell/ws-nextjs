@@ -69,7 +69,7 @@ import {
   applyPlayerHarm,
   type PlayerResolveResult, type HackResult, type ScanResult, type FleeResult,
 } from './combat';
-import { renderClockText, findClock, isClockFull, clockPercent } from './clockEngine';
+import { renderClockText, findClock, isClockFull, clockPercent, createClock as createClockFromTemplate } from './clockEngine';
 import { formatPoolCompact, formatRolledDie, getOutcomeTier, attributeToDie, rollResistance } from './dicePool';
 import type { ApproachType } from './dicePool';
 import {
@@ -102,6 +102,7 @@ import {
   ATTRIBUTE_LEVEL_FLAVOR, type SkillTreeId,
 } from './skillTree';
 import { getDiscoveredSynergies, checkNewSynergies } from './synergies';
+import { rollCombatLoot } from './lootEngine';
 import { emitPlayerHit, emitPlayerDamage, emitEnemyDeath } from './combatFX';
 import { emitCommerceTransient, emitCombatTransient } from './transientMessage';
 
@@ -1263,7 +1264,7 @@ function triggerCombat(session: MudSession, addLocalMsg: AddLocalMsg, setSession
   const spawned = rollRoomEnemies(char.currentRoom);
   if (spawned.length === 0) return;
 
-  const combat = initClockCombat(char, spawned);
+  const combat = initClockCombat(char, spawned, room.environmentalClocks?.map(ct => createClockFromTemplate(ct)) ?? undefined);
   // Copy room trait dice into combat state
   if (room.traitDice) combat.roomTraits = room.traitDice;
   const updated = { ...session, phase: 'combat' as const, combat };
@@ -1604,7 +1605,13 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
           const xpResult = addXP(char, endCheck.xpGained);
 
           const enemyNames = (combat.sourceEnemies ?? []).map(e => e.name);
-          const salvageDrops = endCheck.drops.map(dropId => {
+          // Merge fixed drops with loot table rolls
+          const lootResult = rollCombatLoot(
+            (combat.sourceEnemies ?? []).map(e => ({ id: e.id, level: e.level })),
+            char,
+          );
+          const allDropIds = [...endCheck.drops, ...lootResult.items.map(i => i.id)];
+          const salvageDrops = allDropIds.map(dropId => {
             const template = getItemTemplate(dropId);
             return { itemId: dropId, name: template?.name ?? dropId, taken: false };
           });
@@ -1615,7 +1622,7 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
                 : [{ name: 'remains', drops: salvageDrops }],
             };
           }
-          char.lastCombatLoot = endCheck.drops;
+          char.lastCombatLoot = allDropIds;
 
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
@@ -1758,14 +1765,19 @@ export function handleMudCommand(input: string, ctx: MudContext): MudRouteResult
         if (endCheck.victory) {
           clearCombat(char.handle);
           const xpResult = addXP(char, endCheck.xpGained);
-          const salvageDrops = endCheck.drops.map(dropId => {
+          const lootResult = rollCombatLoot(
+            (combat.sourceEnemies ?? []).map(e => ({ id: e.id, level: e.level })),
+            char,
+          );
+          const allDropIds = [...endCheck.drops, ...lootResult.items.map(i => i.id)];
+          const salvageDrops = allDropIds.map(dropId => {
             const template = getItemTemplate(dropId);
             return { itemId: dropId, name: template?.name ?? dropId, taken: false };
           });
           if (salvageDrops.length > 0) {
             char.pendingSalvage = { enemies: [{ name: combat.sourceEnemies.map(e => e.name).join(', ') || 'remains', drops: salvageDrops }] };
           }
-          char.lastCombatLoot = endCheck.drops;
+          char.lastCombatLoot = allDropIds;
           saveCharacter(char.handle, char);
           setSession({ ...session, phase: 'active', combat: null });
           if (salvageDrops.length > 0) eventBus.emit('mud:panel-mode', { mode: 'salvage' });
