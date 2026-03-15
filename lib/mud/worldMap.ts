@@ -8175,6 +8175,529 @@ export const ZONE_12: Zone = {
   originPoint: 'AUGMENTED',
 };
 
+// ── Zone 13: Black Market Warrens ─────────────────────────────────────────────
+
+const Z13_ROOMS: Record<string, Room> = {
+
+  // ── 1. THE GATE ─────────────────────────────────────────────────────────
+
+  z13_r01: {
+    id: 'z13_r01',
+    zone: 'z13',
+    name: 'THE GATE',
+    description:
+`The stone staircase from Central Station levels out into
+a passage — natural rock, widened by tools, the ceiling
+high enough to walk upright. The passage is lit by a
+string of LED bulbs wired to a car battery. The light
+is warm. Inviting. After the transit system's absolute
+dark, the warmth and light are a physical relief.
+
+Two people stand at the passage's narrowest point — not
+blocking it, but positioned so that passing requires
+acknowledging them. They're armed. They're relaxed. They
+don't ask your name. They don't check credentials. They
+ask one question: "Buying, selling, or browsing?"
+
+Beyond them: sound. The hum of commerce. Voices,
+transactions, the specific frequency of a crowd engaged
+in the business of buying and selling. The passage opens
+into something larger ahead. The air is warm. Something
+smells like cooking food.
+
+You're in.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z11_r08', description: 'up (Abandoned Transit — Warrens Stair)', zoneTransition: true, targetZone: 'z11' },
+      { direction: 'south', targetRoom: 'z13_r02', description: 'south (The Bazaar)' },
+    ],
+    npcs: [
+      {
+        id: 'gate_watchers', name: 'Gate Watchers', type: 'NEUTRAL',
+        faction: 'INDEPENDENT',
+        description: 'Two armed figures at the passage\'s narrowest point. Relaxed, watchful. They don\'t stop anyone. They remember everyone.',
+        dialogue: '"Buying, selling, or browsing?" The question is a formality. The real evaluation happens in the half-second they look at you.',
+        startingDisposition: 0,
+        services: ['info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'the_passage', name: 'the passage', examineText: 'Natural rock. The passage was formed by water thousands of years ago — smooth walls showing erosion patterns from a river that no longer flows. Human modification is minimal: widened at the narrowest points, ceiling chipped where it was too low. The market didn\'t build its entrance. It found one.' },
+      { id: 'car_battery', name: 'car battery', examineText: 'A standard vehicle battery wired to the LED string. Crude. Effective. The battery is replaced weekly by whoever feels like replacing it — an unspoken agreement. Nobody is assigned. The light serves everyone. The cost is distributed by voluntarism. It\'s the market\'s governing philosophy in miniature.' },
+      { id: 'the_evaluation', name: 'the evaluation', examineText: 'The gate watchers looked at you for half a second. In that half-second: your gear (combat-worn, functional, not showy — moderate threat), your body language (alert, not aggressive — not a raider), your eyes (interested — a buyer). You\'re filed under \'potential customer, moderate spend, unlikely trouble.\' They\'ll forget you unless you give them a reason to remember.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 2. THE BAZAAR ───────────────────────────────────────────────────────
+
+  z13_r02: {
+    id: 'z13_r02',
+    zone: 'z13',
+    name: 'THE BAZAAR',
+    description:
+`The passage opens into a cavern. The space is natural —
+roughly oval, thirty meters long, twenty wide, ceiling
+arching eight meters above. Stalagmites have been broken
+off or incorporated into stall structures. The floor has
+been leveled with packed earth and salvaged flooring.
+
+And everywhere: stalls. Twenty to thirty vendor stalls
+fill the cavern floor — improvised structures of scrap
+metal, canvas, salvaged furniture. The goods range from
+mundane to dangerous. The vendors range from professional
+to questionable.
+
+The crowd is thirty to forty people at any given time.
+Nobody wears faction colors. Nobody uses real names.
+Everyone carries a weapon, visible, as both deterrent
+and advertisement. The atmosphere is busy, warm, and
+carefully, precisely polite.
+
+String lights cross the ceiling like a constellation
+someone designed for commerce.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z13_r01', description: 'north (The Gate)' },
+      { direction: 'west', targetRoom: 'z13_r03', description: 'west (The Arsenal)' },
+      { direction: 'south', targetRoom: 'z13_r04', description: 'south (Chrome Gallery)' },
+      { direction: 'east', targetRoom: 'z13_r05', description: 'east (The Press)' },
+      { direction: 'southeast', targetRoom: 'z13_r06', description: 'southeast (The Fence)' },
+      { direction: 'northeast', targetRoom: 'z13_r07', description: 'northeast (The Kitchen)' },
+      { direction: 'down', targetRoom: 'z13_r08', description: 'down (The Landing)', hidden: true, hiddenRequirement: { attribute: 'GHOST', minimum: 6 } },
+    ],
+    npcs: [
+      {
+        id: 'flicker', name: 'Flicker', type: 'SHOPKEEPER',
+        faction: 'FREEMARKET',
+        description: 'Twenties. Fast-talking, bright-eyed, knows everyone. The Warrens\' unofficial guide — she knows which vendors are honest, which are running scams, which have the best prices.',
+        dialogue: '"First time? I can tell. You\'re looking at everything. Regulars look at nothing — they know where they\'re going. — I\'m Flicker. I know this market the way you know your own hands. Want the tour? The short version is free. The useful version costs."',
+        startingDisposition: 10,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'bazaar_stalls', name: 'bazaar stalls', examineText: 'Food stalls: grilled meat, synthetic rice, something in broth that smells extraordinary. Tool stalls: flashlights, multitools, lockpicks, climbing gear. Medical stalls: bandages, stims, painkillers. Weapon stalls: knives, clubs, pistols, ammunition. The variety is the Warrens\' argument for existence: everything you need, in one place, no questions.' },
+      { id: 'cavern_features', name: 'cavern features', examineText: 'The natural cavern asserts itself between the stalls. Stalagmite stumps serve as tables. A natural column supports a vendor\'s canopy. In the floor, between stall foundations, patches of Substrate bioluminescence — faint blue-green, pulsing gently. The market sits on a warm cave above a living organism. Commerce over consciousness.' },
+      { id: 'string_lights', name: 'string lights', examineText: 'LED strings cross the cavern ceiling in deliberate patterns. Someone designed the lighting to create an even, warm ambiance — no dark corners, no harsh shadows. The effect is subterranean night market. Intimate. Inviting. The warmth is intentional. Warm light makes people spend.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 3. THE ARSENAL ──────────────────────────────────────────────────────
+
+  z13_r03: {
+    id: 'z13_r03',
+    zone: 'z13',
+    name: 'THE ARSENAL',
+    description:
+`A side cavern, smaller than the bazaar, converted into
+a weapons showroom. The walls are lined with racks —
+firearms on the left, blades on the right, energy weapons
+and exotics in a locked cabinet at the back. The display
+is organized with the care of someone who respects the
+merchandise.
+
+The operator sits behind a reinforced counter — a slab
+of metal that serves as both display surface and barrier.
+They're cleaning a weapon. They're always cleaning a
+weapon. The act is maintenance and advertisement and
+threat, simultaneously.
+
+The prices are not posted. If you need to ask, you can
+probably afford it. If you can't, Forge will tell you
+once.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z13_r02', description: 'east (The Bazaar)' },
+    ],
+    npcs: [
+      {
+        id: 'forge', name: 'Forge', type: 'SHOPKEEPER',
+        faction: 'INDEPENDENT',
+        description: 'Fifties. Heavy. Quiet voice. Twenty years dealing weapons under various names. The Warrens are the latest venue. The expertise is permanent.',
+        dialogue: '"Looking or buying. If looking, don\'t touch. If buying, tell me what you need and I\'ll tell you what it costs. — I don\'t negotiate. The price is the price. If you can find it cheaper, you can find it worse."',
+        startingDisposition: 0,
+        services: ['shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'weapons_display', name: 'weapons display', examineText: 'Firearms: military-grade assault rifles, precision sidearms, a shotgun with a barrel length that suggests close-quarters enthusiasm. Blades: combat knives, a machete, something curved and alien-looking. The locked cabinet: energy weapons — a plasma cutter repurposed for antipersonnel use, something that hums at a frequency your teeth feel. Every weapon cleaned, oiled, displayed at its best angle.' },
+      { id: 'reinforced_counter', name: 'reinforced counter', examineText: 'Metal slab. Thick enough to stop most calibers. The surface is scratched from thousands of transactions — weapons laid down for inspection, creds counted, deals concluded. Forge lives behind this counter. The counter is the boundary between commerce and violence.' },
+      {
+        id: 'locked_cabinet', name: 'locked cabinet', examineText: 'Reinforced glass. Electronic lock. The exotics.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'The electronic lock is military-grade — Helixion procurement series. Forge acquired the cabinet from the same source as its contents. Inside: a plasma rifle with Helixion manufacturing marks ground off, a neural disruptor that shouldn\'t exist outside a lab, and something in a case that Forge hasn\'t opened for anyone yet.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 4. CHROME GALLERY ───────────────────────────────────────────────────
+
+  z13_r04: {
+    id: 'z13_r04',
+    zone: 'z13',
+    name: 'CHROME GALLERY',
+    description:
+`A clean cavern. Cleaner than the bazaar — the air is
+filtered, the surfaces are smooth, the lighting is
+clinical. Glass cases line the walls, each containing
+augmentation hardware displayed on white fabric. The
+effect is deliberate: a gallery, not a market stall.
+The merchandise deserves presentation.
+
+The operator works at a central table — magnification
+goggles pushed up on their forehead, tools arranged
+with surgical precision. They're calibrating something
+small. Their own hands have too many joints. The
+augmentations are subtle until you notice them, and
+then you can't stop noticing.
+
+The ozone smell of active cyberware fills the room.
+Clean. Electric. The smell of becoming something new.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z13_r02', description: 'north (The Bazaar)' },
+    ],
+    npcs: [
+      {
+        id: 'glass', name: 'Glass', type: 'SHOPKEEPER',
+        faction: 'INDEPENDENT',
+        description: 'Thirties. Precise. Their own augmentations are subtle — too many joints in the fingers, eyes that focus at distances that aren\'t natural. Former Chrysalis-adjacent researcher who walked away with knowledge and inventory.',
+        dialogue: '"Don\'t touch the cases. — What are you looking for? Enhancement, replacement, or exploration? I do all three. The first is common. The second is necessary. The third is interesting. — Interesting costs more."',
+        startingDisposition: 0,
+        services: ['quest', 'shop'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'glass_cases', name: 'glass cases', examineText: 'Neural interfaces in sealed packaging. Optical enhancers on calibration stands. Dermal plating samples — touch them through the glass and feel nothing, which is the point. Arm assemblies that range from functional (replacement limb, basic motor) to extraordinary (military-spec, integrated weapon mount, sensory feedback that exceeds biological baseline). Each case labeled with specifications. No prices. Prices are discussed.' },
+      { id: 'calibration_table', name: 'calibration table', examineText: 'Glass\'s workspace. Magnification equipment, micro-tools, diagnostic hardware. A neural interface sits in a cradle, its housing open, Glass adjusting something inside with movements too precise for unaugmented hands. The table is where the merchandise becomes personalized — Glass calibrates to the buyer.' },
+      {
+        id: 'chrysalis_adjacent', name: 'gallery inventory', examineText: 'The cyberware here is better than anything on the surface market.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'Some of this hardware has design signatures consistent with Helixion\'s Chrysalis research branch — not the compliance modules, but the foundational neural interface technology that makes compliance possible. Glass has access to prototype-tier augmentations. The source is unclear. The quality is not.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 5. THE PRESS ────────────────────────────────────────────────────────
+
+  z13_r05: {
+    id: 'z13_r05',
+    zone: 'z13',
+    name: 'THE PRESS',
+    description:
+`A side cavern that smells like ink, chemical fixative,
+and old paper. A printing press — actual, physical,
+mechanical — occupies one wall. The rest of the space
+is a forger's workshop: lamination equipment, holographic
+overlay templates, biometric encoding hardware, and a
+wall of sample documents that would make a customs agent
+weep.
+
+The operator is working. Always working. The current
+project involves a Helixion employee badge — the
+holographic watermark is being reproduced by hand,
+layer by layer, with a patience that borders on
+meditation.
+
+The Press produces the best forged documents in the
+undercity. IDs, credentials, access badges, residential
+cards. Paper identities for people who need to become
+someone else.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z13_r02', description: 'west (The Bazaar)' },
+    ],
+    npcs: [
+      {
+        id: 'ink', name: 'Ink', type: 'SHOPKEEPER',
+        faction: 'INDEPENDENT',
+        description: 'Forties. Meticulous. Ink-stained fingers that produce documents indistinguishable from authentic. They don\'t ask why you need a new identity. They ask what identity you need.',
+        dialogue: '"What name do you want to be? — I don\'t mean philosophically. I mean on the badge. Helixion, D9, residential, commercial? Each has different security features. Each takes different time. Each costs different."',
+        startingDisposition: 0,
+        services: ['shop'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'printing_press', name: 'printing press', examineText: 'Mechanical. Pre-digital. Ink prints text onto paper and card stock with a precision that digital printers can\'t match — the tactile quality of genuine documents requires physical impression. The press is Ink\'s most valuable tool. It produces documents that feel real because they are real. Only the information is false.' },
+      { id: 'sample_wall', name: 'sample wall', examineText: 'A gallery of Ink\'s work. Helixion employee badges (three tiers of security clearance). D9 agent credentials. Residential access cards for every block. Commercial permits. Medical licenses. Each sample is marked "VOID" in red — display copies only. The quality is indistinguishable from authentic. That\'s the point.' },
+      { id: 'holographic_tools', name: 'holographic tools', examineText: 'The most expensive equipment in the room. Holographic watermark reproduction requires layered application — each security feature is a separate pass, each pass requires precise alignment. Ink does this by hand. The machine assists but the skill is human. One badge takes two days. Rush jobs take one day and cost triple.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 6. THE FENCE ────────────────────────────────────────────────────────
+
+  z13_r06: {
+    id: 'z13_r06',
+    zone: 'z13',
+    name: 'THE FENCE',
+    description:
+`A cramped cavern behind a heavy curtain. The space is
+organized chaos — shelves stacked with goods of uncertain
+provenance, crates half-open, a scale on the counter for
+weighing precious metals. The lighting is deliberately
+dim. Details are bad for business when the business is
+buying things people shouldn't be selling.
+
+The operator sits behind a counter that doubles as a
+barrier, surrounded by merchandise that tells the story
+of the undercity's economy: Helixion hardware with
+serial numbers ground off, Chrome Wolf weapons with
+faction marks filed down, personal items that someone
+needed to sell more than they needed to keep.
+
+Everything has a price. The Fence sets it.`,
+    exits: [
+      { direction: 'northwest', targetRoom: 'z13_r02', description: 'northwest (The Bazaar)' },
+    ],
+    npcs: [
+      {
+        id: 'fence', name: 'The Fence', type: 'SHOPKEEPER',
+        faction: 'INDEPENDENT',
+        description: 'Indeterminate age. Evaluates everything in seconds — weight, condition, provenance, resale value. Buys anything. Sells most things. The moral flexibility is total.',
+        dialogue: '"Show me what you\'ve got. — I buy everything. I sell most things. The spread is my margin. Don\'t like my price, find another fence. There isn\'t one. — What do you have?"',
+        startingDisposition: 0,
+        services: ['shop'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'stolen_goods', name: 'stolen goods', examineText: 'The shelves tell stories. A Helixion security rifle with its tracking chip removed — someone stole it from an armory. A Chrome Wolf combat jacket with the faction patch cut off — someone left the pack. A wedding ring in a glass case — someone needed CREDS more than they needed memory. The Fence doesn\'t judge. The Fence prices.' },
+      { id: 'weighing_scale', name: 'weighing scale', examineText: 'Mechanical. No electronics to tamper with. The Fence weighs everything — precious metals, component parts, the heft of a weapon that determines its caliber. The scale is the room\'s only honest object. It tells the truth about weight. Everything else in this room lies.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 7. THE KITCHEN ──────────────────────────────────────────────────────
+
+  z13_r07: {
+    id: 'z13_r07',
+    zone: 'z13',
+    name: 'THE KITCHEN',
+    description:
+`A cavern that someone turned into a restaurant. Two
+long tables, benches, a cooking station built from
+salvaged industrial equipment. The smell is extraordinary
+— real spices, real heat, real food that someone cared
+about making well. In a market defined by transactions,
+the Kitchen is the one place where something is offered
+that isn't purely commercial.
+
+The operator cooks. That's what they do. They cook and
+they feed people and the Kitchen is the Warrens' social
+center — the place where deals are discussed over food,
+where enemies sit at the same table because the food is
+that good, where the market's carefully maintained
+neutrality becomes something warmer.
+
+A person sits at the far end of the table, eating slowly.
+They look like someone for whom eating is still a
+novelty. Their hands shake. Not from cold.`,
+    exits: [
+      { direction: 'southwest', targetRoom: 'z13_r02', description: 'southwest (The Bazaar)' },
+    ],
+    npcs: [
+      {
+        id: 'vice', name: 'Vice', type: 'NEUTRAL',
+        faction: 'CIVILIAN',
+        description: 'Thirties. Thin. Neural interface scars visible at the temple. Eating slowly with hands that tremble. Mesh withdrawal — or something worse. The desperation is visible.',
+        dialogue: '"I need — I need something. I can\'t afford it. I know that. But I need it or this —" They gesture at their own head. "— this doesn\'t stop. The noise. It doesn\'t stop."',
+        startingDisposition: -5,
+        services: ['quest'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'kitchen_station', name: 'cooking station', examineText: 'Industrial burners repurposed for food preparation. Pots, pans, a wok that\'s been seasoned by a thousand meals. The cook — unnamed, unbothered, focused — produces food that would be notable on the surface and is miraculous underground. Real ingredients sourced through the Freemarket network. Real skill applied without pretension.' },
+      { id: 'community_table', name: 'community table', examineText: 'Two long tables. Twenty seats. The Kitchen is the only place in the Warrens where people sit together — buyers, sellers, the armed and the desperate, sharing a table because the food demands it. Conversations happen here that couldn\'t happen at the stalls. The table is neutral ground within neutral ground.' },
+      {
+        id: 'vice_condition', name: 'vice\'s tremor', examineText: 'The person at the end of the table trembles. Not cold — neural.',
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: 'Neural interface rejection. The implant is degrading — not removing itself, but losing calibration. The signals it sends are increasingly wrong. The brain compensates by generating noise. The noise is constant. A neural bypass module could recalibrate the interface externally. Glass sells them. The price is beyond what this person can afford.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 8. THE LANDING ──────────────────────────────────────────────────────
+
+  z13_r08: {
+    id: 'z13_r08',
+    zone: 'z13',
+    name: 'THE LANDING',
+    description:
+`Below the bazaar. A hidden passage descends through
+natural rock into a smaller cavern — intimate, warm,
+the lighting deliberate. The festive string lights of
+the bazaar are replaced by directed spots, pools of
+warm light separated by deliberate shadow. The
+temperature is warmer. The Substrate is closer here.
+
+The Landing is the speakeasy's reception — comfortable
+seating salvaged and curated for the appearance of
+casual wealth, a bar better-stocked than anything above,
+and the presence of people whose CREDS and information
+make the bazaar's general commerce look like a street
+fair.
+
+A figure sits at the bar. Clean clothes. Surface
+clothing. Expensive drink. They don't hide what they are.
+Concealment in the Warrens is futile and unnecessary.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z13_r02', description: 'up (The Bazaar)' },
+      { direction: 'south', targetRoom: 'z13_r09', description: 'south (Broker\'s Alcove)' },
+      { direction: 'east', targetRoom: 'z13_r10', description: 'east (The Collection)' },
+    ],
+    npcs: [
+      {
+        id: 'agent_zero', name: 'Agent Zero', type: 'NEUTRAL',
+        faction: 'HELIXION',
+        description: 'Indeterminate age. Polished. Surface clothing — clean, expensive, subtly mesh-compliant. Helixion procurement agent. The enemy shops here. The market protects them.',
+        dialogue: '"You know what I am. I know what you\'re thinking. — I\'m here to buy. The market allows it. You\'re here to buy. The market allows that too. We\'re both customers. The only difference is the account we charge to."',
+        startingDisposition: 0,
+        services: ['shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'speakeasy_bar', name: 'speakeasy bar', examineText: 'Better than the bazaar. Real bottles with real labels — spirits, wine, something amber that might be whiskey. The bartender pours without speaking. The prices are not posted. If you have to ask, you can afford it. If you can\'t afford it, you\'re in the wrong room.' },
+      {
+        id: 'agent_zero_purchases', name: 'agent zero\'s purchases', examineText: 'Agent Zero drinks something expensive. Their presence is unremarkable by Warrens standards — another customer.',
+        gatedText: [{ attribute: 'GHOST', minimum: 7, text: 'Watch what Agent Zero buys. The transactions are discreet but visible: a data drive (intelligence). A small case from Glass\'s courier (cyberware — a prototype). A conversation with the bartender that involves an envelope changing hands (market transaction data). Agent Zero is building a picture of the underground economy. The picture includes you if you\'ve been notable.' }],
+      },
+      { id: 'the_warmth', name: 'the warmth', examineText: 'The Substrate is closer here. The floor radiates warmth. Bioluminescence is stronger — blue-green patches visible between the flagstones. The speakeasy\'s comfort is partly geological. The most expensive layer of the market sits closest to the living rock. Commerce and consciousness, layered vertically.' },
+    ],
+    isSafeZone: true,
+    isHidden: true,
+    hiddenRequirement: { attribute: 'GHOST', minimum: 6 },
+  },
+
+  // ── 9. BROKER'S ALCOVE ──────────────────────────────────────────────────
+
+  z13_r09: {
+    id: 'z13_r09',
+    zone: 'z13',
+    name: "BROKER'S ALCOVE",
+    description:
+`A small cavern — intimate, almost claustrophobic. One
+chair for the broker. One chair for the client. A table
+between them with nothing on it. The broker doesn't
+display merchandise because the merchandise is invisible.
+The broker sells knowledge.
+
+The lighting is a single overhead spot, angled to
+illuminate the table and leave the broker's face in
+partial shadow. The effect is theatrical and functional.
+
+The air is still. The Substrate warmth is strong — the
+floor is warm through your boots. The 33hz is present
+if you listen. The broker sits in it like a frequency
+they've tuned to.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z13_r08', description: 'north (The Landing)' },
+    ],
+    npcs: [
+      {
+        id: 'axiom', name: 'Axiom', type: 'SHOPKEEPER',
+        faction: 'INDEPENDENT',
+        description: 'Indeterminate age. Calm. Sits in partial shadow. Sells information — faction movements, NPC locations, quest solutions, Helixion operational details, Substrate lore. The most expensive commodity in the Warrens.',
+        dialogue: '"Sit. — What would you like to know? I sell answers. The price depends on the question. Some questions are cheap because the answers are easy. Some are expensive because the answers are dangerous. A few are priceless because the answers change what questions you ask next."',
+        startingDisposition: 0,
+        services: ['shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'the_table', name: 'the table', examineText: 'Empty. No documents, no screens, no data drives. Axiom\'s inventory is in their head — or in a storage system so well-hidden that three years of operation haven\'t revealed it. The empty table is a statement: the product isn\'t physical. You buy it and it becomes yours. Or you don\'t, and it becomes someone else\'s.' },
+      {
+        id: 'the_shadow', name: 'the shadow', examineText: 'The overhead spot leaves Axiom\'s face partially in shadow. Theatrical. Functional.',
+        gatedText: [{ attribute: 'GHOST', minimum: 8, text: 'Axiom\'s heart rate is visible as a subtle pulse in the throat — visible at the shadow\'s edge. It doesn\'t change regardless of the topic discussed. Either Axiom has exceptional control or their emotional response to information has been entirely decoupled from physical reaction.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 10. THE COLLECTION ──────────────────────────────────────────────────
+
+  z13_r10: {
+    id: 'z13_r10',
+    zone: 'z13',
+    name: 'THE COLLECTION',
+    description:
+`The deepest room in the Warrens. A natural cavern where
+the Substrate's bioluminescence is strong enough to light
+the space without artificial assistance — blue-green glow
+rising from the floor, the walls, the ceiling. The
+temperature is warm. The 33hz is present — gentle,
+rhythmic, a background heartbeat.
+
+The Collection is a museum and a shop. Glass cases line
+the cavern walls — inside them, objects. Not weapons,
+not cyberware, not the functional merchandise of the
+market above. Artifacts. Things that are rare because
+they shouldn't exist, or because they predate the
+systems that create the things the market sells, or
+because they come from the Substrate and the Substrate
+doesn't give things away.
+
+The operator moves between cases with the care of
+someone tending a garden. They know every object. They
+know every object's story.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z13_r08', description: 'west (The Landing)' },
+    ],
+    npcs: [
+      {
+        id: 'relic', name: 'Relic', type: 'SHOPKEEPER',
+        faction: 'INDEPENDENT',
+        description: 'Fifties. Gentle. Moves between cases with reverence. Sells rare artifacts — pre-Helixion technology, Substrate formations, anomalous objects. Values understanding over profit.',
+        dialogue: '"Welcome to the Collection. — Everything here has a story. Most of the stories are older than the market. Some are older than the city. A few are older than the species. — Would you like to hear one?"',
+        startingDisposition: 5,
+        services: ['quest', 'shop', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'pre_helixion_tech', name: 'pre-helixion technology', examineText: 'Devices from before Helixion consolidated the technology sector. Communication equipment that doesn\'t use the mesh. Power cells built on non-standard architecture. A computing device that runs an operating system nobody recognizes. Each object proves that human infrastructure is possible without corporate architecture. Relic considers this the collection\'s most important message.' },
+      { id: 'substrate_artifacts', name: 'substrate artifacts', examineText: 'Crystalline formations in sealed cases. Blue-green. Warm through the glass. Each one removed from a Substrate growth area — the transit system, the drainage nexus, the industrial drainage. Each one still active: bioluminescent, resonating at 33hz, warm. The Substrate doesn\'t die when fragmented. The fragments remain connected to the whole.',
+        gatedText: [{ attribute: 'GHOST', minimum: 6, text: 'The artifacts pulse in synchronization. Same rhythm despite being separated by cases, by distance, by air. The 33hz connects them. The fragments remember the body.' }],
+      },
+      { id: 'anomalous_objects', name: 'anomalous objects', examineText: 'Things that don\'t fit categories. A metal sphere that floats one centimeter above any surface. A glass rod that\'s always cold regardless of ambient temperature. A chip that plays a sound when held — not recorded, generated, a tone that shifts with the holder\'s heartbeat. A photograph that appears to show a building that doesn\'t exist. The anomalous objects are the collection\'s mystery. Relic doesn\'t sell them. They display them. Understanding is the commerce.' },
+      { id: 'substrate_glow', name: 'substrate glow', examineText: 'The room\'s natural light. The bioluminescence here is the strongest in the Warrens — the Substrate is directly beneath this chamber. The glow pulses at 33hz. The rhythm is calming — the body synchronizes, the breathing slows, the heartbeat adjusts. The Collection sits in the Substrate\'s light because Relic chose the deepest room for that reason.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+};
+
+// ── Zone 13 constant ──────────────────────────────────────────────────────
+
+export const ZONE_13: Zone = {
+  id: 'z13',
+  name: 'BLACK MARKET WARRENS',
+  depth: 'deep',
+  faction: 'NONE',
+  levelRange: [0, 0],
+  description: 'Underground commerce. No faction controls it. The best weapons, cyberware, credentials, and information in the game. The prices reflect it. The moral costs are separate.',
+  atmosphere: {
+    sound: 'Voices. Haggling. Tools. Music from the speakeasy. The cavern hum of open space underground.',
+    smell: 'Cooking from the Kitchen. Solder from the Chrome Gallery. Old paper from the Press. Cave mineral.',
+    light: 'String lights, lanterns, vendor displays. Warm. The natural cavern catches and multiplies the light.',
+    temp: 'Warm from bodies and cooking. The cave maintains a constant temperature.',
+  },
+  rooms: Z13_ROOMS,
+  originPoint: undefined,
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -8190,6 +8713,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z10: ZONE_10,
   z11: ZONE_11,
   z12: ZONE_12,
+  z13: ZONE_13,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────

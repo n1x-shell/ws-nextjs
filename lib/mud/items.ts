@@ -1912,6 +1912,153 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'quest', tier: 'COMMON', stackable: false,
     questItem: true,
   },
+
+  // ── Zone 13: Black Market Warrens Items ─────────────────────────────────
+
+  // Forge's Arsenal — game's best weapons (2-3× surface prices)
+  arsenal_rifle: {
+    id: 'arsenal_rifle', name: 'Arsenal Assault Rifle',
+    description: 'Military-grade. Full auto capable. The serial number is gone. The stopping power isn\'t. Forge\'s best firearm.',
+    category: 'weapon_ranged', tier: 'HELIXION', stackable: false,
+    slot: 'weapon_primary', damage: 12, damageType: 'ranged',
+    buyPrice: 250, sellPrice: 80,
+  },
+  arsenal_blade: {
+    id: 'arsenal_blade', name: 'Arsenal Combat Blade',
+    description: 'Monomolecular edge. The blade is so sharp the air hisses when you swing it. Custom grip fitted at purchase. Forge\'s best melee.',
+    category: 'weapon_melee', tier: 'HELIXION', stackable: false,
+    slot: 'weapon_primary', damage: 11, damageType: 'melee',
+    buyPrice: 220, sellPrice: 70,
+  },
+  arsenal_plasma: {
+    id: 'arsenal_plasma', name: 'Arsenal Plasma Cutter',
+    description: 'Repurposed industrial tool. The beam temperature exceeds anything a bullet can achieve. Limited charge. The damage is absolute.',
+    category: 'weapon_ranged', tier: 'PROTOTYPE', stackable: false,
+    slot: 'weapon_primary', damage: 14, damageType: 'electric',
+    buyPrice: 350, sellPrice: 110,
+  },
+  arsenal_exotic: {
+    id: 'arsenal_exotic', name: 'Arsenal Exotic',
+    description: 'Forge won\'t say where this came from. Neural disruptor with a physical damage component. The target stops thinking for a moment. The moment is enough.',
+    category: 'weapon_ranged', tier: 'PROTOTYPE', stackable: false,
+    slot: 'weapon_primary', damage: 13, damageType: 'electric',
+    buyPrice: 400, sellPrice: 130,
+  },
+
+  // Glass's Gallery — game's best cyberware
+  gallery_neural: {
+    id: 'gallery_neural', name: 'Gallery Neural Interface',
+    description: 'Prototype-tier neural bridge. Calibrated by Glass personally. Processing speed exceeds Helixion commercial models by a factor of three. Clean firmware. No tracking.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_1', cyberwareTier: 4,
+    buyPrice: 300, sellPrice: 95,
+  },
+  gallery_optic: {
+    id: 'gallery_optic', name: 'Gallery Optic Suite',
+    description: 'Full visual replacement. Thermal, lowlight, zoom, threat identification. The eyes you were born with are a rough draft. These are the final version.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_2', cyberwareTier: 4,
+    buyPrice: 275, sellPrice: 85,
+  },
+  gallery_arm: {
+    id: 'gallery_arm', name: 'Gallery Prosthetic Arm',
+    description: 'Military-specification limb replacement. Integrated weapon mount. Sensory feedback exceeding biological baseline. The arm is stronger than anything attached to a shoulder should be.',
+    category: 'cyberware', tier: 'PROTOTYPE', stackable: false,
+    slot: 'cyberware_3', cyberwareTier: 4,
+    buyPrice: 325, sellPrice: 100,
+  },
+  gallery_dermal: {
+    id: 'gallery_dermal', name: 'Gallery Dermal Plating',
+    description: 'Subdermal armor matrix. Ceramic-composite plates beneath the skin. You don\'t look different. You feel different. Impacts that would break bone become pressure.',
+    category: 'armor', tier: 'PROTOTYPE', stackable: false,
+    slot: 'armor', armorValue: 6,
+    buyPrice: 280, sellPrice: 90,
+  },
+
+  // Ink's Press — forged credentials
+  forged_helixion_badge: {
+    id: 'forged_helixion_badge', name: 'Forged Helixion Badge',
+    description: 'Employee-level access. Holographic watermark reproduced by hand. Indistinguishable from authentic to visual inspection. Electronic scanners are another matter.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 150, sellPrice: 40,
+  },
+  forged_d9_id: {
+    id: 'forged_d9_id', name: 'Forged D9 Credentials',
+    description: 'Directorate 9 agent identification. Biometric data left blank for the buyer to populate. The authority this card represents is absolute. So is the penalty for getting caught with a fake.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 200, sellPrice: 55,
+  },
+  forged_wolf_marker: {
+    id: 'forged_wolf_marker', name: 'Forged Wolf Marker',
+    description: 'Chrome Wolf faction token. Grants passage through Wolf territory. The tattoo ink is real. The affiliation is not.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 80, sellPrice: 25,
+  },
+  forged_residential_card: {
+    id: 'forged_residential_card', name: 'Forged Residential Card',
+    description: 'Block access card. Valid for any residential block. The mesh compliance data is spoofed — enough to pass a cursory check, not a deep scan.',
+    category: 'utility', tier: 'COMMON', stackable: false,
+    buyPrice: 60, sellPrice: 18,
+  },
+
+  // Axiom's intelligence
+  faction_dossier: {
+    id: 'faction_dossier', name: 'Faction Dossier',
+    description: 'Comprehensive intelligence report on a faction of your choice. Membership estimates, territory maps, leadership profiles, known operations. Axiom\'s product is knowledge.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 120, sellPrice: 35,
+  },
+  patrol_intel: {
+    id: 'patrol_intel', name: 'Patrol Intelligence',
+    description: 'Current patrol schedules for D9 and Helixion security across all zones. Updated weekly. The schedules change. Axiom\'s data changes with them.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 100, sellPrice: 30,
+  },
+  supply_route_data: {
+    id: 'supply_route_data', name: 'Supply Route Data',
+    description: 'Smuggling routes, supply chain maps, logistics schedules. Who moves what, where, when. The undercity\'s circulatory system documented.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 90, sellPrice: 28,
+  },
+  classified_report: {
+    id: 'classified_report', name: 'Classified Report',
+    description: 'Helixion internal document. The source is undisclosed. The contents are genuine. The classification level suggests someone with significant access provided this. The implications are uncomfortable.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+    buyPrice: 200, sellPrice: 60,
+    loreItem: true,
+  },
+
+  // Relic's Collection — rare artifacts
+  pre_helixion_device: {
+    id: 'pre_helixion_device', name: 'Pre-Helixion Device',
+    description: 'Technology from before the consolidation. A communication device that doesn\'t use the mesh. Proof that alternative infrastructure existed. Proof it could exist again.',
+    category: 'utility', tier: 'HELIXION', stackable: false,
+    buyPrice: 175, sellPrice: 55,
+    loreItem: true,
+  },
+  substrate_artifact: {
+    id: 'substrate_artifact', name: 'Substrate Artifact',
+    description: 'Crystalline formation removed from a Substrate growth area. Still active — bioluminescent, warm, resonating at 33hz. The Substrate doesn\'t die when fragmented. Permanent GHOST +1 when carried.',
+    category: 'utility', tier: 'PROTOTYPE', stackable: false,
+    buyPrice: 300, sellPrice: 0,
+    loreItem: true,
+  },
+  anomalous_object: {
+    id: 'anomalous_object', name: 'Anomalous Object',
+    description: 'A metal sphere that floats one centimeter above any surface. The mechanism is unknown. Relic has been studying it for two years. You now own the mystery.',
+    category: 'utility', tier: 'PROTOTYPE', stackable: false,
+    buyPrice: 250, sellPrice: 0,
+    loreItem: true,
+  },
+
+  // Vice's quest item
+  neural_bypass_module: {
+    id: 'neural_bypass_module', name: 'Neural Bypass Module',
+    description: 'External recalibration device for degrading neural interfaces. Stabilizes the signal. Stops the noise. For someone in withdrawal, this is the difference between function and collapse.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 200, sellPrice: 60,
+    questItem: true,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -2341,4 +2488,42 @@ export const MIRA_SHOP: ShopItem[] = [
   { templateId: 'prosthetic_interface', stock: 2 },
   { templateId: 'medkit', stock: 3 },
   { templateId: 'stim_pack', stock: 3 },
+];
+
+// ── Zone 13: Black Market Warrens Shops ──────────────────────────────────
+
+export const FORGE_SHOP: ShopItem[] = [
+  { templateId: 'arsenal_rifle', stock: 1 },
+  { templateId: 'arsenal_blade', stock: 1 },
+  { templateId: 'arsenal_plasma', stock: 1 },
+  { templateId: 'arsenal_exotic', stock: 1 },
+  { templateId: 'stim_pack', stock: 5 },
+];
+
+export const GLASS_SHOP: ShopItem[] = [
+  { templateId: 'gallery_neural', stock: 1 },
+  { templateId: 'gallery_optic', stock: 1 },
+  { templateId: 'gallery_arm', stock: 1 },
+  { templateId: 'gallery_dermal', stock: 1 },
+  { templateId: 'neural_bypass_module', stock: 1 },
+];
+
+export const INK_SHOP: ShopItem[] = [
+  { templateId: 'forged_helixion_badge', stock: 2 },
+  { templateId: 'forged_d9_id', stock: 1 },
+  { templateId: 'forged_wolf_marker', stock: 3 },
+  { templateId: 'forged_residential_card', stock: 3 },
+];
+
+export const AXIOM_SHOP: ShopItem[] = [
+  { templateId: 'faction_dossier', stock: 3 },
+  { templateId: 'patrol_intel', stock: 2 },
+  { templateId: 'supply_route_data', stock: 2 },
+  { templateId: 'classified_report', stock: 1 },
+];
+
+export const RELIC_SHOP: ShopItem[] = [
+  { templateId: 'pre_helixion_device', stock: 1 },
+  { templateId: 'substrate_artifact', stock: 1 },
+  { templateId: 'anomalous_object', stock: 1 },
 ];

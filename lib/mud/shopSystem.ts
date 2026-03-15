@@ -4,7 +4,7 @@
 
 import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
-import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP, SPIT_SHOP, PATCH_SHOP, NEEDLE_SHOP, RADE_OFFICE_SHOP, YARA_SHOP, KITE_SHOP, TORQUE_SHOP, VANTAGE_SHOP, WAVELENGTH_SHOP, COMPASS_SHOP, MOSS_SHOP, SURA_SHOP, DOSS_IB_SHOP, MIRA_SHOP } from './items';
+import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP, SPIT_SHOP, PATCH_SHOP, NEEDLE_SHOP, RADE_OFFICE_SHOP, YARA_SHOP, KITE_SHOP, TORQUE_SHOP, VANTAGE_SHOP, WAVELENGTH_SHOP, COMPASS_SHOP, MOSS_SHOP, SURA_SHOP, DOSS_IB_SHOP, MIRA_SHOP, FORGE_SHOP, GLASS_SHOP, INK_SHOP, AXIOM_SHOP, RELIC_SHOP } from './items';
 import type { ShopItem } from './items';
 import { getNPCRelation } from './persistence';
 
@@ -42,6 +42,11 @@ export function getShopInventory(npcId: string): ShopItem[] | null {
     case 'sura': return SURA_SHOP;
     case 'doss_ib': return DOSS_IB_SHOP;
     case 'mira': return MIRA_SHOP;
+    case 'forge': return FORGE_SHOP;
+    case 'glass': return GLASS_SHOP;
+    case 'ink': return INK_SHOP;
+    case 'axiom': return AXIOM_SHOP;
+    case 'relic': return RELIC_SHOP;
     default: return null;
   }
 }
@@ -78,6 +83,12 @@ export function getShopkeeperName(npcId: string): string {
     case 'sura': return 'Sura';
     case 'doss_ib': return 'Doss';
     case 'mira': return 'Mira';
+    case 'forge': return 'Forge';
+    case 'glass': return 'Glass';
+    case 'ink': return 'Ink';
+    case 'fence': return 'The Fence';
+    case 'axiom': return 'Axiom';
+    case 'relic': return 'Relic';
     default: return npcId;
   }
 }
