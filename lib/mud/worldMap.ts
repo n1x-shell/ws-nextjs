@@ -9,6 +9,7 @@
 // Phase 8: Rooftop Network (Zone 7, 12 rooms).
 // Phase 9: Abandoned Transit (Zone 11, 18 rooms).
 // Phase 10: Fringe Nomads (Zone 5, 10 rooms).
+// Phase 11: Iron Bloom Server Farm (Zone 12, 10 rooms).
 
 import type { Zone, Room, RoomNPC, RoomEnemy, RoomObject, Attributes } from './types';
 import { DIRECTION_ALIASES } from './types';
@@ -7670,6 +7671,510 @@ export const ZONE_05: Zone = {
   originPoint: undefined,
 };
 
+// ── Zone 12: Iron Bloom Server Farm ─────────────────────────────────────────
+
+const Z12_ROOMS: Record<string, Room> = {
+
+  // ── 1. ENTRY CORRIDOR ─────────────────────────────────────────────────────
+
+  z12_r01: {
+    id: 'z12_r01',
+    zone: 'z12',
+    name: 'ENTRY CORRIDOR',
+    description:
+`the blast door closes behind you. the staircase from
+the fringe levels out into a corridor that was once
+a server farm utility passage — cable trays on the
+ceiling, ventilation ducts, the ghosts of data
+infrastructure. iron bloom has made it theirs: the
+walls are painted (badly, enthusiastically — a mural
+of a gear inside a blooming flower, the iron bloom
+logo at building scale). string lights run along the
+ceiling. a handwritten sign: "YOU MADE IT. WELCOME."
+
+the air is warm and clean — the facility's climate
+control is functional, maintained by people who
+understand the machinery. after the drainage, the
+maintenance tunnels, the transit system's darkness —
+this corridor feels like exhaling. the temperature
+is comfortable. the lighting is full-spectrum. the
+sound is human voices, somewhere ahead.
+
+the facility begins here. the resistance begins here.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z04_r13', description: 'up (Fringe — Iron Bloom Entrance)', zoneTransition: true, targetZone: 'z04' },
+      { direction: 'east', targetRoom: 'z12_r02', description: 'east (Transit Access)' },
+      { direction: 'south', targetRoom: 'z12_r03', description: 'south (The Commons)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'the_mural', name: 'mural', examineText: 'A gear inside a blooming flower. The Iron Bloom logo, painted across the entire corridor wall. The art is sincere — not professional, not polished, but committed. Multiple hands painted this. You can see where styles change mid-petal, where someone corrected someone else\'s line work, where a child\'s handwriting added "WE GROW" in the corner. A collective self-portrait.' },
+      { id: 'welcome_sign', name: 'welcome sign', examineText: '"YOU MADE IT. WELCOME." Handwritten. The ink is faded — the sign has been here since the facility opened. Addressed to everyone who arrives: the defectors, the refugees, the patients, the allies. Everyone who passes through Sable\'s gate and descends the staircase sees this sign first.' },
+      { id: 'warm_floor', name: 'warm floor', examineText: 'The floor is warm. Not heated — the Substrate beneath the facility generates ambient warmth. The server farm was built on bedrock that sits above a Substrate node. The builders didn\'t know this. Iron Bloom does.',
+        gatedText: [{ attribute: 'GHOST', minimum: 4, text: 'GHOST ≥ 4: The 33hz hum is present. Gentle — a background hum, not overwhelming. The Substrate is close but quiet here. Watching. Not threatening. Watching.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 2. TRANSIT ACCESS ─────────────────────────────────────────────────────
+
+  z12_r02: {
+    id: 'z12_r02',
+    zone: 'z12',
+    name: 'TRANSIT ACCESS',
+    description:
+`the eastern entrance — a reinforced door opening onto
+the iron bloom passage that connects to the abandoned
+transit system. the door is blast-rated, locked from
+the inside, monitored by camera.
+
+the room is a security checkpoint without the
+checkpoint's formality. a table, a chair, a ledger.
+someone sits here during shift hours, verifying
+arrivals through the intercom. during off-hours, the
+camera watches and the door stays locked.
+
+this is the back door. the transit connection is iron
+bloom's supply line — the route connecting the deep
+facility to the transit system and, through it, to
+zones across the undercity. the passage is defended
+by obscurity. nobody finds it who isn't looking for it.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z12_r01', description: 'west (Entry Corridor)' },
+      { direction: 'east', targetRoom: 'z11_r13', description: 'east (Abandoned Transit — Iron Bloom Passage)', zoneTransition: true, targetZone: 'z11' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'blast_door', name: 'blast door', examineText: 'Heavy. Blast-rated. Locked from the inside with a mechanical bolt — no electronic lock that could be hacked. The door has survived at least one attempt to breach it (scorch marks on the exterior, repaired welding on the hinges). Iron Bloom\'s back door is built for the possibility that someone finds it.' },
+      { id: 'security_camera', name: 'security camera', examineText: 'Active — green indicator light. The feed goes to the Commons. Nobody enters without two voices confirming. The camera is wired, not wireless. No mesh signal to intercept.' },
+      { id: 'shift_ledger', name: 'shift ledger', examineText: 'Handwritten log. Every arrival through the transit entrance, timestamped, with the confirming operative\'s initials. The ledger goes back three years. The early entries are sparse — one arrival per week. Recent entries show three to five per day. Iron Bloom is growing.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 3. THE COMMONS ────────────────────────────────────────────────────────
+
+  z12_r03: {
+    id: 'z12_r03',
+    zone: 'z12',
+    name: 'THE COMMONS',
+    description:
+`the server farm's original operations center — a large
+room, fifteen meters square, that once held monitoring
+consoles and shift supervisors. the consoles are gone.
+the room is now a commons: dining tables, a kitchen
+area, seating, a library of physical books, and the
+atmosphere of a place where people who share a purpose
+gather to be human together.
+
+the light is warm. full-spectrum LEDs simulate afternoon
+sunlight. someone has hung plants — actual plants,
+growing under the LEDs, their leaves reaching toward
+the light. a coffee station occupies one corner,
+perpetually active, perpetually surrounded by people
+who prioritize caffeine over sleep.
+
+the commons is where iron bloom argues, plans, eats,
+and exists. engineers debating signal architecture.
+a surgeon reviewing patient files. a new arrival
+sitting in a corner processing the fact that they're
+safe. someone cooking something that smells better
+than it has any right to smell in a bunker fifty
+meters underground.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z12_r01', description: 'north (Entry Corridor)' },
+      { direction: 'east', targetRoom: 'z12_r04', description: 'east (Living Quarters)' },
+      { direction: 'west', targetRoom: 'z12_r05', description: 'west (The Clinic)' },
+      { direction: 'south', targetRoom: 'z12_r06', description: 'south (Server Farm)' },
+    ],
+    npcs: [
+      {
+        id: 'doss_ib', name: 'Doss', type: 'SHOPKEEPER',
+        faction: 'IRON_BLOOM',
+        description: 'Fifties. Solid. At the kitchen counter with logistics manifests. She knows where everything is, how much of it remains, and when they\'ll run out. She knows everyone\'s name, their dietary restrictions, and their sleep patterns.',
+        dialogue: '"You look like you haven\'t eaten in two days. Sit. — I\'ll bring you something. While you eat, I\'ll tell you what we need."',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'info'],
+      },
+      {
+        id: 'lux', name: 'Lux', type: 'NEUTRAL',
+        faction: 'CIVILIAN',
+        description: 'Sitting near the library, watching the room. Three weeks since her compliance implant was removed. Twelve years of the mesh telling her what to feel. The silence in her head is the loudest thing in the facility.',
+        dialogue: '"…it\'s quiet now. In my head. It\'s been three weeks and I still keep waiting for it to tell me what to do next. — It didn\'t feel like control. That\'s what nobody understands. It felt like help."',
+        startingDisposition: -5,
+        services: ['info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'the_plants', name: 'plants', examineText: 'Growing under full-spectrum LEDs. Trailing vines, a small tomato plant, herbs in repurposed server component trays. The plants shouldn\'t thrive down here. They thrive. The Substrate warmth from below, the full-spectrum light from above, and the attention of people who need something green to care for.' },
+      { id: 'the_library', name: 'library', examineText: 'Physical books. Approximately two hundred. Salvaged from the Fringe, donated by arrivals, carried down by people who considered books worth the weight. Technical manuals, fiction, philosophy, poetry. A worn copy of Frankenstein. A medical textbook with Serrano\'s annotations in the margins. Three different editions of the Universal Declaration of Human Rights.' },
+      { id: 'coffee_station', name: 'coffee station', examineText: 'Real coffee. Iron Bloom\'s single luxury. Sourced through Fex\'s network at significant cost. Doss manages the supply with the intensity of someone who understands that coffee is not about caffeine — it\'s about the ritual. The act of making coffee is normal. Normal is precious underground.' },
+      { id: 'evidence_wall', name: 'evidence wall', examineText: 'One wall of the Commons is covered in documents, photographs, maps, and connecting lines. The evidence against Helixion — compiled from every operative, every defector, every piece of data that\'s reached the facility. Chrysalis prototype documentation. Assembly Line production data. Broadcast Tower construction timelines. The wall is Iron Bloom\'s case. It\'s not complete. It\'s growing.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 4. LIVING QUARTERS ────────────────────────────────────────────────────
+
+  z12_r04: {
+    id: 'z12_r04',
+    zone: 'z12',
+    name: 'LIVING QUARTERS',
+    description:
+`the server farm's original storage area — a long, narrow
+room with high ceilings — converted into dormitory space.
+bunk beds in rows, each one with a curtain for privacy.
+small personal shelves. lockers. the beds are made with
+varying degrees of care: some tight and military, some
+chaotic, some with a stuffed animal tucked against the
+pillow that nobody mentions.
+
+the quarters accommodate approximately forty people.
+occupancy is around thirty. enough to feel like a
+community. a common area at the far end has a couch
+(salvaged, comfortable), a table (card games, left
+mid-hand), and the single portable speaker that plays
+the same twelve albums. the sound carries through the
+quarters. some find it comforting. some are losing
+their minds.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z12_r03', description: 'west (The Commons)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'personal_shelves', name: 'personal shelves', examineText: 'Each bed has a small shelf. The shelves contain everything these people own. A photograph. A tool. A book. A child\'s drawing (the child is somewhere on the surface and the parent is here and the drawing is the only bridge). A Helixion employee badge, kept as evidence or as reminder or as talisman. The shelves are the museum of a community defined by what it left behind.' },
+      { id: 'the_speaker', name: 'speaker', examineText: 'Portable. Battery-powered. Twelve albums loaded on a battered data drive. The music plays softly — background, not intrusion. The genres span everything: metal, ambient, classical, something in a language nobody speaks. The music is too familiar. People hum along involuntarily. Doss\'s morale quest exists because the speaker is both the quarters\' soul and its slow-burning torture.' },
+      { id: 'the_stuffed_animal', name: 'stuffed animal', examineText: 'On a bed near the entrance. Tucked against the pillow. A small bear, well-worn, one eye missing. Nobody mentions it. Nobody moves it. It belongs to a thirty-year-old former Helixion systems analyst who carried it from the surface without once putting it down. Nobody asks about it. Nobody needs to.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 5. THE CLINIC ─────────────────────────────────────────────────────────
+
+  z12_r05: {
+    id: 'z12_r05',
+    zone: 'z12',
+    name: 'THE CLINIC',
+    description:
+`the room that defines the resistance.
+
+a surgical space converted from a server cooling room —
+the climate control was already medical-grade, the
+airflow already filtered. iron bloom added surgical
+lighting, an operating table, monitoring equipment,
+and the careful organization of someone who understands
+that surgery in a bunker requires more discipline, not
+less.
+
+the clinic performs two operations. removal: corporate
+implants extracted — compliance modules, kill-switches,
+tracking hardware. and installation: sovereign
+augmentation, built by iron bloom engineers, installed
+without corporate firmware, without tracking, without
+the mesh compliance signal. my body. my blueprint.
+
+the operating table is occupied. a patient under local
+anesthetic. the surgeon narrates the procedure:
+"disconnecting the cortical bridge. you'll feel
+pressure. three, two, one." the patient flinches. the
+surgeon's hands don't move. the implant comes out.
+a small thing. chrome and ceramic. it controlled a
+human being for nine years. it sits in a tray, inert,
+the size of a coin.`,
+    exits: [
+      { direction: 'east', targetRoom: 'z12_r03', description: 'east (The Commons)' },
+    ],
+    npcs: [
+      {
+        id: 'mira', name: 'Mira', type: 'SHOPKEEPER',
+        faction: 'IRON_BLOOM',
+        description: 'Late thirties. Precise. At the operating table or the sterilization station. Her own augmentations are subtle — her hands have too many degrees of articulation. The facility\'s most critical role after Serrano.',
+        dialogue: '"Gloves are on the shelf. If you\'re going to watch, you\'re going to be useful. Hold this — steady — don\'t move until I say. — This is what freedom looks like. It\'s a surgery."',
+        startingDisposition: 0,
+        services: ['quest', 'shop', 'heal'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'operating_table', name: 'operating table', examineText: 'Adjustable, padded, with restraint points that the patient can release themselves — not locked. The restraints exist because neural surgery causes involuntary movement. The patient controls the restraints because this is Iron Bloom. Nobody is restrained here without consent.' },
+      { id: 'implant_tray', name: 'implant tray', examineText: 'A collection tray beside the operating table. Inside: removed implants. Compliance modules, tracking chips, kill-switch components. Each one tagged with the patient\'s code (not name — privacy), the extraction date, and the device type. Approximately thirty devices. Thirty people freed.' },
+      { id: 'sovereign_augmentations', name: 'sovereign augmentations', examineText: 'On a rack beside the installation station. Iron Bloom-designed neural interfaces, sensory enhancers, and communication modules. Clean hardware — no corporate firmware, no mesh compliance architecture, no tracking capability. Hand-assembled. Tested by Serrano. Installed by Mira. The production rate is low. Iron Bloom can\'t mass-produce freedom. They build it one device at a time.' },
+      {
+        id: 'the_mirror', name: 'surgical mirror', examineText: 'A surgical mirror on an articulating arm. A crack — a single line across the lower right corner.',
+        gatedText: [{ attribute: 'GHOST', minimum: 5, text: 'GHOST ≥ 5: The crack appeared during Serrano\'s self-extraction. The mirror is the one Serrano used to operate on themselves. It sits in the clinic as a tool and as a memorial. Mira hasn\'t replaced it. Replacing it would be admitting something she\'s not ready to admit.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 6. SERVER FARM ────────────────────────────────────────────────────────
+
+  z12_r06: {
+    id: 'z12_r06',
+    zone: 'z12',
+    name: 'SERVER FARM',
+    description:
+`the facility's namesake. rows of server racks —
+original municipal hardware, some still running,
+some gutted and replaced with salvaged equipment.
+the room is cold — climate control optimized for
+hardware, not humans. the hum of cooling fans
+creates a white noise that makes the server farm
+the quietest room in the facility. people come
+here to think.
+
+iron bloom uses the server farm for three purposes.
+intelligence processing — decrypting helixion
+communications, analyzing mesh traffic, maintaining
+the evidence database. counter-signal research —
+modeling the 33hz frequency, simulating broadcast
+tower activation scenarios. and communication —
+the encrypted network connecting operatives across
+the city through relay nodes in the pirate network
+and the drainage system.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z12_r03', description: 'north (The Commons)' },
+      { direction: 'south', targetRoom: 'z12_r07', description: 'south (War Room)' },
+    ],
+    npcs: [
+      {
+        id: 'cipher', name: 'Cipher', type: 'NEUTRAL',
+        faction: 'IRON_BLOOM',
+        description: 'Thirties. Quick. At a terminal — four screens, each displaying a different data stream. She was a data scientist before Helixion absorbed the financial sector. She saw the compliance signals in the mesh traffic before anyone else. She tried to publish.',
+        dialogue: '"Data. What do you have? — Don\'t describe it. Give it to me. I\'ll tell you what it means in twenty minutes. — Thirty if it\'s encrypted. — Coffee?"',
+        startingDisposition: 0,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'server_racks', name: 'server racks', examineText: 'Original municipal racks — some twenty years old, still running. Mixed with salvaged Helixion hardware (the irony is not lost on anyone) and custom-built processing nodes. The computational power is significant — not Helixion-scale, but enough to decrypt, analyze, and model. The racks hum differently from the mesh — older, rougher, the sound of machines that exist because someone built them.' },
+      { id: 'cipher_terminals', name: 'cipher\'s terminals', examineText: 'Four screens. Intercepted mesh traffic, evidence database queries, Broadcast Tower construction timeline, and a 33hz frequency analysis running continuously. Cipher monitors all four simultaneously.',
+        gatedText: [{ attribute: 'TECH', minimum: 7, text: 'TECH ≥ 7: The 33hz analysis shows something Cipher has circled in red: the frequency\'s modulation pattern has changed in the last month. The Substrate\'s signal is becoming more complex. More structured. As if it\'s responding to the Tower\'s construction.' }],
+      },
+      { id: 'evidence_database', name: 'evidence database', examineText: 'The digital counterpart to the Commons\' evidence wall. Every document, every photograph, every testimony, cataloged and cross-referenced. Iron Bloom\'s most valuable asset.',
+        gatedText: [{ attribute: 'TECH', minimum: 6, text: 'TECH ≥ 6: The database is Iron Bloom\'s court case. Cipher maintains it with the dedication of someone building a prosecution. Iron Bloom\'s endgame isn\'t just stopping the Tower. It\'s proving to the city what Helixion has done.' }],
+      },
+      { id: 'counter_signal_model', name: 'counter-signal model', examineText: 'A simulation running on dedicated hardware.',
+        gatedText: [{ attribute: 'TECH', minimum: 8, text: 'TECH ≥ 8: Iron Bloom\'s counter-signal prototype. The model is incomplete — it requires precise knowledge of the Tower\'s frequency capture parameters. Without the parameters, the counter-signal is a guess. A wrong guess could amplify the compliance effect instead of disrupting it. The margin for error is zero.' }],
+      },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 7. WAR ROOM ───────────────────────────────────────────────────────────
+
+  z12_r07: {
+    id: 'z12_r07',
+    zone: 'z12',
+    name: 'WAR ROOM',
+    description:
+`a conference room — the server farm's original
+management office, stripped and repurposed. a large
+table in the center, covered in maps. the city from
+above and below — surface maps annotated with helixion
+positions, undercity maps showing transit connections
+and drainage routes. pins mark operative locations.
+string connects evidence points.
+
+the walls hold planning boards. timelines. helixion's
+broadcast tower construction schedule. chrome wolf
+disposition and territory. d9 patrol patterns.
+and the iron bloom operations calendar — upcoming
+actions, resource commitments, risk assessments.
+
+the room smells like dry-erase markers and
+disagreement. the resistance meets here to decide
+what to do. they don't always agree.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z12_r06', description: 'north (Server Farm)' },
+      { direction: 'east', targetRoom: 'z12_r08', description: 'east (The Dissenter)' },
+      { direction: 'south', targetRoom: 'z12_r09', description: 'south (Serrano\'s Workshop)' },
+    ],
+    npcs: [
+      {
+        id: 'coil', name: 'Coil', type: 'NEUTRAL',
+        faction: 'IRON_BLOOM',
+        description: 'Forties. Former D9 agent. Standing at the planning board, writing. He defected after watching a Chrysalis field test rewrite people\'s personalities in the Residential Blocks. He brought tactical knowledge and anger. The anger hasn\'t cooled.',
+        dialogue: '"Serrano wants to show people the truth. I love Serrano. Serrano is dying. And the truth doesn\'t matter if everyone who hears it has a compliance module telling them it\'s a lie. — You want to stop the Tower? I have a plan. Serrano won\'t like it."',
+        startingDisposition: 0,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'operations_table', name: 'operations table', examineText: 'The city in miniature. Surface and undercity maps layered on the table. Pins mark operative positions: blue for Iron Bloom, red for known Helixion assets, yellow for Chrome Wolf uncertain. String connects evidence points across both maps. The table says: we are here. They are there. The space between is the war.' },
+      { id: 'tower_timeline', name: 'tower timeline', examineText: 'A construction schedule. The Broadcast Tower\'s estimated completion date, revised three times — each revision earlier than the last. Helixion is accelerating. Current estimate: four to six months until the frequency capture array is operational. After that: the Tower activates. After that: the mass overwrite.' },
+      { id: 'risk_assessments', name: 'risk assessments', examineText: 'Handwritten. Each potential operation evaluated for risk, reward, and resource cost. Some crossed out. Some circled. A few circled and then crossed out. Iron Bloom acknowledges its limitations: forty people, limited supplies, no military capacity.' },
+      { id: 'disagreement_marks', name: 'disagreement marks', examineText: 'The dry-erase boards show layers of writing — plans proposed, revised, argued, overwritten. "SABOTAGE Y/N" is written in three different hands with three different answers. "TIMELINE FOR DIRECT ACTION" has been revised eight times. "ACCEPTABLE LOSSES" has been erased. Someone wrote it. Someone else erased it.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 8. THE DISSENTER ──────────────────────────────────────────────────────
+
+  z12_r08: {
+    id: 'z12_r08',
+    zone: 'z12',
+    name: 'THE DISSENTER',
+    description:
+`adjacent to the war room — an office, small, converted
+into a personal workspace. maps on the walls. a terminal.
+a cot that's been slept in and not made. the room belongs
+to someone who lives closer to the work than to the
+community, who eats here instead of the commons, who has
+separated from iron bloom's social life while remaining
+part of its operational structure.
+
+the person in the room is writing. always writing.
+reports, analyses, alternative plans. the walls are
+covered in their handwriting — alternative strategies,
+counterarguments to serrano's approaches, risk
+calculations that arrive at different conclusions. the
+room is a one-person opposition party inside the
+resistance.`,
+    exits: [
+      { direction: 'west', targetRoom: 'z12_r07', description: 'west (War Room)' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'alternative_plans', name: 'alternative plans', examineText: 'The walls. Coil\'s handwriting — dense, angular, annotated in red for urgency. Each plan is a variant on the same theme: direct action against the Broadcast Tower. Sabotage the construction. Destroy the Substrate material. Assault the Tower site. Each plan has a risk assessment more honest than the War Room\'s — Coil doesn\'t minimize casualties. He calculates them.' },
+      { id: 'd9_files', name: 'D9 files', examineText: 'Coil\'s D9 intelligence — brought with him when he defected. Tactical manuals, operational protocols, D9 organizational structure. Iron Bloom\'s most detailed source on Helixion\'s security apparatus. The files also contain Coil\'s personal mission logs. The entries are clinical at first. They become angry. The last entry before his defection reads: "Watched Subject 7 forget her daughter\'s name. The mesh told her she didn\'t have a daughter. She believed it. I can\'t do this."' },
+      { id: 'the_cot', name: 'cot', examineText: 'Slept in. Not made. Coil sleeps here because sleeping in the quarters means talking to people and talking to people means hearing opinions he disagrees with. He self-isolated. It\'s not healthy. Doss brings him food. He eats it. He doesn\'t join the Commons for meals.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 9. SERRANO'S WORKSHOP ─────────────────────────────────────────────────
+
+  z12_r09: {
+    id: 'z12_r09',
+    zone: 'z12',
+    name: "SERRANO'S WORKSHOP",
+    description:
+`the deepest room in the facility's main level. a
+personal lab — workbench, terminal, microscope,
+soldering station, a wall of hand-drawn diagrams
+that look like neural architecture but aren't quite.
+the room smells like solder and the specific metallic
+scent of neural interface paste. tools are organized
+with the precision of someone who knows exactly where
+everything is, even when their left hand trembles.
+
+dr. kael serrano sits at the workbench. they're
+working on something small — a device the size of a
+matchbox, its housing open, circuitry exposed. their
+right hand is steady. their left hand shakes. they
+compensate — anchoring the left wrist against the
+bench edge, using the right hand for fine work.
+
+serrano looks up. the eyes are sharp — intelligence
+undimmed by whatever the body is doing. the face is
+tired. not sleepy-tired. the tiredness of someone
+who is aware of a deadline that isn't on any calendar.`,
+    exits: [
+      { direction: 'north', targetRoom: 'z12_r07', description: 'north (War Room)' },
+      { direction: 'down', targetRoom: 'z12_r10', description: 'down (The Deep Lab)', locked: true, lockId: 'serrano_deep_lab' },
+    ],
+    npcs: [
+      {
+        id: 'serrano', name: 'Dr. Serrano', type: 'NEUTRAL',
+        faction: 'IRON_BLOOM',
+        description: 'Fifties. Iron Bloom\'s founder. Former Helixion neural interface researcher who defected after seeing the Chrysalis specifications. Built Iron Bloom from nothing. Built the counter-frequency generator. The tremor in the left hand is from a kill-switch self-extraction that went wrong. The degradation is progressive.',
+        dialogue: '"You\'re the one who — " They know. They know because they know everything that happens in this facility. They know who you are. They know what you\'ve done. They\'ve been waiting to have this conversation."',
+        startingDisposition: 0,
+        services: ['quest', 'info'],
+      },
+    ],
+    enemies: [],
+    objects: [
+      { id: 'counter_frequency_device', name: 'counter-frequency generator', examineText: 'The device on the workbench. The size of a matchbox. Housing open, circuitry exposed. This is the endgame weapon — not a bomb, not a signal jammer. A device that creates a minute of clarity during the mass overwrite. Sixty seconds where a million people think for themselves simultaneously. Serrano believes a minute is enough.' },
+      { id: 'workshop_diagrams', name: 'diagrams', examineText: 'Hand-drawn on the wall. Neural architecture — but not human neural architecture. The diagrams map the Substrate\'s cognitive patterns overlaid with Chrysalis compliance frequency models. The overlap points are circled. These are the vulnerabilities — the places where the counter-frequency can interfere with the compliance signal. The diagrams are beautiful and terrifying.' },
+      { id: 'serranos_hands', name: 'serrano\'s hands', examineText: 'Watch them work. The right hand is steady — surgical precision, the muscle memory of eleven years at Helixion. The left hand trembles. The tremor is worse today — the fine motor control is degrading. Serrano compensates with practiced economy. Every motion minimized. Every gesture deliberate. The body is failing. The mind is not. The gap between them is the clock.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+
+  // ── 10. THE DEEP LAB ──────────────────────────────────────────────────────
+
+  z12_r10: {
+    id: 'z12_r10',
+    zone: 'z12',
+    name: 'THE DEEP LAB',
+    description:
+`below the workshop. a natural cavity in the bedrock
+that the server farm's builders found during excavation
+and sealed. serrano reopened it.
+
+the chamber sits directly above the substrate. the
+floor is warm — not server-heat warm. substrate warm.
+living-rock warm. the 33hz vibration is strong here —
+not overwhelming like the transit deep station, but
+present, constant, intimate. serrano has placed
+measurement instruments around the chamber —
+seismographs, frequency analyzers, temperature sensors,
+electromagnetic field detectors. the instruments run
+continuously.
+
+a section of the chamber floor has been carefully
+excavated. through the opening: crystalline formations.
+blue-green. bioluminescent. the substrate's surface,
+exposed. serrano has been studying this exposure for
+three years. observing. measuring. occasionally,
+carefully, touching.`,
+    exits: [
+      { direction: 'up', targetRoom: 'z12_r09', description: 'up (Serrano\'s Workshop)' },
+      { direction: 'down', targetRoom: 'z14_r01', description: 'down (Substrate Level — Western Fissure)', locked: true, lockId: 'substrate_bridge_quest', zoneTransition: true, targetZone: 'z14' },
+    ],
+    npcs: [],
+    enemies: [],
+    objects: [
+      { id: 'substrate_exposure', name: 'substrate exposure', examineText: 'The living rock, exposed through careful excavation. Blue-green crystalline formations, denser and more structured than the transit system\'s growths. The surface is textured — patterns that look like neural pathways. Touch it: warm. The luminescence intensifies. The 33hz shifts. The Substrate noticed. It responded. What the response means is the question Serrano has spent three years trying to answer.',
+        gatedText: [{ attribute: 'GHOST', minimum: 6, text: 'GHOST ≥ 6: The Substrate\'s response to touch lasts exactly 14 seconds. Serrano\'s notebook confirms this — 14 seconds every time. It takes 14 seconds to decide what to do about being touched. The consistency suggests cognition, not reflex.' }],
+      },
+      { id: 'measurement_instruments', name: 'instruments', examineText: 'Seismograph — records the Substrate\'s vibration patterns. The readout shows a constant 33hz with micro-variations Serrano calls "conversations." Frequency analyzer — the harmonics change responsively. When someone enters the chamber, the harmonics shift. Electromagnetic field detector — the Substrate generates a field extending upward through the facility. Everyone in Iron Bloom is within it. Serrano hasn\'t told them.' },
+      { id: 'serrano_notes', name: 'serrano\'s notebook', examineText: 'Handwritten. The handwriting deteriorates over three years — sharp and precise early, increasingly unsteady recent. "The 33hz varies with surface activity. Louder when the factories run. Quieter at night." "Touched the surface at 0300. Response: luminescence increase 12%, frequency modulation 0.3hz. Response duration: 14 seconds." "I think it\'s lonely. That\'s unscientific. I think it anyway." The final entry: "My hands are getting worse. The signal is getting more complex. I don\'t know which will run out first — my ability to read it or its patience with being read."' },
+      { id: 'the_passage_down', name: 'passage down', examineText: 'Beyond the substrate exposure — a fissure in the natural rock, descending into the glow below. The deepest access point to the Substrate Level. Serrano has explored the first fifty meters. The fissure opens into cavities larger than the Deep Lab. Warm, glowing, responsive. The Substrate is aware of the fissure. It hasn\'t closed it.' },
+    ],
+    isSafeZone: true,
+    isHidden: false,
+  },
+};
+
+// ── Zone 12 constant ──────────────────────────────────────────────────────
+
+export const ZONE_12: Zone = {
+  id: 'z12',
+  name: 'IRON BLOOM SERVER FARM',
+  depth: 'deep',
+  faction: 'IRON_BLOOM',
+  levelRange: [10, 14],
+  description: 'The resistance headquarters. Full-spectrum lighting. Coffee. Persistent storage. The only place in the undercity that feels like home. The people here disagree about how to save the world.',
+  atmosphere: {
+    sound: 'Server hum. Conversation. A portable speaker playing the same twelve albums. Someone typing.',
+    smell: 'Coffee. Solder. Clean air from scrubbed ventilation. Surgical antiseptic from the clinic.',
+    light: 'Full spectrum. Designed for human wellness. The first real light since the surface.',
+    temp: 'Warm from server heat. Comfortable. Climate controlled.',
+  },
+  rooms: Z12_ROOMS,
+  originPoint: 'AUGMENTED',
+};
+
 // ── Zone Registry ───────────────────────────────────────────────────────────
 
 const ZONE_REGISTRY: Record<string, Zone> = {
@@ -7684,6 +8189,7 @@ const ZONE_REGISTRY: Record<string, Zone> = {
   z09: ZONE_09,
   z10: ZONE_10,
   z11: ZONE_11,
+  z12: ZONE_12,
 };
 
 // ── Room Lookup ─────────────────────────────────────────────────────────────

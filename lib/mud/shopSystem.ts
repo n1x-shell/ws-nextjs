@@ -4,7 +4,7 @@
 
 import type { MudCharacter, Item } from './types';
 import { getDispositionLabel, getPriceModifier } from './types';
-import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP, SPIT_SHOP, PATCH_SHOP, NEEDLE_SHOP, RADE_OFFICE_SHOP, YARA_SHOP, KITE_SHOP, TORQUE_SHOP, VANTAGE_SHOP, WAVELENGTH_SHOP, COMPASS_SHOP, MOSS_SHOP, SURA_SHOP } from './items';
+import { getItemTemplate, createItem, MARA_SHOP, COLE_SHOP, KETCH_SHOP, FEX_SHOP, OSKA_SHOP, KAI_SHOP, CACHE_SHOP, SALVAGE_SHOP, OYUNN_SHOP, RADE_SHOP, COSTA_SHOP, PEE_SHOP, SIXER_SHOP, DEVI_SHOP, MAE_SHOP, CUTTER_SHOP, ACRE_SHOP, SPIT_SHOP, PATCH_SHOP, NEEDLE_SHOP, RADE_OFFICE_SHOP, YARA_SHOP, KITE_SHOP, TORQUE_SHOP, VANTAGE_SHOP, WAVELENGTH_SHOP, COMPASS_SHOP, MOSS_SHOP, SURA_SHOP, DOSS_IB_SHOP, MIRA_SHOP } from './items';
 import type { ShopItem } from './items';
 import { getNPCRelation } from './persistence';
 
@@ -40,6 +40,8 @@ export function getShopInventory(npcId: string): ShopItem[] | null {
     case 'compass': return COMPASS_SHOP;
     case 'moss': return MOSS_SHOP;
     case 'sura': return SURA_SHOP;
+    case 'doss_ib': return DOSS_IB_SHOP;
+    case 'mira': return MIRA_SHOP;
     default: return null;
   }
 }
@@ -74,6 +76,8 @@ export function getShopkeeperName(npcId: string): string {
     case 'compass': return 'Compass';
     case 'moss': return 'Moss';
     case 'sura': return 'Sura';
+    case 'doss_ib': return 'Doss';
+    case 'mira': return 'Mira';
     default: return npcId;
   }
 }

@@ -1811,6 +1811,107 @@ const ITEMS: Record<string, ItemTemplate> = {
     category: 'utility', tier: 'COMMON', stackable: false,
     buyPrice: 35, sellPrice: 15,
   },
+
+  // ── Zone 12: Iron Bloom Server Farm Items ─────────────────────────────────
+
+  // Mira's shop (medical)
+  neural_stabilizer_ib: {
+    id: 'neural_stabilizer_ib', name: 'Neural Stabilizer (IB)',
+    description: 'Post-extraction medication. Prevents rejection response when the brain reorganizes after implant removal. Iron Bloom formulation — stronger than the Parish version.',
+    category: 'consumable', tier: 'MIL_SPEC', stackable: true,
+    healAmount: 30,
+    buyPrice: 45, sellPrice: 18,
+  },
+  surgical_kit: {
+    id: 'surgical_kit', name: 'Surgical Kit',
+    description: 'Iron Bloom surgical instruments. Maintained obsessively. Each tool is irreplaceable at this depth. Designed for field neural surgery.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 80, sellPrice: 30,
+  },
+  antibiotics_ib: {
+    id: 'antibiotics_ib', name: 'Iron Bloom Antibiotics',
+    description: 'Synthesized in the clinic from salvaged pharmaceutical stocks. Broad-spectrum. Effective against undercity infections that surface medicine has never encountered.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    healAmount: 15,
+    buyPrice: 20, sellPrice: 8,
+  },
+  prosthetic_interface: {
+    id: 'prosthetic_interface', name: 'Prosthetic Interface',
+    description: 'Sovereign neural interface module. Iron Bloom design — no corporate firmware, no tracking, no mesh compliance architecture. Hand-assembled. Tested by Serrano.',
+    category: 'cyberware', tier: 'MIL_SPEC', stackable: false,
+    slot: 'cyberware_1',
+    cyberwareTier: 2,
+    armorValue: 1,
+    buyPrice: 120, sellPrice: 45,
+  },
+
+  // Doss's shop (resistance equipment)
+  iron_bloom_rations: {
+    id: 'iron_bloom_rations', name: 'Iron Bloom Rations',
+    description: 'Real food. Cooked in the Commons kitchen. Packaged for field operatives. Tastes better than anything has a right to taste in a bunker fifty meters underground.',
+    category: 'consumable', tier: 'COMMON', stackable: true,
+    healAmount: 20,
+    buyPrice: 10, sellPrice: 4,
+  },
+  iron_bloom_comm: {
+    id: 'iron_bloom_comm', name: 'Iron Bloom Communicator',
+    description: 'Encrypted short-range communicator. Connects to Iron Bloom\'s relay network. Wired protocol — no mesh signal to intercept.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    buyPrice: 60, sellPrice: 22,
+  },
+  resistance_armor: {
+    id: 'resistance_armor', name: 'Resistance Armor',
+    description: 'Improvised body armor. Ceramic plates salvaged from server rack shielding, fitted into a reinforced vest. Iron Bloom engineering — functional, not pretty.',
+    category: 'armor', tier: 'MIL_SPEC', stackable: false,
+    slot: 'armor',
+    armorValue: 4,
+    buyPrice: 100, sellPrice: 38,
+  },
+  evidence_drive: {
+    id: 'evidence_drive', name: 'Evidence Drive',
+    description: 'Encrypted storage device containing a subset of Iron Bloom\'s evidence against Helixion. Distributed to operatives as insurance — if Iron Bloom falls, the evidence survives.',
+    category: 'utility', tier: 'MIL_SPEC', stackable: false,
+    loreItem: true,
+    buyPrice: 75, sellPrice: 0,
+  },
+
+  // Quest items (Zone 12)
+  neural_calibration_kit: {
+    id: 'neural_calibration_kit', name: 'Neural Calibration Kit',
+    description: 'Precision instruments for calibrating neural interface equipment. Sourced from Costa\'s clinic. The facility\'s instruments are drifting without it.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    questItem: true,
+  },
+  substrate_crystal_raw: {
+    id: 'substrate_crystal_raw', name: 'Raw Substrate Crystal',
+    description: 'Crystalline material harvested from the Substrate\'s growth areas. Blue-green. Warm to the touch. Pulses at 33hz. The raw material for Mira\'s neural regeneration compound.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true,
+  },
+  broadcast_specs: {
+    id: 'broadcast_specs', name: 'Broadcast Tower Specifications',
+    description: 'Encrypted data from Helixion\'s Server Core. The frequency capture array\'s technical specifications. The missing piece of Cipher\'s model. The key to calibrating the counter-frequency generator.',
+    category: 'quest', tier: 'HELIXION', stackable: false,
+    questItem: true,
+  },
+  counter_frequency_generator: {
+    id: 'counter_frequency_generator', name: 'Counter-Frequency Generator',
+    description: 'The size of a matchbox. Serrano\'s life work. Creates sixty seconds of autonomous cognition during the mass overwrite. One minute where a million people think for themselves simultaneously. It doesn\'t need to be powerful. It needs to be right.',
+    category: 'quest', tier: 'PROTOTYPE', stackable: false,
+    questItem: true,
+  },
+  neutralizing_compound_coil: {
+    id: 'neutralizing_compound_coil', name: 'Neutralizing Compound',
+    description: 'Chemical agent synthesized by Acre. Specific to Substrate crystalline structure. Renders the organic material inert without detonation. Coil\'s answer to Serrano\'s patience.',
+    category: 'quest', tier: 'MIL_SPEC', stackable: false,
+    questItem: true,
+  },
+  physical_media: {
+    id: 'physical_media', name: 'Physical Media',
+    description: 'Music. Vinyl, tapes, data drives — new albums for the facility\'s one portable speaker. The twelve-album loop ends here. Morale matters.',
+    category: 'quest', tier: 'COMMON', stackable: false,
+    questItem: true,
+  },
 };
 
 // ── Item Lookup ─────────────────────────────────────────────────────────────
@@ -2219,5 +2320,25 @@ export const SURA_SHOP: ShopItem[] = [
   { templateId: 'signal_booster_nomad', stock: 2 },
   { templateId: 'relay_repair_kit', stock: 3 },
   { templateId: 'frequency_scanner', stock: 1 },
+  { templateId: 'stim_pack', stock: 3 },
+];
+
+// ── Zone 12: Iron Bloom Server Farm Shops ─────────────────────────────────
+
+export const DOSS_IB_SHOP: ShopItem[] = [
+  { templateId: 'iron_bloom_rations', stock: 10 },
+  { templateId: 'stim_pack', stock: 5 },
+  { templateId: 'medkit', stock: 3 },
+  { templateId: 'iron_bloom_comm', stock: 2 },
+  { templateId: 'resistance_armor', stock: 1 },
+  { templateId: 'evidence_drive', stock: 1 },
+];
+
+export const MIRA_SHOP: ShopItem[] = [
+  { templateId: 'neural_stabilizer_ib', stock: 5 },
+  { templateId: 'surgical_kit', stock: 1 },
+  { templateId: 'antibiotics_ib', stock: 8 },
+  { templateId: 'prosthetic_interface', stock: 2 },
+  { templateId: 'medkit', stock: 3 },
   { templateId: 'stim_pack', stock: 3 },
 ];
